@@ -1,17 +1,22 @@
 "use client";
 
-import React, { useState, Suspense, useMemo } from 'react';
+import React, { useState, Suspense, useMemo, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, useTexture, Decal, Environment, Center, ContactShadows } from '@react-three/drei';
-import { Upload, Type, ArrowRight, Palette } from 'lucide-react';
+import { Upload, Type, ArrowRight, Palette, ArrowLeft, ShoppingBag } from 'lucide-react';
 import * as THREE from 'three';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+// Firebase
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 // --- 3D GÖRSEL YÜKLEYİCİ BİLEŞENİ ---
 function UrunResmi({ imgUrl }) {
   const texture = useTexture(imgUrl);
   return (
     <Decal 
-      position={[0, 0.2, 0.85]} // Görsel üstte
+      position={[0, 0.2, 0.85]} 
       rotation={[0, 0, 0]} 
       scale={[1, 1, 1]} 
       map={texture} 
@@ -19,7 +24,7 @@ function UrunResmi({ imgUrl }) {
   );
 }
 
-// --- 3D YAZI BİLEŞENİ (TEXT DECAL) ---
+// --- 3D YAZI BİLEŞENİ ---
 function YaziDecal({ text, color }) {
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas');
@@ -43,7 +48,7 @@ function YaziDecal({ text, color }) {
 
   return (
     <Decal 
-      position={[0, -0.4, 0.85]} // Yazı görselin altında dursun
+      position={[0, -0.4, 0.85]} 
       rotation={[0, 0, 0]} 
       scale={[1.8, 0.45, 1]} 
       map={texture} 
@@ -59,13 +64,11 @@ function UrunModeli({ renk, kaplamaResmi, yazi, yaziRengi, scale = 1 }) {
       <Center top>
         <mesh castShadow receiveShadow scale={scale}>
           <capsuleGeometry args={[0.8, 2, 4, 16]} />
-          
           <meshStandardMaterial 
             color={renk} 
             roughness={0.3} 
             metalness={0.1} 
           />
-
           {kaplamaResmi && <UrunResmi imgUrl={kaplamaResmi} />}
           {yazi && <YaziDecal text={yazi} color={yaziRengi} />}
         </mesh>
@@ -76,71 +79,114 @@ function UrunModeli({ renk, kaplamaResmi, yazi, yaziRengi, scale = 1 }) {
 
 // --- ANA SAYFA ---
 export default function TasarimSayfasi() {
+  const router = useRouter();
+  const [kullanici, setKullanici] = useState(null);
+  const [authYuklendi, setAuthYuklendi] = useState(false);
+
   const [renk, setRenk] = useState('#ffffff');
   const [yuklenenResim, setYuklenenResim] = useState(null);
   const [yazi, setYazi] = useState('');
   const [yaziRengi, setYaziRengi] = useState('#000000');
   const [aktifTab, setAktifTab] = useState('renk'); 
   
-  // Ödeme durumu için state
   const [yukleniyor, setYukleniyor] = useState(false);
+
+  // Kullanıcı Kontrolü
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setKullanici(user);
+      setAuthYuklendi(true);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const resimYukle = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setYuklenenResim(url);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setYuklenenResim(reader.result); // Base64 olarak kaydet
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  // --- ÖDEME VE SEPETE EKLEME İŞLEMİ ---
-  const satinAl = async () => {
+  // --- SEPETE EKLEME İŞLEMİ ---
+  const sepeteEkle = async () => {
+    if (!authYuklendi) return; 
+
+    // 1. Giriş Kontrolü
+    if (!kullanici) {
+        alert("Tasarımınızı kaydetmek için lütfen önce giriş yapınız.");
+        router.push('/giris');
+        return;
+    }
+
     setYukleniyor(true);
     
     try {
-      // Backend'e (Sanal Banka) sipariş verilerini gönderiyoruz
-      const response = await fetch('/api/odeme', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          urunAdi: "Kişiye Özel Phantom T-Shirt", 
-          fiyat: 250,
-          ozellikler: {
-             renk: renk,
-             yazi: yazi,
-             // Not: Gerçekte resmi de base64 veya upload edip url olarak göndermek gerekir.
-          }
-        }),
-      });
+        // 2. Sipariş Verisini Hazırla
+        const yeniUrun = {
+            id: `ozel-${Date.now()}`, // Benzersiz ID
+            isim: 'Kişiye Özel Phantom T-Shirt',
+            fiyat: 250,
+            // Sepette görünecek resim
+            resim: yuklenenResim || 'https://placehold.co/600x600?text=Ozel+Tasarim', 
+            ozellikler: {
+                renk: renk,
+                yazi: yazi,
+                ozelResim: yuklenenResim ? 'Var' : 'Yok'
+            },
+            adet: 1
+        };
 
-      const sonuc = await response.json();
-
-      if (sonuc.status === 'success') {
-        // Başarılı olursa yönlendir
-        if (sonuc.paymentPageUrl) {
-            window.location.href = sonuc.paymentPageUrl; 
-        } else {
-            alert("Sipariş alındı! (Demo)");
+        // 3. LocalStorage'a Kaydet
+        // Mevcut sepeti al, yoksa boş dizi oluştur
+        const mevcutSepetStr = localStorage.getItem('sepet');
+        let mevcutSepet = [];
+        if (mevcutSepetStr) {
+            try {
+                mevcutSepet = JSON.parse(mevcutSepetStr);
+            } catch (e) {
+                mevcutSepet = [];
+            }
         }
-      } else {
-        alert("Hata: " + sonuc.message);
-      }
+
+        // Yeni ürünü ekle
+        const guncelSepet = [...mevcutSepet, yeniUrun];
+        
+        // Geri kaydet
+        localStorage.setItem('sepet', JSON.stringify(guncelSepet));
+
+        // 4. Yönlendir (Tam Sayfa Yenileme ile)
+        // Bu yöntem, ana sayfanın sepeti %100 görmesini sağlar.
+        setTimeout(() => {
+            setYukleniyor(false);
+            alert("Tasarımınız başarıyla sepete eklendi!");
+            window.location.href = '/'; 
+        }, 500);
 
     } catch (error) {
-      console.error(error);
-      alert("Bir bağlantı hatası oluştu.");
-    } finally {
-      setYukleniyor(false);
+        console.error("Sepet Hatası:", error);
+        alert("Sepete eklenirken bir hata oluştu.");
+        setYukleniyor(false);
     }
   };
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-gray-100 font-sans overflow-hidden">
       
+      <Link href="/" className="absolute top-6 right-6 z-50 bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition md:hidden">
+         <ArrowLeft size={24} className="text-black"/>
+      </Link>
+
       {/* --- SOL TARAF: 3D SAHNE --- */}
       <div className="w-full md:w-[70%] h-[50vh] md:h-full bg-[#f6f6f6] relative cursor-move">
         
-        <div className="absolute top-8 left-8 z-10">
+        <div className="absolute top-8 left-8 z-10 hidden md:block">
+           <Link href="/" className="flex items-center gap-2 text-gray-500 hover:text-black transition mb-4">
+                <ArrowLeft size={18}/> Ana Sayfaya Dön
+           </Link>
           <h2 className="text-2xl font-bold tracking-tighter text-gray-900">Hatrix <span className="text-gray-400">By You</span></h2>
           <p className="text-sm text-gray-500 font-medium">Mini T-Shirt Edition</p>
         </div>
@@ -187,7 +233,7 @@ export default function TasarimSayfasi() {
       {/* --- SAĞ TARAF: PANEL --- */}
       <div className="w-full md:w-[30%] bg-white h-auto md:h-full flex flex-col shadow-2xl z-20">
         
-        <div className="p-8 border-b">
+        <div className="p-8 border-b hidden md:block">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Phantom T-Shirt</h1>
           <p className="text-gray-600">Oto Cam Aksesuarı</p>
           <div className="mt-4 text-lg font-medium text-gray-900">₺250.00</div>
@@ -292,11 +338,11 @@ export default function TasarimSayfasi() {
 
         <div className="p-6 border-t bg-white safe-area-bottom">
           <button 
-            onClick={satinAl}
-            disabled={yukleniyor}
+            onClick={sepeteEkle}
+            disabled={yukleniyor || !authYuklendi}
             className={`w-full bg-black text-white py-4 rounded-full font-bold text-lg hover:bg-gray-800 transition flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transform active:scale-95 duration-200 ${yukleniyor ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
-            {yukleniyor ? 'İşleniyor...' : 'Sepete Ekle — ₺250.00'}
+            {yukleniyor ? 'İşleniyor...' : <><ShoppingBag size={20}/> Sepete Ekle — ₺250.00</>}
           </button>
         </div>
 
