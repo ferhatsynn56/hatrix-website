@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, PenTool, Truck, ShieldCheck, ArrowRight, LogIn, UserPlus, LogOut, X, Trash2 } from 'lucide-react';
+import { ShoppingBag, PenTool, Truck, ShieldCheck, ArrowRight, LogIn, UserPlus, LogOut, X, Trash2, Menu, User } from 'lucide-react';
 import Link from 'next/link';
 // Firebase bağlantılarını çağırıyoruz
 import { db, auth } from '@/lib/firebase';
@@ -16,6 +16,7 @@ export default function AnaSayfa() {
   const [kullanici, setKullanici] = useState(null);
   const [sepet, setSepet] = useState([]);
   const [sepetAcik, setSepetAcik] = useState(false);
+  const [mobilMenuAcik, setMobilMenuAcik] = useState(false); // Yeni: Mobil menü durumu
 
   // 1. Kullanıcı Takibi (Giriş/Çıkış)
   useEffect(() => {
@@ -31,7 +32,7 @@ export default function AnaSayfa() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Sepeti LocalStorage'dan Yükle (Sayfa Yenilenince Kaybolmasın)
+  // 2. Sepeti LocalStorage'dan Yükle
   useEffect(() => {
     const kayıtlıSepet = localStorage.getItem('sepet');
     if (kayıtlıSepet) {
@@ -69,6 +70,7 @@ export default function AnaSayfa() {
   const cikisYap = async () => {
     if(confirm("Çıkış yapmak istediğinize emin misiniz?")) {
         await signOut(auth);
+        setMobilMenuAcik(false); // Çıkış yapınca menüyü kapat
     }
   };
 
@@ -77,7 +79,6 @@ export default function AnaSayfa() {
         alert("Sepete ürün eklemek için lütfen önce giriş yapınız.");
         return;
     }
-    // Sepete ekle (State güncellenince useEffect otomatik kaydedecek)
     setSepet([...sepet, urun]);
     setSepetAcik(true); 
   };
@@ -94,28 +95,27 @@ export default function AnaSayfa() {
     <div className="min-h-screen bg-white font-sans text-gray-900 overflow-x-hidden">
       
       {/* --- NAVBAR (ÜST MENÜ) --- */}
-      <nav className="fixed w-full bg-white/80 backdrop-blur-md z-50 border-b border-gray-100 transition-all duration-300">
+      <nav className="fixed w-full bg-white/90 backdrop-blur-md z-50 border-b border-gray-100 transition-all duration-300">
         <div className="container mx-auto px-6 h-20 flex justify-between items-center">
           {/* Logo */}
           <Link href="/" className="text-2xl font-black tracking-tighter cursor-pointer flex items-center gap-2">
             HATRIX
           </Link>
           
-          {/* Orta Linkler (Masaüstü) */}
+          {/* Orta Linkler (Sadece Masaüstü) */}
           <div className="hidden md:flex gap-8 font-medium text-sm text-gray-600">
             <Link href="#" className="hover:text-black transition">Koleksiyon</Link>
             <Link href="#" className="hover:text-black transition">Hakkımızda</Link>
             <Link href="#" className="hover:text-black transition">İletişim</Link>
           </div>
 
-          {/* Aksiyon Butonları */}
+          {/* Sağ Taraf - Aksiyonlar */}
           <div className="flex items-center gap-3">
              
-             {/* AKILLI KULLANICI ALANI */}
+             {/* KULLANICI ALANI (Masaüstü) */}
              {kullanici ? (
-                // Giriş Yapılmışsa
-                <div className="hidden sm:flex items-center gap-4 border-r border-gray-200 pr-4">
-                    <div className="text-right hidden lg:block">
+                <div className="hidden md:flex items-center gap-4 border-r border-gray-200 pr-4">
+                    <div className="text-right">
                         <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Hoş geldin</p>
                         <p className="text-sm font-bold text-black leading-none">{kullanici.displayName || "Kullanıcı"}</p>
                     </div>
@@ -124,8 +124,7 @@ export default function AnaSayfa() {
                     </button>
                 </div>
              ) : (
-                // Giriş Yapılmamışsa
-                <div className="hidden sm:flex items-center gap-3 mr-2 border-r border-gray-200 pr-4">
+                <div className="hidden md:flex items-center gap-3 mr-2 border-r border-gray-200 pr-4">
                     <Link href="/giris" className="text-gray-500 hover:text-black transition flex items-center gap-1 text-xs font-bold uppercase tracking-wide">
                         <LogIn size={16}/> Giriş
                     </Link>
@@ -135,10 +134,10 @@ export default function AnaSayfa() {
                 </div>
              )}
 
-             {/* SEPET İKONU */}
+            {/* SEPET BUTONU */}
             <button 
                 onClick={() => setSepetAcik(true)}
-                className="relative p-2 hover:bg-gray-100 rounded-full transition group mr-2"
+                className="relative p-2 hover:bg-gray-100 rounded-full transition group"
             >
                 <ShoppingBag size={22} className="text-gray-600 group-hover:text-black transition" />
                 {sepet.length > 0 && (
@@ -148,34 +147,78 @@ export default function AnaSayfa() {
                 )}
             </button>
 
-            <Link href="/tasarim">
-              <button className="hidden md:flex bg-black text-white px-6 py-2.5 rounded-full text-sm font-bold hover:bg-gray-800 transition shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 duration-200 items-center gap-2">
+            {/* TASARLA BUTONU (Masaüstü) */}
+            <Link href="/tasarim" className="hidden md:block">
+              <button className="bg-black text-white px-6 py-2.5 rounded-full text-sm font-bold hover:bg-gray-800 transition shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 duration-200 flex items-center gap-2">
                 <PenTool size={16} /> Tasarla
               </button>
             </Link>
+
+            {/* MOBİL MENÜ BUTONU (Sadece Mobilde Görünür) */}
+            <button 
+                onClick={() => setMobilMenuAcik(!mobilMenuAcik)}
+                className="md:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-full transition"
+            >
+                {mobilMenuAcik ? <X size={24}/> : <Menu size={24}/>}
+            </button>
           </div>
         </div>
+
+        {/* --- MOBİL MENÜ AÇILIR ALANI --- */}
+        {mobilMenuAcik && (
+            <div className="md:hidden bg-white border-b border-gray-100 shadow-xl absolute top-20 left-0 w-full p-6 flex flex-col gap-4 animate-in slide-in-from-top-5 z-40">
+                <Link href="#" className="text-lg font-medium text-gray-700 py-2 border-b border-gray-50">Koleksiyon</Link>
+                <Link href="#" className="text-lg font-medium text-gray-700 py-2 border-b border-gray-50">Hakkımızda</Link>
+                <Link href="#" className="text-lg font-medium text-gray-700 py-2 border-b border-gray-50">İletişim</Link>
+                
+                {/* Mobil Kullanıcı İşlemleri */}
+                <div className="pt-2">
+                    {kullanici ? (
+                        <div className="bg-gray-50 p-4 rounded-xl">
+                            <div className="flex items-center gap-3 mb-3 text-gray-900 font-bold">
+                                <div className="bg-white p-2 rounded-full border border-gray-200">
+                                    <User size={20}/>
+                                </div>
+                                {kullanici.displayName || "Kullanıcı"}
+                            </div>
+                            <button onClick={cikisYap} className="w-full bg-white border border-gray-200 text-red-500 py-2 rounded-lg font-bold text-sm">
+                                Çıkış Yap
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                            <Link href="/giris" className="flex items-center justify-center gap-2 border border-gray-200 py-3 rounded-xl font-bold text-gray-700">
+                                <LogIn size={18}/> Giriş Yap
+                            </Link>
+                            <Link href="/kayit" className="flex items-center justify-center gap-2 bg-gray-900 text-white py-3 rounded-xl font-bold">
+                                <UserPlus size={18}/> Kayıt Ol
+                            </Link>
+                        </div>
+                    )}
+                </div>
+
+                <Link href="/tasarim">
+                    <button className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2">
+                        <PenTool size={18} /> Tasarlamaya Başla
+                    </button>
+                </Link>
+            </div>
+        )}
       </nav>
 
       {/* --- SEPET SIDEBAR (YAN PANEL) --- */}
       {sepetAcik && (
         <div className="fixed inset-0 z-[60]" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
-            {/* Arkaplan Karartma */}
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setSepetAcik(false)}></div>
-            
             <div className="fixed inset-y-0 right-0 max-w-full flex">
                 <div className="w-screen max-w-md transform transition duration-500 sm:duration-700">
                     <div className="h-full flex flex-col bg-white shadow-2xl">
-                        {/* Başlık */}
                         <div className="flex items-center justify-between px-4 py-6 sm:px-6 border-b border-gray-100">
-                            <h2 className="text-lg font-black text-gray-900" id="slide-over-title">Alışveriş Sepeti ({sepet.length})</h2>
+                            <h2 className="text-lg font-black text-gray-900">Alışveriş Sepeti ({sepet.length})</h2>
                             <button onClick={() => setSepetAcik(false)} className="text-gray-400 hover:text-gray-500">
-                                <span className="sr-only">Kapat</span>
                                 <X size={24} />
                             </button>
                         </div>
-
-                        {/* İçerik */}
                         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
                             {sepet.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
@@ -209,8 +252,6 @@ export default function AnaSayfa() {
                                 </ul>
                             )}
                         </div>
-
-                        {/* Alt Kısım */}
                         {sepet.length > 0 && (
                             <div className="border-t border-gray-100 px-4 py-6 sm:px-6 bg-gray-50">
                                 <div className="flex justify-between text-base font-black text-gray-900 mb-4">
@@ -230,11 +271,9 @@ export default function AnaSayfa() {
         </div>
       )}
 
-      {/* --- HERO SECTION (GİRİŞ BANNER) --- */}
+      {/* --- HERO SECTION --- */}
       <header className="pt-32 pb-20 px-6 bg-[#f6f6f6] overflow-hidden">
         <div className="container mx-auto flex flex-col md:flex-row items-center gap-12">
-          
-          {/* Sol Yazı Alanı */}
           <div className="flex-1 space-y-6 text-center md:text-left z-10 animate-in slide-in-from-bottom-10 duration-700 fade-in">
             <div className="inline-block bg-orange-100 text-orange-600 px-3 py-1 rounded-full text-xs font-bold tracking-wider mb-2">
                YENİ NESİL OTO AKSESUAR
@@ -246,7 +285,6 @@ export default function AnaSayfa() {
             <p className="text-lg text-gray-500 max-w-lg mx-auto md:mx-0 leading-relaxed font-medium">
               Sıradan kokulardan sıkıldın mı? Arabanın camına asabileceğin, tamamen sana özel tasarlanmış mini tişörtlerle fark yarat.
             </p>
-            
             <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start pt-4">
               <Link href="/tasarim" className="w-full sm:w-auto">
                 <button className="flex items-center gap-2 bg-black text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-800 hover:scale-105 transition transform shadow-xl w-full justify-center">
@@ -259,15 +297,9 @@ export default function AnaSayfa() {
               </button>
             </div>
           </div>
-
-          {/* Sağ Görsel Alanı */}
           <div className="flex-1 relative w-full flex justify-center perspective-1000">
-            {/* Görsel Alanı - 3D hissi veren kart */}
             <div className="relative z-10 w-full max-w-[400px] aspect-[4/5] bg-gradient-to-tr from-gray-200 to-white rounded-[3rem] shadow-2xl flex items-center justify-center overflow-hidden group hover:rotate-1 transition-transform duration-500">
-               {/* Arkaplan Deseni */}
                <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-black to-transparent"></div>
-               
-               {/* Temsili Ürün Görseli */}
                <div className="relative z-20 w-3/4 transition-transform duration-500 group-hover:scale-110">
                    <img 
                     src="https://placehold.co/600x800/transparent/333?text=Mini+T-Shirt" 
@@ -275,8 +307,6 @@ export default function AnaSayfa() {
                     className="drop-shadow-2xl"
                    />
                </div>
-               
-               {/* Ürün Etiketi */}
                <div className="absolute bottom-8 left-8 right-8 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-lg border border-white/50">
                  <div className="flex justify-between items-center">
                    <div>
@@ -287,19 +317,15 @@ export default function AnaSayfa() {
                  </div>
                </div>
             </div>
-
-            {/* Arkaplan Dekoratif Blur */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-blue-400/20 rounded-full blur-[100px] -z-0 pointer-events-none"></div>
           </div>
-
         </div>
       </header>
 
-      {/* --- ÖZELLİKLER (NEDEN BİZ?) --- */}
+      {/* --- ÖZELLİKLER --- */}
       <section className="py-20 border-b border-gray-100 bg-white">
         <div className="container mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-            {/* Kart 1 */}
             <div className="p-8 rounded-3xl bg-gray-50 hover:bg-white hover:shadow-xl transition duration-300 border border-transparent hover:border-gray-100">
               <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
                 <PenTool size={28} />
@@ -307,7 +333,6 @@ export default function AnaSayfa() {
               <h3 className="text-xl font-bold mb-3 text-gray-900">Tamamen Senin Tasarımın</h3>
               <p className="text-gray-500 leading-relaxed">İstediğin fotoğrafı yükle, yazını yaz. Arabanda seni yansıtan eşsiz bir parça olsun.</p>
             </div>
-            {/* Kart 2 */}
             <div className="p-8 rounded-3xl bg-gray-50 hover:bg-white hover:shadow-xl transition duration-300 border border-transparent hover:border-gray-100">
               <div className="w-14 h-14 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
                 <Truck size={28} />
@@ -315,7 +340,6 @@ export default function AnaSayfa() {
               <h3 className="text-xl font-bold mb-3 text-gray-900">Hızlı & Ücretsiz Kargo</h3>
               <p className="text-gray-500 leading-relaxed">Tasarladığın ürünler 2 iş günü içinde profesyonelce üretilir ve sigortalı kargolanır.</p>
             </div>
-            {/* Kart 3 */}
             <div className="p-8 rounded-3xl bg-gray-50 hover:bg-white hover:shadow-xl transition duration-300 border border-transparent hover:border-gray-100">
               <div className="w-14 h-14 bg-green-100 text-green-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
                 <ShieldCheck size={28} />
@@ -327,7 +351,7 @@ export default function AnaSayfa() {
         </div>
       </section>
 
-      {/* --- POPÜLER TASARIMLAR VİTRİNİ (Firebase Entegrasyonlu) --- */}
+      {/* --- ÜRÜNLER --- */}
       <section className="py-24 bg-white">
         <div className="container mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-4">
@@ -343,7 +367,6 @@ export default function AnaSayfa() {
           </div>
 
           {yukleniyor ? (
-             /* Yükleniyor Animasyonu */
              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                 {[1, 2, 3, 4].map((i) => (
                     <div key={i} className="animate-pulse">
@@ -354,25 +377,21 @@ export default function AnaSayfa() {
                 ))}
              </div>
           ) : urunler.length === 0 ? (
-             /* Ürün Yoksa */
              <div className="text-center py-20 bg-gray-50 rounded-3xl border border-dashed border-gray-300">
                 <ShoppingBag size={48} className="mx-auto text-gray-300 mb-4"/>
                 <p className="text-gray-500 text-lg">Henüz vitrine ürün eklenmemiş.</p>
              </div>
           ) : (
-             /* Ürün Listesi */
              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                {urunler.map((urun) => (
                  <div key={urun.id} className="group cursor-pointer">
                    <div className="bg-[#f0f0f0] rounded-3xl h-[350px] mb-5 overflow-hidden relative border border-gray-100 group-hover:border-gray-300 transition-colors">
-                     {/* Ürün Resmi */}
                      <img 
                        src={urun.resim} 
                        className="w-full h-full object-cover group-hover:scale-105 transition duration-700 mix-blend-multiply"
                        alt={urun.isim}
                        onError={(e) => {e.target.src='https://placehold.co/400x500/eee/333?text=Resim+Yok'}}
                      />
-                     {/* Hover Butonu (GÜNCELLENDİ: Sepete Ekle) */}
                      <button 
                        onClick={() => sepeteEkle(urun)}
                        className="absolute bottom-4 right-4 bg-black text-white p-4 rounded-full shadow-lg opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition duration-300 hover:bg-gray-800"
@@ -380,7 +399,6 @@ export default function AnaSayfa() {
                      >
                        <ShoppingBag size={20} />
                      </button>
-                     {/* Etiket */}
                      {Number(urun.fiyat) > 200 && (
                         <span className="absolute top-4 left-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">Çok Satan</span>
                      )}
@@ -398,7 +416,7 @@ export default function AnaSayfa() {
         </div>
       </section>
 
-      {/* --- ALT BANNER (CALL TO ACTION) --- */}
+      {/* --- ALT BANNER & FOOTER --- */}
       <section className="py-20 px-6">
         <div className="container mx-auto bg-black rounded-[3rem] text-white p-12 md:p-32 text-center relative overflow-hidden group">
           <div className="relative z-10 max-w-3xl mx-auto space-y-8">
@@ -416,14 +434,11 @@ export default function AnaSayfa() {
                 </Link>
             </div>
           </div>
-          
-          {/* Hareketli Arkaplan Efekti */}
           <div className="absolute top-0 left-0 w-96 h-96 bg-blue-600 rounded-full blur-[150px] opacity-40 group-hover:opacity-60 transition duration-1000"></div>
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-600 rounded-full blur-[150px] opacity-40 group-hover:opacity-60 transition duration-1000"></div>
         </div>
       </section>
 
-      {/* --- FOOTER (ALT BİLGİ) --- */}
       <footer className="bg-white pt-20 pb-10 border-t border-gray-200">
         <div className="container mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
@@ -447,7 +462,6 @@ export default function AnaSayfa() {
               <ul className="space-y-3 text-sm text-gray-500 font-medium">
                 <li><Link href="#" className="hover:text-black transition">Hakkımızda</Link></li>
                 <li><Link href="#" className="hover:text-black transition">İletişim</Link></li>
-                <li><Link href="#" className="hover:text-black transition">Bayilik Başvurusu</Link></li>
                 <li><Link href="#" className="hover:text-black transition">Blog</Link></li>
               </ul>
             </div>
@@ -456,18 +470,15 @@ export default function AnaSayfa() {
               <ul className="space-y-3 text-sm text-gray-500 font-medium">
                 <li><Link href="#" className="hover:text-black transition">Sipariş Takibi</Link></li>
                 <li><Link href="#" className="hover:text-black transition">İade Koşulları</Link></li>
-                <li><Link href="#" className="hover:text-black transition">Sıkça Sorulan Sorular</Link></li>
                 <li><Link href="#" className="hover:text-black transition">Beden Tablosu</Link></li>
               </ul>
             </div>
           </div>
-          
           <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-gray-100 text-xs text-gray-400 font-medium">
             <p>&copy; 2025 Hatrix Oto Aksesuar. Tüm hakları saklıdır.</p>
             <div className="flex gap-6 mt-4 md:mt-0">
               <span className="cursor-pointer hover:text-gray-600">Gizlilik Politikası</span>
               <span className="cursor-pointer hover:text-gray-600">Kullanım Şartları</span>
-              <span className="cursor-pointer hover:text-gray-600">Çerez Politikası</span>
             </div>
           </div>
         </div>
