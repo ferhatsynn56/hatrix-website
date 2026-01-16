@@ -1,224 +1,311 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Package, Plus, Trash2, Edit, Save, X, Image as ImageIcon } from 'lucide-react';
-import Link from 'next/link';
-// Firebase bağlantılarını çağırıyoruz (Oluşturduğun firebase.js dosyasından)
-import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { initializeApp, getApps, getApp } from "firebase/app"; // getApps eklendi
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
+import { Trash2, Plus, Edit, X, Save, LogOut, ArrowLeft, Tag, Link as LinkIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
+// --- FIREBASE AYARLARI (BURAYI DOLDURMAN ŞART) ---
+const firebaseConfig = {
+  apiKey: "AIzaSyDcTJHnK55GBqOuxUNtb7toIOpPffjiyc4",
+  authDomain: "hatrix-db.firebaseapp.com",
+  projectId: "hatrix-db",
+  storageBucket: "hatrix-db.firebasestorage.app",
+  messagingSenderId: "903710965804",
+  appId: "1:903710965804:web:5dc754a337a1d9d7951189",
+  measurementId: "G-C03LWY68K7"
+};
+
+// --- FIREBASE BAŞLATMA (GARANTİ YÖNTEM) ---
+let app;
+let db;
+let auth;
+
+try {
+  // Eğer config boşsa hata vermesin diye kontrol, ama sen doldurmalısın.
+  if (Object.keys(firebaseConfig).length === 0) {
+    console.error("LÜTFEN KODUN BAŞINDAKİ firebaseConfig ALANINI DOLDURUNUZ!");
+  } else {
+    // App daha önce başlatıldıysa onu kullan, yoksa yenisini başlat
+    app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    auth = getAuth(app);
+  }
+} catch (e) {
+  console.error("Firebase Başlatılamadı:", e);
+}
 
 export default function UrunYonetimi() {
+  const router = useRouter();
   const [urunler, setUrunler] = useState([]);
   const [yukleniyor, setYukleniyor] = useState(true);
+  const [duzenlemeModu, setDuzenlemeModu] = useState(null);
 
-  const [yeniUrunModu, setYeniUrunModu] = useState(false);
-  const [yeniUrun, setYeniUrun] = useState({ isim: '', fiyat: '', resim: '' });
+  const [yeniUrun, setYeniUrun] = useState({
+    isim: '',
+    fiyat: '',
+    resim: '',
+    kategori: 'TSHIRT',
+    koleksiyon: 'steni'
+  });
 
-  // SAYFA AÇILINCA: Verileri Google'dan Çek
-  useEffect(() => {
-    verileriGetir();
-  }, []);
-
+  // --- VERİLERİ GETİR ---
   const verileriGetir = async () => {
+    if (!db) {
+      console.error("Veritabanı bağlantısı yok. firebaseConfig ayarını yaptın mı?");
+      setYukleniyor(false);
+      return;
+    }
+    setYukleniyor(true);
     try {
       const querySnapshot = await getDocs(collection(db, "urunler"));
       const veriler = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
+      veriler.sort((a, b) => (b.eklenmeTarihi?.seconds || 0) - (a.eklenmeTarihi?.seconds || 0));
       setUrunler(veriler);
     } catch (error) {
       console.error("Veri çekme hatası:", error);
-      alert("Veriler yüklenirken hata oluştu! Lütfen firebase.js dosyasındaki ayarları kontrol edin.");
+      alert("Veri çekilemedi: " + error.message);
     } finally {
       setYukleniyor(false);
     }
   };
 
-  // YENİ ÜRÜN EKLEME (Google'a Kaydet)
-  const urunEkle = async () => {
-    if (!yeniUrun.isim || !yeniUrun.fiyat) return alert("Lütfen isim ve fiyat girin!");
-    
+  // --- GÜVENLİK KONTROLÜ ---
+  useEffect(() => {
+    if (!auth) return;
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        verileriGetir();
+      } else {
+        router.push('/giris');
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
+
+  // --- ÜRÜN EKLEME ---
+  const urunEkle = async (e) => {
+    e.preventDefault();
+
+    if (!db) return alert("HATA: Firebase ayarları yapılmamış! Kodun en üstüne bak.");
+
+    if (!yeniUrun.isim || !yeniUrun.fiyat) return alert("İsim ve Fiyat zorunludur!");
+
+    const resimLink = yeniUrun.resim.trim() === "" ? "https://placehold.co/600x800?text=Resim+Yok" : yeniUrun.resim;
+
     try {
-      setYukleniyor(true); // Yükleniyor moduna al
-      
-      // Firestore'a kaydet
       await addDoc(collection(db, "urunler"), {
         isim: yeniUrun.isim,
         fiyat: Number(yeniUrun.fiyat),
-        resim: yeniUrun.resim || "https://placehold.co/100x100?text=Urun",
-        tarih: new Date() // Ekleme tarihini de tutalım
+        resim: resimLink,
+        kategori: yeniUrun.kategori,
+        koleksiyon: yeniUrun.koleksiyon,
+        eklenmeTarihi: new Date()
       });
-      
-      alert("Ürün başarıyla veritabanına eklendi!");
-      setYeniUrunModu(false);
-      setYeniUrun({ isim: '', fiyat: '', resim: '' });
-      verileriGetir(); // Listeyi yenile ki yeni ürün görünsün
 
+      alert("Ürün Eklendi!");
+      setYeniUrun({ isim: '', fiyat: '', resim: '', kategori: 'TSHIRT', koleksiyon: 'steni' });
+      verileriGetir();
     } catch (error) {
       console.error("Ekleme hatası:", error);
-      alert("Ürün eklenemedi: " + error.message);
-    } finally {
-      setYukleniyor(false);
+      alert("Hata: " + error.message);
     }
   };
 
-  // ÜRÜN SİLME (Google'dan Sil)
+  // --- SİLME VE GÜNCELLEME ---
   const urunSil = async (id) => {
-    if(confirm("Bu ürünü kalıcı olarak silmek istiyor musunuz?")) {
-      try {
-        await deleteDoc(doc(db, "urunler", id));
-        // Ekrandan da silelim (tekrar sorgu atmaya gerek kalmadan)
-        setUrunler(urunler.filter(u => u.id !== id));
-      } catch (error) {
-        console.error("Silme hatası:", error);
-        alert("Silinirken hata oluştu.");
-      }
-    }
+    if (!confirm("Silmek istediğine emin misin?")) return;
+    try {
+      await deleteDoc(doc(db, "urunler", id));
+      setUrunler(urunler.filter(u => u.id !== id));
+    } catch (error) { console.error(error); }
   };
+
+  const urunGuncelle = async (id, guncelVeri) => {
+    try {
+      await updateDoc(doc(db, "urunler", id), { ...guncelVeri, fiyat: Number(guncelVeri.fiyat) });
+      setDuzenlemeModu(null);
+      verileriGetir();
+    } catch (error) { console.error(error); }
+  };
+
+  const cikisYap = async () => { await signOut(auth); router.push('/'); };
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans flex">
-      {/* SOL MENÜ (SIDEBAR) */}
-      <aside className="w-64 bg-white border-r border-gray-200 hidden md:flex flex-col fixed h-full z-10">
-        <div className="p-8 border-b border-gray-100">
-          <h2 className="text-2xl font-black tracking-tighter">HATRIX</h2>
-          <p className="text-xs text-gray-400 font-bold tracking-widest mt-1">YÖNETİM PANELİ</p>
+    <div className="min-h-screen bg-black text-white p-8 font-sans">
+
+      {/* BAŞLIK */}
+      <div className="flex justify-between items-center mb-10 border-b border-zinc-800 pb-6">
+        <div className="flex items-center gap-4">
+          <button onClick={() => router.push('/')} className="hover:bg-zinc-800 p-2 rounded-full transition"><ArrowLeft /></button>
+          <h1 className="text-3xl font-black tracking-tighter">ADMİN PANELİ</h1>
         </div>
-        <nav className="flex-1 p-4 space-y-2">
-          <Link href="/admin/panel">
-            <div className="flex items-center gap-3 text-gray-500 p-3 rounded-lg cursor-pointer hover:bg-gray-100 transition">
-              <Package size={20} /> <span className="font-medium text-sm">Siparişler</span>
-            </div>
-          </Link>
-          <Link href="/admin/urunler">
-            <div className="flex items-center gap-3 bg-black text-white p-3 rounded-lg cursor-pointer shadow-lg transition">
-              <Package size={20} /> <span className="font-bold text-sm">Ürün Yönetimi</span>
-            </div>
-          </Link>
-        </nav>
-      </aside>
+        <button onClick={cikisYap} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-bold text-sm transition">
+          <LogOut size={16} /> ÇIKIŞ
+        </button>
+      </div>
 
-      {/* İÇERİK (CONTENT) */}
-      <main className="flex-1 md:ml-64 p-8">
-        <header className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Ürün Yönetimi</h1>
-            <p className="text-gray-500 text-sm">
-              {yukleniyor ? "Veritabanına bağlanılıyor..." : `${urunler.length} adet ürün listeleniyor.`}
-            </p>
-          </div>
-          <button 
-            onClick={() => setYeniUrunModu(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-blue-700 transition shadow-lg"
-          >
-            <Plus size={20}/> Yeni Ürün Ekle
-          </button>
-        </header>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-        {/* YENİ ÜRÜN MODALI (Açılır Pencere) */}
-        {yeniUrunModu && (
-          <div className="bg-white p-6 rounded-2xl border border-blue-100 shadow-xl mb-8 animate-in slide-in-from-top-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-lg text-gray-800">Yeni Ürün Ekle</h3>
-              <button onClick={() => setYeniUrunModu(false)}><X size={20} className="text-gray-400 hover:text-red-500"/></button>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* İsim Girişi */}
+        {/* --- FORM ALANI --- */}
+        <div className="lg:col-span-1">
+          <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-2xl sticky top-8">
+            <h2 className="text-xl font-bold mb-6 flex items-center gap-2"><Plus size={20} /> Yeni Ürün Ekle</h2>
+
+            <form onSubmit={urunEkle} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Ürün Adı</label>
-                <input 
-                  type="text" 
-                  className="w-full border border-gray-300 p-2.5 rounded-lg focus:outline-blue-500 transition" 
-                  placeholder="Örn: JDM Siyah"
+                <label className="block text-xs font-bold text-zinc-500 mb-1 uppercase">Ürün İsmi</label>
+                <input
+                  type="text"
+                  placeholder="Örn: Oversize T-Shirt"
+                  className="w-full bg-black border border-zinc-700 rounded-lg p-3 text-sm focus:border-white outline-none transition text-white"
                   value={yeniUrun.isim}
-                  onChange={(e) => setYeniUrun({...yeniUrun, isim: e.target.value})}
+                  onChange={e => setYeniUrun({ ...yeniUrun, isim: e.target.value })}
                 />
               </div>
-              
-              {/* Fiyat Girişi */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Fiyat (TL)</label>
-                <input 
-                  type="number" 
-                  className="w-full border border-gray-300 p-2.5 rounded-lg focus:outline-blue-500 transition" 
-                  placeholder="250"
-                  value={yeniUrun.fiyat}
-                  onChange={(e) => setYeniUrun({...yeniUrun, fiyat: e.target.value})}
-                />
-              </div>
-              
-              {/* Resim URL Girişi */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">Resim URL (Link)</label>
-                <div className="relative">
-                    <ImageIcon size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                    <input 
-                    type="text" 
-                    className="w-full border border-gray-300 pl-10 pr-2 py-2.5 rounded-lg focus:outline-blue-500 transition" 
-                    placeholder="https://..."
-                    value={yeniUrun.resim}
-                    onChange={(e) => setYeniUrun({...yeniUrun, resim: e.target.value})}
-                    />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 mb-1 uppercase">Fiyat (₺)</label>
+                  <input
+                    type="number"
+                    placeholder="0.00"
+                    className="w-full bg-black border border-zinc-700 rounded-lg p-3 text-sm focus:border-white outline-none transition text-white"
+                    value={yeniUrun.fiyat}
+                    onChange={e => setYeniUrun({ ...yeniUrun, fiyat: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 mb-1 uppercase">Koleksiyon</label>
+                  <select
+                    className="w-full bg-black border border-zinc-700 rounded-lg p-3 text-sm focus:border-white outline-none transition text-white"
+                    value={yeniUrun.koleksiyon}
+                    onChange={e => setYeniUrun({ ...yeniUrun, koleksiyon: e.target.value })}
+                  >
+                    <option value="steni">STENI (Giyim)</option>
+                    <option value="ozel">ÖZEL (Tasarım/Lab)</option>
+                  </select>
                 </div>
               </div>
-            </div>
 
-            <div className="mt-6 flex justify-end">
-              <button 
-                onClick={urunEkle} 
-                disabled={yukleniyor} 
-                className={`bg-green-600 text-white px-8 py-2.5 rounded-lg font-bold hover:bg-green-700 transition flex items-center gap-2 shadow-md ${yukleniyor ? 'opacity-70 cursor-not-allowed' : ''}`}
-              >
-                <Save size={18}/> {yukleniyor ? 'Kaydediliyor...' : 'Kaydet'}
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 mb-1 uppercase flex items-center gap-2">
+                  <Tag size={12} /> Kategori (Önemli)
+                </label>
+                <select
+                  className="w-full bg-zinc-900 border border-blue-900/50 rounded-lg p-3 text-sm text-white focus:border-blue-500 outline-none transition font-bold"
+                  value={yeniUrun.kategori}
+                  onChange={e => setYeniUrun({ ...yeniUrun, kategori: e.target.value })}
+                >
+                  <option value="TSHIRT">T-SHIRT</option>
+                  <option value="SWEATSHIRT">SWEATSHIRT</option>
+                  <option value="HOODIE">HOODIE</option>
+                  <option value="PANTS">PANTOLON / CARGO</option>
+                  <option value="AKSESUAR">AKSESUAR / MİNİ</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 mb-1 uppercase flex items-center gap-2">
+                  <LinkIcon size={12} /> Resim Linki
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://..."
+                  className="w-full bg-black border border-zinc-700 rounded-lg p-3 text-sm focus:border-white outline-none transition text-blue-400"
+                  value={yeniUrun.resim}
+                  onChange={e => setYeniUrun({ ...yeniUrun, resim: e.target.value })}
+                />
+                <p className="text-[10px] text-zinc-600 mt-1">Hızlıresim vb. bir siteye yükleyip direkt linkini yapıştır.</p>
+              </div>
+
+              <button type="submit" className="w-full bg-white text-black font-black uppercase tracking-widest py-4 rounded-lg hover:bg-zinc-200 transition mt-4 shadow-lg shadow-white/10">
+                YAYINLA
               </button>
-            </div>
+            </form>
           </div>
-        )}
+        </div>
 
-        {/* ÜRÜN LİSTESİ */}
-        {yukleniyor && urunler.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-2"></div>
-             <p>Veritabanına bağlanılıyor...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {urunler.length === 0 ? (
-                <div className="col-span-3 text-center py-10 text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
-                    <Package size={40} className="mx-auto mb-2 opacity-20"/>
-                    <p>Henüz hiç ürün eklenmemiş.</p>
-                </div>
+        {/* --- LİSTE ALANI (SAĞ) --- */}
+        <div className="lg:col-span-2">
+          <div className="bg-zinc-900/30 border border-zinc-800 rounded-2xl overflow-hidden">
+            <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+              <h2 className="text-xl font-bold">Mevcut Ürünler ({urunler.length})</h2>
+              <span className="bg-zinc-800 px-3 py-1 rounded-full text-xs font-mono">{urunler.length} Adet</span>
+            </div>
+
+            {yukleniyor ? (
+              <div className="p-8 text-center text-zinc-500">Yükleniyor...</div>
             ) : (
-                urunler.map((urun) => (
-                <div key={urun.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition group">
-                    <div className="relative h-56 bg-gray-100 group-hover:scale-105 transition duration-500">
-                    <img src={urun.resim} className="w-full h-full object-cover" alt={urun.isim} onError={(e) => {e.target.src='https://placehold.co/400x300?text=Resim+Yok'}} />
-                    
-                    {/* Silme Butonu (Hover'da çıkar) */}
-                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition duration-300">
-                        <button 
-                            onClick={() => urunSil(urun.id)} 
-                            className="bg-white p-2.5 rounded-full shadow-md text-red-500 hover:text-red-700 hover:bg-red-50 transition"
-                            title="Ürünü Sil"
-                        >
-                            <Trash2 size={18}/>
-                        </button>
+              <div className="divide-y divide-zinc-800 max-h-[80vh] overflow-y-auto">
+                {urunler.map((urun) => (
+                  <div key={urun.id} className="p-4 flex items-center gap-4 hover:bg-zinc-900/50 transition group">
+                    <img src={urun.resim} className="w-12 h-16 object-cover rounded bg-zinc-800" alt="ürün" onError={(e) => { e.target.src = 'https://placehold.co/100x150?text=Hata' }} />
+
+                    {duzenlemeModu === urun.id ? (
+                      <div className="flex-1 grid grid-cols-2 gap-2">
+                        <input type="text" defaultValue={urun.isim} id={`edit-isim-${urun.id}`} className="bg-black border border-zinc-600 rounded px-2 py-1 text-xs text-white" />
+                        <input type="number" defaultValue={urun.fiyat} id={`edit-fiyat-${urun.id}`} className="bg-black border border-zinc-600 rounded px-2 py-1 text-xs text-white" />
+                        <select defaultValue={urun.kategori} id={`edit-kategori-${urun.id}`} className="bg-black border border-zinc-600 rounded px-2 py-1 text-xs text-white col-span-2">
+                          <option value="TSHIRT">T-SHIRT</option>
+                          <option value="SWEATSHIRT">SWEATSHIRT</option>
+                          <option value="HOODIE">HOODIE</option>
+                          <option value="PANTS">PANTOLON</option>
+                          <option value="AKSESUAR">AKSESUAR</option>
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="flex-1">
+                        <h3 className="font-bold text-sm text-white">{urun.isim}</h3>
+                        <div className="flex gap-2 mt-1">
+                          <span className="text-[10px] bg-blue-900/30 text-blue-400 px-2 py-0.5 rounded border border-blue-900/50">{urun.kategori || 'BELİRSİZ'}</span>
+                          <span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded">{urun.koleksiyon}</span>
+                        </div>
+                        <p className="text-zinc-500 text-xs font-mono mt-1">₺{urun.fiyat}</p>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      {duzenlemeModu === urun.id ? (
+                        <>
+                          <button
+                            onClick={() => urunGuncelle(urun.id, {
+                              isim: document.getElementById(`edit-isim-${urun.id}`).value,
+                              fiyat: document.getElementById(`edit-fiyat-${urun.id}`).value,
+                              kategori: document.getElementById(`edit-kategori-${urun.id}`).value
+                            })}
+                            className="p-2 bg-green-600 hover:bg-green-700 rounded text-white"
+                          >
+                            <Save size={14} />
+                          </button>
+                          <button onClick={() => setDuzenlemeModu(null)} className="p-2 bg-zinc-700 hover:bg-zinc-600 rounded text-white">
+                            <X size={14} />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => setDuzenlemeModu(urun.id)} className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition">
+                            <Edit size={14} />
+                          </button>
+                          <button onClick={() => urunSil(urun.id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded transition">
+                            <Trash2 size={14} />
+                          </button>
+                        </>
+                      )}
                     </div>
-                    </div>
-                    
-                    <div className="p-5 border-t border-gray-50 relative bg-white z-10">
-                        <h3 className="font-bold text-gray-900 text-lg mb-1">{urun.isim}</h3>
-                        <p className="text-blue-600 font-black text-xl">₺{urun.fiyat}</p>
-                    </div>
-                </div>
-                ))
+                  </div>
+                ))}
+              </div>
             )}
           </div>
-        )}
+        </div>
 
-      </main>
+      </div>
     </div>
   );
 }
