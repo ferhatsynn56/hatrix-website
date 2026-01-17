@@ -1,5 +1,5 @@
 "use client";
-
+import { useCart } from '@/context/CartContext';
 import React, { useState, Suspense, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import {
@@ -69,7 +69,7 @@ function CameraController({ view }) {
   return null;
 }
 
-/* ================= 3D MODEL BİLEŞENİ (FIX: üçgen desen + decal + ters logo) ================= */
+/* ================= 3D MODEL BİLEŞENİ ================= */
 function Real3DModel({ color, texturePath, logoStats, modelType }) {
   const { nodes } = useGLTF(MODEL_PATHS[modelType] || MODEL_PATHS.tshirt);
 
@@ -77,23 +77,9 @@ function Real3DModel({ color, texturePath, logoStats, modelType }) {
   userTexture.anisotropy = 16;
   userTexture.colorSpace = THREE.SRGBColorSpace;
 
-  // ✅ FIX: Logo yönü (Decal projeksiyonunda daha doğru)
   useEffect(() => {
     if (!userTexture) return;
-
-    // Çoğu glb + decal için doğru yön
     userTexture.flipY = true;
-
-    // Eğer logo sağ-sol aynalıysa aç:
-    // userTexture.wrapS = THREE.RepeatWrapping;
-    // userTexture.repeat.x = -1;
-    // userTexture.offset.x = 1;
-
-    // Eğer logo yukarı-aşağı tersse aç:
-    // userTexture.wrapT = THREE.RepeatWrapping;
-    // userTexture.repeat.y = -1;
-    // userTexture.offset.y = 1;
-
     userTexture.needsUpdate = true;
   }, [userTexture, texturePath]);
 
@@ -108,16 +94,6 @@ function Real3DModel({ color, texturePath, logoStats, modelType }) {
     )[0];
   }, [nodes]);
 
-  /**
-   * ✅ FIX (ÜÇGEN DESENİN ASIL NEDENİ GENELDE):
-   * - Meshy GLB’lerde normal/vertex yapısı faceted / duplicated vertex olabiliyor.
-   * - Işık vurunca “üçgen üçgen” görünür.
-   *
-   * Burada:
-   * - vertex color attribute varsa siliyoruz
-   * - normal attribute’u sıfırlayıp yeniden üretiyoruz
-   * - mergeVertices ile shared vertex oluşturarak gerçek smooth shading sağlıyoruz
-   */
   const safeGeometry = useMemo(() => {
     if (!mainNode?.geometry) return null;
 
@@ -125,17 +101,13 @@ function Real3DModel({ color, texturePath, logoStats, modelType }) {
 
     if (!g.attributes?.position) return null;
 
-    // vertex colors bazen desen gibi görünür
     if (g.getAttribute('color')) g.deleteAttribute('color');
-
-    // normal kaynaklı faceting’i sıfırla
     if (g.getAttribute('normal')) g.deleteAttribute('normal');
 
-    // gerçek smooth için merge (çok kritik)
     try {
       g = mergeVertices(g, 1e-4);
     } catch (e) {
-      // mergeVertices bazı geometry tiplerinde patlarsa clone ile devam
+      // hata durumunda devam et
     }
 
     g.computeVertexNormals();
@@ -147,7 +119,6 @@ function Real3DModel({ color, texturePath, logoStats, modelType }) {
     return g;
   }, [mainNode]);
 
-  // 2. Materyali Klonla + tüm “bake” map’leri kapat (desen kalıntılarını keser)
   const customMaterial = useMemo(() => {
     if (!mainNode) return null;
 
@@ -157,7 +128,6 @@ function Real3DModel({ color, texturePath, logoStats, modelType }) {
     mat.roughness = 0.9;
     mat.metalness = 0;
 
-    // Bake/texture kaynaklı desenleri kes
     mat.map = null;
     mat.aoMap = null;
     mat.normalMap = null;
@@ -166,17 +136,13 @@ function Real3DModel({ color, texturePath, logoStats, modelType }) {
     mat.emissiveMap = null;
     mat.alphaMap = null;
 
-    // ekstra: bazı modellerde vertexColors açık kalabiliyor
     mat.vertexColors = false;
-
-    // smooth shading zorla
     mat.flatShading = false;
 
     mat.needsUpdate = true;
     return mat;
   }, [mainNode, color]);
 
-  // 3. REFERANS VE ZAMANLAMA
   const meshRef = useRef(null);
   const [meshReady, setMeshReady] = useState(false);
 
@@ -193,7 +159,6 @@ function Real3DModel({ color, texturePath, logoStats, modelType }) {
 
   if (!mainNode || !customMaterial || !safeGeometry) return null;
 
-  // Koordinat
   const mapX = PRINT_AREA.x.min + (logoStats.x / 100) * (PRINT_AREA.x.max - PRINT_AREA.x.min);
   const mapY = PRINT_AREA.y.max - (logoStats.y / 100) * (PRINT_AREA.y.max - PRINT_AREA.y.min);
 
@@ -211,7 +176,7 @@ function Real3DModel({ color, texturePath, logoStats, modelType }) {
           {meshReady && texturePath && meshRef.current && safeGeometry?.attributes?.normal && (
             <Decal
               mesh={meshRef.current}
-              position={[mapX, mapY, 0.17]} // z-fighting azaltır
+              position={[mapX, mapY, 0.17]}
               rotation={[0, 0, 0]}
               scale={[logoStats.scale * 0.25, logoStats.scale * 0.25, 0.5]}
               map={userTexture}
@@ -372,6 +337,7 @@ function EditorPanel({ activeTab, setActiveTab, color, setColor, textureUrl, han
 
 /* ================= ANA SAYFA (LAYOUT) ================= */
 export default function TasarimSayfasiWrapper() {
+  const { addToCart } = useCart();
   const [activeTab, setActiveTab] = useState('editor');
   const [color, setColor] = useState('#ffffff');
   const [textureUrl, setTextureUrl] = useState(null);
@@ -395,10 +361,24 @@ export default function TasarimSayfasiWrapper() {
     }
   };
 
-  const addToCart = () => {
+  const handleAddToCart = () => {
     if (!textureUrl) { alert("Lütfen logo yükleyiniz."); return; }
+
     setLoading(true);
-    setTimeout(() => { setLoading(false); alert("Sepete eklendi!"); }, 800);
+
+    addToCart({
+      id: Date.now(),
+      name: `Özel Tasarım ${modelType.toUpperCase()}`,
+      price: 750,
+      size: size,
+      image: textureUrl,
+      color: color
+    });
+
+    setTimeout(() => {
+      setLoading(false);
+      alert("Sepete eklendi!");
+    }, 800);
   };
 
   return (
@@ -423,7 +403,6 @@ export default function TasarimSayfasiWrapper() {
           gl={{ preserveDrawingBuffer: true, antialias: true }}
         >
           <ambientLight intensity={0.5} />
-          {/* Shadow ayarlarını biraz iyileştiriyoruz (desen/akne olasılığını da azaltır) */}
           <directionalLight
             position={[5, 10, 7]}
             intensity={1.5}
@@ -464,7 +443,7 @@ export default function TasarimSayfasiWrapper() {
         color={color} setColor={setColor}
         textureUrl={textureUrl} handleUpload={handleUpload}
         logoStats={logoStats} setLogoStats={setLogoStats}
-        loading={loading} addToCart={addToCart}
+        loading={loading} addToCart={handleAddToCart}
         sizes={sizes} size={size} setSize={setSize}
       />
     </div>
