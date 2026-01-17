@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, Suspense, useRef, useEffect, useMemo } from 'react';
+import React, { useState, Suspense, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import {
   OrbitControls,
   useTexture,
+  Decal,
   Environment,
   Center,
   ContactShadows,
@@ -22,37 +23,34 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import * as THREE from 'three';
+import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 /* ================= AYARLAR ================= */
 
-// 1. Model Yolları
 const MODEL_PATHS = {
   tshirt: '/models/Meshy_AI_Black_T_Shirt_0116154220_generate.glb',
   hoodie: '/models/Meshy_AI_Hoody_in_Black_0116161358_generate.glb',
   sweatshirt: '/models/Meshy_AI_Black_Sweatshirt_Disp_0116152203_generate.glb'
 };
 
-// 2. Baskı Alanı Sınırları (Kalıp)
-// Logonun model üzerinde gidebileceği maksimum X ve Y sınırları.
+// Baskı Alanı (Decal için)
 const PRINT_AREA = {
-  x: { min: -0.20, max: 0.20 }, // Sağ-Sol genişliği
-  y: { min: -0.35, max: 0.25 }  // Aşağı-Yukarı yüksekliği
+  x: { min: -0.15, max: 0.15 },
+  y: { min: 0.1, max: 0.4 }
 };
 
-/* ================= KAMERA KONTROLCÜSÜ (AKILLI) ================= */
+/* ================= KAMERA KONTROLCÜSÜ ================= */
 function CameraController({ view }) {
   const { camera } = useThree();
   const isAnimating = useRef(false);
 
-  // Kamera Pozisyonları
   const positions = useMemo(() => ({
-    front: new THREE.Vector3(0, 0, 4.5),
-    back: new THREE.Vector3(0, 0, -4.5),
-    left: new THREE.Vector3(-4.5, 0, 0),
-    right: new THREE.Vector3(4.5, 0, 0)
+    front: new THREE.Vector3(0, 0, 4.2),
+    back: new THREE.Vector3(0, 0, -4.2),
+    left: new THREE.Vector3(-4.2, 0, 0),
+    right: new THREE.Vector3(4.2, 0, 0)
   }), []);
 
-  // Görünüm değiştiğinde animasyonu tetikle
   useEffect(() => {
     isAnimating.current = true;
   }, [view]);
@@ -60,10 +58,8 @@ function CameraController({ view }) {
   useFrame((state, delta) => {
     if (isAnimating.current) {
       const targetPos = positions[view];
-      state.camera.position.lerp(targetPos, delta * 4); // Hız
+      state.camera.position.lerp(targetPos, delta * 3);
       state.camera.lookAt(0, 0, 0);
-
-      // Hedefe varınca kontrolü OrbitControls'e bırak
       if (state.camera.position.distanceTo(targetPos) < 0.05) {
         isAnimating.current = false;
       }
@@ -73,94 +69,187 @@ function CameraController({ view }) {
   return null;
 }
 
-/* ================= 3D MODEL & LOGO (KATMAN TEKNİĞİ) ================= */
+/* ================= 3D MODEL BİLEŞENİ (FIX: üçgen desen + decal + ters logo) ================= */
 function Real3DModel({ color, texturePath, logoStats, modelType }) {
-  // Modeli Yükle
   const { nodes } = useGLTF(MODEL_PATHS[modelType] || MODEL_PATHS.tshirt);
 
-  // Logoyu Yükle
   const userTexture = useTexture(texturePath || 'https://placehold.co/10x10/transparent/transparent.png');
   userTexture.anisotropy = 16;
   userTexture.colorSpace = THREE.SRGBColorSpace;
 
-  // Ana Parçayı Bul
+  // ✅ FIX: Logo yönü (Decal projeksiyonunda daha doğru)
+  useEffect(() => {
+    if (!userTexture) return;
+
+    // Çoğu glb + decal için doğru yön
+    userTexture.flipY = true;
+
+    // Eğer logo sağ-sol aynalıysa aç:
+    // userTexture.wrapS = THREE.RepeatWrapping;
+    // userTexture.repeat.x = -1;
+    // userTexture.offset.x = 1;
+
+    // Eğer logo yukarı-aşağı tersse aç:
+    // userTexture.wrapT = THREE.RepeatWrapping;
+    // userTexture.repeat.y = -1;
+    // userTexture.offset.y = 1;
+
+    userTexture.needsUpdate = true;
+  }, [userTexture, texturePath]);
+
+  // 1. Ana Parçayı Bul
   const mainNode = useMemo(() => {
-    const allMeshes = Object.values(nodes).filter(n => n.isMesh && n.geometry);
-    if (!allMeshes.length) return null;
-    return allMeshes.sort((a, b) =>
+    const validNodes = Object.values(nodes).filter(
+      (n) => n.isMesh && n.geometry && n.geometry.attributes && n.geometry.attributes.position
+    );
+    if (!validNodes.length) return null;
+    return validNodes.sort((a, b) =>
       b.geometry.attributes.position.count - a.geometry.attributes.position.count
     )[0];
   }, [nodes]);
 
-  // Materyal Rengini Ayarla (Orijinal dokuyu bozmadan)
-  useEffect(() => {
-    if (mainNode) {
-      mainNode.material.color.set(color);
-      mainNode.material.roughness = 0.7;
-      mainNode.material.needsUpdate = true;
+  /**
+   * ✅ FIX (ÜÇGEN DESENİN ASIL NEDENİ GENELDE):
+   * - Meshy GLB’lerde normal/vertex yapısı faceted / duplicated vertex olabiliyor.
+   * - Işık vurunca “üçgen üçgen” görünür.
+   *
+   * Burada:
+   * - vertex color attribute varsa siliyoruz
+   * - normal attribute’u sıfırlayıp yeniden üretiyoruz
+   * - mergeVertices ile shared vertex oluşturarak gerçek smooth shading sağlıyoruz
+   */
+  const safeGeometry = useMemo(() => {
+    if (!mainNode?.geometry) return null;
+
+    let g = mainNode.geometry.clone();
+
+    if (!g.attributes?.position) return null;
+
+    // vertex colors bazen desen gibi görünür
+    if (g.getAttribute('color')) g.deleteAttribute('color');
+
+    // normal kaynaklı faceting’i sıfırla
+    if (g.getAttribute('normal')) g.deleteAttribute('normal');
+
+    // gerçek smooth için merge (çok kritik)
+    try {
+      g = mergeVertices(g, 1e-4);
+    } catch (e) {
+      // mergeVertices bazı geometry tiplerinde patlarsa clone ile devam
     }
-  }, [color, mainNode]);
 
-  if (!mainNode) return null;
+    g.computeVertexNormals();
+    if (typeof g.normalizeNormals === 'function') g.normalizeNormals();
 
-  // --- LOGO POZİSYON HESABI (KALIP İÇİNDE) ---
-  // Panelden gelen 0-100 verisini PRINT_AREA sınırlarına çeviriyoruz.
+    if (!g.boundingBox) g.computeBoundingBox();
+    if (!g.boundingSphere) g.computeBoundingSphere();
+
+    return g;
+  }, [mainNode]);
+
+  // 2. Materyali Klonla + tüm “bake” map’leri kapat (desen kalıntılarını keser)
+  const customMaterial = useMemo(() => {
+    if (!mainNode) return null;
+
+    const mat = mainNode.material?.clone?.() || new THREE.MeshStandardMaterial();
+
+    mat.color.set(color);
+    mat.roughness = 0.9;
+    mat.metalness = 0;
+
+    // Bake/texture kaynaklı desenleri kes
+    mat.map = null;
+    mat.aoMap = null;
+    mat.normalMap = null;
+    mat.roughnessMap = null;
+    mat.metalnessMap = null;
+    mat.emissiveMap = null;
+    mat.alphaMap = null;
+
+    // ekstra: bazı modellerde vertexColors açık kalabiliyor
+    mat.vertexColors = false;
+
+    // smooth shading zorla
+    mat.flatShading = false;
+
+    mat.needsUpdate = true;
+    return mat;
+  }, [mainNode, color]);
+
+  // 3. REFERANS VE ZAMANLAMA
+  const meshRef = useRef(null);
+  const [meshReady, setMeshReady] = useState(false);
+
+  useEffect(() => {
+    setMeshReady(false);
+  }, [modelType]);
+
+  useLayoutEffect(() => {
+    if (meshRef.current && safeGeometry) {
+      meshRef.current.updateMatrixWorld(true);
+      setMeshReady(true);
+    }
+  }, [safeGeometry]);
+
+  if (!mainNode || !customMaterial || !safeGeometry) return null;
+
+  // Koordinat
   const mapX = PRINT_AREA.x.min + (logoStats.x / 100) * (PRINT_AREA.x.max - PRINT_AREA.x.min);
-  // Y ekseni ters çalışır (0 üsttür), bu yüzden max'tan çıkarıyoruz.
   const mapY = PRINT_AREA.y.max - (logoStats.y / 100) * (PRINT_AREA.y.max - PRINT_AREA.y.min);
-
-  // Derinlik Ayarı (Modele göre ne kadar önde duracak?)
-  const zOffset = modelType === 'hoodie' ? 0.35 : 0.28;
 
   return (
     <group dispose={null}>
       <Center top>
-        {/* GERÇEK MODEL */}
-        <primitive
-          object={mainNode}
-          rotation={[0, 0, 0]} // Düz duruş
+        <mesh
+          ref={meshRef}
           castShadow
           receiveShadow
-        />
-
-        {/* LOGO (MODELİN ÖNÜNE KOYULAN LEVHA) */}
-        {/* Bu yöntem hata vermez ve resim her zaman görünür */}
-        {texturePath && (
-          <mesh
-            position={[mapX, mapY, zOffset]}
-            rotation={[0, 0, 0]}
-            scale={[logoStats.scale * 0.4, logoStats.scale * 0.4, 1]}
-            renderOrder={999} // En öne çiz
-          >
-            <planeGeometry args={[1, 1]} />
-            <meshBasicMaterial
+          geometry={safeGeometry}
+          material={customMaterial}
+          rotation={[0, 0, 0]}
+        >
+          {meshReady && texturePath && meshRef.current && safeGeometry?.attributes?.normal && (
+            <Decal
+              mesh={meshRef.current}
+              position={[mapX, mapY, 0.17]} // z-fighting azaltır
+              rotation={[0, 0, 0]}
+              scale={[logoStats.scale * 0.25, logoStats.scale * 0.25, 0.5]}
               map={userTexture}
-              transparent={true}
-              depthTest={false} // Modelin içinden geçse bile göster
-              side={THREE.DoubleSide}
-            />
-          </mesh>
-        )}
+            >
+              <meshStandardMaterial
+                map={userTexture}
+                transparent
+                polygonOffset
+                polygonOffsetFactor={-10}
+                polygonOffsetUnits={-10}
+                depthTest
+                depthWrite={false}
+                roughness={1}
+              />
+            </Decal>
+          )}
+        </mesh>
       </Center>
-
       <ContactShadows position={[0, -1.5, 0]} opacity={0.6} scale={10} blur={2.5} far={4} color="#000000" />
     </group>
   );
 }
 
-/* ================= SAĞ PANEL (EDİTÖR) ================= */
+/* ================= SAĞ PANEL ================= */
 function EditorPanel({ activeTab, setActiveTab, color, setColor, textureUrl, handleUpload, logoStats, setLogoStats, loading, addToCart, sizes, size, setSize }) {
   const editorRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
 
   const handleMouseDown = () => setIsDragging(true);
   const handleMouseUp = () => setIsDragging(false);
+  const handleTouchStart = () => setIsDragging(true);
+  const handleTouchEnd = () => setIsDragging(false);
 
-  const handleMouseMove = (e) => {
-    if (!isDragging || !editorRef.current) return;
+  const updateLogoPos = (clientX, clientY) => {
+    if (!editorRef.current) return;
     const rect = editorRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
 
     let percentX = (x / rect.width) * 100;
     let percentY = (y / rect.height) * 100;
@@ -171,14 +260,24 @@ function EditorPanel({ activeTab, setActiveTab, color, setColor, textureUrl, han
     setLogoStats(prev => ({ ...prev, x: percentX, y: percentY }));
   };
 
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    updateLogoPos(e.clientX, e.clientY);
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDragging) return;
+    const touch = e.touches[0];
+    updateLogoPos(touch.clientX, touch.clientY);
+  };
+
   return (
-    <div className="w-[350px] bg-[#111111] border-l border-zinc-800 flex flex-col z-20 shadow-2xl h-full">
-      {/* Üst Kısım */}
-      <div className="p-6 border-b border-zinc-800 bg-[#111111]">
-        <div className="flex justify-between items-center mb-4">
-          <div><p className="text-zinc-500 text-[10px] font-bold">TOPLAM</p><h2 className="text-2xl font-mono text-white">₺750.00</h2></div>
+    <div className="w-full md:w-[350px] bg-[#111111] border-t md:border-t-0 md:border-l border-zinc-800 flex flex-col z-20 shadow-2xl h-[45vh] md:h-full">
+      <div className="p-4 md:p-6 border-b border-zinc-800 bg-[#111111]">
+        <div className="flex justify-between items-center mb-2 md:mb-4">
+          <div><p className="text-zinc-500 text-[9px] md:text-[10px] font-bold">TOPLAM</p><h2 className="text-xl md:text-2xl font-mono text-white">₺750.00</h2></div>
           <div className="text-right">
-            <p className="text-zinc-500 text-[10px] font-bold mb-1">BEDEN</p>
+            <p className="text-zinc-500 text-[9px] md:text-[10px] font-bold mb-1">BEDEN</p>
             <div className="flex gap-1 justify-end">
               {sizes.map(s => (
                 <button key={s} onClick={() => setSize(s)} className={`w-6 h-6 text-[10px] font-bold rounded flex items-center justify-center border transition ${size === s ? 'bg-white text-black border-white' : 'text-zinc-500 border-zinc-700 hover:border-zinc-500'}`}>{s}</button>
@@ -188,20 +287,18 @@ function EditorPanel({ activeTab, setActiveTab, color, setColor, textureUrl, han
         </div>
       </div>
 
-      {/* Tablar */}
       <div className="flex border-b border-zinc-800 bg-[#111111]">
-        <button onClick={() => setActiveTab('editor')} className={`flex-1 py-4 flex flex-col items-center gap-1 text-[10px] font-bold uppercase transition ${activeTab === 'editor' ? 'text-white border-b-2 border-white' : 'text-zinc-500'}`}><Move size={18} /> Düzenle</button>
-        <button onClick={() => setActiveTab('color')} className={`flex-1 py-4 flex flex-col items-center gap-1 text-[10px] font-bold uppercase transition ${activeTab === 'color' ? 'text-white border-b-2 border-white' : 'text-zinc-500'}`}><Palette size={18} /> Renk</button>
+        <button onClick={() => setActiveTab('editor')} className={`flex-1 py-3 flex flex-col items-center gap-1 text-[10px] font-bold uppercase transition ${activeTab === 'editor' ? 'text-white border-b-2 border-white' : 'text-zinc-500'}`}><Move size={16} /> Düzenle</button>
+        <button onClick={() => setActiveTab('color')} className={`flex-1 py-3 flex flex-col items-center gap-1 text-[10px] font-bold uppercase transition ${activeTab === 'color' ? 'text-white border-b-2 border-white' : 'text-zinc-500'}`}><Palette size={16} /> Renk</button>
       </div>
 
-      {/* İçerik Alanı */}
-      <div className="flex-1 p-6 overflow-y-auto custom-scrollbar bg-[#111111]">
+      <div className="flex-1 p-4 overflow-y-auto custom-scrollbar bg-[#111111]">
         {activeTab === 'editor' && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+          <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
             {!textureUrl ? (
-              <label className="flex flex-col items-center justify-center w-full h-32 border border-dashed border-zinc-700 rounded-xl cursor-pointer hover:border-white hover:bg-zinc-900 transition group">
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  <Upload className="w-8 h-8 mb-3 text-zinc-500 group-hover:text-white transition" />
+              <label className="flex flex-col items-center justify-center w-full h-24 border border-dashed border-zinc-700 rounded-xl cursor-pointer hover:border-white hover:bg-zinc-900 transition group">
+                <div className="flex flex-col items-center justify-center pt-4 pb-5">
+                  <Upload className="w-6 h-6 mb-2 text-zinc-500 group-hover:text-white transition" />
                   <p className="text-[10px] text-zinc-400 font-bold uppercase">Logo Yükle</p>
                 </div>
                 <input type="file" className="hidden" accept="image/*" onChange={handleUpload} />
@@ -219,14 +316,17 @@ function EditorPanel({ activeTab, setActiveTab, color, setColor, textureUrl, han
                   <h3 className="text-xs font-bold text-zinc-400 uppercase">Yerleşim</h3>
                   <button onClick={() => setLogoStats({ x: 50, y: 30, scale: 0.5 })} className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1"><RefreshCcw size={10} /> Sıfırla</button>
                 </div>
+
                 <div
                   ref={editorRef}
-                  className="w-full aspect-[3/4] bg-zinc-800 rounded-lg border border-zinc-700 relative overflow-hidden cursor-crosshair select-none"
+                  className="w-full aspect-[3/4] bg-zinc-800 rounded-lg border border-zinc-700 relative overflow-hidden cursor-crosshair select-none touch-none"
                   onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
+                  onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
                 >
                   <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
                   <div
                     onMouseDown={handleMouseDown}
+                    onTouchStart={handleTouchStart}
                     className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-move border border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.5)] z-10"
                     style={{
                       left: `${logoStats.x}%`,
@@ -261,8 +361,8 @@ function EditorPanel({ activeTab, setActiveTab, color, setColor, textureUrl, han
         )}
       </div>
 
-      <div className="p-6 border-t border-zinc-800 bg-[#111111]">
-        <button onClick={addToCart} disabled={loading} className={`w-full bg-white text-black py-4 rounded-full font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition shadow-lg flex items-center justify-center gap-2 ${loading ? 'opacity-70' : ''}`}>
+      <div className="p-4 border-t border-zinc-800 bg-[#111111]">
+        <button onClick={addToCart} disabled={loading} className={`w-full bg-white text-black py-3 rounded-full font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition shadow-lg flex items-center justify-center gap-2 ${loading ? 'opacity-70' : ''}`}>
           {loading ? <Loader2 className="animate-spin" /> : <ShoppingBag size={20} />} {loading ? 'EKLENİYOR' : 'SEPETE EKLE'}
         </button>
       </div>
@@ -271,7 +371,7 @@ function EditorPanel({ activeTab, setActiveTab, color, setColor, textureUrl, han
 }
 
 /* ================= ANA SAYFA (LAYOUT) ================= */
-export default function TasarimSayfasi() {
+export default function TasarimSayfasiWrapper() {
   const [activeTab, setActiveTab] = useState('editor');
   const [color, setColor] = useState('#ffffff');
   const [textureUrl, setTextureUrl] = useState(null);
@@ -302,15 +402,15 @@ export default function TasarimSayfasi() {
   };
 
   return (
-    <div className="h-screen w-full bg-[#1a1a1a] text-white flex overflow-hidden font-sans">
-      <Link href="/" className="absolute top-6 left-6 z-50 flex items-center gap-2 text-zinc-400 hover:text-white transition uppercase text-xs font-bold tracking-widest"><ArrowLeft size={16} /> ÇIKIŞ</Link>
+    <div className="h-screen w-full bg-[#1a1a1a] text-white flex flex-col md:flex-row overflow-hidden font-sans">
+      <Link href="/" className="absolute top-4 left-4 z-50 flex items-center gap-2 text-zinc-400 hover:text-white transition uppercase text-xs font-bold tracking-widest"><ArrowLeft size={16} /> ÇIKIŞ</Link>
 
-      <div className="flex-1 relative bg-gradient-to-b from-[#1a1a1a] to-[#000000]">
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10 text-center opacity-50 pointer-events-none"><h1 className="text-4xl font-black uppercase text-transparent bg-clip-text bg-gradient-to-b from-white to-transparent">{modelType}</h1></div>
+      <div className="w-full h-[55vh] md:h-full md:flex-1 relative bg-gradient-to-b from-[#1a1a1a] to-[#000000]">
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10 text-center opacity-50 pointer-events-none"><h1 className="text-3xl md:text-4xl font-black uppercase text-transparent bg-clip-text bg-gradient-to-b from-white to-transparent">{modelType}</h1></div>
 
-        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-40 flex gap-2 bg-zinc-900/90 backdrop-blur-md p-1.5 rounded-full border border-zinc-700 shadow-2xl">
+        <div className="absolute bottom-16 md:bottom-24 left-1/2 -translate-x-1/2 z-40 flex gap-2 bg-zinc-900/90 backdrop-blur-md p-1 rounded-full border border-zinc-700 shadow-2xl">
           {['front', 'back', 'left', 'right'].map((v) => (
-            <button key={v} onClick={() => setView(v)} className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition ${view === v ? 'bg-white text-black' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}>
+            <button key={v} onClick={() => setView(v)} className={`px-3 py-1.5 md:px-5 md:py-2 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest transition ${view === v ? 'bg-white text-black' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'}`}>
               {v === 'front' ? 'Ön' : v === 'back' ? 'Arka' : v === 'left' ? 'Sol' : 'Sağ'}
             </button>
           ))}
@@ -323,7 +423,14 @@ export default function TasarimSayfasi() {
           gl={{ preserveDrawingBuffer: true, antialias: true }}
         >
           <ambientLight intensity={0.5} />
-          <directionalLight position={[5, 10, 7]} intensity={1.5} castShadow />
+          {/* Shadow ayarlarını biraz iyileştiriyoruz (desen/akne olasılığını da azaltır) */}
+          <directionalLight
+            position={[5, 10, 7]}
+            intensity={1.5}
+            castShadow
+            shadow-bias={-0.0005}
+            shadow-normalBias={0.02}
+          />
           <Environment preset="city" />
 
           <CameraController view={view} />
@@ -345,7 +452,7 @@ export default function TasarimSayfasi() {
           />
         </Canvas>
 
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+        <div className="absolute bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 flex gap-4 text-[9px] md:text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
           {['tshirt', 'hoodie', 'sweatshirt'].map(m => (
             <button key={m} onClick={() => setModelType(m)} className={`hover:text-white transition ${modelType === m ? 'text-white border-b border-white' : ''}`}>{m.toUpperCase()}</button>
           ))}
