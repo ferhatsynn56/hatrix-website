@@ -257,7 +257,7 @@ export default function HomePage() {
                                 <p className="text-zinc-300 text-sm md:text-lg max-w-xl font-light tracking-wide mb-10 animate-in fade-in delay-300">
                                     Sınırları kaldır. Kendi koleksiyonunu tasarla ve anında üretime gönder.
                                 </p>
-                                <a href="/tasarim">
+                                <a href="/tasarim-secim">
                                     <button className="bg-red-600 text-white px-10 py-4 font-black text-xs uppercase tracking-[0.2em] hover:bg-white hover:text-red-600 transition duration-300 rounded-full shadow-[0_0_20px_rgba(220,38,38,0.5)]">
                                             Stüdyoyu Başlat
                                     </button>

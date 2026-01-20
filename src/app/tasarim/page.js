@@ -13,20 +13,20 @@ import {
 } from "@react-three/drei";
 import {
   Upload,
-  ArrowLeft,
   ShoppingBag,
   Palette,
   Move,
-  RefreshCcw,
   Loader2,
   Type,
   Trash2,
+  Plus,
+  X,
 } from "lucide-react";
-import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import * as THREE from "three";
 import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
-/* ================= AYARLAR ================= */
+/* ================= MODEL PATHS ================= */
 
 const MODEL_PATHS = {
   tshirt: "/models/Meshy_AI_Black_T_Shirt_0116154220_generate.glb",
@@ -34,23 +34,71 @@ const MODEL_PATHS = {
   sweatshirt: "/models/Meshy_AI_Black_Sweatshirt_Disp_0116152203_generate.glb",
 };
 
-const PRINT_AREA = {
-  x: { min: -0.12, max: 0.12 },
-  y: { min: 0.05, max: 0.35 },
+const AVAILABLE_MODELS = ["tshirt", "hoodie", "sweatshirt"];
+
+/**
+ * ✅ Eski çalışan “baskı bandı” değerleri (en iyi duran buydu)
+ */
+const MODEL_PRINT_BOUNDS = {
+  tshirt: {
+    front: { xMin: -0.787, xMax: 0.787, yTop: 0.946, yBot: -0.949, z: 0.383, rotY: 0 },
+    back:  { xMin: -0.787, xMax: 0.787, yTop: 0.946, yBot: -0.949, z: -0.414, rotY: Math.PI },
+  },
+  hoodie: {
+    front: { xMin: -0.570, xMax: 0.570, yTop: 0.949, yBot: -0.951, z: 0.273, rotY: 0 },
+    back:  { xMin: -0.570, xMax: 0.570, yTop: 0.949, yBot: -0.951, z: -0.265, rotY: Math.PI },
+  },
+  sweatshirt: {
+    front: { xMin: -0.724, xMax: 0.724, yTop: 0.948, yBot: -0.951, z: 0.346, rotY: 0 },
+    back:  { xMin: -0.724, xMax: 0.724, yTop: 0.948, yBot: -0.951, z: -0.356, rotY: Math.PI },
+  },
 };
 
+/** UI etiketi (cm) */
+const CM_LABELS = {
+  tshirt: { front: { w: 40, h: 54 }, back: { w: 40, h: 54 } },
+  sweatshirt: { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
+  hoodie: { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
+};
+
+/* ================= HELPERS ================= */
+
+const makeId = () => `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+const clamp01 = (v) => clamp(v, 0, 1);
+const pct = (v01) => `${Math.round(v01 * 100)}%`;
+
+const createDesign = (type = "tshirt") => ({
+  id: makeId(),
+  modelType: type,
+  color: "#050505", // ilk model gri görünmesin
+  size: "M",
+  logoUrl: null,
+  customText: {
+    text: "",
+    color: "#ffffff",
+    size: 150,    // ✅ büyüt/küçült
+    scaleX: 1,    // ✅ en esnet
+    scaleY: 1,    // ✅ boy esnet
+  },
+
+  imageBox: { x: 0.5, y: 0.6, w: 0.7, h: 0.45 }, // 0..1
+  textPos: { x: 0.5, y: 0.85 },                 // 0..1
+});
+
 /* ================= KAMERA KONTROLCÜSÜ ================= */
-function CameraController({ view }) {
+function CameraController({ view, count }) {
   const isAnimating = useRef(false);
+  const extra = Math.min(4, Math.max(0, (count - 1) * 1.2));
 
   const positions = useMemo(
     () => ({
-      front: new THREE.Vector3(0, 0, 4.5),
-      back: new THREE.Vector3(0, 0, -4.5),
-      left: new THREE.Vector3(-4.5, 0, 0),
-      right: new THREE.Vector3(4.5, 0, 0),
+      front: new THREE.Vector3(0, 0, 4.8 + extra),
+      back: new THREE.Vector3(0, 0, -(4.8 + extra)),
+      left: new THREE.Vector3(-(4.8 + extra), 0, 0),
+      right: new THREE.Vector3(4.8 + extra, 0, 0),
     }),
-    []
+    [extra]
   );
 
   useEffect(() => {
@@ -58,28 +106,108 @@ function CameraController({ view }) {
   }, [view]);
 
   useFrame((state, delta) => {
-    if (isAnimating.current) {
-      const targetPos = positions[view];
-      state.camera.position.lerp(targetPos, delta * 4);
-      state.camera.lookAt(0, 0, 0);
-      if (state.camera.position.distanceTo(targetPos) < 0.05) {
-        isAnimating.current = false;
-      }
+    if (!isAnimating.current) return;
+    const targetPos = positions[view];
+    state.camera.position.lerp(targetPos, delta * 4);
+    state.camera.lookAt(0, 0, 0);
+    if (state.camera.position.distanceTo(targetPos) < 0.05) {
+      isAnimating.current = false;
     }
   });
 
   return null;
 }
 
+/* ================= CANVAS TEXTURE ================= */
+/**
+ * ✅ Görsel kutuya göre esner (fill)
+ * ✅ Text: size + scaleX/scaleY ile büyüt/uzat
+ */
+function useDesignCanvas(logoUrl, customText, imageBox, textPos) {
+  const [canvas, setCanvas] = useState(null);
+
+  useEffect(() => {
+    const c = document.createElement("canvas");
+    c.width = 1024;
+    c.height = 1024;
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
+
+    const drawText = () => {
+      const t = customText || {};
+      if (t.text) {
+        const fontSize = clamp(parseInt(t.size || 150, 10), 30, 420);
+
+        ctx.save();
+        ctx.translate(textPos.x * 1024, textPos.y * 1024);
+        ctx.scale(clamp(t.scaleX || 1, 0.3, 3), clamp(t.scaleY || 1, 0.3, 3));
+        ctx.font = `900 ${fontSize}px Arial`;
+        ctx.fillStyle = t.color || "#ffffff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(t.text, 0, 0);
+        ctx.restore();
+      }
+      setCanvas(c);
+    };
+
+    const drawAll = () => {
+      ctx.clearRect(0, 0, 1024, 1024);
+
+      if (logoUrl) {
+        const img = new Image();
+        img.src = logoUrl;
+        img.onload = () => {
+          const boxW = imageBox.w * 1024;
+          const boxH = imageBox.h * 1024;
+          const boxX = imageBox.x * 1024 - boxW / 2;
+          const boxY = imageBox.y * 1024 - boxH / 2;
+
+          // fill (esnet)
+          ctx.drawImage(img, boxX, boxY, boxW, boxH);
+          drawText();
+        };
+        img.onerror = () => drawText();
+      } else {
+        drawText();
+      }
+    };
+
+    drawAll();
+  }, [
+    logoUrl,
+    customText?.text,
+    customText?.color,
+    customText?.size,
+    customText?.scaleX,
+    customText?.scaleY,
+    imageBox.x,
+    imageBox.y,
+    imageBox.w,
+    imageBox.h,
+    textPos.x,
+    textPos.y,
+  ]);
+
+  return canvas;
+}
+
 /* ================= 3D MODEL ================= */
-function Real3DModel({ color, finalTextureCanvas, logoStats, modelType }) {
+function Real3DModel({ color, finalTextureCanvas, modelType, view }) {
   const { nodes } = useGLTF(MODEL_PATHS[modelType] || MODEL_PATHS.tshirt);
+
+  const side = view === "back" ? "back" : "front";
+  const profile = useMemo(
+    () => MODEL_PRINT_BOUNDS[modelType]?.[side] || MODEL_PRINT_BOUNDS.tshirt.front,
+    [modelType, side]
+  );
 
   const decalTexture = useMemo(() => {
     if (!finalTextureCanvas) return null;
     const tex = new THREE.CanvasTexture(finalTextureCanvas);
     tex.anisotropy = 16;
     tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
     return tex;
   }, [finalTextureCanvas]);
 
@@ -89,8 +217,7 @@ function Real3DModel({ color, finalTextureCanvas, logoStats, modelType }) {
     );
     if (!validNodes.length) return null;
     return validNodes.sort(
-      (a, b) =>
-        b.geometry.attributes.position.count - a.geometry.attributes.position.count
+      (a, b) => b.geometry.attributes.position.count - a.geometry.attributes.position.count
     )[0];
   }, [nodes]);
 
@@ -99,9 +226,7 @@ function Real3DModel({ color, finalTextureCanvas, logoStats, modelType }) {
     let g = mainNode.geometry.clone();
     if (!g.attributes?.position) return null;
     if (g.getAttribute("color")) g.deleteAttribute("color");
-    try {
-      g = mergeVertices(g, 1e-4);
-    } catch (e) {}
+    try { g = mergeVertices(g, 1e-4); } catch (e) {}
     g.computeVertexNormals();
     return g;
   }, [mainNode]);
@@ -109,20 +234,18 @@ function Real3DModel({ color, finalTextureCanvas, logoStats, modelType }) {
   const customMaterial = useMemo(() => {
     if (!mainNode) return null;
     return new THREE.MeshStandardMaterial({
-      color: color,
-      roughness: 0.8,
-      metalness: 0.1,
+      color: new THREE.Color(color || "#050505"),
+      roughness: 1,
+      metalness: 0,
+      envMapIntensity: 0.35,
     });
   }, [mainNode, color]);
 
-  const mapX =
-    PRINT_AREA.x.min +
-    (logoStats.x / 100) * (PRINT_AREA.x.max - PRINT_AREA.x.min);
-  const mapY =
-    PRINT_AREA.y.max -
-    (logoStats.y / 100) * (PRINT_AREA.y.max - PRINT_AREA.y.min);
-
   if (!mainNode || !customMaterial || !safeGeometry) return null;
+
+  const width = profile.xMax - profile.xMin;
+  const height = profile.yTop - profile.yBot;
+  const centerY = (profile.yTop + profile.yBot) / 2;
 
   return (
     <group dispose={null}>
@@ -130,9 +253,9 @@ function Real3DModel({ color, finalTextureCanvas, logoStats, modelType }) {
         <mesh castShadow receiveShadow geometry={safeGeometry} material={customMaterial}>
           {decalTexture && (
             <Decal
-              position={[mapX, mapY, 0.2]}
-              rotation={[0, 0, 0]}
-              scale={[logoStats.scale * 0.3, logoStats.scale * 0.3, 0.5]}
+              position={[0, centerY, profile.z * 0.98]}
+              rotation={[0, profile.rotY, 0]}
+              scale={[width, height, 0.6]}
               map={decalTexture}
               depthTest={true}
               depthWrite={false}
@@ -140,109 +263,267 @@ function Real3DModel({ color, finalTextureCanvas, logoStats, modelType }) {
           )}
         </mesh>
       </Center>
-      <ContactShadows
-        position={[0, -1.6, 0]}
-        opacity={0.5}
-        scale={10}
-        blur={2}
-        far={4}
+    </group>
+  );
+}
+
+/* ================= TEK MODEL ITEM ================= */
+function DesignModelItem({
+  design,
+  isActive,
+  isHovered,
+  onSelect,
+  onHover,
+  onUnhover,
+  view,
+  targetX,
+  targetZ,
+  targetRotY,
+  targetScale,
+  hidden,
+}) {
+  const groupRef = useRef(null);
+
+  useFrame((state, delta) => {
+    if (!groupRef.current) return;
+
+    const g = groupRef.current;
+
+    g.position.x = THREE.MathUtils.lerp(g.position.x, targetX, Math.min(1, delta * 6));
+    g.position.z = THREE.MathUtils.lerp(g.position.z, targetZ, Math.min(1, delta * 6));
+    g.rotation.y = THREE.MathUtils.lerp(g.rotation.y, targetRotY, Math.min(1, delta * 6));
+
+    // ✅ Hover büyüme: click değil
+    const base = targetScale;
+    const hoverBoost = isHovered ? 0.06 : 0;
+    const activeBoost = isActive ? 0.05 : 0;
+    const nextS = base + hoverBoost + activeBoost;
+
+    const cur = g.scale.x;
+    const lerped = THREE.MathUtils.lerp(cur, nextS, Math.min(1, delta * 10));
+    g.scale.setScalar(lerped);
+  });
+
+  const finalTextureCanvas = useDesignCanvas(
+    design.logoUrl,
+    design.customText,
+    design.imageBox,
+    design.textPos
+  );
+
+  if (hidden) return null;
+
+  return (
+    <group
+      ref={groupRef}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        onHover(design.id);
+        document.body.style.cursor = "pointer";
+      }}
+      onPointerOut={(e) => {
+        e.stopPropagation();
+        onUnhover(design.id);
+        document.body.style.cursor = "default";
+      }}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        onSelect(design.id);
+      }}
+    >
+      <Real3DModel
+        color={design.color}
+        finalTextureCanvas={finalTextureCanvas}
+        modelType={design.modelType}
+        view={view}
       />
     </group>
   );
 }
 
-/* ================= EDITOR PANELİ ================= */
-function EditorPanel({
-  activeTab,
-  setActiveTab,
-  color,
-  setColor,
-  logoUrl,
-  setLogoUrl,
-  customText,
-  setCustomText,
-  logoStats,
-  setLogoStats,
-  imageOffset,
-  setImageOffset,
-  textOffset,
-  setTextOffset,
-  loading,
-  addToCart,
-  sizes,
-  size,
-  setSize,
-}) {
-  const editorRef = useRef(null);
-  const printBoxRef = useRef(null);
+/* ================= RESIZE FRAME ================= */
+/**
+ * ✅ Handle imleci takip eder (nereye çekersen o tarafa büyür)
+ */
+function ResizeFrame({ box, onChange, containerRef }) {
+  const dragRef = useRef(null);
 
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragMode, setDragMode] = useState(null); // "print" | "image" | "text"
+  const getPointer01 = (e, rect) => {
+    const x = clamp01((e.clientX - rect.left) / rect.width);
+    const y = clamp01((e.clientY - rect.top) / rect.height);
+    return { x, y };
+  };
 
-  const clamp01_100 = (v) => Math.max(0, Math.min(100, v));
+  const begin = (mode, e) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-  const handleMove = (clientX, clientY) => {
-    if (!isDragging || !dragMode) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const { x: px, y: py } = getPointer01(e, rect);
 
-    // Print alanı sürükleme (editorRef içinde)
-    if (dragMode === "print") {
-      if (!editorRef.current) return;
-      const rect = editorRef.current.getBoundingClientRect();
-      const x = clientX - rect.left;
-      const y = clientY - rect.top;
+    const left = box.x - box.w / 2;
+    const right = box.x + box.w / 2;
+    const top = box.y - box.h / 2;
+    const bottom = box.y + box.h / 2;
 
-      let percentX = (x / rect.width) * 100;
-      let percentY = (y / rect.height) * 100;
+    dragRef.current = {
+      mode,
+      rect,
+      startBox: { ...box },
+      startEdges: { left, right, top, bottom },
+      moveOffset: { dx: box.x - px, dy: box.y - py },
+    };
 
-      percentX = clamp01_100(percentX);
-      percentY = clamp01_100(percentY);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+  };
 
-      setLogoStats((prev) => ({ ...prev, x: percentX, y: percentY }));
+  const move = (e) => {
+    const s = dragRef.current;
+    if (!s) return;
+
+    const { x: px, y: py } = getPointer01(e, s.rect);
+
+    const minW = 0.12;
+    const minH = 0.12;
+
+    let left = s.startEdges.left;
+    let right = s.startEdges.right;
+    let top = s.startEdges.top;
+    let bottom = s.startEdges.bottom;
+
+    if (s.mode === "move") {
+      let nx = px + s.moveOffset.dx;
+      let ny = py + s.moveOffset.dy;
+
+      nx = clamp(nx, s.startBox.w / 2, 1 - s.startBox.w / 2);
+      ny = clamp(ny, s.startBox.h / 2, 1 - s.startBox.h / 2);
+
+      onChange({ x: nx, y: ny, w: s.startBox.w, h: s.startBox.h });
       return;
     }
 
-    // Görsel / Yazı sürükleme (printBoxRef içinde)
-    if (dragMode === "image" || dragMode === "text") {
-      if (!printBoxRef.current) return;
-      const rect = printBoxRef.current.getBoundingClientRect();
-      const x = clientX - rect.left;
-      const y = clientY - rect.top;
+    if (s.mode.includes("l")) left = px;
+    if (s.mode.includes("r")) right = px;
+    if (s.mode.includes("t")) top = py;
+    if (s.mode.includes("b")) bottom = py;
 
-      let percentX = (x / rect.width) * 100;
-      let percentY = (y / rect.height) * 100;
+    if (right < left) [left, right] = [right, left];
+    if (bottom < top) [top, bottom] = [bottom, top];
 
-      percentX = clamp01_100(percentX);
-      percentY = clamp01_100(percentY);
-
-      if (dragMode === "image") setImageOffset({ x: percentX, y: percentY });
-      if (dragMode === "text") setTextOffset({ x: percentX, y: percentY });
+    if (right - left < minW) {
+      const mid = (left + right) / 2;
+      left = mid - minW / 2;
+      right = mid + minW / 2;
     }
+    if (bottom - top < minH) {
+      const mid = (top + bottom) / 2;
+      top = mid - minH / 2;
+      bottom = mid + minH / 2;
+    }
+
+    left = clamp(left, 0, 1);
+    right = clamp(right, 0, 1);
+    top = clamp(top, 0, 1);
+    bottom = clamp(bottom, 0, 1);
+
+    const w = clamp(right - left, minW, 1);
+    const h = clamp(bottom - top, minH, 1);
+
+    const x = clamp((left + right) / 2, w / 2, 1 - w / 2);
+    const y = clamp((top + bottom) / 2, h / 2, 1 - h / 2);
+
+    onChange({ x, y, w, h });
   };
 
-  const stopDrag = () => {
-    setIsDragging(false);
-    setDragMode(null);
+  const end = () => {
+    dragRef.current = null;
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", end);
   };
 
   return (
-    <div className="w-full md:w-[380px] bg-[#111111] flex flex-col z-20 shadow-2xl h-[50vh] md:h-full border-t md:border-l border-zinc-800">
+    <div
+      className="absolute border-2 border-white/70 rounded-lg"
+      style={{
+        left: pct(box.x - box.w / 2),
+        top: pct(box.y - box.h / 2),
+        width: pct(box.w),
+        height: pct(box.h),
+      }}
+      onPointerDown={(e) => begin("move", e)}
+    >
+      {[
+        ["lt", 0, 0],
+        ["t", 50, 0],
+        ["rt", 100, 0],
+        ["r", 100, 50],
+        ["rb", 100, 100],
+        ["b", 50, 100],
+        ["lb", 0, 100],
+        ["l", 0, 50],
+      ].map(([key, lx, ty]) => (
+        <div
+          key={key}
+          className="absolute w-3 h-3 bg-white rounded-sm"
+          style={{
+            left: `${lx}%`,
+            top: `${ty}%`,
+            transform: "translate(-50%, -50%)",
+            cursor:
+              key === "t" || key === "b"
+                ? "ns-resize"
+                : key === "l" || key === "r"
+                ? "ew-resize"
+                : key === "lt" || key === "rb"
+                ? "nwse-resize"
+                : "nesw-resize",
+          }}
+          onPointerDown={(e) => begin(key, e)}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ================= EDITOR PANELİ ================= */
+function EditorPanel({ design, updateDesign, loading, addToCart, view }) {
+  const [activeTab, setActiveTab] = useState("editor");
+  const previewRef = useRef(null);
+
+  const sizes = ["S", "M", "L", "XL"];
+  const colorPresets = ["#ffffff", "#050505", "#ff0000", "#00ff00", "#0000ff", "#ffff00", "#800080", "#00ffff"];
+
+  const side = view === "back" ? "back" : "front";
+  const cm = CM_LABELS[design.modelType]?.[side] || { w: 0, h: 0 };
+
+  const t = design.customText || {};
+
+  const bumpText = (patch) => updateDesign({ customText: { ...t, ...patch } });
+
+  return (
+    <div className="w-full md:w-[420px] bg-[#111111] flex flex-col z-20 shadow-2xl h-[55vh] md:h-full border-t md:border-l border-zinc-800">
       <div className="p-4 border-b border-zinc-800 bg-[#111111] flex-shrink-0">
         <div className="flex justify-between items-center">
           <div>
-            <p className="text-zinc-500 text-[10px] font-bold">FİYAT</p>
-            <h2 className="text-xl font-mono text-white">₺750.00</h2>
+            <p className="text-zinc-500 text-[10px] font-bold">BASKI ALANI</p>
+            <h2 className="text-sm font-mono text-white">
+              {cm.w}×{cm.h} CM ({side === "front" ? "ÖN" : "ARKA"})
+            </h2>
+            <p className="text-[10px] text-zinc-500 mt-1 font-bold uppercase tracking-widest">
+              SEÇİLİ: {design.modelType}
+            </p>
           </div>
+
           <div className="text-right">
             <p className="text-zinc-500 text-[10px] font-bold mb-1">BEDEN</p>
             <div className="flex gap-1">
               {sizes.map((s) => (
                 <button
                   key={s}
-                  onClick={() => setSize(s)}
+                  onClick={() => updateDesign({ size: s })}
                   className={`w-7 h-7 text-[10px] font-bold rounded border transition ${
-                    size === s
-                      ? "bg-white text-black border-white"
-                      : "text-zinc-500 border-zinc-700"
+                    design.size === s ? "bg-white text-black border-white" : "text-zinc-500 border-zinc-700"
                   }`}
                 >
                   {s}
@@ -257,9 +538,7 @@ function EditorPanel({
         <button
           onClick={() => setActiveTab("editor")}
           className={`flex-1 py-3 text-[10px] font-bold uppercase flex flex-col items-center gap-1 ${
-            activeTab === "editor"
-              ? "text-white border-b-2 border-white"
-              : "text-zinc-500"
+            activeTab === "editor" ? "text-white border-b-2 border-white" : "text-zinc-500"
           }`}
         >
           <Move size={14} /> Yerleşim
@@ -267,9 +546,7 @@ function EditorPanel({
         <button
           onClick={() => setActiveTab("upload")}
           className={`flex-1 py-3 text-[10px] font-bold uppercase flex flex-col items-center gap-1 ${
-            activeTab === "upload"
-              ? "text-white border-b-2 border-white"
-              : "text-zinc-500"
+            activeTab === "upload" ? "text-white border-b-2 border-white" : "text-zinc-500"
           }`}
         >
           <Upload size={14} /> Görsel
@@ -277,9 +554,7 @@ function EditorPanel({
         <button
           onClick={() => setActiveTab("text")}
           className={`flex-1 py-3 text-[10px] font-bold uppercase flex flex-col items-center gap-1 ${
-            activeTab === "text"
-              ? "text-white border-b-2 border-white"
-              : "text-zinc-500"
+            activeTab === "text" ? "text-white border-b-2 border-white" : "text-zinc-500"
           }`}
         >
           <Type size={14} /> Yazı
@@ -287,9 +562,7 @@ function EditorPanel({
         <button
           onClick={() => setActiveTab("color")}
           className={`flex-1 py-3 text-[10px] font-bold uppercase flex flex-col items-center gap-1 ${
-            activeTab === "color"
-              ? "text-white border-b-2 border-white"
-              : "text-zinc-500"
+            activeTab === "color" ? "text-white border-b-2 border-white" : "text-zinc-500"
           }`}
         >
           <Palette size={14} /> Renk
@@ -299,28 +572,11 @@ function EditorPanel({
       <div className="flex-1 p-4 overflow-y-auto custom-scrollbar bg-[#111111]">
         {activeTab === "editor" && (
           <div className="space-y-4 animate-in fade-in">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xs font-bold text-zinc-400">CANLI ÖNİZLEME</h3>
-              <button
-                onClick={() => {
-                  setLogoStats({ x: 50, y: 30, scale: 0.5 });
-                  setImageOffset({ x: 50, y: 45 });
-                  setTextOffset({ x: 50, y: 85 });
-                }}
-                className="text-[10px] text-blue-400 flex items-center gap-1"
-              >
-                <RefreshCcw size={10} /> Ortala
-              </button>
-            </div>
+            <h3 className="text-xs font-bold text-zinc-400">BASKI ALANI ÖNİZLEME</h3>
 
             <div
-              ref={editorRef}
-              className="w-full aspect-[3/4] bg-zinc-800 rounded-lg border border-zinc-700 relative overflow-hidden touch-none"
-              onMouseMove={(e) => handleMove(e.clientX, e.clientY)}
-              onTouchMove={(e) => handleMove(e.touches[0].clientX, e.touches[0].clientY)}
-              onMouseUp={stopDrag}
-              onMouseLeave={stopDrag}
-              onTouchEnd={stopDrag}
+              ref={previewRef}
+              className="w-full aspect-square bg-zinc-900 rounded-xl border border-zinc-700 relative overflow-hidden"
             >
               <div
                 className="absolute inset-0 opacity-20 pointer-events-none"
@@ -328,109 +584,61 @@ function EditorPanel({
                   backgroundImage: "radial-gradient(#fff 1px, transparent 1px)",
                   backgroundSize: "10px 10px",
                 }}
-              ></div>
-
-              {/* PRINT ALANI (genel konum + genel ölçek) */}
-              <div
-                ref={printBoxRef}
-                onMouseDown={() => {
-                  setIsDragging(true);
-                  setDragMode("print");
-                }}
-                onTouchStart={() => {
-                  setIsDragging(true);
-                  setDragMode("print");
-                }}
-                className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-move border-2 border-blue-500/50 hover:border-blue-500 z-10 bg-black/10"
-                style={{
-                  left: `${logoStats.x}%`,
-                  top: `${logoStats.y}%`,
-                  width: `${logoStats.scale * 220}px`,
-                  height: `${logoStats.scale * 280}px`,
-                  minWidth: "160px",
-                  minHeight: "200px",
-                }}
-              >
-                {/* Görsel ayrı */}
-                {logoUrl && (
-                  <div
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                      setIsDragging(true);
-                      setDragMode("image");
-                    }}
-                    onTouchStart={(e) => {
-                      e.stopPropagation();
-                      setIsDragging(true);
-                      setDragMode("image");
-                    }}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 border border-white/30 rounded p-1 cursor-move bg-black/20"
-                    style={{
-                      left: `${imageOffset.x}%`,
-                      top: `${imageOffset.y}%`,
-                      width: `65%`,
-                    }}
-                  >
-                    <img
-                      src={logoUrl}
-                      className="w-full h-auto object-contain pointer-events-none"
-                      alt=""
-                    />
-                  </div>
-                )}
-
-                {/* Yazı ayrı */}
-                {customText?.text && (
-                  <div
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                      setIsDragging(true);
-                      setDragMode("text");
-                    }}
-                    onTouchStart={(e) => {
-                      e.stopPropagation();
-                      setIsDragging(true);
-                      setDragMode("text");
-                    }}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 border border-white/30 rounded px-2 py-1 cursor-move bg-black/30"
-                    style={{
-                      left: `${textOffset.x}%`,
-                      top: `${textOffset.y}%`,
-                    }}
-                  >
-                    <p
-                      className="text-center font-bold whitespace-pre-wrap pointer-events-none"
-                      style={{
-                        color: customText.color,
-                        fontSize: `${14 + logoStats.scale * 10}px`,
-                      }}
-                    >
-                      {customText.text}
-                    </p>
-                  </div>
-                )}
-
-                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 rounded-full"></div>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <h3 className="text-xs font-bold text-zinc-400 mb-2">BÜYÜKLÜK</h3>
-              <input
-                type="range"
-                min="0.2"
-                max="2"
-                step="0.1"
-                value={logoStats.scale}
-                onChange={(e) =>
-                  setLogoStats((prev) => ({
-                    ...prev,
-                    scale: parseFloat(e.target.value),
-                  }))
-                }
-                className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-white"
               />
+
+              {design.logoUrl && (
+                <div
+                  className="absolute rounded-lg overflow-hidden"
+                  style={{
+                    left: pct(design.imageBox.x - design.imageBox.w / 2),
+                    top: pct(design.imageBox.y - design.imageBox.h / 2),
+                    width: pct(design.imageBox.w),
+                    height: pct(design.imageBox.h),
+                  }}
+                >
+                  <img src={design.logoUrl} alt="" className="w-full h-full object-fill pointer-events-none" />
+                </div>
+              )}
+
+              <ResizeFrame
+                box={design.imageBox}
+                containerRef={previewRef}
+                onChange={(next) => updateDesign({ imageBox: next })}
+              />
+
+              {design.customText?.text && (
+                <div
+                  className="absolute -translate-x-1/2 -translate-y-1/2 px-2 py-1 rounded bg-black/30 border border-white/20"
+                  style={{ left: pct(design.textPos.x), top: pct(design.textPos.y) }}
+                  title="Yazı konumu"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const rect = previewRef.current.getBoundingClientRect();
+
+                    const move = (ev) => {
+                      const x = clamp01((ev.clientX - rect.left) / rect.width);
+                      const y = clamp01((ev.clientY - rect.top) / rect.height);
+                      updateDesign({ textPos: { x, y } });
+                    };
+                    const up = () => {
+                      window.removeEventListener("pointermove", move);
+                      window.removeEventListener("pointerup", up);
+                    };
+                    window.addEventListener("pointermove", move);
+                    window.addEventListener("pointerup", up);
+                  }}
+                >
+                  <span className="text-xs font-black" style={{ color: design.customText.color }}>
+                    {design.customText.text}
+                  </span>
+                </div>
+              )}
             </div>
+
+            <p className="text-[10px] text-zinc-500">
+              Kutuyu sürükle = taşı. Handle = imleci takip ederek büyüt/küçült.
+            </p>
           </div>
         )}
 
@@ -445,21 +653,20 @@ function EditorPanel({
                 accept="image/*"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                      setLogoUrl(ev.target.result);
-                      setActiveTab("editor");
-                    };
-                    reader.readAsDataURL(file);
-                  }
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = (ev) => {
+                    updateDesign({ logoUrl: ev.target.result });
+                    setActiveTab("editor");
+                  };
+                  reader.readAsDataURL(file);
                 }}
               />
             </label>
 
-            {logoUrl && (
+            {design.logoUrl && (
               <button
-                onClick={() => setLogoUrl(null)}
+                onClick={() => updateDesign({ logoUrl: null })}
                 className="w-full py-2 bg-red-900/30 text-red-500 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-red-900/50"
               >
                 <Trash2 size={14} /> Görseli Kaldır
@@ -471,47 +678,96 @@ function EditorPanel({
         {activeTab === "text" && (
           <div className="space-y-4 animate-in fade-in">
             <div>
-              <label className="text-xs font-bold text-zinc-500 block mb-2">
-                METİN
-              </label>
+              <label className="text-xs font-bold text-zinc-500 block mb-2">METİN</label>
               <input
                 type="text"
-                value={customText?.text || ""}
-                onChange={(e) =>
-                  setCustomText((prev) => ({ ...prev, text: e.target.value }))
-                }
+                value={t.text || ""}
+                onChange={(e) => bumpText({ text: e.target.value })}
                 placeholder="Buraya yazın..."
                 className="w-full bg-black border border-zinc-700 p-3 rounded-lg text-white focus:border-white outline-none"
               />
             </div>
 
             <div>
-              <label className="text-xs font-bold text-zinc-500 block mb-2">
-                RENGİ
-              </label>
+              <label className="text-xs font-bold text-zinc-500 block mb-2">RENGİ</label>
               <div className="flex gap-2">
-                {["#ffffff", "#000000", "#ff0000", "#00ff00", "#0000ff"].map(
-                  (c) => (
-                    <button
-                      key={c}
-                      onClick={() =>
-                        setCustomText((prev) => ({ ...prev, color: c }))
-                      }
-                      className={`w-8 h-8 rounded-full border ${
-                        customText?.color === c
-                          ? "border-white scale-110"
-                          : "border-zinc-700"
-                      }`}
-                      style={{ backgroundColor: c }}
-                    />
-                  )
-                )}
+                {["#ffffff", "#000000", "#ff0000", "#00ff00", "#0000ff"].map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => bumpText({ color: c })}
+                    className={`w-8 h-8 rounded-full border ${
+                      t.color === c ? "border-white scale-110" : "border-zinc-700"
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
               </div>
             </div>
 
-            {customText?.text && (
+            {/* ✅ Font size */}
+            <div className="flex items-center justify-between gap-2 bg-zinc-900/40 border border-zinc-800 rounded-xl p-3">
+              <div>
+                <p className="text-[10px] text-zinc-500 font-bold uppercase">Boyut</p>
+                <p className="text-white text-sm font-mono">{t.size || 150}px</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => bumpText({ size: clamp((t.size || 150) - 10, 30, 420) })}
+                  className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-black"
+                >
+                  -
+                </button>
+                <button
+                  onClick={() => bumpText({ size: clamp((t.size || 150) + 10, 30, 420) })}
+                  className="px-3 py-2 rounded-lg bg-white text-black hover:bg-zinc-200 text-xs font-black"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* ✅ Stretch */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-3">
+                <p className="text-[10px] text-zinc-500 font-bold uppercase mb-2">EN (Stretch)</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => bumpText({ scaleX: clamp((t.scaleX || 1) - 0.1, 0.3, 3) })}
+                    className="flex-1 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-black"
+                  >
+                    -
+                  </button>
+                  <button
+                    onClick={() => bumpText({ scaleX: clamp((t.scaleX || 1) + 0.1, 0.3, 3) })}
+                    className="flex-1 py-2 rounded-lg bg-white text-black hover:bg-zinc-200 text-xs font-black"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-3">
+                <p className="text-[10px] text-zinc-500 font-bold uppercase mb-2">BOY (Stretch)</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => bumpText({ scaleY: clamp((t.scaleY || 1) - 0.1, 0.3, 3) })}
+                    className="flex-1 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-black"
+                  >
+                    -
+                  </button>
+                  <button
+                    onClick={() => bumpText({ scaleY: clamp((t.scaleY || 1) + 0.1, 0.3, 3) })}
+                    className="flex-1 py-2 rounded-lg bg-white text-black hover:bg-zinc-200 text-xs font-black"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {t.text && (
               <button
-                onClick={() => setCustomText({ text: "", color: "#ffffff" })}
+                onClick={() => bumpText({ text: "", color: "#ffffff", size: 150, scaleX: 1, scaleY: 1 })}
                 className="w-full py-2 bg-red-900/30 text-red-500 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-red-900/50"
               >
                 <Trash2 size={14} /> Yazıyı Sil
@@ -522,21 +778,12 @@ function EditorPanel({
 
         {activeTab === "color" && (
           <div className="grid grid-cols-4 gap-3 animate-in fade-in">
-            {[
-              "#ffffff",
-              "#111111",
-              "#ff0000",
-              "#00ff00",
-              "#0000ff",
-              "#ffff00",
-              "#800080",
-              "#00ffff",
-            ].map((c) => (
+            {colorPresets.map((c) => (
               <button
                 key={c}
-                onClick={() => setColor(c)}
+                onClick={() => updateDesign({ color: c })}
                 className={`w-full aspect-square rounded-full border-2 transition hover:scale-110 ${
-                  color === c ? "border-white scale-110" : "border-transparent"
+                  design.color === c ? "border-white scale-110" : "border-transparent"
                 }`}
                 style={{ backgroundColor: c }}
               />
@@ -549,11 +796,11 @@ function EditorPanel({
         <button
           onClick={addToCart}
           disabled={loading}
-          className={`w-full bg-white text-black py-4 rounded-full font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition shadow-[0_0_20px_rgba(255,255,255,0.2)] flex items-center justify-center gap-2 ${
+          className={`w-full bg-white text-black py-4 rounded-full font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition flex items-center justify-center gap-2 ${
             loading ? "opacity-70 cursor-not-allowed" : ""
           }`}
         >
-          {loading ? <Loader2 className="animate-spin" /> : <ShoppingBag size={20} />}{" "}
+          {loading ? <Loader2 className="animate-spin" /> : <ShoppingBag size={20} />}
           {loading ? "HAZIRLANIYOR..." : "SEPETE EKLE"}
         </button>
       </div>
@@ -564,136 +811,210 @@ function EditorPanel({
 /* ================= ANA SAYFA ================= */
 export default function TasarimSayfasi() {
   const { addToCart } = useCart();
+  const searchParams = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState("editor");
-  const [color, setColor] = useState("#111111");
+  const initialModel = (searchParams.get("model") || searchParams.get("product") || "tshirt").toLowerCase();
+  const safeInitial = AVAILABLE_MODELS.includes(initialModel) ? initialModel : "tshirt";
+
   const [view, setView] = useState("front");
-  const [modelType, setModelType] = useState("tshirt");
-  const [size, setSize] = useState("M");
+  const [designs, setDesigns] = useState([createDesign(safeInitial)]);
+  const [activeId, setActiveId] = useState(designs[0]?.id);
+  const [hoveredId, setHoveredId] = useState(null);
+
   const [loading, setLoading] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
-  const [logoUrl, setLogoUrl] = useState(null);
-  const [customText, setCustomText] = useState({ text: "", color: "#ffffff" });
+  // ✅ screenshot için
+  const glRef = useRef(null);
+  const sceneRef = useRef(null);
+  const cameraRef = useRef(null);
 
-  // print alanı (genel)
-  const [logoStats, setLogoStats] = useState({ x: 50, y: 30, scale: 0.5 });
+  // ✅ screenshot sırasında sadece tek modeli göster
+  const [captureId, setCaptureId] = useState(null);
 
-  // ✅ yeni: görsel ve yazı birbirinden bağımsız
-  const [imageOffset, setImageOffset] = useState({ x: 50, y: 45 });
-  const [textOffset, setTextOffset] = useState({ x: 50, y: 85 });
-
-  const [finalTextureCanvas, setFinalTextureCanvas] = useState(null);
+  const activeDesign = useMemo(() => designs.find((d) => d.id === activeId) || designs[0], [designs, activeId]);
 
   useEffect(() => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 1024;
-    canvas.height = 1024;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!activeId && designs[0]) setActiveId(designs[0].id);
+  }, [activeId, designs]);
 
-    const drawTextOnly = () => {
-      if (customText.text) {
-        ctx.font = "bold 150px Arial";
-        ctx.fillStyle = customText.color;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+  const updateActive = (patch) => {
+    setDesigns((prev) => prev.map((d) => (d.id === activeId ? { ...d, ...patch } : d)));
+  };
 
-        const tx = (textOffset.x / 100) * 1024;
-        const ty = (textOffset.y / 100) * 1024;
+  const addModel = (type) => {
+    const t = AVAILABLE_MODELS.includes(type) ? type : "tshirt";
+    const newDesign = createDesign(t);
+    setDesigns((prev) => [...prev, newDesign]);
+    setActiveId(newDesign.id);
+    setPickerOpen(false);
+  };
 
-        ctx.fillText(customText.text, tx, ty);
+  const removeModel = (id) => {
+    setDesigns((prev) => {
+      const next = prev.filter((d) => d.id !== id);
+      if (id === activeId) {
+        const fallback = next[next.length - 1] || null;
+        setActiveId(fallback?.id);
       }
-      setFinalTextureCanvas(canvas);
-    };
+      return next.length ? next : [createDesign(safeInitial)];
+    });
+  };
 
-    const drawAll = () => {
+  /** ✅ layout: sadece aktif önde, diğerleri solda */
+  const layoutFor = (designId) => {
+    // capture sırasında sadece o model ortada
+    if (captureId) {
+      if (designId !== captureId) return { hidden: true, x: -999, z: -999, rotY: 0, scale: 1 };
+      return { hidden: false, x: 0, z: 0, rotY: 0, scale: 1.05 };
+    }
+
+    if (designId === activeId) {
+      return { hidden: false, x: 0, z: 0, rotY: 0, scale: 1.03 };
+    }
+
+    const others = designs.filter((d) => d.id !== activeId);
+    const idx = others.findIndex((d) => d.id === designId);
+
+    const x = -2.6 - idx * 0.95;
+    return { hidden: false, x, z: -0.35, rotY: 0.85, scale: 0.92 };
+  };
+
+  /** print PNG (baskı dosyası) */
+  const makePrintDataUrl = async (d) =>
+    new Promise((resolve) => {
+      const c = document.createElement("canvas");
+      c.width = 1024;
+      c.height = 1024;
+      const ctx = c.getContext("2d");
+      if (!ctx) return resolve(null);
+
+      const drawText = () => {
+        const t = d.customText || {};
+        if (t.text) {
+          const fontSize = clamp(parseInt(t.size || 150, 10), 30, 420);
+
+          ctx.save();
+          ctx.translate(d.textPos.x * 1024, d.textPos.y * 1024);
+          ctx.scale(clamp(t.scaleX || 1, 0.3, 3), clamp(t.scaleY || 1, 0.3, 3));
+          ctx.font = `900 ${fontSize}px Arial`;
+          ctx.fillStyle = t.color || "#ffffff";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(t.text, 0, 0);
+          ctx.restore();
+        }
+        resolve(c.toDataURL("image/png"));
+      };
+
       ctx.clearRect(0, 0, 1024, 1024);
 
-      if (logoUrl) {
+      if (d.logoUrl) {
         const img = new Image();
-        img.src = logoUrl;
+        img.src = d.logoUrl;
         img.onload = () => {
-          const aspect = img.width / img.height;
-
-          const drawW = 800;
-          const drawH = drawW / aspect;
-
-          const cx = (imageOffset.x / 100) * 1024;
-          const cy = (imageOffset.y / 100) * 1024;
-
-          ctx.drawImage(img, cx - drawW / 2, cy - drawH / 2, drawW, drawH);
-
-          drawTextOnly();
+          const boxW = d.imageBox.w * 1024;
+          const boxH = d.imageBox.h * 1024;
+          const boxX = d.imageBox.x * 1024 - boxW / 2;
+          const boxY = d.imageBox.y * 1024 - boxH / 2;
+          ctx.drawImage(img, boxX, boxY, boxW, boxH);
+          drawText();
         };
-        img.onerror = () => drawTextOnly();
+        img.onerror = () => drawText();
       } else {
-        drawTextOnly();
+        drawText();
       }
-    };
-
-    drawAll();
-  }, [logoUrl, customText, imageOffset, textOffset]);
-
-  const handleAddToCart = () => {
-    if (!logoUrl && !customText.text) {
-      alert("Lütfen bir logo veya yazı ekleyin.");
-      return;
-    }
-    setLoading(true);
-
-    const printFile = finalTextureCanvas
-      ? finalTextureCanvas.toDataURL("image/png")
-      : null;
-
-    addToCart({
-      id: Date.now(),
-      name: `Özel Tasarım ${modelType.toUpperCase()}`,
-      price: 750,
-      size: size,
-      image: printFile,
-      color: color,
-      designDetails: {
-        model: modelType,
-        baseColor: color,
-        printPosition: { x: logoStats.x, y: logoStats.y },
-        printScale: logoStats.scale,
-        imageOffset: { x: imageOffset.x, y: imageOffset.y },
-        textOffset: { x: textOffset.x, y: textOffset.y },
-        printFile: printFile,
-      },
     });
 
-    setTimeout(() => {
+  /** ✅ model üstünde görünen PNG (mockup screenshot) */
+  const captureMockupPng = async (designIdToCapture) => {
+    if (!glRef.current || !sceneRef.current || !cameraRef.current) return null;
+
+    const prevView = view;
+    setView("front");
+    setCaptureId(designIdToCapture);
+
+    // React commit + r3f render için 2 frame bekle
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    const gl = glRef.current;
+    const scene = sceneRef.current;
+    const camera = cameraRef.current;
+
+    gl.render(scene, camera);
+    const dataUrl = gl.domElement.toDataURL("image/png");
+
+    setCaptureId(null);
+    setView(prevView);
+
+    // bir frame daha (temiz geri dönüş)
+    await new Promise((r) => requestAnimationFrame(r));
+
+    return dataUrl;
+  };
+
+  /** Sepete ekle: print + mockup birlikte */
+  const handleAddToCartAll = async () => {
+    const emptyOnes = designs.filter((d) => !d.logoUrl && !(d.customText?.text || "").trim());
+    if (emptyOnes.length === designs.length) {
+      alert("Lütfen en az bir üründe logo veya yazı ekleyin.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      for (const d of designs) {
+        if (!d.logoUrl && !(d.customText?.text || "").trim()) continue;
+
+        const printFile = await makePrintDataUrl(d);
+        const mockupFile = await captureMockupPng(d.id);
+
+        addToCart({
+          id: Date.now() + Math.random(),
+          name: `Özel Tasarım ${d.modelType.toUpperCase()}`,
+          price: 750,
+          size: d.size,
+          image: mockupFile || printFile, // sepet kartında mockup göster
+          color: d.color,
+          designDetails: {
+            model: d.modelType,
+            baseColor: d.color,
+            printFile,   // ✅ baskı png
+            mockupFile,  // ✅ model üstü png
+            imageBox: d.imageBox,
+            textPos: d.textPos,
+            text: d.customText,
+          },
+        });
+      }
+
+      alert("Seçtiğin tüm modeller sepete eklendi!");
+    } finally {
       setLoading(false);
-      alert("Tasarım kaydedildi ve sepete eklendi!");
-    }, 1000);
+    }
   };
 
   return (
-    <div className="h-screen w-full bg-[#1a1a1a] text-white flex flex-col md:flex-row overflow-hidden font-sans">
-      <Link
+    <div className="h-screen w-full bg-[#0b0b0b] text-white flex flex-col md:flex-row overflow-hidden font-sans">
+      {/* ✅ küçük geri (paneli kapatmasın) */}
+      <a
         href="/"
-        className="absolute top-4 left-4 z-50 flex items-center gap-2 text-zinc-400 hover:text-white transition uppercase text-xs font-bold tracking-widest"
+        className="absolute top-2 left-2 z-50 flex items-center gap-2 text-zinc-300 hover:text-white transition uppercase text-[10px] font-bold tracking-widest bg-black/40 border border-zinc-800 rounded-full px-3 py-2 backdrop-blur-md"
       >
-        <ArrowLeft size={16} /> ÇIKIŞ
-      </Link>
+        <span className="text-xs">←</span> Geri
+      </a>
 
-      <div className="w-full h-[45vh] md:h-full md:flex-1 relative bg-gradient-to-b from-[#1a1a1a] to-[#000000]">
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10 opacity-50 pointer-events-none">
-          <h1 className="text-2xl md:text-4xl font-black uppercase text-transparent bg-clip-text bg-gradient-to-b from-white to-transparent">
-            {modelType}
-          </h1>
-        </div>
-
+      {/* 3D ALAN */}
+      <div className="w-full h-[45vh] md:h-full md:flex-1 relative bg-gradient-to-b from-[#0b0b0b] to-[#000000]">
+        {/* View butonları */}
         <div className="absolute bottom-16 md:bottom-24 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 bg-zinc-900/90 backdrop-blur-md p-1 rounded-full border border-zinc-700 shadow-xl">
           {["front", "back", "left", "right"].map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}
               className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all duration-300 ${
-                view === v
-                  ? "bg-white text-black shadow-md"
-                  : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                view === v ? "bg-white text-black shadow-md" : "text-zinc-400 hover:text-white hover:bg-zinc-800"
               }`}
             >
               {v === "front" ? "Ön" : v === "back" ? "Arka" : v === "left" ? "Sol" : "Sağ"}
@@ -701,68 +1022,137 @@ export default function TasarimSayfasi() {
           ))}
         </div>
 
+        {/* + Butonu */}
+        <div className="absolute bottom-3 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2">
+          <button
+            onClick={() => setPickerOpen(true)}
+            className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center font-black shadow-xl hover:bg-zinc-200 transition"
+            title="Model Ekle"
+          >
+            <Plus size={18} />
+          </button>
+
+          <div className="flex items-center gap-2 bg-zinc-900/70 border border-zinc-700 rounded-full px-3 py-2">
+            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">
+              MODELLER: {designs.length}
+            </span>
+            <span className="text-[10px] text-white font-bold uppercase tracking-widest">
+              SEÇİLİ: {activeDesign?.modelType}
+            </span>
+            {designs.length > 1 && (
+              <button
+                onClick={() => removeModel(activeId)}
+                className="ml-1 w-7 h-7 rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center"
+                title="Seçili modeli kaldır"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Picker modal */}
+        {pickerOpen && (
+          <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+            <div className="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-black tracking-widest uppercase">Model Seç</h3>
+                <button
+                  onClick={() => setPickerOpen(false)}
+                  className="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {AVAILABLE_MODELS.map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => addModel(m)}
+                    className="py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-widest"
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-[10px] text-zinc-500 mt-3">
+                Tıkladığın model öne gelir, diğerleri solda yan durur.
+              </p>
+            </div>
+          </div>
+        )}
+
         <Canvas
           shadows
           dpr={[1, 2]}
-          camera={{ position: [0, 0, 4.5], fov: 45 }}
+          camera={{ position: [0, 0, 4.8], fov: 45 }}
           gl={{ preserveDrawingBuffer: true, antialias: true }}
+          onCreated={({ gl, scene, camera }) => {
+            glRef.current = gl;
+            sceneRef.current = scene;
+            cameraRef.current = camera;
+          }}
         >
-          <ambientLight intensity={0.5} />
-          <directionalLight
-            position={[5, 10, 7]}
-            intensity={1.5}
-            castShadow
-            shadow-bias={-0.0005}
-          />
+          <ambientLight intensity={0.35} />
+          <directionalLight position={[5, 10, 7]} intensity={1.2} castShadow shadow-bias={-0.0005} />
           <Environment preset="city" />
-          <CameraController view={view} />
-          <Suspense fallback={null}>
-            <Real3DModel
-              color={color}
-              finalTextureCanvas={finalTextureCanvas}
-              logoStats={logoStats}
-              modelType={modelType}
-            />
-          </Suspense>
-          <OrbitControls makeDefault enableZoom={true} minDistance={1.5} maxDistance={10} />
-        </Canvas>
 
-        <div className="absolute bottom-2 md:bottom-6 left-1/2 -translate-x-1/2 flex gap-4 text-[9px] md:text-[10px] font-bold text-zinc-500 uppercase tracking-widest z-40">
-          {["tshirt", "hoodie", "sweatshirt"].map((m) => (
-            <button
-              key={m}
-              onClick={() => setModelType(m)}
-              className={`hover:text-white transition px-2 py-1 ${
-                modelType === m ? "text-white border-b border-white" : ""
-              }`}
-            >
-              {m.toUpperCase()}
-            </button>
-          ))}
-        </div>
+          <CameraController view={view} count={designs.length} />
+
+          <Suspense fallback={null}>
+            {designs.map((d) => {
+              const L = layoutFor(d.id);
+              return (
+                <DesignModelItem
+                  key={d.id}
+                  design={d}
+                  isActive={d.id === activeId}
+                  isHovered={d.id === hoveredId}
+                  onSelect={setActiveId}
+                  onHover={setHoveredId}
+                  onUnhover={() => setHoveredId(null)}
+                  view={view}
+                  targetX={L.x}
+                  targetZ={L.z}
+                  targetRotY={L.rotY}
+                  targetScale={L.scale}
+                  hidden={L.hidden}
+                />
+              );
+            })}
+          </Suspense>
+
+          <ContactShadows position={[0, -1.6, 0]} opacity={0.45} scale={12} blur={2} far={6} />
+
+          <OrbitControls
+            makeDefault
+            enableZoom={true}
+            enablePan={false}
+            enableDamping
+            dampingFactor={0.08}
+            rotateSpeed={0.6}
+            minDistance={1.8}
+            maxDistance={14}
+            minPolarAngle={Math.PI / 2 - 0.65}
+            maxPolarAngle={Math.PI / 2 + 0.65}
+            // ✅ imleç neredeyse oraya zoom
+            zoomToCursor={true}
+          />
+        </Canvas>
       </div>
 
-      <EditorPanel
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        color={color}
-        setColor={setColor}
-        logoUrl={logoUrl}
-        setLogoUrl={setLogoUrl}
-        customText={customText}
-        setCustomText={setCustomText}
-        logoStats={logoStats}
-        setLogoStats={setLogoStats}
-        imageOffset={imageOffset}
-        setImageOffset={setImageOffset}
-        textOffset={textOffset}
-        setTextOffset={setTextOffset}
-        loading={loading}
-        addToCart={handleAddToCart}
-        sizes={["S", "M", "L", "XL"]}
-        size={size}
-        setSize={setSize}
-      />
+      {/* SAĞ PANEL */}
+      {activeDesign && (
+        <EditorPanel
+          design={activeDesign}
+          updateDesign={updateActive}
+          loading={loading}
+          addToCart={handleAddToCartAll}
+          view={view}
+        />
+      )}
     </div>
   );
 }
