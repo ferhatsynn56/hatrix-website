@@ -155,7 +155,6 @@ function useDesignCanvas(logoUrl, customText, imageBox, textPos) {
           const boxX = imageBox.x * 1024 - boxW / 2;
           const boxY = imageBox.y * 1024 - boxH / 2;
 
-          // ✅ fill (esnet)
           ctx.drawImage(img, boxX, boxY, boxW, boxH);
           drawText();
         };
@@ -218,7 +217,7 @@ function Real3DModel({ color, finalTextureCanvas, modelType, view }) {
     let g = mainNode.geometry.clone();
     if (!g.attributes?.position) return null;
     if (g.getAttribute("color")) g.deleteAttribute("color");
-    try { g = mergeVertices(g, 1e-4); } catch (e) {}
+    try { g = mergeVertices(g, 1e-4); } catch {}
     g.computeVertexNormals();
     return g;
   }, [mainNode]);
@@ -249,7 +248,7 @@ function Real3DModel({ color, finalTextureCanvas, modelType, view }) {
               rotation={[0, profile.rotY, 0]}
               scale={[width, height, 0.6]}
               map={decalTexture}
-              depthTest={true}
+              depthTest
               depthWrite={false}
             />
           )}
@@ -276,7 +275,7 @@ function DesignModelItem({
 }) {
   const groupRef = useRef(null);
 
-  useFrame((state, delta) => {
+  useFrame((_, delta) => {
     if (!groupRef.current) return;
     const g = groupRef.current;
 
@@ -284,13 +283,13 @@ function DesignModelItem({
     g.position.z = THREE.MathUtils.lerp(g.position.z, targetZ, Math.min(1, delta * 6));
     g.rotation.y = THREE.MathUtils.lerp(g.rotation.y, targetRotY, Math.min(1, delta * 6));
 
-    // ✅ Hover büyütme (click değil)
+    // hover büyütme
     const base = targetScale;
     const hoverBoost = isHovered ? 0.06 : 0;
     const activeBoost = isActive ? 0.05 : 0;
     const nextS = base + hoverBoost + activeBoost;
 
-    const cur = g.scale.x;
+    const cur = g.scale.x || 1;
     const lerped = THREE.MathUtils.lerp(cur, nextS, Math.min(1, delta * 10));
     g.scale.setScalar(lerped);
   });
@@ -309,17 +308,17 @@ function DesignModelItem({
       ref={groupRef}
       onPointerOver={(e) => {
         e.stopPropagation();
-        onHover?.(design.id);
+        onHover(design.id);
         document.body.style.cursor = "pointer";
       }}
       onPointerOut={(e) => {
         e.stopPropagation();
-        onUnhover?.(design.id);
+        onUnhover();
         document.body.style.cursor = "default";
       }}
       onPointerDown={(e) => {
         e.stopPropagation();
-        onSelect?.(design.id);
+        onSelect(design.id);
       }}
     >
       <Real3DModel
@@ -475,7 +474,7 @@ function ResizeFrame({ box, onChange, containerRef }) {
 }
 
 /* ================= EDITOR PANELİ ================= */
-function EditorPanel({ design, updateDesign, loading, addToCart, view }) {
+function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
   const [activeTab, setActiveTab] = useState("editor");
   const previewRef = useRef(null);
 
@@ -484,6 +483,7 @@ function EditorPanel({ design, updateDesign, loading, addToCart, view }) {
 
   const side = view === "back" ? "back" : "front";
   const cm = CM_LABELS[design.modelType]?.[side] || { w: 0, h: 0 };
+
   const t = design.customText || {};
   const bumpText = (patch) => updateDesign({ customText: { ...t, ...patch } });
 
@@ -557,7 +557,7 @@ function EditorPanel({ design, updateDesign, loading, addToCart, view }) {
 
       <div className="flex-1 p-4 overflow-y-auto custom-scrollbar bg-[#111111]">
         {activeTab === "editor" && (
-          <div className="space-y-4 animate-in fade-in">
+          <div className="space-y-4">
             <h3 className="text-xs font-bold text-zinc-400">BASKI ALANI ÖNİZLEME</h3>
 
             <div
@@ -629,7 +629,7 @@ function EditorPanel({ design, updateDesign, loading, addToCart, view }) {
         )}
 
         {activeTab === "upload" && (
-          <div className="space-y-4 animate-in fade-in">
+          <div className="space-y-4">
             <label className="flex flex-col items-center justify-center w-full h-32 border border-dashed border-zinc-700 rounded-xl cursor-pointer hover:border-white hover:bg-zinc-900 transition">
               <Upload className="w-8 h-8 mb-2 text-zinc-500" />
               <p className="text-xs text-zinc-400 font-bold uppercase">Görsel Seç</p>
@@ -662,7 +662,7 @@ function EditorPanel({ design, updateDesign, loading, addToCart, view }) {
         )}
 
         {activeTab === "text" && (
-          <div className="space-y-4 animate-in fade-in">
+          <div className="space-y-4">
             <div>
               <label className="text-xs font-bold text-zinc-500 block mb-2">METİN</label>
               <input
@@ -690,7 +690,6 @@ function EditorPanel({ design, updateDesign, loading, addToCart, view }) {
               </div>
             </div>
 
-            {/* Font size */}
             <div className="flex items-center justify-between gap-2 bg-zinc-900/40 border border-zinc-800 rounded-xl p-3">
               <div>
                 <p className="text-[10px] text-zinc-500 font-bold uppercase">Boyut</p>
@@ -712,7 +711,6 @@ function EditorPanel({ design, updateDesign, loading, addToCart, view }) {
               </div>
             </div>
 
-            {/* Stretch */}
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-3">
                 <p className="text-[10px] text-zinc-500 font-bold uppercase mb-2">EN (Stretch)</p>
@@ -763,7 +761,7 @@ function EditorPanel({ design, updateDesign, loading, addToCart, view }) {
         )}
 
         {activeTab === "color" && (
-          <div className="grid grid-cols-4 gap-3 animate-in fade-in">
+          <div className="grid grid-cols-4 gap-3">
             {colorPresets.map((c) => (
               <button
                 key={c}
@@ -780,7 +778,7 @@ function EditorPanel({ design, updateDesign, loading, addToCart, view }) {
 
       <div className="p-4 border-t border-zinc-800 bg-[#111111] flex-shrink-0">
         <button
-          onClick={addToCart}
+          onClick={onAddToCartAll}
           disabled={loading}
           className={`w-full bg-white text-black py-4 rounded-full font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition flex items-center justify-center gap-2 ${
             loading ? "opacity-70 cursor-not-allowed" : ""
@@ -799,26 +797,51 @@ export default function TasarimClient() {
   const { addToCart } = useCart();
   const searchParams = useSearchParams();
 
-  const initialModel = (searchParams.get("model") || searchParams.get("product") || "tshirt").toLowerCase();
-  const safeInitial = AVAILABLE_MODELS.includes(initialModel) ? initialModel : "tshirt";
+  const safeInitial = useMemo(() => {
+    const initialModel = (
+      searchParams.get("model") ||
+      searchParams.get("product") ||
+      "tshirt"
+    ).toLowerCase();
+
+    return AVAILABLE_MODELS.includes(initialModel) ? initialModel : "tshirt";
+  }, [searchParams]);
 
   const [view, setView] = useState("front");
-  const [designs, setDesigns] = useState([createDesign(safeInitial)]);
-  const [activeId, setActiveId] = useState(designs[0]?.id);
+  const [designs, setDesigns] = useState(() => [createDesign("tshirt")]);
+  const [activeId, setActiveId] = useState(() => designs[0]?.id);
   const [hoveredId, setHoveredId] = useState(null);
 
   const [loading, setLoading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  // ✅ screenshot için
+  // screenshot refs
   const glRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
 
-  // ✅ screenshot sırasında sadece tek modeli göster
   const [captureId, setCaptureId] = useState(null);
 
-  const activeDesign = useMemo(() => designs.find((d) => d.id === activeId) || designs[0], [designs, activeId]);
+  const activeDesign = useMemo(
+    () => designs.find((d) => d.id === activeId) || designs[0],
+    [designs, activeId]
+  );
+
+  // ✅ ilk model query'den gelsin (kullanıcı henüz bir şey yapmadıysa)
+  useEffect(() => {
+    setDesigns((prev) => {
+      if (!prev.length) return [createDesign(safeInitial)];
+      if (
+        prev.length === 1 &&
+        prev[0].modelType !== safeInitial &&
+        !prev[0].logoUrl &&
+        !(prev[0].customText?.text || "").trim()
+      ) {
+        return [{ ...prev[0], modelType: safeInitial }];
+      }
+      return prev;
+    });
+  }, [safeInitial]);
 
   useEffect(() => {
     if (!activeId && designs[0]) setActiveId(designs[0].id);
@@ -860,8 +883,8 @@ export default function TasarimClient() {
 
     const others = designs.filter((d) => d.id !== activeId);
     const idx = others.findIndex((d) => d.id === designId);
-
     const x = -2.6 - idx * 0.95;
+
     return { hidden: false, x, z: -0.35, rotY: 0.85, scale: 0.92 };
   };
 
@@ -911,7 +934,7 @@ export default function TasarimClient() {
       }
     });
 
-  /** ✅ model üstü mockup PNG */
+  /** mockup PNG (canvas screenshot) */
   const captureMockupPng = async (designIdToCapture) => {
     if (!glRef.current || !sceneRef.current || !cameraRef.current) return null;
 
@@ -919,6 +942,7 @@ export default function TasarimClient() {
     setView("front");
     setCaptureId(designIdToCapture);
 
+    // commit + render için 2 frame
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     const gl = glRef.current;
@@ -962,8 +986,8 @@ export default function TasarimClient() {
           designDetails: {
             model: d.modelType,
             baseColor: d.color,
-            printFile,
-            mockupFile,
+            printFile,   // baskı png
+            mockupFile,  // model üstü png
             imageBox: d.imageBox,
             textPos: d.textPos,
             text: d.customText,
@@ -979,7 +1003,7 @@ export default function TasarimClient() {
 
   return (
     <div className="h-screen w-full bg-[#0b0b0b] text-white flex flex-col md:flex-row overflow-hidden font-sans">
-      {/* ✅ küçük geri */}
+      {/* küçük geri */}
       <a
         href="/"
         className="absolute top-2 left-2 z-50 flex items-center gap-2 text-zinc-300 hover:text-white transition uppercase text-[10px] font-bold tracking-widest bg-black/40 border border-zinc-800 rounded-full px-3 py-2 backdrop-blur-md"
@@ -987,9 +1011,9 @@ export default function TasarimClient() {
         <span className="text-xs">←</span> Geri
       </a>
 
-      {/* 3D ALAN */}
+      {/* 3D alan */}
       <div className="w-full h-[45vh] md:h-full md:flex-1 relative bg-gradient-to-b from-[#0b0b0b] to-[#000000]">
-        {/* View butonları */}
+        {/* view butonları */}
         <div className="absolute bottom-16 md:bottom-24 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 bg-zinc-900/90 backdrop-blur-md p-1 rounded-full border border-zinc-700 shadow-xl">
           {["front", "back", "left", "right"].map((v) => (
             <button
@@ -1004,7 +1028,7 @@ export default function TasarimClient() {
           ))}
         </div>
 
-        {/* + Butonu */}
+        {/* alt bar */}
         <div className="absolute bottom-3 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2">
           <button
             onClick={() => setPickerOpen(true)}
@@ -1033,7 +1057,7 @@ export default function TasarimClient() {
           </div>
         </div>
 
-        {/* Picker modal */}
+        {/* model picker */}
         {pickerOpen && (
           <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
             <div className="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-2xl p-4">
@@ -1112,7 +1136,7 @@ export default function TasarimClient() {
 
           <ContactShadows position={[0, -1.6, 0]} opacity={0.45} scale={12} blur={2} far={6} />
 
-          {/* ✅ zoom cursor: imlecin olduğu yere yakınlaşma */}
+          {/* ✅ Zoom = imlecin olduğu yere yakınlaşma */}
           <OrbitControls
             makeDefault
             enableZoom
@@ -1123,20 +1147,19 @@ export default function TasarimClient() {
             minDistance={1.8}
             maxDistance={14}
             zoomToCursor={true}
-            // çok uç dönmesin (alt/üst bakış var ama sınırlı)
             minPolarAngle={Math.PI * 0.15}
             maxPolarAngle={Math.PI * 0.85}
           />
         </Canvas>
       </div>
 
-      {/* SAĞ PANEL */}
+      {/* sağ panel */}
       {activeDesign && (
         <EditorPanel
           design={activeDesign}
           updateDesign={updateActive}
           loading={loading}
-          addToCart={handleAddToCartAll}
+          onAddToCartAll={handleAddToCartAll}
           view={view}
         />
       )}
