@@ -22,10 +22,7 @@ import {
 } from "lucide-react";
 
 import * as THREE from "three";
-
-// ✅ ÜÇGEN (NORMAL) TEMİZLİĞİ + SKINNED CLONE (kalsın)
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
-
 import { useCart } from "@/context/CartContext";
 
 /* ================= LOADER (SUSPENSE FALLBACK) ================= */
@@ -96,19 +93,14 @@ const AVAILABLE_MODELS = [
   "sweatshirt",
   "oversize-tshirt",
   "oversize-sweat",
-
-  // hoodie normal
   "hoodie",
   "hoodie-ipli",
   "hoodie-cepli",
   "hoodie-ceplipli",
-
-  // hoodie oversize
   "hoodie-oversize",
   "hoodie-oversize-ipli",
   "hoodie-oversize-cepli",
   "hoodie-oversize-ceplipli",
-
   "fermuarli",
 ];
 
@@ -117,25 +109,18 @@ const MODEL_LABELS = {
   sweatshirt: "Normal Sweat",
   "oversize-tshirt": "Oversize Tişört",
   "oversize-sweat": "Oversize Sweat",
-
   hoodie: "Hoodie",
   "hoodie-ipli": "Hoodie İpli",
   "hoodie-cepli": "Hoodie Cepli",
   "hoodie-ceplipli": "Hoodie Cepli İpli",
-
   "hoodie-oversize": "Oversize Hoodie",
   "hoodie-oversize-ipli": "Oversize Hoodie İpli",
   "hoodie-oversize-cepli": "Oversize Hoodie Cepli",
   "hoodie-oversize-ceplipli": "Oversize Hoodie Cepli İpli",
-
   fermuarli: "Fermuarlı",
 };
 
 /* ================= PRINT BOUNDS ================= */
-/**
- * Not: Kollari UI'dan kaldırdık (Sol/Sağ yok), ama data yapısı dursa da problem değil.
- * Fermuarlı front: zipGap01 -> ortadan şerit boş.
- */
 const MODEL_PRINT_BOUNDS = {
   tshirt: {
     front: { xMin: -0.160, xMax: 0.160, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
@@ -195,7 +180,7 @@ const BASE_PRICE = 750;
 const EXTRA_SIDE_PRICE = 150;
 
 /* ================= BRAND / UI ================= */
-const SCENE_BG_COLOR = "#252525"; // ✅ koyu gri
+const SCENE_BG_COLOR = "#252525";
 const BRAND_COLORS = ["#1A1A1A", "#F0F0F0", "#D2C6B6", "#3F432C", "#191C25", "#363636", "#1EF292", "#3E191D"];
 const BRAND_DEFAULT_COLOR = BRAND_COLORS[0];
 
@@ -221,14 +206,13 @@ const hasSideContent = (sd) => {
   return false;
 };
 
-// ✅ UI'da sadece front/back kullanıyoruz
 const UI_SIDES = ["front", "back"];
 const UI_VIEWS = ["front", "back"];
 
 const createDesign = (type = "tshirt") => ({
   id: makeId(),
   modelType: type,
-  color: BRAND_DEFAULT_COLOR, // ✅ ilk ürün otomatik 1. renk
+  color: BRAND_DEFAULT_COLOR,
   stringColor: "#e6e6e6",
   size: "M",
   sides: {
@@ -241,7 +225,7 @@ const createDesign = (type = "tshirt") => ({
 
 const getActiveSides = (design) =>
   Object.entries(design.sides)
-    .filter(([k]) => UI_SIDES.includes(k)) // ✅ sadece front/back
+    .filter(([k]) => UI_SIDES.includes(k))
     .filter(([_, sd]) => hasSideContent(sd));
 
 const getPrice = (design) => {
@@ -293,7 +277,7 @@ function CameraController({ view, count }) {
   return null;
 }
 
-/* ================= CANVAS TEXTURE (print per-side) ================= */
+/* ================= CANVAS TEXTURE ================= */
 function useDesignCanvas(sideData, opts = {}) {
   const [canvas, setCanvas] = useState(null);
   const logos = sideData?.logos || [];
@@ -323,7 +307,6 @@ function useDesignCanvas(sideData, opts = {}) {
       const octx = out.getContext("2d");
       if (!octx) return;
 
-      // Decal için flip (UV uyumu)
       octx.translate(0, out.height);
       octx.scale(1, -1);
       octx.drawImage(c, 0, 0);
@@ -346,7 +329,6 @@ function useDesignCanvas(sideData, opts = {}) {
       ctx.restore();
     };
 
-    // ✅ fermuar boşluğu: orta şerit sil
     const clearCenterStripe = () => {
       const gap01 = opts?.clearCenterStripe01;
       if (!gap01) return;
@@ -601,6 +583,11 @@ function ResizeFrame({ box, onChange, containerRef }) {
   const begin = (mode, e) => {
     e.preventDefault();
     e.stopPropagation();
+    // Mobilde pointer capture ve touch-action çok önemli
+    if (e.target?.setPointerCapture) {
+        try { e.target.setPointerCapture(e.pointerId); } catch(err){}
+    }
+    
     const rect = containerRef.current.getBoundingClientRect();
     const { x: px, y: py } = getPointer01(e, rect);
     dragRef.current = {
@@ -622,6 +609,8 @@ function ResizeFrame({ box, onChange, containerRef }) {
   const move = (e) => {
     const s = dragRef.current;
     if (!s) return;
+    e.preventDefault(); // Mobilde kaymayı önle
+    
     const { x: px, y: py } = getPointer01(e, s.rect);
     const minW = 0.12,
       minH = 0.12;
@@ -649,7 +638,10 @@ function ResizeFrame({ box, onChange, containerRef }) {
     onChange({ x: left + w / 2, y: top + h / 2, w, h });
   };
 
-  const end = () => {
+  const end = (e) => {
+    if (e.target?.releasePointerCapture) {
+       try { e.target.releasePointerCapture(e.pointerId); } catch(err){}
+    }
     dragRef.current = null;
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", end);
@@ -663,7 +655,7 @@ function ResizeFrame({ box, onChange, containerRef }) {
         top: pct(box.y - box.h / 2),
         width: pct(box.w),
         height: pct(box.h),
-        touchAction: "none",
+        touchAction: "none", // Mobilde kaydırmayı engelle
       }}
       onPointerDown={(e) => begin("move", e)}
     >
@@ -679,11 +671,12 @@ function ResizeFrame({ box, onChange, containerRef }) {
       ].map(([key, lx, ty]) => (
         <div
           key={key}
-          className="absolute w-4 h-4 bg-white rounded-full border border-zinc-400 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute w-6 h-6 bg-white rounded-full border border-zinc-400 shadow-sm opacity-60 md:opacity-0 group-hover:opacity-100 transition-opacity"
           style={{
             left: `${lx}%`,
             top: `${ty}%`,
             transform: "translate(-50%, -50%)",
+            touchAction: "none",
             cursor:
               key === "t" || key === "b"
                 ? "ns-resize"
@@ -766,7 +759,7 @@ function DesignModelItem({
         e.stopPropagation();
         onSelect(design.id);
         if (!isActive) return;
-        if (disableDrag) return; // ✅ mobilde model drag kapalı (scroll bug fix)
+        if (disableDrag) return;
 
         dragRef.current = {
           active: true,
@@ -866,7 +859,11 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view, isMo
   const activeLogo = logos.find((l) => l.id === sideData.activeLogoId) || logos[0] || null;
 
   return (
-    <div className={`w-full ${isMobile ? "" : "md:w-[420px]"} bg-[#111111] flex flex-col z-20 shadow-2xl border-t md:border-t-0 md:border-l border-zinc-800`}>
+    <div 
+        className={`w-full ${isMobile ? "h-full flex flex-col" : "md:w-[420px]"} bg-[#111111] z-20 shadow-2xl border-t md:border-t-0 md:border-l border-zinc-800`}
+        // Mobilde panel içinde scroll çalışması için pan-y önemli
+        style={isMobile ? { touchAction: "pan-y" } : {}}
+    >
       {/* Header */}
       <div className="p-4 border-b border-zinc-800 bg-[#111111] flex-shrink-0">
         <div className="flex justify-between items-start gap-3">
@@ -921,23 +918,6 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view, isMo
             </div>
           ))}
         </div>
-
-        {/* Mobile: View switcher panel içinde */}
-        {isMobile && (
-          <div className="flex gap-2 mt-3">
-            {UI_VIEWS.map((v) => (
-              <button
-                key={v}
-                onClick={() => updateDesign({ __setView: v })} // parent yakalayacak
-                className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition ${
-                  view === v ? "bg-white text-black border-white" : "border-zinc-700 text-zinc-400"
-                }`}
-              >
-                {v === "front" ? "ÖN" : "ARKA"}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Tabs */}
@@ -961,15 +941,20 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view, isMo
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-4 overflow-y-auto custom-scrollbar bg-[#111111]">
+      <div className="flex-1 p-4 overflow-y-auto custom-scrollbar bg-[#111111]" style={{ touchAction: "pan-y" }}>
         {/* ====== EDITOR ====== */}
         {activeTab === "editor" && (
           <div className="space-y-4">
             <h3 className="text-xs font-bold text-zinc-400">ALAN ÖNİZLEME — {sideLabel}</h3>
+            
+            <div className="bg-zinc-900/50 p-3 rounded border border-zinc-800 text-[10px] text-zinc-400">
+                Görseli köşelerinden tutarak büyütüp küçültebilirsiniz. Ortasından tutarak taşıyabilirsiniz.
+            </div>
 
             <div
-              className="w-full aspect-square bg-zinc-900 rounded-xl border border-zinc-700 relative overflow-hidden"
+              className="w-full aspect-square bg-zinc-900 rounded-xl border border-zinc-700 relative overflow-hidden touch-none"
               ref={previewRef}
+              style={{ touchAction: "none" }}
             >
               <div
                 className="absolute inset-0 opacity-20 pointer-events-none"
@@ -1008,6 +993,7 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view, isMo
                       top: pct(box.y - box.h / 2),
                       width: pct(box.w),
                       height: pct(box.h),
+                      touchAction: "none"
                     }}
                     onPointerDown={(e) => {
                       e.stopPropagation();
@@ -1035,7 +1021,7 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view, isMo
               {sideData?.customText?.text && (
                 <div
                   className="absolute -translate-x-1/2 -translate-y-1/2 px-2 py-1 rounded bg-black/30 border border-white/20"
-                  style={{ left: pct(sideData.textPos.x), top: pct(sideData.textPos.y) }}
+                  style={{ left: pct(sideData.textPos.x), top: pct(sideData.textPos.y), touchAction: "none" }}
                   onPointerDown={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -1320,9 +1306,7 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view, isMo
   );
 }
 
-/* ================= PRINT EXPORT (FINAL) =================
-   ✅ Bu fonksiyon "son ayarlanmış" box konumlarını basar.
-*/
+/* ================= PRINT EXPORT (FINAL) ================= */
 const makePrintDataUrl = async (sideData, opts = {}) => {
   return new Promise((resolve) => {
     if (!sideData) return resolve(null);
@@ -1472,7 +1456,6 @@ export default function TasarimClient() {
 
   const activeDesign = useMemo(() => designs.find((d) => d.id === activeId) || designs[0], [designs, activeId]);
 
-  // URL model param -> sadece boş tasarım varsa modelType değiştir
   useEffect(() => {
     setDesigns((prev) => {
       if (!prev.length) return [createDesign(safeInitial)];
@@ -1489,7 +1472,6 @@ export default function TasarimClient() {
     if (!activeId && designs[0]) setActiveId(designs[0].id);
   }, [activeId, designs]);
 
-  // ✅ EditorPanel mobilde view butonu updateDesign ile "__setView" gönderiyor; burada yakalıyoruz
   const updateActive = (patch) => {
     if (patch?.__setView) {
       setView(patch.__setView);
@@ -1521,8 +1503,16 @@ export default function TasarimClient() {
       return { hidden: false, x: 0, z: 0, rotY: 0, scale: 1.05 };
     }
     if (designId === activeId) return { hidden: false, x: 0, z: 0, rotY: 0, scale: 1.03 };
+    
+    // Yan modellerin sıralanışı
     const others = designs.filter((d) => d.id !== activeId);
     const idx = others.findIndex((d) => d.id === designId);
+    
+    // Mobilde sola istifleme ayarı: Daha yakın ve daha küçük
+    if (isMobile) {
+        return { hidden: false, x: -1.2 - idx * 0.5, z: -0.5, rotY: 0.6, scale: 0.8 };
+    }
+    
     return { hidden: false, x: -2.2 - idx * 0.85, z: -0.35, rotY: 0.85, scale: 0.92 };
   };
 
@@ -1609,17 +1599,17 @@ export default function TasarimClient() {
   const effectiveView = captureView || view;
 
   /* ================= MOBILE DRAWER ================= */
-  const [drawerOpen, setDrawerOpen] = useState(true); // başlangıç açık
+  const [drawerOpen, setDrawerOpen] = useState(true);
   const [drawerY, setDrawerY] = useState(0);
   const dragState = useRef({ dragging: false, startY: 0, startDrawerY: 0 });
 
-  const MAX_OPEN = 0; // translateY
-  const MAX_CLOSED = 280; // px (mobilde kapalı halde aşağı)
+  const MAX_OPEN = 0;
+  const MAX_CLOSED = 280;
 
   useEffect(() => {
     if (!isMobile) return;
-    // ekran boyu değişince kapalı offseti ölçekle
     const h = window.innerHeight;
+    // Panelin kapalı yüksekliğini ayarla
     const closed = Math.min(360, Math.max(220, Math.round(h * 0.30)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile]);
@@ -1650,7 +1640,6 @@ export default function TasarimClient() {
     window.removeEventListener("pointermove", onDrawerPointerMove);
     window.removeEventListener("pointerup", onDrawerPointerUp);
 
-    // snap
     const mid = (MAX_CLOSED - MAX_OPEN) * 0.55;
     setDrawerOpen(drawerY < mid);
   };
@@ -1677,7 +1666,8 @@ export default function TasarimClient() {
 
       {/* 3D AREA */}
       <div className="w-full h-full md:flex-1 relative" style={{ background: SCENE_BG_COLOR }}>
-        {/* ✅ Desktop controls (mobilde KAPALI => overlap fix) */}
+        
+        {/* ================= DESKTOP CONTROLS ================= */}
         {!isMobile && (
           <>
             <div className="absolute bottom-16 md:bottom-24 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 bg-zinc-900/90 backdrop-blur-md p-1 rounded-full border border-zinc-700 shadow-xl">
@@ -1889,7 +1879,7 @@ export default function TasarimClient() {
                   targetRotY={layout.rotY}
                   targetScale={layout.scale}
                   hidden={layout.hidden}
-                  disableDrag={isMobile} // ✅ back scroll bug fix
+                  disableDrag={isMobile}
                 />
               );
             })}
@@ -1909,33 +1899,54 @@ export default function TasarimClient() {
           />
         </Canvas>
 
-        {/* ✅ Mobil: "+" ve model info panel içine al (overlap fix) */}
+        {/* ================= MOBILE CONTROLS (ALTA ALINDI) ================= */}
         {isMobile && (
-          <div className="absolute left-1/2 -translate-x-1/2 z-[80] bottom-[calc(60vh-56px)] pointer-events-auto">
-            <div className="flex items-center gap-2">
+          <div className="absolute left-0 right-0 z-[80] bottom-[140px] px-4 pointer-events-none">
+            
+            {/* Ön/Arka Değiştirici (Mobilde + butonunun üzerine) */}
+            <div className="flex justify-center mb-3 pointer-events-auto">
+               <div className="flex bg-zinc-900/90 backdrop-blur rounded-full p-1 border border-zinc-700 shadow-lg">
+                {UI_VIEWS.map((v) => (
+                    <button
+                    key={v}
+                    onClick={() => setView(v)}
+                    className={`px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
+                        view === v ? "bg-white text-black shadow-md" : "text-zinc-400"
+                    }`}
+                    >
+                    {v === "front" ? "ÖN" : "ARKA"}
+                    </button>
+                ))}
+               </div>
+            </div>
+
+            {/* + Butonu ve Model Bilgisi (En alta) */}
+            <div className="flex items-center justify-center gap-2 pointer-events-auto">
               <button
                 onClick={() => {
                   setPickerStep("root");
                   setPickerOpen(true);
                 }}
-                className="w-11 h-11 rounded-full bg-white text-black flex items-center justify-center font-black shadow-xl active:scale-95 transition"
+                className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center font-black shadow-xl active:scale-95 transition"
                 title="Model Ekle"
               >
-                <Plus size={18} />
+                <Plus size={20} />
               </button>
 
-              <div className="flex items-center gap-2 bg-zinc-900/75 border border-zinc-700 rounded-full px-3 py-2 backdrop-blur">
-                <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">MODELLER: {designs.length}</span>
-                <span className="text-[10px] text-white font-bold uppercase tracking-widest">
-                  SEÇİLİ: {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
-                </span>
+              <div className="flex items-center gap-2 bg-zinc-900/80 border border-zinc-700 rounded-full pl-4 pr-2 py-3 backdrop-blur shadow-lg">
+                <div className="flex flex-col leading-tight">
+                    <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest">SEÇİLİ MODEL ({designs.length})</span>
+                    <span className="text-[11px] text-white font-black uppercase tracking-widest">
+                    {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
+                    </span>
+                </div>
                 {designs.length > 1 && (
                   <button
                     onClick={() => removeModel(activeId)}
-                    className="ml-1 w-7 h-7 rounded-full bg-zinc-800 active:scale-95 transition flex items-center justify-center"
+                    className="ml-2 w-8 h-8 rounded-full bg-zinc-800 active:scale-95 transition flex items-center justify-center text-zinc-300 hover:text-white"
                     title="Seçili modeli kaldır"
                   >
-                    <X size={14} />
+                    <X size={16} />
                   </button>
                 )}
               </div>
@@ -1950,15 +1961,15 @@ export default function TasarimClient() {
             style={{
               transform: `translateY(${drawerY}px)`,
               transition: dragState.current.dragging ? "none" : "transform 220ms ease",
-              maxHeight: "60vh", // ✅ modeli kapatmasın
+              maxHeight: "60vh",
               height: "60vh",
               paddingBottom: "env(safe-area-inset-bottom)",
             }}
           >
-            <div className="w-full h-full rounded-t-3xl overflow-hidden border-t border-zinc-700 shadow-2xl bg-[#111111]">
+            <div className="w-full h-full rounded-t-3xl overflow-hidden border-t border-zinc-700 shadow-2xl bg-[#111111] flex flex-col">
               {/* Handle */}
               <div
-                className="w-full flex items-center justify-center py-3 border-b border-zinc-800 bg-[#0f0f0f]"
+                className="w-full flex items-center justify-center py-3 border-b border-zinc-800 bg-[#0f0f0f] flex-shrink-0"
                 onPointerDown={onDrawerPointerDown}
                 style={{ touchAction: "none" }}
               >
