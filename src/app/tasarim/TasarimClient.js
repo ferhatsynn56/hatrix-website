@@ -280,11 +280,20 @@ function CameraController({ view, count }) {
 }
 
 /* ================= CANVAS TEXTURE ================= */
-function useDesignCanvas(sideData, opts = {}) {
+function useDesignCanvas(sideData, opts = {}, isMobile) {
   const [canvas, setCanvas] = useState(null);
+  
+  // ✅ Performans Optimizasyonu: Base64 string'i her renderda JSON.stringify yapmamak için.
+  // URL'i dependency olarak kullanmak yerine sadece ID ve pozisyonları kullanıyoruz.
+  // İçerik değişirse (yeni resim yüklenirse) yine çalışır çünkü yeni ID oluşur.
   const logos = sideData?.logos || [];
+  const logoSignature = logos.map(l => `${l.id}_${l.box.x.toFixed(3)}_${l.box.y.toFixed(3)}_${l.box.w.toFixed(3)}_${l.box.h.toFixed(3)}`).join('|');
   const customText = sideData?.customText;
-  const textPos = sideData?.textPos || { x: 0.5, y: 0.85 };
+  const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}`;
+  const posSignature = `${sideData?.textPos?.x}_${sideData?.textPos?.y}`;
+
+  // Mobilde çözünürlüğü düşür
+  const CANVAS_SIZE = isMobile ? 512 : 1024;
 
   useEffect(() => {
     const hasContent = logos.length > 0 || (customText?.text || "").trim();
@@ -294,8 +303,8 @@ function useDesignCanvas(sideData, opts = {}) {
     }
 
     const c = document.createElement("canvas");
-    c.width = 1024;
-    c.height = 1024;
+    c.width = CANVAS_SIZE;
+    c.height = CANVAS_SIZE;
     const ctx = c.getContext("2d");
     if (!ctx) return;
 
@@ -319,9 +328,12 @@ function useDesignCanvas(sideData, opts = {}) {
       const t = customText || {};
       if (!t.text) return;
 
-      const fontSize = clamp(parseInt(t.size || 150, 10), 30, 420);
+      // Font size'ı canvas boyutuna göre ölçekle
+      const scaleFactor = CANVAS_SIZE / 1024;
+      const fontSize = clamp(parseInt(t.size || 150, 10), 30, 420) * scaleFactor;
+      
       ctx.save();
-      ctx.translate(textPos.x * 1024, textPos.y * 1024);
+      ctx.translate(sideData.textPos.x * CANVAS_SIZE, sideData.textPos.y * CANVAS_SIZE);
       ctx.scale(clamp(t.scaleX || 1, 0.3, 3), clamp(t.scaleY || 1, 0.3, 3));
       ctx.font = `900 ${fontSize}px Arial`;
       ctx.fillStyle = t.color || "#ffffff";
@@ -334,17 +346,17 @@ function useDesignCanvas(sideData, opts = {}) {
     const clearCenterStripe = () => {
       const gap01 = opts?.clearCenterStripe01;
       if (!gap01) return;
-      const stripeW = Math.round(1024 * gap01);
-      const x0 = 512 - Math.round(stripeW / 2);
+      const stripeW = Math.round(CANVAS_SIZE * gap01);
+      const x0 = (CANVAS_SIZE / 2) - Math.round(stripeW / 2);
       ctx.save();
       ctx.globalCompositeOperation = "destination-out";
       ctx.fillStyle = "rgba(0,0,0,1)";
-      ctx.fillRect(x0, 0, stripeW, 1024);
+      ctx.fillRect(x0, 0, stripeW, CANVAS_SIZE);
       ctx.restore();
     };
 
     const drawAll = async () => {
-      ctx.clearRect(0, 0, 1024, 1024);
+      ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
       for (const l of logos) {
         const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
@@ -353,10 +365,10 @@ function useDesignCanvas(sideData, opts = {}) {
           img.crossOrigin = "anonymous";
           img.src = l.url;
           img.onload = () => {
-            const bw = box.w * 1024;
-            const bh = box.h * 1024;
-            const bx = box.x * 1024 - bw / 2;
-            const by = box.y * 1024 - bh / 2;
+            const bw = box.w * CANVAS_SIZE;
+            const bh = box.h * CANVAS_SIZE;
+            const bx = box.x * CANVAS_SIZE - bw / 2;
+            const by = box.y * CANVAS_SIZE - bh / 2;
             ctx.drawImage(img, bx, by, bw, bh);
             res();
           };
@@ -372,15 +384,11 @@ function useDesignCanvas(sideData, opts = {}) {
     drawAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    JSON.stringify(sideData?.logos || []),
-    sideData?.customText?.text,
-    sideData?.customText?.color,
-    sideData?.customText?.size,
-    sideData?.customText?.scaleX,
-    sideData?.customText?.scaleY,
-    sideData?.textPos?.x,
-    sideData?.textPos?.y,
+    logoSignature, // ✅ Sadece gerekli veriler değişince çalışır
+    textSignature,
+    posSignature,
     opts?.clearCenterStripe01,
+    CANVAS_SIZE
   ]);
 
   return canvas;
@@ -421,7 +429,7 @@ function pickDecalHostMesh(root, modelType) {
 function makeCanvasTexture(canvas) {
   if (!canvas) return null;
   const tex = new THREE.CanvasTexture(canvas);
-  tex.anisotropy = 8;
+  tex.anisotropy = 4; // Mobilde performans için 8'den 4'e düşürüldü
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.flipY = false;
   tex.wrapS = THREE.ClampToEdgeWrapping;
@@ -710,6 +718,7 @@ function DesignModelItem({
   targetScale,
   hidden,
   disableDrag,
+  isMobile
 }) {
   const groupRef = useRef(null);
   const userRotRef = useRef({ x: 0, y: 0 });
@@ -739,8 +748,8 @@ function DesignModelItem({
   const isZipper = design.modelType === "fermuarli";
   const gap01 = MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
 
-  const frontCanvas = useDesignCanvas(design.sides.front || EMPTY_SIDE, isZipper ? { clearCenterStripe01: gap01 } : {});
-  const backCanvas = useDesignCanvas(design.sides.back || EMPTY_SIDE);
+  const frontCanvas = useDesignCanvas(design.sides.front || EMPTY_SIDE, isZipper ? { clearCenterStripe01: gap01 } : {}, isMobile);
+  const backCanvas = useDesignCanvas(design.sides.back || EMPTY_SIDE, {}, isMobile);
 
   if (hidden) return null;
 
@@ -810,7 +819,7 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view, isMo
   const gap01 = MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
 
   const currentSide = view === "back" ? "back" : "front";
-  const sideData = useMemo(() => design.sides[currentSide] || createSideData(), [design, currentSide]);
+  const sideData = useMemo(() => design?.sides?.[currentSide] || createSideData(), [design, currentSide]);
 
   const [activeTab, setActiveTab] = useState("upload");
 
@@ -819,12 +828,14 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view, isMo
     const sideHasAny = (sideData?.logos?.length ?? 0) > 0 || ((sideData?.customText?.text ?? "").trim().length > 0);
     setActiveTab(sideHasAny ? "editor" : "upload");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [design.id, currentSide]);
+  }, [design?.id, currentSide]);
 
   const previewRef = useRef(null);
   const sizes = ["S", "M", "L", "XL"];
   const colorPresets = BRAND_COLORS;
   const stringPresets = ["#e6e6e6", "#ffffff", "#000000", "#c8b08a", "#a0a0a0"];
+
+  if (!design) return null;
 
   const sideLabel = currentSide === "front" ? "ÖN" : "ARKA";
 
@@ -1576,6 +1587,8 @@ export default function TasarimClient() {
   }, []);
 
   const safeInitial = useMemo(() => {
+    // Güvenlik: searchParams null olabilir
+    if (!searchParams) return "tshirt";
     const initialModel = (searchParams.get("model") || searchParams.get("product") || "tshirt").toLowerCase();
     return AVAILABLE_MODELS.includes(initialModel) ? initialModel : "tshirt";
   }, [searchParams]);
@@ -2023,6 +2036,7 @@ export default function TasarimClient() {
                   targetScale={layout.scale}
                   hidden={layout.hidden}
                   disableDrag={isMobile}
+                  isMobile={isMobile}
                 />
               );
             })}
