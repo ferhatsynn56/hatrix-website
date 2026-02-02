@@ -1,8 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: ["iyzipay"],
-  },
+  // Next.js 15+ sürümünde bu ayar 'experimental' içinden buraya taşındı:
+  serverExternalPackages: ["iyzipay"],
 };
 
 export default nextConfig;
