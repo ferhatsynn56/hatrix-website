@@ -19,6 +19,8 @@ import {
   Image as ImageIcon,
   ChevronUp,
   ChevronDown,
+  Check,
+  RotateCcw
 } from "lucide-react";
 
 import * as THREE from "three";
@@ -812,6 +814,7 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view, isMo
 
   const [activeTab, setActiveTab] = useState("upload");
 
+  // Eğer içerik varsa otomatik editor sekmesine geç
   useEffect(() => {
     const sideHasAny = (sideData?.logos?.length ?? 0) > 0 || ((sideData?.customText?.text ?? "").trim().length > 0);
     setActiveTab(sideHasAny ? "editor" : "upload");
@@ -858,6 +861,129 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view, isMo
   const logos = sideData?.logos || [];
   const activeLogo = logos.find((l) => l.id === sideData.activeLogoId) || logos[0] || null;
 
+  // ✅ MOBİL ODAKLANMIŞ MOD (FOCUS MODE)
+  // Eğer mobildeysek ve "Yerleşim" (editor) sekmesindeysek, paneli basitleştir.
+  const isFocusMode = isMobile && activeTab === "editor";
+
+  if (isFocusMode) {
+    return (
+      <div className="w-full h-full flex flex-col bg-[#111111]" style={{ touchAction: "none" }}>
+        {/* Odak Modu Header */}
+        <div className="flex items-center justify-between p-3 border-b border-zinc-800 bg-[#0f0f0f]">
+          <h3 className="text-sm font-bold text-white uppercase tracking-wider">Yerleşim Ayarı</h3>
+          <button
+            onClick={() => setActiveTab("upload")} // Geri dön (Upload sekmesine veya ana ekrana)
+            className="px-4 py-1.5 bg-green-600 text-white text-xs font-black rounded-full shadow-lg active:scale-95 transition flex items-center gap-1"
+          >
+            <Check size={14} /> TAMAM
+          </button>
+        </div>
+
+        {/* Odak Modu İçerik (Büyük Preview) */}
+        <div className="flex-1 flex flex-col items-center justify-center p-4 bg-zinc-900/30">
+          <p className="text-[10px] text-zinc-400 mb-2">Görseli köşelerden boyutlandır, ortadan taşı.</p>
+          
+          <div
+            className="w-full max-w-[320px] aspect-square bg-zinc-900 rounded-xl border border-zinc-600 relative overflow-hidden shadow-2xl touch-none"
+            ref={previewRef}
+            style={{ touchAction: "none" }}
+          >
+            <div
+              className="absolute inset-0 opacity-20 pointer-events-none"
+              style={{
+                backgroundImage: "radial-gradient(#fff 1px, transparent 1px)",
+                backgroundSize: "10px 10px",
+              }}
+            />
+
+             {/* Fermuar Çizgisi */}
+             {isZipperFront && (
+                <div
+                  className="absolute top-0 bottom-0 pointer-events-none"
+                  style={{
+                    left: "50%",
+                    width: `${Math.round(gap01 * 100)}%`,
+                    transform: "translateX(-50%)",
+                    background: "rgba(255,255,255,0.07)",
+                    borderLeft: "1px dashed rgba(255,255,255,0.20)",
+                    borderRight: "1px dashed rgba(255,255,255,0.20)",
+                  }}
+                />
+              )}
+
+            {/* Logolar */}
+            {(logos || []).map((l) => {
+              const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
+              const isSel = (sideData.activeLogoId || logos[0]?.id) === l.id;
+              return (
+                <div
+                  key={l.id}
+                  className={`absolute rounded-lg overflow-hidden border ${isSel ? "border-white" : "border-white/10"}`}
+                  style={{
+                    left: pct(box.x - box.w / 2),
+                    top: pct(box.y - box.h / 2),
+                    width: pct(box.w),
+                    height: pct(box.h),
+                    touchAction: "none"
+                  }}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    updateSide({ activeLogoId: l.id });
+                  }}
+                >
+                  <img src={l.url} alt="" className="w-full h-full object-fill pointer-events-none" />
+                </div>
+              );
+            })}
+
+            {/* Resize Çerçevesi */}
+            {activeLogo && (
+              <ResizeFrame
+                box={activeLogo.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 }}
+                containerRef={previewRef}
+                onChange={(next) => {
+                  const nextLogos = (logos || []).map((l) => (l.id === activeLogo.id ? { ...l, box: next } : l));
+                  updateSide({ logos: nextLogos });
+                }}
+              />
+            )}
+            
+            {/* Yazı */}
+            {sideData?.customText?.text && (
+                <div
+                  className="absolute -translate-x-1/2 -translate-y-1/2 px-2 py-1 rounded bg-black/30 border border-white/20"
+                  style={{ left: pct(sideData.textPos.x), top: pct(sideData.textPos.y), touchAction: "none" }}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const rect = previewRef.current.getBoundingClientRect();
+                    const move = (ev) =>
+                      updateSide({
+                        textPos: {
+                          x: clamp01((ev.clientX - rect.left) / rect.width),
+                          y: clamp01((ev.clientY - rect.top) / rect.height),
+                        },
+                      });
+                    const up = () => {
+                      window.removeEventListener("pointermove", move);
+                      window.removeEventListener("pointerup", up);
+                    };
+                    window.addEventListener("pointermove", move);
+                    window.addEventListener("pointerup", up);
+                  }}
+                >
+                  <span className="text-xs font-black" style={{ color: sideData.customText.color }}>
+                    {sideData.customText.text}
+                  </span>
+                </div>
+              )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- NORMAL PANEL GÖRÜNÜMÜ ---
   return (
     <div 
         className={`w-full ${isMobile ? "h-full flex flex-col" : "md:w-[420px]"} bg-[#111111] z-20 shadow-2xl border-t md:border-t-0 md:border-l border-zinc-800`}
@@ -942,8 +1068,8 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view, isMo
 
       {/* Content */}
       <div className="flex-1 p-4 overflow-y-auto custom-scrollbar bg-[#111111]" style={{ touchAction: "pan-y" }}>
-        {/* ====== EDITOR ====== */}
-        {activeTab === "editor" && (
+        {/* ====== EDITOR (Normal Masaüstü Görünüm veya Mobilde Önizleme) ====== */}
+        {activeTab === "editor" && !isMobile && (
           <div className="space-y-4">
             <h3 className="text-xs font-bold text-zinc-400">ALAN ÖNİZLEME — {sideLabel}</h3>
             
@@ -1054,6 +1180,14 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view, isMo
             </p>
           </div>
         )}
+        
+        {/* Mobilde editor tabı seçiliyse ama focus modu handle edilmediyse (fallback) */}
+        {activeTab === "editor" && isMobile && (
+            <div className="flex flex-col items-center justify-center h-40 text-center">
+                <p className="text-zinc-500 mb-2">Ayarlama Modu</p>
+                <button onClick={()=>setActiveTab("upload")} className="px-4 py-2 bg-zinc-800 rounded">Geri Dön</button>
+            </div>
+        )}
 
         {/* ====== UPLOAD (BASKI) ====== */}
         {activeTab === "upload" && (
@@ -1104,6 +1238,15 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view, isMo
 
             {(sideData?.logos || []).length > 0 && (
               <div className="space-y-2">
+                <div className="flex gap-2">
+                    <button 
+                         onClick={() => setActiveTab("editor")}
+                         className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-black uppercase flex items-center justify-center gap-2"
+                    >
+                        <Move size={14} /> Konum/Boyut Ayarla
+                    </button>
+                </div>
+                
                 <button
                   onClick={() => {
                     const currentId = sideData.activeLogoId || sideData.logos?.[0]?.id;
@@ -1270,7 +1413,7 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view, isMo
         )}
       </div>
 
-      {/* Footer */}
+      {/* Footer (Sepete Ekle) - Her zaman görünür */}
       <div className="p-4 border-t border-zinc-800 bg-[#111111] flex-shrink-0">
         <div className="mb-3 p-3 bg-zinc-900/50 rounded-xl border border-zinc-800">
           <div className="flex justify-between items-center">
@@ -1889,7 +2032,7 @@ export default function TasarimClient() {
             makeDefault
             enableZoom
             enablePan={false}
-            enableRotate={false}
+            enableRotate={true} // ✅ Model artık dönebiliyor
             enableDamping
             dampingFactor={0.08}
             zoomSpeed={0.9}
@@ -1899,11 +2042,11 @@ export default function TasarimClient() {
           />
         </Canvas>
 
-        {/* ================= MOBILE CONTROLS (ALTA ALINDI) ================= */}
-        {isMobile && (
-          <div className="absolute left-0 right-0 z-[80] bottom-[140px] px-4 pointer-events-none">
+        {/* ================= MOBILE CONTROLS (YUKARI ALINDI) ================= */}
+        {isMobile && !((activeTab === "editor") && isMobile) && (
+          <div className="absolute left-0 right-0 z-[80] bottom-[340px] px-4 pointer-events-none">
             
-            {/* Ön/Arka Değiştirici (Mobilde + butonunun üzerine) */}
+            {/* Ön/Arka Değiştirici */}
             <div className="flex justify-center mb-3 pointer-events-auto">
                <div className="flex bg-zinc-900/90 backdrop-blur rounded-full p-1 border border-zinc-700 shadow-lg">
                 {UI_VIEWS.map((v) => (
@@ -1920,7 +2063,7 @@ export default function TasarimClient() {
                </div>
             </div>
 
-            {/* + Butonu ve Model Bilgisi (En alta) */}
+            {/* + Butonu ve Model Bilgisi */}
             <div className="flex items-center justify-center gap-2 pointer-events-auto">
               <button
                 onClick={() => {
@@ -1967,21 +2110,23 @@ export default function TasarimClient() {
             }}
           >
             <div className="w-full h-full rounded-t-3xl overflow-hidden border-t border-zinc-700 shadow-2xl bg-[#111111] flex flex-col">
-              {/* Handle */}
-              <div
-                className="w-full flex items-center justify-center py-3 border-b border-zinc-800 bg-[#0f0f0f] flex-shrink-0"
-                onPointerDown={onDrawerPointerDown}
-                style={{ touchAction: "none" }}
-              >
-                <div className="w-12 h-1.5 rounded-full bg-zinc-600" />
-                <button
-                  onClick={() => setDrawerOpen((s) => !s)}
-                  className="ml-3 text-zinc-300 hover:text-white"
-                  aria-label="panel toggle"
+              {/* Handle - Sadece focus modunda değilse göster */}
+              {!((activeTab === "editor") && isMobile) && (
+                <div
+                    className="w-full flex items-center justify-center py-3 border-b border-zinc-800 bg-[#0f0f0f] flex-shrink-0"
+                    onPointerDown={onDrawerPointerDown}
+                    style={{ touchAction: "none" }}
                 >
-                  {drawerOpen ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-                </button>
-              </div>
+                    <div className="w-12 h-1.5 rounded-full bg-zinc-600" />
+                    <button
+                    onClick={() => setDrawerOpen((s) => !s)}
+                    className="ml-3 text-zinc-300 hover:text-white"
+                    aria-label="panel toggle"
+                    >
+                    {drawerOpen ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                    </button>
+                </div>
+              )}
 
               {/* Panel content */}
               {renderPanel}
