@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState, Suspense, useRef, useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
@@ -25,21 +25,18 @@ import {
   Plus,
   X,
   Image as ImageIcon,
+  ChevronDown,
 } from "lucide-react";
 
 import * as THREE from "three";
-
-// ✅ ÜÇGEN (NORMAL) TEMİZLİĞİ + SKINNED CLONE
-import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 
 import { useCart } from "@/context/CartContext";
 
-/* ================= LOADER (SUSPENSE FALLBACK) ================= */
+/* ================= LOADER ================= */
 function ThreeDotsLoader() {
   const { active } = useProgress();
   if (!active) return null;
-
   return (
     <Html center>
       <div
@@ -74,45 +71,70 @@ function ThreeDotsLoader() {
 /* ================= PATH HELPERS ================= */
 const toSafeUrl = (p) => (typeof window !== "undefined" ? encodeURI(p) : p);
 
-/* ================= MODEL PATHS ================= */
+/* ================= MODELS ================= */
 const MODEL_PATHS = {
-  tshirt: "/models/DüzTshirt.glb",
-  hoodie: "/models/hoodie.glb",
-  sweatshirt: "/models/DüzSweat.glb",
-  "hoodie-cepli": "/models/hoodieCepli.glb",
-  "hoodie-ceplipli": "/models/hoodieCepliIpli.glb",
-  "oversize-sweat": "/models/OversizeSweat.glb",
+  // tshirt/sweat
+  tshirt: "/models/NormalTshirt.glb",
+  sweatshirt: "/models/NormalSweat.glb",
   "oversize-tshirt": "/models/OversizeTshirt.glb",
-  fermuarli: "/models/Fermuarlı.glb",
+  "oversize-sweat": "/models/OversizeSweat.glb",
+
+  // hoodie - normal
+  hoodie: "/models/Hoodie.glb",
+  "hoodie-ipli": "/models/HoodieIpli.glb",
+  "hoodie-cepli": "/models/HoodieCepli.glb",
+  "hoodie-ceplipli": "/models/HoodieCepliIpli.glb",
+
+  // hoodie - oversize
+  "hoodie-oversize": "/models/HoodieOversize.glb",
+  "hoodie-oversize-ipli": "/models/HoodieOversizeIpli.glb",
+  "hoodie-oversize-cepli": "/models/HoodieOversizeCepli.glb",
+  "hoodie-oversize-ceplipli": "/models/HoodieOversizeCepliIpli.glb",
+
+  // zipper
+  fermuarli: "/models/Fermuarli.glb",
 };
 
 const AVAILABLE_MODELS = [
   "tshirt",
-  "hoodie",
   "sweatshirt",
+  "oversize-tshirt",
+  "oversize-sweat",
+  "hoodie",
+  "hoodie-ipli",
   "hoodie-cepli",
   "hoodie-ceplipli",
-  "oversize-sweat",
-  "oversize-tshirt",
+  "hoodie-oversize",
+  "hoodie-oversize-ipli",
+  "hoodie-oversize-cepli",
+  "hoodie-oversize-ceplipli",
   "fermuarli",
 ];
 
 const MODEL_LABELS = {
-  tshirt: "Düz Tişört",
+  tshirt: "Normal Tişört",
+  sweatshirt: "Normal Sweat",
+  "oversize-tshirt": "Oversize Tişört",
+  "oversize-sweat": "Oversize Sweat",
+
   hoodie: "Hoodie",
-  sweatshirt: "Düz Sweat",
+  "hoodie-ipli": "Hoodie İpli",
   "hoodie-cepli": "Hoodie Cepli",
   "hoodie-ceplipli": "Hoodie Cepli İpli",
-  "oversize-sweat": "Oversize Sweat",
-  "oversize-tshirt": "Oversize Tişört",
+
+  "hoodie-oversize": "Oversize Hoodie",
+  "hoodie-oversize-ipli": "Oversize Hoodie İpli",
+  "hoodie-oversize-cepli": "Oversize Hoodie Cepli",
+  "hoodie-oversize-ceplipli": "Oversize Hoodie Cepli İpli",
+
   fermuarli: "Fermuarlı",
 };
 
 /* ================= PRINT BOUNDS ================= */
 const MODEL_PRINT_BOUNDS = {
   tshirt: {
-    front: { xMin: -0.188, xMax: 0.188, yTop: 0.280, yBot: -0.3, z: 0.147, rotY: 0 },
-    back: { xMin: -0.188, xMax: 0.188, yTop: 0.280, yBot: -0.3, z: -0.148, rotY: Math.PI },
+    front: { xMin: -0.160, xMax: 0.160, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
+    back: { xMin: -0.160, xMax: 0.160, yTop: 0.310, yBot: -0.32, z: -0.148, rotY: Math.PI },
     sleeveL: { xMin: -0.075, xMax: 0.075, yTop: 0.170, yBot: 0.030, z: 0.060, rotY: Math.PI / 2, rotZ: Math.PI / 2, x: -0.33 },
     sleeveR: { xMin: -0.075, xMax: 0.075, yTop: 0.170, yBot: 0.030, z: 0.060, rotY: -Math.PI / 2, rotZ: -Math.PI / 2, x: 0.33 },
   },
@@ -123,38 +145,43 @@ const MODEL_PRINT_BOUNDS = {
     sleeveR: { xMin: -0.085, xMax: 0.085, yTop: 0.175, yBot: 0.035, z: 0.065, rotY: -Math.PI / 2, rotZ: -Math.PI / 2, x: 0.37 },
   },
   sweatshirt: {
-    front: { xMin: -0.190, xMax: 0.190, yTop: 0.280, yBot: -0.3, z: 0.139, rotY: 0 },
-    back: { xMin: -0.190, xMax: 0.190, yTop: 0.280, yBot: -0.3, z: -0.140, rotY: Math.PI },
+    front: { xMin: -0.150, xMax: 0.180, yTop: 0.280, yBot: -0.25, z: 0.139, rotY: 0 },
+    back: { xMin: -0.150, xMax: 0.190, yTop: 0.310, yBot: -0.25, z: -0.140, rotY: Math.PI },
     sleeveL: { xMin: -0.080, xMax: 0.080, yTop: 0.175, yBot: 0.030, z: 0.060, rotY: Math.PI / 2, rotZ: Math.PI / 2, x: -0.36 },
     sleeveR: { xMin: -0.080, xMax: 0.080, yTop: 0.175, yBot: 0.030, z: 0.060, rotY: -Math.PI / 2, rotZ: -Math.PI / 2, x: 0.36 },
   },
   "oversize-sweat": {
-    front: { xMin: -0.187, xMax: 0.187, yTop: 0.280, yBot: -0.3, z: 0.138, rotY: 0 },
-    back: { xMin: -0.187, xMax: 0.187, yTop: 0.280, yBot: -0.3, z: -0.138, rotY: Math.PI },
+    front: { xMin: -0.168, xMax: 0.168, yTop: 0.275, yBot: -0.26, z: 0.138, rotY: 0 },
+    back: { xMin: -0.170, xMax: 0.170, yTop: 0.310, yBot: -0.26, z: -0.138, rotY: Math.PI },
     sleeveL: { xMin: -0.085, xMax: 0.085, yTop: 0.180, yBot: 0.040, z: 0.060, rotY: Math.PI / 2, rotZ: Math.PI / 2, x: -0.38 },
     sleeveR: { xMin: -0.085, xMax: 0.085, yTop: 0.180, yBot: 0.040, z: 0.060, rotY: -Math.PI / 2, rotZ: -Math.PI / 2, x: 0.38 },
   },
   hoodie: {
-    front: { xMin: -0.146, xMax: 0.145, yTop: 0.280, yBot: -0.3, z: 0.104, rotY: 0 },
-    back: { xMin: -0.146, xMax: 0.145, yTop: 0.280, yBot: -0.3, z: -0.104, rotY: Math.PI },
+    front: { xMin: -0.130, xMax: 0.130, yTop: 0.130, yBot: -0.27, z: 0.104, rotY: 0 },
+    back: { xMin: -0.125, xMax: 0.125, yTop: 0.150, yBot: -0.287, z: -0.104, rotY: Math.PI },
     sleeveL: { xMin: -0.085, xMax: 0.085, yTop: 0.190, yBot: 0.040, z: 0.060, rotY: Math.PI / 2, rotZ: Math.PI / 2, x: -0.41 },
     sleeveR: { xMin: -0.085, xMax: 0.085, yTop: 0.190, yBot: 0.040, z: 0.060, rotY: -Math.PI / 2, rotZ: -Math.PI / 2, x: 0.41 },
   },
   "hoodie-cepli": {
-    front: { xMin: -0.150, xMax: 0.149, yTop: 0.280, yBot: -0.3, z: 0.112, rotY: 0 },
-    back: { xMin: -0.150, xMax: 0.149, yTop: 0.280, yBot: -0.3, z: -0.113, rotY: Math.PI },
+    front: { xMin: -0.130, xMax: 0.130, yTop: 0.130, yBot: -0.135, z: 0.112, rotY: 0 },
+    back: { xMin: -0.125, xMax: 0.125, yTop: 0.150, yBot: -0.3, z: -0.113, rotY: Math.PI },
     sleeveL: { xMin: -0.085, xMax: 0.085, yTop: 0.195, yBot: 0.045, z: 0.060, rotY: Math.PI / 2, rotZ: Math.PI / 2, x: -0.42 },
     sleeveR: { xMin: -0.085, xMax: 0.085, yTop: 0.195, yBot: 0.045, z: 0.060, rotY: -Math.PI / 2, rotZ: -Math.PI / 2, x: 0.42 },
   },
   "hoodie-ceplipli": {
-    front: { xMin: -0.146, xMax: 0.145, yTop: 0.280, yBot: -0.3, z: 0.104, rotY: 0 },
-    back: { xMin: -0.146, xMax: 0.145, yTop: 0.280, yBot: -0.3, z: -0.104, rotY: Math.PI },
+    front: { xMin: -0.135, xMax: 0.135, yTop: 0.110, yBot: -0.118, z: 0.112, rotY: 0 },
+    back: { xMin: -0.125, xMax: 0.125, yTop: 0.130, yBot: -0.280, z: -0.113, rotY: Math.PI },
     sleeveL: { xMin: -0.085, xMax: 0.085, yTop: 0.190, yBot: 0.040, z: 0.060, rotY: Math.PI / 2, rotZ: Math.PI / 2, x: -0.41 },
     sleeveR: { xMin: -0.085, xMax: 0.085, yTop: 0.190, yBot: 0.040, z: 0.060, rotY: -Math.PI / 2, rotZ: -Math.PI / 2, x: 0.41 },
   },
   fermuarli: {
-    front: { xMin: -0.177, xMax: 0.176, yTop: 0.280, yBot: -0.3, z: 0.131, rotY: 0 },
-    back: { xMin: -0.177, xMax: 0.176, yTop: 0.280, yBot: -0.3, z: -0.132, rotY: Math.PI },
+    front: {
+      xMin: -0.160, xMax: 0.165,
+      yTop: 0.220, yBot: -0.24,
+      z: 0.131, rotY: 0.1,
+      zipGap01: 0.08,
+    },
+    back: { xMin: -0.155, xMax: 0.155, yTop: 0.280, yBot: -0.24, z: -0.132, rotY: Math.PI },
     sleeveL: { xMin: -0.085, xMax: 0.085, yTop: 0.190, yBot: 0.040, z: 0.060, rotY: Math.PI / 2, rotZ: Math.PI / 2, x: -0.41 },
     sleeveR: { xMin: -0.085, xMax: 0.085, yTop: 0.190, yBot: 0.040, z: 0.060, rotY: -Math.PI / 2, rotZ: -Math.PI / 2, x: 0.41 },
   },
@@ -171,11 +198,9 @@ const CM_LABELS = {
   fermuarli: { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
 };
 
-/* ================= FİYAT SISTEMI ================= */
+/* ================= PRICE ================= */
 const BASE_PRICE = 750;
 const EXTRA_SIDE_PRICE = 150;
-
-const SCENE_BG_COLOR = "#252525";
 
 /* ================= HELPERS ================= */
 const makeId = () => `${Date.now()}_${Math.random().toString(16).slice(2)}`;
@@ -183,14 +208,7 @@ const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const clamp01 = (v) => clamp(v, 0, 1);
 const pct = (v01) => `${Math.round(v01 * 100)}%`;
 
-const hasSideContent = (sd) => {
-  if (!sd) return false;
-  if (Array.isArray(sd.logos) && sd.logos.length > 0) return true;
-  if (sd.logoUrl) return true;
-  if ((sd.customText?.text || "").trim()) return true;
-  return false;
-};
-
+/* ================= STATE SHAPES ================= */
 const createSideData = () => ({
   logos: [],
   activeLogoId: null,
@@ -198,10 +216,20 @@ const createSideData = () => ({
   textPos: { x: 0.5, y: 0.85 },
 });
 
+const EMPTY_SIDE = createSideData();
+
+const hasSideContent = (sd) => {
+  if (!sd) return false;
+  if (Array.isArray(sd.logos) && sd.logos.length > 0) return true;
+  if ((sd.customText?.text || "").trim()) return true;
+  return false;
+};
+
 const createDesign = (type = "tshirt") => ({
   id: makeId(),
   modelType: type,
   color: "#050505",
+  stringColor: "#e6e6e6",
   size: "M",
   sides: {
     front: createSideData(),
@@ -211,7 +239,8 @@ const createDesign = (type = "tshirt") => ({
   },
 });
 
-const getActiveSides = (design) => Object.entries(design.sides).filter(([_, sd]) => hasSideContent(sd));
+const getActiveSides = (design) =>
+  Object.entries(design.sides).filter(([_, sd]) => hasSideContent(sd));
 
 const getPrice = (design) => {
   const activeSides = getActiveSides(design);
@@ -219,20 +248,39 @@ const getPrice = (design) => {
   return BASE_PRICE + (activeSides.length - 1) * EXTRA_SIDE_PRICE;
 };
 
+/* ================= MOBILE DETECT ================= */
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const calc = () => setIsMobile(window.innerWidth < breakpoint);
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
+  }, [breakpoint]);
+  return isMobile;
+}
+
+/* ================= INVALIDATE BRIDGE ================= */
+function InvalidateBridge({ onReady }) {
+  const { invalidate } = useThree();
+  useEffect(() => {
+    onReady?.(invalidate);
+  }, [invalidate, onReady]);
+  return null;
+}
+
 /* ================= SCENE BACKGROUND ================= */
 function SceneBackgroundLock() {
   const { gl, scene } = useThree();
-  const bg = useMemo(() => new THREE.Color(SCENE_BG_COLOR), []);
-
+  const bg = useMemo(() => new THREE.Color("#0b0b0b"), []);
   useEffect(() => {
     scene.background = bg;
     gl.setClearColor(bg, 1);
   }, [bg, gl, scene]);
-
   return null;
 }
 
-/* ================= KAMERA KONTROLCÜSÜ ================= */
+/* ================= CAMERA CONTROLLER ================= */
 function CameraController({ view, count }) {
   const isAnimating = useRef(false);
   const extra = Math.min(2.5, Math.max(0, (count - 1) * 0.8));
@@ -264,8 +312,8 @@ function CameraController({ view, count }) {
   return null;
 }
 
-/* ================= CANVAS TEXTURE (per-side) ================= */
-function useDesignCanvas(sideData) {
+/* ================= CANVAS TEXTURE: per-side ================= */
+function useDesignCanvas(sideData, opts = {}) {
   const [canvas, setCanvas] = useState(null);
 
   const logos = sideData?.logos || [];
@@ -282,7 +330,6 @@ function useDesignCanvas(sideData) {
     const c = document.createElement("canvas");
     c.width = 1024;
     c.height = 1024;
-
     const ctx = c.getContext("2d");
     if (!ctx) return;
 
@@ -290,14 +337,13 @@ function useDesignCanvas(sideData) {
       const out = document.createElement("canvas");
       out.width = c.width;
       out.height = c.height;
-
       const octx = out.getContext("2d");
       if (!octx) return;
 
+      // decal uyumu için flip
       octx.translate(0, out.height);
       octx.scale(1, -1);
       octx.drawImage(c, 0, 0);
-
       setCanvas(out);
     };
 
@@ -306,7 +352,6 @@ function useDesignCanvas(sideData) {
       if (!t.text) return;
 
       const fontSize = clamp(parseInt(t.size || 150, 10), 30, 420);
-
       ctx.save();
       ctx.translate(textPos.x * 1024, textPos.y * 1024);
       ctx.scale(clamp(t.scaleX || 1, 0.3, 3), clamp(t.scaleY || 1, 0.3, 3));
@@ -315,6 +360,20 @@ function useDesignCanvas(sideData) {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(t.text, 0, 0);
+      ctx.restore();
+    };
+
+    const clearCenterStripe = () => {
+      const gap01 = opts?.clearCenterStripe01;
+      if (!gap01) return;
+      const stripeW = Math.round(1024 * gap01);
+      const x0 = 512 - Math.round(stripeW / 2);
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.fillStyle = "rgba(0,0,0,1)";
+      // ✅ sadece üst bölgeyi boş bırak (senin son istediğin)
+      const yPx = 250;
+      ctx.fillRect(x0, 0, stripeW, yPx);
       ctx.restore();
     };
 
@@ -340,28 +399,30 @@ function useDesignCanvas(sideData) {
       }
 
       drawText();
+      clearCenterStripe();
       commit();
     };
 
     drawAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    JSON.stringify(logos),
-    customText?.text,
-    customText?.color,
-    customText?.size,
-    customText?.scaleX,
-    customText?.scaleY,
-    textPos.x,
-    textPos.y,
+    JSON.stringify(sideData?.logos || []),
+    sideData?.customText?.text,
+    sideData?.customText?.color,
+    sideData?.customText?.size,
+    sideData?.customText?.scaleX,
+    sideData?.customText?.scaleY,
+    sideData?.textPos?.x,
+    sideData?.textPos?.y,
+    opts?.clearCenterStripe01,
   ]);
 
   return canvas;
 }
 
-/* ================= 3D MODEL HELPERS ================= */
+/* ================= 3D HELPERS ================= */
 function pickDecalHostMesh(root, modelType) {
   const candidates = [];
-
   root.traverse((o) => {
     if (!(o && (o.isMesh || o.isSkinnedMesh) && o.geometry?.attributes?.position)) return;
 
@@ -375,34 +436,51 @@ function pickDecalHostMesh(root, modelType) {
     const hoodYMaxLimit = modelType.includes("hoodie") || modelType.includes("fermuarli") ? 0.52 : 0.65;
 
     const isTorsoLike =
-      size.y > 0.6 &&
-      size.x > 0.25 &&
-      bb.max.y < hoodYMaxLimit &&
-      bb.min.y < -0.15;
+      size.y > 0.6 && size.x > 0.25 && bb.max.y < hoodYMaxLimit && bb.min.y < -0.15;
 
-    if (isTorsoLike) {
-      candidates.push({ o, score: size.x * size.y * size.z });
-    }
+    if (isTorsoLike) candidates.push({ o, score: size.x * size.y * size.z });
   });
 
   candidates.sort((a, b) => b.score - a.score);
   return candidates[0]?.o || null;
 }
 
-function makeCanvasTexture(canvas) {
-  if (!canvas) return null;
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.anisotropy = 8;
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.flipY = false;
-  tex.wrapS = THREE.ClampToEdgeWrapping;
-  tex.wrapT = THREE.ClampToEdgeWrapping;
-  tex.needsUpdate = true;
-  return tex;
+function useCanvasTexture(canvas) {
+  const texRef = useRef(null);
+
+  if (!texRef.current) {
+    const dummy = document.createElement("canvas");
+    dummy.width = 2;
+    dummy.height = 2;
+    const t = new THREE.CanvasTexture(dummy);
+    t.anisotropy = 4;
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.flipY = false;
+    t.wrapS = THREE.ClampToEdgeWrapping;
+    t.wrapT = THREE.ClampToEdgeWrapping;
+    texRef.current = t;
+  }
+
+  useEffect(() => {
+    if (!canvas || !texRef.current) return;
+    texRef.current.image = canvas;
+    texRef.current.needsUpdate = true;
+  }, [canvas]);
+
+  return texRef.current;
 }
 
-function Real3DModel({ color, frontCanvas, backCanvas, leftCanvas, rightCanvas, modelType, view }) {
-
+/* ================= REAL 3D MODEL ================= */
+function Real3DModel({
+  color,
+  stringColor,
+  frontCanvas,
+  backCanvas,
+  leftCanvas,
+  rightCanvas,
+  modelType,
+  view,
+}) {
   const modelPathRaw = MODEL_PATHS[modelType] || MODEL_PATHS.tshirt;
   const gltf = useGLTF(toSafeUrl(modelPathRaw));
 
@@ -419,98 +497,67 @@ function Real3DModel({ color, frontCanvas, backCanvas, leftCanvas, rightCanvas, 
     return cloned;
   }, [gltf.scene, hasSkinned]);
 
-  const customMaterial = useMemo(() => {
-    return new THREE.MeshStandardMaterial({
-      color: new THREE.Color(color || "#050505"),
-      roughness: 0.9,
-      metalness: 0.03,
-      side: THREE.FrontSide,
-    });
-  }, [color]);
+  const bodyMaterial = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color(color || "#050505"),
+        roughness: 0.9,
+        metalness: 0.03,
+        side: THREE.FrontSide,
+      }),
+    [color]
+  );
+
+  const laceMaterial = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color(stringColor || "#e6e6e6"),
+        roughness: 0.85,
+        metalness: 0.02,
+        side: THREE.FrontSide,
+      }),
+    [stringColor]
+  );
 
   useEffect(() => {
     if (!root) return;
+    const looksLikeLace = (o) => {
+      const n = (o?.name || "").toLowerCase();
+      const mn = (o?.material?.name || "").toLowerCase();
+      return (
+        n.includes("string") ||
+        n.includes("lace") ||
+        n.includes("draw") ||
+        n.includes("ip") ||
+        n.includes("cord") ||
+        mn.includes("string") ||
+        mn.includes("lace") ||
+        mn.includes("draw") ||
+        mn.includes("ip") ||
+        mn.includes("cord")
+      );
+    };
+
     root.traverse((o) => {
       if (!(o && (o.isMesh || o.isSkinnedMesh) && o.geometry)) return;
       if (o.geometry.getAttribute?.("color")) o.geometry.deleteAttribute("color");
-      o.material = customMaterial;
+      o.material = looksLikeLace(o) ? laceMaterial : bodyMaterial;
     });
-  }, [root, customMaterial]);
+  }, [root, bodyMaterial, laceMaterial]);
 
-  const frontTex = useMemo(() => makeCanvasTexture(frontCanvas), [frontCanvas]);
-  const backTex = useMemo(() => makeCanvasTexture(backCanvas), [backCanvas]);
-  const leftTex = useMemo(() => makeCanvasTexture(leftCanvas), [leftCanvas]);
-  const rightTex = useMemo(() => makeCanvasTexture(rightCanvas), [rightCanvas]);
+  const frontTex = useCanvasTexture(frontCanvas);
+  const backTex = useCanvasTexture(backCanvas);
+  const leftTex = useCanvasTexture(leftCanvas);
+  const rightTex = useCanvasTexture(rightCanvas);
 
   const decalHost = useMemo(() => pickDecalHostMesh(root, modelType), [root, modelType]);
 
-  const decalHostMat = useMemo(() => {
-    return new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-  }, []);
-  const SLEEVE_DEPTH = 0.25; 
-  const TORSO_DEPTH = 0.25; // gövde decal projeksiyon derinliği
- // kol decal projeksiyon derinliği
+  const decalHostMat = useMemo(
+    () => new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
+    []
+  );
 
-  const SLEEVE_RAY = useMemo(() => {
-    const base = {
-      left: { origin: new THREE.Vector3(-1.25, 0.17, 0.05), dir: new THREE.Vector3(1, 0, 0) },
-      right: { origin: new THREE.Vector3(1.25, 0.17, 0.05), dir: new THREE.Vector3(-1, 0, 0) },
-      w: 0.2,
-      h: 0.22,
-      depth: SLEEVE_DEPTH,
-      offset: 0.012,
-    };
-    if (modelType.includes("hoodie") || modelType.includes("fermuarli")) {
-      base.left.origin.set(-1.35, 0.18, 0.06);
-      base.right.origin.set(1.35, 0.18, 0.06);
-      base.w = 0.22;
-      base.h = 0.24;
-    }
-    if (modelType.includes("oversize")) {
-      base.left.origin.set(-1.45, 0.18, 0.06);
-      base.right.origin.set(1.45, 0.18, 0.06);
-      base.w = 0.24;
-      base.h = 0.26;
-    }
-    return base;
-  }, [modelType]);
-
-  const [sleeveXform, setSleeveXform] = useState({ left: null, right: null });
-
-  useEffect(() => {
-    if (!root) return;
-
-    const raycaster = new THREE.Raycaster();
-
-    const hitSide = (sideKey) => {
-      const rayCfg = SLEEVE_RAY[sideKey];
-      const tryRay = (origin) => {
-        raycaster.set(origin, rayCfg.dir.clone().normalize());
-        return raycaster.intersectObject(root, true);
-      };
-
-      let hits = tryRay(rayCfg.origin.clone());
-      if (!hits.length) {
-        const o2 = rayCfg.origin.clone();
-        o2.z -= 0.25;
-        hits = tryRay(o2);
-      }
-      if (!hits.length) return null;
-
-      const hit = hits[0];
-      const n = hit.face?.normal?.clone()?.normalize() || new THREE.Vector3(0, 0, 1);
-      const nm = new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld);
-      n.applyMatrix3(nm).normalize();
-
-      const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
-      const euler = new THREE.Euler().setFromQuaternion(q, "XYZ");
-      const pos = hit.point.clone().add(n.clone().multiplyScalar(SLEEVE_RAY.offset));
-
-      return { pos, rot: euler, scale: [SLEEVE_RAY.w, SLEEVE_RAY.h, SLEEVE_RAY.depth] };
-    };
-
-    setSleeveXform({ left: hitSide("left"), right: hitSide("right") });
-  }, [root, SLEEVE_RAY]);
+  const TORSO_DEPTH = 0.3;
 
   const frontProfile = MODEL_PRINT_BOUNDS[modelType]?.front || MODEL_PRINT_BOUNDS.tshirt.front;
   const backProfile = MODEL_PRINT_BOUNDS[modelType]?.back || MODEL_PRINT_BOUNDS.tshirt.back;
@@ -527,10 +574,17 @@ function Real3DModel({ color, frontCanvas, backCanvas, leftCanvas, rightCanvas, 
   const torsoZOffsetBack = -0.001;
 
   const showFront = view === "front";
-const showBack  = view === "back";
-const showLeft  = view === "left";
-const showRight = view === "right";
+  const showBack = view === "back";
+  const showLeft = view === "left";
+  const showRight = view === "right";
 
+  // sleeves: basit bounds-based (raycast yerine hızlı)
+  const sleeveProfileL = MODEL_PRINT_BOUNDS[modelType]?.sleeveL || MODEL_PRINT_BOUNDS.tshirt.sleeveL;
+  const sleeveProfileR = MODEL_PRINT_BOUNDS[modelType]?.sleeveR || MODEL_PRINT_BOUNDS.tshirt.sleeveR;
+
+  const sleeveW = (p) => (p?.xMax ?? 0.08) - (p?.xMin ?? -0.08);
+  const sleeveH = (p) => (p?.yTop ?? 0.16) - (p?.yBot ?? 0.04);
+  const sleeveCY = (p) => ((p?.yTop ?? 0.16) + (p?.yBot ?? 0.04)) / 2;
 
   return (
     <group dispose={null}>
@@ -539,7 +593,7 @@ const showRight = view === "right";
 
         {decalHost && (
           <mesh geometry={decalHost.geometry} material={decalHostMat}>
-            {showFront && frontTex && (
+            {showFront && frontCanvas && (
               <Decal
                 position={[0, frontCY, frontProfile.z + torsoZOffsetFront]}
                 rotation={[0, frontProfile.rotY || 0, 0]}
@@ -549,7 +603,6 @@ const showRight = view === "right";
                   map={frontTex}
                   transparent
                   alphaTest={0.02}
-                  depthTest
                   depthWrite={false}
                   polygonOffset
                   polygonOffsetFactor={-10}
@@ -560,7 +613,7 @@ const showRight = view === "right";
               </Decal>
             )}
 
-            {showBack && backTex && (
+            {showBack && backCanvas && (
               <Decal
                 position={[0, backCY, backProfile.z + torsoZOffsetBack]}
                 rotation={[0, backProfile.rotY || Math.PI, 0]}
@@ -570,7 +623,6 @@ const showRight = view === "right";
                   map={backTex}
                   transparent
                   alphaTest={0.02}
-                  depthTest
                   depthWrite={false}
                   polygonOffset
                   polygonOffsetFactor={-10}
@@ -583,17 +635,16 @@ const showRight = view === "right";
           </mesh>
         )}
 
-        {showLeft && leftTex && sleeveXform.left && (
+        {showLeft && leftCanvas && (
           <Decal
-            position={[sleeveXform.left.pos.x, sleeveXform.left.pos.y, sleeveXform.left.pos.z]}
-            rotation={[sleeveXform.left.rot.x, sleeveXform.left.rot.y, sleeveXform.left.rot.z]}
-            scale={sleeveXform.left.scale}
+            position={[sleeveProfileL.x, sleeveCY(sleeveProfileL), sleeveProfileL.z]}
+            rotation={[0, sleeveProfileL.rotY || Math.PI / 2, sleeveProfileL.rotZ || 0]}
+            scale={[sleeveW(sleeveProfileL), sleeveH(sleeveProfileL), 0.25]}
           >
             <meshStandardMaterial
               map={leftTex}
               transparent
               alphaTest={0.02}
-              depthTest
               depthWrite={false}
               polygonOffset
               polygonOffsetFactor={-10}
@@ -604,17 +655,16 @@ const showRight = view === "right";
           </Decal>
         )}
 
-        {showRight && rightTex && sleeveXform.right && (
+        {showRight && rightCanvas && (
           <Decal
-            position={[sleeveXform.right.pos.x, sleeveXform.right.pos.y, sleeveXform.right.pos.z]}
-            rotation={[sleeveXform.right.rot.x, sleeveXform.right.rot.y, sleeveXform.right.rot.z]}
-            scale={sleeveXform.right.scale}
+            position={[sleeveProfileR.x, sleeveCY(sleeveProfileR), sleeveProfileR.z]}
+            rotation={[0, sleeveProfileR.rotY || -Math.PI / 2, sleeveProfileR.rotZ || 0]}
+            scale={[sleeveW(sleeveProfileR), sleeveH(sleeveProfileR), 0.25]}
           >
             <meshStandardMaterial
               map={rightTex}
               transparent
               alphaTest={0.02}
-              depthTest
               depthWrite={false}
               polygonOffset
               polygonOffsetFactor={-10}
@@ -629,7 +679,7 @@ const showRight = view === "right";
   );
 }
 
-/* ================= TEK MODEL ITEM ================= */
+/* ================= MODEL ITEM (position/scale) ================= */
 function DesignModelItem({
   design,
   isActive,
@@ -643,31 +693,47 @@ function DesignModelItem({
   targetRotY,
   targetScale,
   hidden,
+  requestRender,
 }) {
   const groupRef = useRef(null);
   const userRotRef = useRef({ x: 0, y: 0 });
   const dragRef = useRef({ active: false, pid: null, startX: 0, startY: 0, startRotY: 0, startRotX: 0 });
+
   const ROT_SPEED = 0.01;
   const clampRotX = (v) => Math.max(-0.9, Math.min(0.9, v));
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
     const g = groupRef.current;
+
     g.position.x = THREE.MathUtils.lerp(g.position.x, targetX, Math.min(1, delta * 6));
     g.position.z = THREE.MathUtils.lerp(g.position.z, targetZ, Math.min(1, delta * 6));
+
     const desiredRotY = targetRotY + (isActive ? userRotRef.current.y : 0);
     const desiredRotX = isActive ? userRotRef.current.x : 0;
+
     g.rotation.y = THREE.MathUtils.lerp(g.rotation.y, desiredRotY, Math.min(1, delta * 10));
     g.rotation.x = THREE.MathUtils.lerp(g.rotation.x, desiredRotX, Math.min(1, delta * 10));
+
     const nextS = targetScale + (isHovered ? 0.06 : 0) + (isActive ? 0.05 : 0);
     const lerped = THREE.MathUtils.lerp(g.scale.x || 1, nextS, Math.min(1, delta * 10));
     g.scale.setScalar(lerped);
   });
 
-  const frontCanvas = useDesignCanvas(design.sides.front);
-  const backCanvas = useDesignCanvas(design.sides.back);
-  const leftCanvas = useDesignCanvas(design.sides.left);
-  const rightCanvas = useDesignCanvas(design.sides.right);
+  const isZipper = design.modelType === "fermuarli";
+  const gap01 = MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
+
+  const frontCanvas = useDesignCanvas(
+    design.sides.front || EMPTY_SIDE,
+    isZipper ? { clearCenterStripe01: gap01 } : {}
+  );
+  const backCanvas = useDesignCanvas(design.sides.back || EMPTY_SIDE);
+  const leftCanvas = useDesignCanvas(design.sides.left || EMPTY_SIDE);
+  const rightCanvas = useDesignCanvas(design.sides.right || EMPTY_SIDE);
+
+  useEffect(() => {
+    requestRender?.();
+  }, [frontCanvas, backCanvas, leftCanvas, rightCanvas, requestRender]);
 
   if (hidden) return null;
 
@@ -688,6 +754,7 @@ function DesignModelItem({
         e.stopPropagation();
         onSelect(design.id);
         if (!isActive) return;
+
         dragRef.current = {
           active: true,
           pid: e.pointerId,
@@ -696,26 +763,34 @@ function DesignModelItem({
           startRotY: userRotRef.current.y,
           startRotX: userRotRef.current.x,
         };
+
         document.body.style.cursor = "grabbing";
         if (e.target?.setPointerCapture) e.target.setPointerCapture(e.pointerId);
       }}
       onPointerMove={(e) => {
         if (!dragRef.current.active || dragRef.current.pid !== e.pointerId) return;
         e.stopPropagation();
-        const invert = 1; // back'te tersine çevirmeyi kapat
 
-        userRotRef.current.y = dragRef.current.startRotY + (e.clientX - dragRef.current.startX) * ROT_SPEED * invert;
-        userRotRef.current.x = clampRotX(dragRef.current.startRotX + (e.clientY - dragRef.current.startY) * ROT_SPEED * invert);
+        userRotRef.current.y =
+          dragRef.current.startRotY + (e.clientX - dragRef.current.startX) * ROT_SPEED;
+
+        userRotRef.current.x = clampRotX(
+          dragRef.current.startRotX + (e.clientY - dragRef.current.startY) * ROT_SPEED
+        );
+
+        requestRender?.(); // ✅ model dönerken de render iste
       }}
       onPointerUp={(e) => {
         if (dragRef.current.pid !== e.pointerId) return;
         dragRef.current.active = false;
         document.body.style.cursor = "grab";
         if (e.target?.releasePointerCapture) e.target.releasePointerCapture(e.pointerId);
+        requestRender?.();
       }}
     >
       <Real3DModel
         color={design.color}
+        stringColor={design.stringColor}
         frontCanvas={frontCanvas}
         backCanvas={backCanvas}
         leftCanvas={leftCanvas}
@@ -728,8 +803,9 @@ function DesignModelItem({
 }
 
 /* ================= RESIZE FRAME ================= */
-function ResizeFrame({ box, onChange, containerRef }) {
+function ResizeFrame({ box, onChange, containerRef, requestRender }) {
   const dragRef = useRef(null);
+
   const getPointer01 = (e, rect) => ({
     x: clamp01((e.clientX - rect.left) / rect.width),
     y: clamp01((e.clientY - rect.top) / rect.height),
@@ -744,7 +820,12 @@ function ResizeFrame({ box, onChange, containerRef }) {
       mode,
       rect,
       startBox: { ...box },
-      startEdges: { left: box.x - box.w / 2, right: box.x + box.w / 2, top: box.y - box.h / 2, bottom: box.y + box.h / 2 },
+      startEdges: {
+        left: box.x - box.w / 2,
+        right: box.x + box.w / 2,
+        top: box.y - box.h / 2,
+        bottom: box.y + box.h / 2,
+      },
       moveOffset: { dx: box.x - px, dy: box.y - py },
     };
     window.addEventListener("pointermove", move);
@@ -767,6 +848,7 @@ function ResizeFrame({ box, onChange, containerRef }) {
         w: s.startBox.w,
         h: s.startBox.h,
       });
+      requestRender?.();
       return;
     }
 
@@ -779,17 +861,19 @@ function ResizeFrame({ box, onChange, containerRef }) {
     const w = right - left,
       h = bottom - top;
     onChange({ x: left + w / 2, y: top + h / 2, w, h });
+    requestRender?.();
   };
 
   const end = () => {
     dragRef.current = null;
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", end);
+    requestRender?.();
   };
 
   return (
     <div
-      className="absolute border-2 border-white/70 rounded-lg group"
+      className={`absolute border-2 border-white/70 rounded-lg group`}
       style={{
         left: pct(box.x - box.w / 2),
         top: pct(box.y - box.h / 2),
@@ -811,7 +895,7 @@ function ResizeFrame({ box, onChange, containerRef }) {
       ].map(([key, lx, ty]) => (
         <div
           key={key}
-          className="absolute w-4 h-4 bg-white rounded-full border border-zinc-400 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+          className={`absolute w-4 h-4 bg-white rounded-full border border-zinc-400 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity`}
           style={{
             left: `${lx}%`,
             top: `${ty}%`,
@@ -832,40 +916,301 @@ function ResizeFrame({ box, onChange, containerRef }) {
   );
 }
 
+/* ================= MOBILE BOTTOM SHEET ================= */
+function MobileBottomSheet({ title = "Panel", children, requestRender }) {
+  // snap points (px): collapsed=76, mid=0.45vh, expanded=0.78vh
+  const [snap, setSnap] = useState("mid"); // "collapsed" | "mid" | "expanded"
+  const drag = useRef({ active: false, startY: 0, startOffset: 0 });
+  const [offset, setOffset] = useState(0);
+
+  const calcOffsetForSnap = () => {
+    const vh = window.innerHeight;
+    const collapsed = Math.max(76, Math.round(vh * 0.10));
+    const midH = Math.round(vh * 0.45);
+    const expH = Math.round(vh * 0.78);
+
+    const height =
+      snap === "collapsed" ? collapsed : snap === "expanded" ? expH : midH;
+
+    // offset: sheet bottom anchored, translateY = vh - height
+    return Math.max(0, vh - height);
+  };
+
+  useEffect(() => {
+    const apply = () => setOffset(calcOffsetForSnap());
+    apply();
+    window.addEventListener("resize", apply);
+    return () => window.removeEventListener("resize", apply);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snap]);
+
+  const onDown = (e) => {
+    drag.current.active = true;
+    drag.current.startY = e.clientY;
+    drag.current.startOffset = offset;
+    document.body.style.cursor = "grabbing";
+    if (e.currentTarget?.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const onMove = (e) => {
+    if (!drag.current.active) return;
+    const dy = e.clientY - drag.current.startY;
+    const vh = window.innerHeight;
+    const next = clamp(drag.current.startOffset + dy, 0, vh - 60);
+    setOffset(next);
+  };
+
+  const onUp = () => {
+    if (!drag.current.active) return;
+    drag.current.active = false;
+    document.body.style.cursor = "default";
+
+    // snap to nearest
+    const vh = window.innerHeight;
+    const collapsedOff = vh - Math.max(76, Math.round(vh * 0.10));
+    const midOff = vh - Math.round(vh * 0.45);
+    const expOff = vh - Math.round(vh * 0.78);
+
+    const dC = Math.abs(offset - collapsedOff);
+    const dM = Math.abs(offset - midOff);
+    const dE = Math.abs(offset - expOff);
+
+    if (dE <= dM && dE <= dC) setSnap("expanded");
+    else if (dM <= dC) setSnap("mid");
+    else setSnap("collapsed");
+
+    requestRender?.();
+  };
+
+  return (
+    <div
+      className="fixed left-0 right-0 bottom-0 z-40"
+      style={{
+        transform: `translateY(${offset}px)`,
+        transition: drag.current.active ? "none" : "transform 220ms ease",
+      }}
+    >
+      <div className="bg-[#111111] border-t border-zinc-800 rounded-t-3xl shadow-2xl overflow-hidden">
+        {/* handle */}
+        <div
+          className="px-4 pt-3 pb-2 select-none"
+          onPointerDown={onDown}
+          onPointerMove={onMove}
+          onPointerUp={onUp}
+          onPointerCancel={onUp}
+          style={{ touchAction: "none" }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-1.5 rounded-full bg-zinc-700 mx-auto" />
+              <span className="text-[10px] text-zinc-400 font-black uppercase tracking-widest">
+                {title}
+              </span>
+            </div>
+            <button
+              onClick={() => setSnap((p) => (p === "collapsed" ? "mid" : "collapsed"))}
+              className="text-zinc-300 bg-zinc-900 border border-zinc-800 rounded-full px-3 py-1 text-[10px] font-black"
+            >
+              {snap === "collapsed" ? "AÇ" : "KAPAT"}
+            </button>
+          </div>
+        </div>
+
+        {/* content */}
+        <div className="max-h-[78vh] overflow-y-auto">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ================= PRINT PNG GENERATOR (FINAL) ================= */
+async function makePrintDataUrl(modelType, sideKey, sideData, opts = {}) {
+  return new Promise((resolve) => {
+    if (!sideData) return resolve(null);
+
+    const logos = Array.isArray(sideData.logos) ? sideData.logos : [];
+    const hasText = (sideData.customText?.text || "").trim().length > 0;
+    if (logos.length === 0 && !hasText) return resolve(null);
+
+    const c = document.createElement("canvas");
+    c.width = 2048;  // ✅ daha kaliteli üretim dosyası
+    c.height = 2048;
+    const ctx = c.getContext("2d");
+    if (!ctx) return resolve(null);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
+    const drawText = () => {
+      const t = sideData.customText || {};
+      if (!t.text) return;
+
+      const fontSize = clamp(parseInt(t.size || 150, 10), 30, 420) * 2; // 2048’e göre scale
+      const posX = (sideData.textPos?.x ?? 0.5) * 2048;
+      const posY = (sideData.textPos?.y ?? 0.85) * 2048;
+      const sX = clamp(t.scaleX || 1, 0.3, 3);
+      const sY = clamp(t.scaleY || 1, 0.3, 3);
+
+      ctx.save();
+      ctx.translate(posX, posY);
+      ctx.scale(sX, sY);
+      ctx.font = `900 ${fontSize}px Arial`;
+      ctx.fillStyle = t.color || "#ffffff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(t.text, 0, 0);
+      ctx.restore();
+    };
+
+    const clearCenterStripe = () => {
+      if (!(opts?.clearCenterStripe01 && modelType === "fermuarli" && sideKey === "front")) return;
+      const stripeW = Math.round(2048 * opts.clearCenterStripe01);
+      const x0 = 1024 - Math.round(stripeW / 2);
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.fillStyle = "rgba(0,0,0,1)";
+      // ✅ sadece yukarıdan belirli bir yüksekliğe kadar boşluk
+      const yPx = Math.round(2048 * 0.24);
+      ctx.fillRect(x0, 0, stripeW, yPx);
+      ctx.restore();
+    };
+
+    ctx.clearRect(0, 0, 2048, 2048);
+
+    if (logos.length === 0) {
+      drawText();
+      clearCenterStripe();
+      return resolve(c.toDataURL("image/png"));
+    }
+
+    let i = 0;
+    const drawNext = () => {
+      if (i >= logos.length) {
+        drawText();
+        clearCenterStripe();
+        return resolve(c.toDataURL("image/png"));
+      }
+
+      const l = logos[i++];
+      if (!l?.url) return drawNext();
+
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const b = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
+        const safeX = Number.isFinite(b.x) ? b.x : 0.5;
+        const safeY = Number.isFinite(b.y) ? b.y : 0.6;
+        const safeW = Number.isFinite(b.w) ? b.w : 0.7;
+        const safeH = Number.isFinite(b.h) ? b.h : 0.45;
+
+        try {
+          const bw = safeW * 2048;
+          const bh = safeH * 2048;
+          const bx = safeX * 2048 - bw / 2;
+          const by = safeY * 2048 - bh / 2;
+          ctx.drawImage(img, bx, by, bw, bh);
+        } catch (err) {
+          console.error("Print canvas draw error:", err);
+        }
+        drawNext();
+      };
+      img.onerror = () => drawNext();
+      img.src = l.url;
+    };
+
+    drawNext();
+  });
+}
+
+/* ================= RENDER TARGET CAPTURE (NO preserveDrawingBuffer) ================= */
+async function captureFromScene(gl, scene, camera, width = 1024, height = 1024) {
+  const target = new THREE.WebGLRenderTarget(width, height, {
+    format: THREE.RGBAFormat,
+    type: THREE.UnsignedByteType,
+    depthBuffer: true,
+    stencilBuffer: false,
+  });
+
+  const prevTarget = gl.getRenderTarget();
+  const prevXR = gl.xr.enabled;
+  gl.xr.enabled = false;
+
+  gl.setRenderTarget(target);
+  gl.clear();
+  gl.render(scene, camera);
+
+  const pixels = new Uint8Array(width * height * 4);
+  gl.readRenderTargetPixels(target, 0, 0, width, height, pixels);
+
+  gl.setRenderTarget(prevTarget);
+  gl.xr.enabled = prevXR;
+
+  target.dispose();
+
+  // pixels -> canvas (flipY)
+  const c = document.createElement("canvas");
+  c.width = width;
+  c.height = height;
+  const ctx = c.getContext("2d");
+  if (!ctx) return null;
+
+  const imgData = ctx.createImageData(width, height);
+  // flipY
+  for (let y = 0; y < height; y++) {
+    const srcRow = (height - 1 - y) * width * 4;
+    const dstRow = y * width * 4;
+    imgData.data.set(pixels.subarray(srcRow, srcRow + width * 4), dstRow);
+  }
+  ctx.putImageData(imgData, 0, 0);
+  return c.toDataURL("image/png");
+}
+
 /* ================= EDITOR PANEL ================= */
-function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
-  // Aktif taraf
+function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view, requestRender }) {
+  const isZipperFront = design.modelType === "fermuarli" && view === "front";
+  const gap01 = MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
+
   const currentSide =
     view === "back" ? "back" :
     view === "left" ? "left" :
     view === "right" ? "right" :
     "front";
 
-  const sideData = design.sides[currentSide] || createSideData();
+  const sideData = useMemo(() => {
+    return design.sides[currentSide] || createSideData();
+  }, [design, currentSide]);
 
   const [activeTab, setActiveTab] = useState("upload");
 
-  // ✅ sideData hazır olduktan sonra doğru tab’ı seç
   useEffect(() => {
     const sideHasAny =
-      (sideData?.logos?.length || 0) > 0 ||
-      ((sideData?.customText?.text || "").trim().length > 0);
+      (sideData?.logos?.length ?? 0) > 0 ||
+      ((sideData?.customText?.text ?? "").trim().length > 0);
 
     setActiveTab(sideHasAny ? "editor" : "upload");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [design.id, currentSide]);
+  }, [
+    design.id,
+    currentSide,
+    sideData?.logos?.length ?? 0,
+    sideData?.customText?.text ?? "",
+  ]);
 
   const previewRef = useRef(null);
 
   const sizes = ["S", "M", "L", "XL"];
- const colorPresets = ["#1A1A1A","#F0F0F0","#D2C6B6","#3F432C","#191C25","#363636","#1EF2923","#3E191D"];
-  const sideLabel =
-    currentSide === "front" ? "ÖN" :
-    currentSide === "back" ? "ARKA" :
-    currentSide === "left" ? "SOL KOL" :
-    "SAG KOL";
+  const colorPresets = ["#1A1A1A", "#F0F0F0", "#D2C6B6", "#3F432C", "#191C25", "#363636", "#1EF292", "#3E191D"];
+  const stringPresets = ["#e6e6e6", "#ffffff", "#000000", "#c8b08a", "#a0a0a0"];
 
-  const cm = CM_LABELS[design.modelType]?.[currentSide === "back" ? "back" : "front"] || { w: 0, h: 0 };
+  const sideLabel =
+    currentSide === "front"
+      ? "ÖN"
+      : currentSide === "back"
+      ? "ARKA"
+      : currentSide === "left"
+      ? "SOL KOL"
+      : "SAĞ KOL";
+
+  const cm =
+    CM_LABELS[design.modelType]?.[currentSide === "back" ? "back" : "front"] || { w: 0, h: 0 };
 
   const t = sideData?.customText || {};
 
@@ -876,6 +1221,7 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
         [currentSide]: { ...design.sides[currentSide], ...patch },
       },
     });
+    requestRender?.();
   };
 
   const bumpText = (patch) => updateSide({ customText: { ...t, ...patch } });
@@ -885,7 +1231,7 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
 
   const sideIndicators = ["front", "back", "left", "right"].map((s) => {
     const sd = design.sides[s];
-    const hasContent = (sd?.logos || []).length > 0 || (sd?.customText?.text || "").trim();
+    const hasContent = hasSideContent(sd);
     return {
       key: s,
       label: s === "front" ? "Ön" : s === "back" ? "Arka" : s === "left" ? "Sol" : "Sağ",
@@ -898,7 +1244,7 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
   const activeLogo = logos.find((l) => l.id === sideData.activeLogoId) || logos[0] || null;
 
   return (
-    <div className="w-full md:w-[420px] bg-[#111111] flex flex-col z-20 shadow-2xl h-[55vh] md:h-full border-t md:border-l border-zinc-800">
+    <div className="w-full bg-[#111111] flex flex-col z-20 shadow-2xl border-t md:border-l border-zinc-800">
       {/* Header */}
       <div className="p-4 border-b border-zinc-800 bg-[#111111] flex-shrink-0">
         <div className="flex justify-between items-start">
@@ -910,7 +1256,14 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
             <p className="text-[10px] text-zinc-500 mt-1 font-bold uppercase tracking-widest">
               SEÇİLİ: {MODEL_LABELS[design.modelType] || design.modelType}
             </p>
+            {isZipperFront && (
+              <p className="text-[10px] text-zinc-400 mt-2">
+                Fermuar boşluğu aktif (ortada şerit):{" "}
+                <span className="text-white font-black">{Math.round(gap01 * 100)}%</span>
+              </p>
+            )}
           </div>
+
           <div className="text-right">
             <p className="text-zinc-500 text-[10px] font-bold mb-1">BEDEN</p>
             <div className="flex gap-1">
@@ -929,7 +1282,7 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
           </div>
         </div>
 
-        {/* Taraf göstergeleri */}
+        {/* Side indicators */}
         <div className="flex gap-2 mt-3">
           {sideIndicators.map((si) => (
             <div
@@ -954,13 +1307,16 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
       <div className="flex border-b border-zinc-800 bg-[#111111] flex-shrink-0">
         {[
           { id: "editor", icon: Move, label: "Yerleşim" },
-          { id: "upload", icon: ImageIcon, label: "Görsel" },
+          { id: "upload", icon: ImageIcon, label: "Baskı" },
           { id: "text", icon: Type, label: "Yazı" },
           { id: "color", icon: Palette, label: "Renk" },
         ].map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => {
+              setActiveTab(tab.id);
+              requestRender?.();
+            }}
             className={`flex-1 py-3 text-[10px] font-bold uppercase flex flex-col items-center gap-1 ${
               activeTab === tab.id ? "text-white border-b-2 border-white" : "text-zinc-500"
             }`}
@@ -975,16 +1331,33 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
         {/* ====== EDITOR ====== */}
         {activeTab === "editor" && (
           <div className="space-y-4">
-            <h3 className="text-xs font-bold text-zinc-400">BASKI ALANI ÖNİZLEME — {sideLabel}</h3>
+            <h3 className="text-xs font-bold text-zinc-400">ALAN ÖNİZLEME — {sideLabel}</h3>
 
             <div
-              ref={previewRef}
               className="w-full aspect-square bg-zinc-900 rounded-xl border border-zinc-700 relative overflow-hidden"
+              ref={previewRef}
             >
               <div
                 className="absolute inset-0 opacity-20 pointer-events-none"
-                style={{ backgroundImage: "radial-gradient(#fff 1px, transparent 1px)", backgroundSize: "10px 10px" }}
+                style={{
+                  backgroundImage: "radial-gradient(#fff 1px, transparent 1px)",
+                  backgroundSize: "10px 10px",
+                }}
               />
+
+              {isZipperFront && (
+                <div
+                  className="absolute top-0 bottom-0 pointer-events-none"
+                  style={{
+                    left: "50%",
+                    width: `${Math.round(gap01 * 100)}%`,
+                    transform: "translateX(-50%)",
+                    background: "rgba(255,255,255,0.07)",
+                    borderLeft: "1px dashed rgba(255,255,255,0.20)",
+                    borderRight: "1px dashed rgba(255,255,255,0.20)",
+                  }}
+                />
+              )}
 
               {(logos || []).map((l) => {
                 const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
@@ -1014,6 +1387,7 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
                 <ResizeFrame
                   box={activeLogo.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 }}
                   containerRef={previewRef}
+                  requestRender={requestRender}
                   onChange={(next) => {
                     const nextLogos = (logos || []).map((l) => (l.id === activeLogo.id ? { ...l, box: next } : l));
                     updateSide({ logos: nextLogos });
@@ -1029,16 +1403,18 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
                     e.preventDefault();
                     e.stopPropagation();
                     const rect = previewRef.current.getBoundingClientRect();
-                    const move = (ev) =>
+                    const move = (ev) => {
                       updateSide({
                         textPos: {
                           x: clamp01((ev.clientX - rect.left) / rect.width),
                           y: clamp01((ev.clientY - rect.top) / rect.height),
                         },
                       });
+                    };
                     const up = () => {
                       window.removeEventListener("pointermove", move);
                       window.removeEventListener("pointerup", up);
+                      requestRender?.();
                     };
                     window.addEventListener("pointermove", move);
                     window.addEventListener("pointerup", up);
@@ -1052,8 +1428,9 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
             </div>
 
             <p className="text-[10px] text-zinc-500">
-              Logo: tıkla=seç, sürükle=taşı, köşeler=boyutlandır. Şu an düzenlediğiniz taraf:{" "}
+              Beyaz çerçeve: Baskı. Şu an düzenlediğin alan:{" "}
               <span className="text-white font-bold">{sideLabel}</span>
+              {isZipperFront && <> — Ortadaki kesikli şerit fermuar boşluğu (üstte otomatik silinir).</>}
             </p>
           </div>
         )}
@@ -1062,12 +1439,18 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
         {activeTab === "upload" && (
           <div className="space-y-4">
             <p className="text-[10px] text-zinc-400 font-bold uppercase">
-              Şu an düzenlenen taraf: <span className="text-white">{sideLabel}</span>
+              Şu an düzenlenen alan: <span className="text-white">{sideLabel}</span>
+              {isZipperFront && <span className="text-zinc-500"> (fermuar boşluğu açık)</span>}
             </p>
 
             <label className="flex flex-col items-center justify-center w-full h-32 border border-dashed border-zinc-700 rounded-xl cursor-pointer hover:border-white hover:bg-zinc-900 transition">
               <Upload className="w-8 h-8 mb-2 text-zinc-500" />
-              <p className="text-xs text-zinc-400 font-bold uppercase">Görsel Ekle (Çoklu)</p>
+              <p className="text-xs text-zinc-400 font-bold uppercase">Baskı Görseli Ekle</p>
+              {isZipperFront && (
+                <p className="text-[10px] text-zinc-500 mt-1">
+                  Not: Fermuar çizgisindeki şerit yukarıda boş kalır.
+                </p>
+              )}
 
               <input
                 type="file"
@@ -1086,16 +1469,16 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
                       box: { x: 0.5, y: 0.6, w: 0.7, h: 0.45 },
                     };
 
-                    const prevSide = design.sides[currentSide] || createSideData();
-                    if ((prevSide.logos || []).length >= 3) {
-                      alert("Bu tarafta en fazla 3 görsel yükleyebilirsin.");
+                    if ((sideData.logos || []).length >= 3) {
+                      alert("Bu alanda en fazla 3 baskı görseli yükleyebilirsin.");
                       e.target.value = "";
                       return;
                     }
-                    const nextLogos = [...(prevSide.logos || []), nextLogo];
+                    const nextLogos = [...(sideData.logos || []), nextLogo];
 
                     updateSide({ logos: nextLogos, activeLogoId: id });
                     setActiveTab("editor");
+                    requestRender?.();
                   };
                   reader.readAsDataURL(file);
                 }}
@@ -1112,14 +1495,14 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
                   }}
                   className="w-full py-2 bg-red-900/30 text-red-500 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-red-900/50"
                 >
-                  <Trash2 size={14} /> Seçili Görseli Kaldır
+                  <Trash2 size={14} /> Seçili Baskıyı Kaldır
                 </button>
 
                 <button
                   onClick={() => updateSide({ logos: [], activeLogoId: null })}
                   className="w-full py-2 bg-red-900/20 text-red-400 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-red-900/40"
                 >
-                  <Trash2 size={14} /> Bu Taraftaki TÜM Görselleri Kaldır
+                  <Trash2 size={14} /> Bu Alandaki TÜM Baskıları Kaldır
                 </button>
               </div>
             )}
@@ -1129,10 +1512,6 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
         {/* ====== TEXT ====== */}
         {activeTab === "text" && (
           <div className="space-y-4">
-            <p className="text-[10px] text-zinc-400 font-bold uppercase">
-              Şu an düzenlenen taraf: <span className="text-white">{sideLabel}</span>
-            </p>
-
             <div>
               <label className="text-xs font-bold text-zinc-500 block mb-2">METİN</label>
               <input
@@ -1244,6 +1623,25 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
                 />
               ))}
             </div>
+
+            {design.modelType.includes("hoodie") && (
+              <div className="pt-3 border-t border-zinc-800">
+                <p className="text-[10px] text-zinc-400 font-bold mb-2">İp rengi (sadece hoodie)</p>
+                <div className="flex gap-2 flex-wrap">
+                  {stringPresets.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => updateDesign({ stringColor: c })}
+                      className={`w-8 h-8 rounded-full border-2 transition ${
+                        (design.stringColor || "#e6e6e6") === c ? "border-white scale-110" : "border-zinc-700"
+                      }`}
+                      style={{ backgroundColor: c }}
+                      title={c}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1258,8 +1656,12 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
 
           {activeSides.length > 1 && (
             <div className="flex justify-between items-center mt-1">
-              <span className="text-[10px] text-zinc-500 font-bold uppercase">Ek Taraf ({activeSides.length - 1}×)</span>
-              <span className="text-xs text-zinc-300 font-mono">+{(activeSides.length - 1) * EXTRA_SIDE_PRICE} ₺</span>
+              <span className="text-[10px] text-zinc-500 font-bold uppercase">
+                Ek Taraf ({activeSides.length - 1}×)
+              </span>
+              <span className="text-xs text-zinc-300 font-mono">
+                +{(activeSides.length - 1) * EXTRA_SIDE_PRICE} ₺
+              </span>
             </div>
           )}
 
@@ -1284,10 +1686,11 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view }) {
   );
 }
 
-/* ================= ANA SAYFA ================= */
+/* ================= MAIN PAGE ================= */
 export default function TasarimClient() {
   const { addToCart } = useCart();
   const searchParams = useSearchParams();
+  const isMobile = useIsMobile(768);
 
   useEffect(() => {
     document.documentElement.style.backgroundColor = "#0b0b0b";
@@ -1308,16 +1711,27 @@ export default function TasarimClient() {
   const [activeId, setActiveId] = useState(() => designs[0]?.id);
   const [hoveredId, setHoveredId] = useState(null);
   const [loading, setLoading] = useState(false);
+
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerStep, setPickerStep] = useState("root");
 
+  // GL refs
   const glRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
+
+  // capture mode
   const [captureView, setCaptureView] = useState(null);
   const [captureId, setCaptureId] = useState(null);
 
-  const activeDesign = useMemo(() => designs.find((d) => d.id === activeId) || designs[0], [designs, activeId]);
+  // invalidate bridge
+  const invalidateFnRef = useRef(null);
+  const requestRender = () => invalidateFnRef.current?.();
+
+  const activeDesign = useMemo(
+    () => designs.find((d) => d.id === activeId) || designs[0],
+    [designs, activeId]
+  );
 
   useEffect(() => {
     setDesigns((prev) => {
@@ -1337,6 +1751,7 @@ export default function TasarimClient() {
 
   const updateActive = (patch) => {
     setDesigns((prev) => prev.map((d) => (d.id === activeId ? { ...d, ...patch } : d)));
+    requestRender();
   };
 
   const addModel = (type) => {
@@ -1345,6 +1760,7 @@ export default function TasarimClient() {
     setDesigns((prev) => [...prev, nd]);
     setActiveId(nd.id);
     setPickerOpen(false);
+    requestRender();
   };
 
   const removeModel = (id) => {
@@ -1353,6 +1769,7 @@ export default function TasarimClient() {
       if (id === activeId) setActiveId(next[next.length - 1]?.id || null);
       return next.length ? next : [createDesign(safeInitial)];
     });
+    requestRender();
   };
 
   const layoutFor = (designId) => {
@@ -1360,104 +1777,38 @@ export default function TasarimClient() {
       if (designId !== captureId) return { hidden: true, x: -999, z: -999, rotY: 0, scale: 1 };
       return { hidden: false, x: 0, z: 0, rotY: 0, scale: 1.05 };
     }
+
     if (designId === activeId) return { hidden: false, x: 0, z: 0, rotY: 0, scale: 1.03 };
+
     const others = designs.filter((d) => d.id !== activeId);
     const idx = others.findIndex((d) => d.id === designId);
     return { hidden: false, x: -2.2 - idx * 0.85, z: -0.35, rotY: 0.85, scale: 0.92 };
   };
 
-  // FIX 5: Her taraf için ayrı print dosyası üret
-  const makePrintDataUrl = async (sideData) => {
-    return new Promise((resolve) => {
-      const c = document.createElement("canvas");
-      c.width = 1024;
-      c.height = 1024;
-
-      const ctx = c.getContext("2d");
-      if (!ctx) return resolve(null);
-
-      const logos = sideData?.logos || [];
-      const hasText = (sideData?.customText?.text || "").trim().length > 0;
-      const hasContent = logos.length > 0 || hasText;
-      if (!hasContent) return resolve(null);
-
-      const drawText = () => {
-        const t = sideData?.customText || {};
-        if (t.text) {
-          const fontSize = clamp(parseInt(t.size || 150, 10), 30, 420);
-          ctx.save();
-          ctx.translate((sideData.textPos?.x || 0.5) * 1024, (sideData.textPos?.y || 0.85) * 1024);
-          ctx.scale(clamp(t.scaleX || 1, 0.3, 3), clamp(t.scaleY || 1, 0.3, 3));
-          ctx.font = `900 ${fontSize}px Arial`;
-          ctx.fillStyle = t.color || "#ffffff";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText(t.text, 0, 0);
-          ctx.restore();
-        }
-
-        resolve(c.toDataURL("image/png"));
-      };
-
-      ctx.clearRect(0, 0, 1024, 1024);
-
-      if (!logos.length) {
-        drawText();
-        return;
-      }
-
-      let i = 0;
-      const drawNext = () => {
-        if (i >= logos.length) {
-          drawText();
-          return;
-        }
-
-        const l = logos[i++];
-        const img = new Image();
-        img.src = l.url;
-
-        img.onload = () => {
-          const b = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
-          ctx.drawImage(
-            img,
-            b.x * 1024 - (b.w * 1024) / 2,
-            b.y * 1024 - (b.h * 1024) / 2,
-            b.w * 1024,
-            b.h * 1024
-          );
-          drawNext();
-        };
-
-        img.onerror = () => drawNext();
-      };
-
-      drawNext();
-    });
-  };
-
-  // Mockup capture - her taraf için ayrı render
   const captureMockupForSide = async (designId, sideView) => {
     if (!glRef.current || !sceneRef.current || !cameraRef.current) return null;
 
     setCaptureId(designId);
     setCaptureView(sideView);
 
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r))));
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     const gl = glRef.current;
     const scene = sceneRef.current;
     const camera = cameraRef.current;
 
-    gl.render(scene, camera);
-    return gl.domElement.toDataURL("image/png");
+    // ✅ RenderTarget ile capture
+    const img = await captureFromScene(gl, scene, camera, 1024, 1024);
+    return img;
   };
 
   const handleAddToCartAll = async () => {
-    const hasAnyContent = designs.some((d) => Object.values(d.sides).some((sd) => hasSideContent(sd)));
+    const hasAnyContent = designs.some((d) =>
+      Object.values(d.sides).some((sd) => hasSideContent(sd))
+    );
 
     if (!hasAnyContent) {
-      alert("Lütfen en az bir üründe (herhangi bir tarafta) logo veya yazı ekleyin.");
+      alert("Lütfen en az bir üründe (herhangi bir tarafta) logo/yazı ekleyin.");
       return;
     }
 
@@ -1469,7 +1820,14 @@ export default function TasarimClient() {
 
         const printFiles = {};
         for (const [sideKey, sideData] of activeSides) {
-          printFiles[sideKey] = await makePrintDataUrl(sideData);
+          if (d.modelType === "fermuarli" && sideKey === "front") {
+            const gap01 = MODEL_PRINT_BOUNDS.fermuarli.front.zipGap01 ?? 0.08;
+            printFiles[sideKey] = await makePrintDataUrl(d.modelType, sideKey, sideData, {
+              clearCenterStripe01: gap01,
+            });
+          } else {
+            printFiles[sideKey] = await makePrintDataUrl(d.modelType, sideKey, sideData);
+          }
         }
 
         const mockupFiles = {};
@@ -1494,6 +1852,7 @@ export default function TasarimClient() {
           designDetails: {
             model: d.modelType,
             baseColor: d.color,
+            stringColor: d.stringColor,
             printFiles,
             mockupFiles,
             sides: d.sides,
@@ -1509,10 +1868,18 @@ export default function TasarimClient() {
       setLoading(false);
       setCaptureId(null);
       setCaptureView(null);
+      requestRender();
     }
   };
 
   const effectiveView = captureView || view;
+
+  // ✅ mobilde tek model render (aktif veya capture)
+  const designsToRender = useMemo(() => {
+    if (!isMobile) return designs;
+    if (captureId) return designs.filter((d) => d.id === captureId);
+    return designs.filter((d) => d.id === activeId);
+  }, [designs, isMobile, activeId, captureId]);
 
   return (
     <div className="h-screen w-full bg-[#0b0b0b] text-white flex flex-col md:flex-row overflow-hidden font-sans">
@@ -1523,15 +1890,21 @@ export default function TasarimClient() {
         </div>
       </Link>
 
-      <div className="w-full h-[45vh] md:h-full md:flex-1 relative bg-[#0b0b0b]">
+      {/* 3D AREA */}
+      <div className="w-full h-[55vh] md:h-full md:flex-1 relative bg-[#0b0b0b]">
         {/* View switcher */}
         <div className="absolute bottom-16 md:bottom-24 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 bg-zinc-900/90 backdrop-blur-md p-1 rounded-full border border-zinc-700 shadow-xl">
           {["front", "back", "left", "right"].map((v) => (
             <button
               key={v}
-              onClick={() => setView(v)}
+              onClick={() => {
+                setView(v);
+                requestRender();
+              }}
               className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all duration-300 ${
-                view === v ? "bg-white text-black shadow-md" : "text-zinc-400 hover:text-white hover:bg-zinc-800"
+                view === v
+                  ? "bg-white text-black shadow-md"
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-800"
               }`}
             >
               {v === "front" ? "Ön" : v === "back" ? "Arka" : v === "left" ? "Sol" : "Sağ"}
@@ -1542,17 +1915,24 @@ export default function TasarimClient() {
         {/* Model controls */}
         <div className="absolute bottom-3 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2">
           <button
-            onClick={() => { setPickerStep("root"); setPickerOpen(true); }}
+            onClick={() => {
+              setPickerStep("root");
+              setPickerOpen(true);
+            }}
             className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center font-black shadow-xl hover:bg-zinc-200 transition"
             title="Model Ekle"
           >
             <Plus size={18} />
           </button>
+
           <div className="flex items-center gap-2 bg-zinc-900/70 border border-zinc-700 rounded-full px-3 py-2">
-            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">MODELLER: {designs.length}</span>
+            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">
+              MODELLER: {designs.length}
+            </span>
             <span className="text-[10px] text-white font-bold uppercase tracking-widest">
               SEÇİLİ: {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
             </span>
+
             {designs.length > 1 && (
               <button
                 onClick={() => removeModel(activeId)}
@@ -1565,7 +1945,7 @@ export default function TasarimClient() {
           </div>
         </div>
 
-        {/* Model picker modal */}
+        {/* Picker modal */}
         {pickerOpen && (
           <div className="absolute inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
             <div className="w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-2xl p-4 max-h-[80vh] overflow-y-auto">
@@ -1582,119 +1962,149 @@ export default function TasarimClient() {
                   )}
                   <h3 className="text-sm font-black tracking-widest uppercase">Model Seç</h3>
                 </div>
+
                 <button
-                  onClick={() => { setPickerStep("root"); setPickerOpen(false); }}
+                  onClick={() => {
+                    setPickerStep("root");
+                    setPickerOpen(false);
+                  }}
                   className="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center"
                 >
                   <X size={16} />
                 </button>
               </div>
+
               <div className="grid grid-cols-2 gap-2">
                 {pickerStep === "root" && (
-                  <div className="contents">
-                    <button
-                      onClick={() => addModel("tshirt")}
-                      className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center"
-                    >
+                  <>
+                    <button onClick={() => setPickerStep("tshirt")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
                       Tişört
                     </button>
-                    <button
-                      onClick={() => setPickerStep("sweat")}
-                      className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center"
-                    >
+                    <button onClick={() => setPickerStep("sweat")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
                       Sweatshirt
                     </button>
-                    <button
-                      onClick={() => setPickerStep("hoodie")}
-                      className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center"
-                    >
+                    <button onClick={() => setPickerStep("hoodie")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
                       Hoodie
                     </button>
-                    <button
-                      onClick={() => addModel("fermuarli")}
-                      className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center"
-                    >
+                    <button onClick={() => addModel("fermuarli")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
                       Fermuarlı
                     </button>
-                  </div>
+                  </>
+                )}
+
+                {pickerStep === "tshirt" && (
+                  <>
+                    <button onClick={() => addModel("tshirt")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
+                      Düz Tişört
+                    </button>
+                    <button onClick={() => addModel("oversize-tshirt")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
+                      Oversize Tişört
+                    </button>
+                  </>
                 )}
 
                 {pickerStep === "sweat" && (
-                  <div className="contents">
-                    <button
-                      onClick={() => addModel("sweatshirt")}
-                      className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center"
-                    >
+                  <>
+                    <button onClick={() => addModel("sweatshirt")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
                       Normal Sweat
                     </button>
-                    <button
-                      onClick={() => addModel("oversize-sweat")}
-                      className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center"
-                    >
+                    <button onClick={() => addModel("oversize-sweat")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
                       Oversize Sweat
                     </button>
-                  </div>
+                  </>
                 )}
 
                 {pickerStep === "hoodie" && (
-                  <div className="contents">
-                    <button
-                      onClick={() => addModel("hoodie")}
-                      className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center"
-                    >
-                      Hoodie (Cepli Yok)
+                  <>
+                    <button onClick={() => addModel("hoodie")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
+                      Hoodie
                     </button>
-                    <button
-                      onClick={() => addModel("hoodie-cepli")}
-                      className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center"
-                    >
+                    <button onClick={() => addModel("hoodie-ipli")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
+                      Hoodie İpli
+                    </button>
+                    <button onClick={() => addModel("hoodie-cepli")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
                       Hoodie Cepli
                     </button>
-                    <button
-                      onClick={() => addModel("hoodie-ceplipli")}
-                      className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center"
-                    >
+                    <button onClick={() => addModel("hoodie-ceplipli")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
                       Hoodie Cepli İpli
                     </button>
-</div>
+
+                    <button onClick={() => addModel("hoodie-oversize")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
+                      Oversize Hoodie
+                    </button>
+                    <button onClick={() => addModel("hoodie-oversize-ipli")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
+                      Oversize Hoodie İpli
+                    </button>
+                    <button onClick={() => addModel("hoodie-oversize-cepli")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
+                      Oversize Hoodie Cepli
+                    </button>
+                    <button onClick={() => addModel("hoodie-oversize-ceplipli")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
+                      Oversize Hoodie Cepli İpli
+                    </button>
+                  </>
                 )}
               </div>
-              <p className="text-[10px] text-zinc-500 mt-3">Tıkladığın model öne gelir, diğerleri solda yan durur.</p>
+
+              <p className="text-[10px] text-zinc-500 mt-3">
+                Mobilde performans için sadece seçili model render edilir.
+              </p>
             </div>
           </div>
         )}
 
-        {/* THREE.js Canvas */}
+        {/* THREE Canvas */}
         <Canvas
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", backgroundColor: "#0b0b0b" }}
-          gl={{ preserveDrawingBuffer: true, antialias: true, alpha: false, powerPreference: "high-performance" }}
+          frameloop="demand" // ✅ büyük performans
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block" }}
+          gl={{
+            preserveDrawingBuffer: false, // ✅ capture RT ile
+            antialias: !isMobile,
+            alpha: false,
+            powerPreference: "high-performance",
+          }}
+          dpr={[1, isMobile ? 1.1 : 1.5]}
+          shadows={!isMobile}
           onCreated={({ gl, scene, camera }) => {
             glRef.current = gl;
             sceneRef.current = scene;
             cameraRef.current = camera;
+
             const bgColor = new THREE.Color("#0b0b0b");
             scene.background = bgColor;
             gl.setClearColor(bgColor, 1);
             gl.outputColorSpace = THREE.SRGBColorSpace;
+
+            requestRender();
           }}
           camera={{ position: [0, 0, 2.55], fov: 36 }}
-          shadows
-          dpr={[1, 1.5]}
         >
+          <InvalidateBridge onReady={(inv) => (invalidateFnRef.current = inv)} />
           <SceneBackgroundLock />
+
           <ambientLight intensity={1.6} />
           <hemisphereLight intensity={0.7} groundColor={"#1a1a1a"} />
-          <directionalLight position={[6, 10, 8]} intensity={1.2} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
+
+          {/* Mobilde ağır ışıkları kapat */}
+          {!isMobile && (
+            <directionalLight
+              position={[6, 10, 8]}
+              intensity={1.2}
+              castShadow
+              shadow-mapSize-width={1024}
+              shadow-mapSize-height={1024}
+            />
+          )}
           <directionalLight position={[-6, 6, -6]} intensity={0.55} />
           <pointLight position={[0, 2.6, 2.2]} intensity={0.55} />
-          <ContactShadows position={[0, -1.4, 0]} opacity={0.16} scale={7} blur={2.2} far={3.2} />
+          {!isMobile && (
+            <ContactShadows position={[0, -1.4, 0]} opacity={0.16} scale={7} blur={2.2} far={3.2} />
+          )}
           <directionalLight position={[0, 2, -6]} intensity={0.35} />
 
-          <CameraController view={effectiveView} count={designs.length} />
+          <CameraController view={effectiveView} count={designsToRender.length} />
 
-          {/* ✅ BURASI: loader fallback çalışır */}
-          <Suspense fallback={<ThreeDotsLoader />}>
-            {designs.map((design) => {
+          <React.Suspense fallback={<ThreeDotsLoader />}>
+            {designsToRender.map((design) => {
               const layout = layoutFor(design.id);
               return (
                 <DesignModelItem
@@ -1711,10 +2121,11 @@ export default function TasarimClient() {
                   targetRotY={layout.rotY}
                   targetScale={layout.scale}
                   hidden={layout.hidden}
+                  requestRender={requestRender}
                 />
               );
             })}
-          </Suspense>
+          </React.Suspense>
 
           <OrbitControls
             makeDefault
@@ -1726,13 +2137,37 @@ export default function TasarimClient() {
             zoomSpeed={0.9}
             minDistance={1.5}
             maxDistance={10}
-            zoomToCursor={true}
+            zoomToCursor
+            onChange={requestRender}
           />
         </Canvas>
       </div>
 
-      {activeDesign && (
-        <EditorPanel design={activeDesign} updateDesign={updateActive} loading={loading} onAddToCartAll={handleAddToCartAll} view={view} />
+      {/* PANEL: desktop side, mobile bottom sheet */}
+      {activeDesign && !isMobile && (
+        <div className="w-full md:w-[420px] h-[45vh] md:h-full">
+          <EditorPanel
+            design={activeDesign}
+            updateDesign={updateActive}
+            loading={loading}
+            onAddToCartAll={handleAddToCartAll}
+            view={view}
+            requestRender={requestRender}
+          />
+        </div>
+      )}
+
+      {activeDesign && isMobile && (
+        <MobileBottomSheet title="TASARIM PANELİ" requestRender={requestRender}>
+          <EditorPanel
+            design={activeDesign}
+            updateDesign={updateActive}
+            loading={loading}
+            onAddToCartAll={handleAddToCartAll}
+            view={view}
+            requestRender={requestRender}
+          />
+        </MobileBottomSheet>
       )}
     </div>
   );
@@ -1747,3 +2182,8 @@ useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-ceplipli"]));
 useGLTF.preload(toSafeUrl(MODEL_PATHS["oversize-sweat"]));
 useGLTF.preload(toSafeUrl(MODEL_PATHS["oversize-tshirt"]));
 useGLTF.preload(toSafeUrl(MODEL_PATHS.fermuarli));
+useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-ipli"]));
+useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-oversize"]));
+useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-oversize-ipli"]));
+useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-oversize-cepli"]));
+useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-oversize-ceplipli"]));

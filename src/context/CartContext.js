@@ -1,176 +1,165 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, collection, addDoc } from "firebase/firestore";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDcTJHnK55GBqOuxUNtb7toIOpPffjiyc4",
-  authDomain: "hatrix-db.firebaseapp.com",
-  projectId: "hatrix-db",
-  storageBucket: "hatrix-db.firebasestorage.app",
-  messagingSenderId: "903710965804",
-  appId: "1:903710965804:web:5dc754a337a1d9d7951189",
-  measurementId: "G-C03LWY68K7",
-};
-
-let app, db, auth, storage;
-try {
-  app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-  db = getFirestore(app);
-  auth = getAuth(app);
-  storage = getStorage(app);
-} catch (e) {
-  console.error("Firebase init hata:", e);
-}
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
 
 const CartContext = createContext(null);
+export const useCart = () => useContext(CartContext);
 
-function sanitizeData(data) {
-  if (data === undefined) return null;
-  if (data === null) return null;
-  if (Array.isArray(data)) return data.map(sanitizeData);
-  if (typeof data === "object") {
-    const clean = {};
-    Object.keys(data).forEach((k) => (clean[k] = sanitizeData(data[k])));
-    return clean;
+const safeParse = (s, fallback) => {
+  try {
+    return JSON.parse(s);
+  } catch {
+    return fallback;
   }
-  return data;
-}
+};
 
-async function uploadDataUrlToStorage(dataUrl, path) {
-  const storageRef = ref(storage, path);
-  await uploadString(storageRef, dataUrl, "data_url");
+const isDataUrl = (v) => typeof v === "string" && v.startsWith("data:image");
+const extFromDataUrl = (dataUrl) => {
+  const m = (dataUrl || "").match(/^data:image\/(png|jpeg|jpg|webp);/i);
+  if (!m) return "png";
+  const t = m[1].toLowerCase();
+  return t === "jpg" ? "jpeg" : t;
+};
+
+const blobFromDataUrl = async (dataUrl) => {
+  // fetch dataURL destekli
+  const res = await fetch(dataUrl);
+  return await res.blob();
+};
+
+const uploadDataUrl = async (dataUrl, pathNoExt) => {
+  if (!dataUrl) return null;
+  if (!isDataUrl(dataUrl)) return dataUrl; // zaten url ise dokunma
+
+  const ext = extFromDataUrl(dataUrl);
+  const blob = await blobFromDataUrl(dataUrl);
+  const storageRef = ref(storage, `${pathNoExt}.${ext}`);
+  await uploadBytes(storageRef, blob, { contentType: blob.type || `image/${ext}` });
   return await getDownloadURL(storageRef);
-}
+};
+
+const uploadObjectOfImages = async (obj, basePath) => {
+  if (!obj || typeof obj !== "object") return {};
+  const out = {};
+  const keys = Object.keys(obj);
+  for (const k of keys) {
+    const v = obj[k];
+    if (!v) continue;
+    out[k] = await uploadDataUrl(v, `${basePath}/${k}_${Date.now()}`);
+  }
+  return out;
+};
 
 export function CartProvider({ children }) {
   const [cart, setCart] = useState([]);
-  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    if (!auth) return;
-    const unsub = onAuthStateChanged(auth, (u) => setUser(u || null));
-    return () => unsub();
+    const saved = safeParse(localStorage.getItem("cart") || "[]", []);
+    setCart(Array.isArray(saved) ? saved : []);
   }, []);
 
-  // ✅ Sepete ekleme: designDetails içinde userUploads varsa taşı
-  const addToCart = (product, size = null, color = null) => {
-    const dd = product.designDetails || null;
+  useEffect(() => {
+    localStorage.setItem("cart", JSON.stringify(cart));
+  }, [cart]);
 
-    const safeProduct = {
-      id: product.id || Date.now(),
-      name: product.name || "Ürün",
-      price: Number(product.price) || 0,
-      size: size || product.size || "Standart",
-      image: product.image || "",
-      color: color ? (typeof color === "object" ? color.hex : color) : product.color || "#000000",
-      quantity: 1,
-      designDetails: dd
-        ? {
-            model: dd.model || "tshirt",
-            baseColor: dd.baseColor || "#000000",
-            printPosition: dd.printPosition || { x: 50, y: 30 },
-            printScale: dd.printScale || 0.5,
-
-            // ✅ Model üstünde duran baskı png (composite)
-            printFile: dd.printFile || "",
-
-            // ✅ Kullanıcının ham yüklediği görseller (1-2 logo vs)
-            // Tasarım sayfasında bunu dolduracaksın:
-            // designDetails.userUploads = [dataUrlOrUrl1, dataUrlOrUrl2]
-            userUploads: Array.isArray(dd.userUploads) ? dd.userUploads.filter(Boolean) : [],
-          }
-        : null,
-    };
-
-    setCart((prev) => [...prev, safeProduct]);
+  const addToCart = (item) => {
+    setCart((prev) => [...prev, { ...item, quantity: item.quantity || 1 }]);
   };
 
-  const removeFromCart = (productId) => {
-    setCart((prev) => prev.filter((x) => x.id !== productId));
-  };
+  const removeFromCart = (id) => setCart((prev) => prev.filter((i) => i.id !== id));
 
   const clearCart = () => setCart([]);
 
-  // ✅ Sipariş tamamlama: printFile + userUploads base64 ise Storage'a yükle, URL yap
-  const completeOrder = async (customerDetails) => {
-    if (!db || !storage) return { success: false, error: "Firebase bağlantısı yok." };
+  const total = useMemo(() => {
+    return cart.reduce((sum, it) => sum + Number(it.price || 0) * Number(it.quantity || 1), 0);
+  }, [cart]);
 
-    try {
-      const processedCart = await Promise.all(
-        cart.map(async (item) => {
-          const finalItem = JSON.parse(JSON.stringify(item || {}));
+  /**
+   * ✅ Siparişi tamamla:
+   * - Cart içindeki görselleri storage'a upload eder (printFiles, mockupFiles, userUploads, item.image)
+   * - Firestore "siparisler" koleksiyonuna yazar
+   */
+  const completeOrder = async (customer) => {
+    if (!cart.length) throw new Error("Cart is empty");
 
-          // 1) printFile (composite)
-          const pf = finalItem?.designDetails?.printFile;
-          if (pf && typeof pf === "string" && pf.startsWith("data:")) {
-            const fileName = `designs/${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
-            try {
-              const url = await uploadDataUrlToStorage(pf, fileName);
-              finalItem.designDetails.printFile = url;
-              // ister thumbnail olarak da kullan:
-              finalItem.image = finalItem.image || url;
-            } catch (e) {
-              console.error("printFile upload hata:", e);
-              finalItem.designDetails.printFile = null;
-            }
-          }
+    const orderIdSeed = `order_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
-          // 2) userUploads (ham yüklenenler)
-          const ups = finalItem?.designDetails?.userUploads;
-          if (Array.isArray(ups) && ups.length > 0) {
-            const newUploads = [];
-            for (let i = 0; i < ups.length; i++) {
-              const u = ups[i];
-              if (u && typeof u === "string" && u.startsWith("data:")) {
-                const upName = `uploads/${Date.now()}_${i}_${Math.random().toString(36).slice(2)}.png`;
-                try {
-                  const url = await uploadDataUrlToStorage(u, upName);
-                  newUploads.push(url);
-                } catch (e) {
-                  console.error("userUpload upload hata:", e);
-                }
-              } else if (typeof u === "string" && u.startsWith("http")) {
-                newUploads.push(u);
-              }
-            }
-            finalItem.designDetails.userUploads = newUploads;
-          }
+    // Upload + normalize items
+    const normalizedItems = [];
+    for (let idx = 0; idx < cart.length; idx++) {
+      const item = cart[idx];
+      const dd = item.designDetails || {};
 
-          return finalItem;
-        })
-      );
+      // 1) upload preview image (item.image)
+      const uploadedPreview = item.image
+        ? await uploadDataUrl(item.image, `orders/${orderIdSeed}/items/${idx}/preview`)
+        : null;
 
-      const rawOrderData = {
-        items: processedCart,
-        total: cart.reduce((t, it) => t + Number(it.price || 0), 0),
-        customer: customerDetails,
-        userId: user ? user.uid : "misafir",
-        status: "Sipariş Alındı",
-        createdAt: new Date().toISOString(),
-      };
+      // 2) upload printFiles
+      const uploadedPrintFiles = dd.printFiles
+        ? await uploadObjectOfImages(dd.printFiles, `orders/${orderIdSeed}/items/${idx}/print`)
+        : {};
 
-      const cleanOrderData = sanitizeData(rawOrderData);
-      const docRef = await addDoc(collection(db, "siparisler"), cleanOrderData);
+      // 3) upload mockupFiles
+      const uploadedMockupFiles = dd.mockupFiles
+        ? await uploadObjectOfImages(dd.mockupFiles, `orders/${orderIdSeed}/items/${idx}/mockup`)
+        : {};
 
-      clearCart();
-      return { success: true, orderId: docRef.id };
-    } catch (error) {
-      console.error("Sipariş hatası:", error);
-      return { success: false, error: error.message };
+      // 4) upload userUploads (ham görseller)
+      let uploadedUserUploads = [];
+      if (Array.isArray(dd.userUploads) && dd.userUploads.length) {
+        uploadedUserUploads = [];
+        for (let u = 0; u < dd.userUploads.length; u++) {
+          const url = dd.userUploads[u];
+          if (!url) continue;
+          const up = await uploadDataUrl(url, `orders/${orderIdSeed}/items/${idx}/uploads/upload_${u}_${Date.now()}`);
+          uploadedUserUploads.push(up);
+        }
+      }
+
+      normalizedItems.push({
+        ...item,
+        image: uploadedPreview || item.image || null,
+        designDetails: {
+          ...dd,
+          printFiles: uploadedPrintFiles,
+          mockupFiles: uploadedMockupFiles,
+          userUploads: uploadedUserUploads,
+        },
+      });
     }
+
+    const orderDoc = {
+      createdAt: serverTimestamp(),
+      status: "Hazırlanıyor",
+      customer: customer || {},
+      items: normalizedItems,
+    };
+
+    const docRef = await addDoc(collection(db, "siparisler"), orderDoc);
+
+    // sipariş tamam
+    clearCart();
+    
+    // ✅ DÜZELTME: page.js'in beklediği formatta obje dönüyoruz
+    return { success: true, orderId: docRef.id }; 
   };
 
   return (
     <CartContext.Provider
-      value={{ cart, addToCart, removeFromCart, clearCart, completeOrder, user }}
+      value={{
+        cart,
+        total,
+        addToCart,
+        removeFromCart,
+        clearCart,
+        completeOrder,
+      }}
     >
       {children}
     </CartContext.Provider>
   );
 }
-
-export const useCart = () => useContext(CartContext);

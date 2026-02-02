@@ -1,344 +1,457 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import { initializeApp, getApps, getApp } from "firebase/app";
+import { useEffect, useState } from "react";
 import {
-  getFirestore,
   collection,
-  onSnapshot,
-  orderBy,
-  query,
-  doc,
+  getDocs,
   updateDoc,
+  deleteDoc,
+  doc,
+  query,
+  orderBy,
 } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import {
+  Loader2,
+  Download,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Image as ImageIcon,
+  Printer,
+} from "lucide-react";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDcTJHnK55GBqOuxUNtb7toIOpPffjiyc4",
-  authDomain: "hatrix-db.firebaseapp.com",
-  projectId: "hatrix-db",
-  storageBucket: "hatrix-db.firebasestorage.app",
-  messagingSenderId: "903710965804",
-  appId: "1:903710965804:web:5dc754a337a1d9d7951189",
-  measurementId: "G-C03LWY68K7",
+const statusOptions = ["Hazırlanıyor", "Kargolandı", "Teslim Edildi", "İptal"];
+
+/* ================= helpers ================= */
+const formatDate = (ts) => {
+  try {
+    if (!ts) return "";
+    const d = ts?.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleString("tr-TR", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
 };
 
-function safeInitFirebase() {
-  const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  return { app, db };
-}
-
-function formatDateTR(iso) {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleString("tr-TR");
-  } catch {
-    return "-";
-  }
-}
-
-function downloadByUrl(url, filename = "dosya.png") {
-  if (!url) return;
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-}
-
-function safeFileName(s) {
-  return String(s || "")
-    .replace(/[^\w\-\.]+/g, "_")
+const safeFileName = (name) => {
+  return String(name || "dosya")
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "_")
     .slice(0, 80);
-}
+};
 
-export default function SiparisPaneli() {
-  const { db } = useMemo(() => safeInitFirebase(), []);
+// ✅ dataURL gelirse fetch yapmadan indir (senin tasarım tarafında base64 çok dönüyor)
+const downloadByUrl = async (url, filename) => {
+  if (!url) return;
+
+  const finalName = safeFileName(filename || "dosya.png");
+
+  try {
+    // data:image/png;base64,... gibi gelirse direkt indir
+    if (typeof url === "string" && url.startsWith("data:")) {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = finalName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return;
+    }
+
+    // normal URL ise blob ile indir
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = finalName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  } catch (error) {
+    console.error("İndirme hatası:", error);
+    // Hata olursa yeni sekmede aç
+    window.open(url, "_blank");
+  }
+};
+
+// ✅ sides içinden (front/back/left/right) ham yüklemeleri topla
+const extractUserUploadsFromSides = (dd) => {
+  const sides = dd?.sides || {};
+  const urls = [];
+
+  for (const sd of Object.values(sides)) {
+    const logos = Array.isArray(sd?.logos) ? sd.logos : [];
+    for (const l of logos) {
+      if (l?.url) urls.push(l.url);
+    }
+  }
+  // dedupe
+  return Array.from(new Set(urls));
+};
+
+const pickAny = (obj) => {
+  if (!obj) return null;
+  const entries = Object.entries(obj).filter(([_, v]) => !!v);
+  return entries[0]?.[1] || null;
+};
+
+export default function AdminOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [updatingId, setUpdatingId] = useState(null);
-
-  const STATUS_OPTIONS = useMemo(
-    () => ["Sipariş Alındı", "Hazırlanıyor", "Kargolandı", "Teslim Edildi", "İptal"],
-    []
-  );
+  const [expandedOrderId, setExpandedOrderId] = useState(null);
 
   useEffect(() => {
-    const q = query(collection(db, "siparisler"), orderBy("createdAt", "desc"));
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setOrders(rows);
-        setLoading(false);
-      },
-      (err) => {
-        console.error("Sipariş çekme hatası:", err);
+    const fetchOrders = async () => {
+      try {
+        const q = query(collection(db, "siparisler"), orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(q);
+        const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setOrders(list);
+      } catch (error) {
+        console.error("Siparişler çekilemedi:", error);
+      } finally {
         setLoading(false);
       }
-    );
-    return () => unsub();
-  }, [db]);
+    };
 
-  const updateStatus = async (orderId, newStatus) => {
+    fetchOrders();
+  }, []);
+
+  const changeStatus = async (orderId, newStatus) => {
     try {
-      setUpdatingId(orderId);
-      await updateDoc(doc(db, "siparisler", orderId), { status: newStatus });
-    } catch (e) {
-      console.error("Status güncelleme hatası:", e);
-      alert("Durum güncellenemedi. Konsolu kontrol et.");
-    } finally {
-      setUpdatingId(null);
+      const refDoc = doc(db, "siparisler", orderId);
+      await updateDoc(refDoc, { status: newStatus });
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)));
+    } catch (error) {
+      alert("Durum güncellenemedi.");
     }
   };
 
+  const deleteOrder = async (orderId) => {
+    if (!confirm("Bu siparişi tamamen silmek istediğine emin misin?")) return;
+    try {
+      await deleteDoc(doc(db, "siparisler", orderId));
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    } catch (error) {
+      alert("Silme işlemi başarısız.");
+    }
+  };
+
+  const toggleExpand = (id) => {
+    setExpandedOrderId((prev) => (prev === id ? null : id));
+  };
+
+  if (loading)
+    return (
+      <div className="min-h-screen bg-[#0b0b0b] flex items-center justify-center text-white">
+        <Loader2 className="animate-spin" />
+      </div>
+    );
+
   return (
-    <div className="min-h-screen bg-[#f6f7f9] text-zinc-900">
-      <div className="max-w-[1400px] mx-auto px-6 py-10">
-        <div className="flex items-start gap-8">
-          {/* Sidebar */}
-          <aside className="w-[260px] shrink-0">
-            <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm p-6">
-              <div className="mb-6">
-                <div className="text-lg font-black tracking-tight">STENIST</div>
-                <div className="text-[11px] font-bold tracking-[0.25em] text-zinc-400">
-                  ADMIN PANELİ
+    <div className="p-4 md:p-8 text-white bg-[#0b0b0b] min-h-screen font-sans">
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-3xl font-black mb-8 tracking-widest uppercase text-zinc-100 flex items-center gap-3">
+          <span className="bg-white text-black px-3 py-1 rounded text-xl">ADMIN</span> Sipariş Yönetimi
+        </h1>
+
+        <div className="space-y-4">
+          {orders.length === 0 && <p className="text-zinc-500 text-center py-10">Henüz sipariş yok.</p>}
+
+          {orders.map((order) => {
+            const items = order.items || [];
+            const totalPrice = items.reduce(
+              (sum, it) => sum + Number(it.price || 0) * Number(it.quantity || 1),
+              0
+            );
+            const isExpanded = expandedOrderId === order.id;
+
+            return (
+              <div
+                key={order.id}
+                className={`bg-zinc-950 border transition-colors duration-300 rounded-2xl overflow-hidden ${
+                  isExpanded ? "border-zinc-600" : "border-zinc-800 hover:border-zinc-700"
+                }`}
+              >
+                {/* HEADER */}
+                <div
+                  className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer"
+                  onClick={() => toggleExpand(order.id)}
+                >
+                  <div>
+                    <div className="flex items-center gap-3 mb-1">
+                      <span className="text-[10px] bg-zinc-800 px-2 py-1 rounded text-zinc-400 font-mono">
+                        {order.id.slice(0, 8)}...
+                      </span>
+                      <span className="text-xs font-bold text-zinc-300">{formatDate(order.createdAt)}</span>
+                    </div>
+                    <h2 className="text-lg font-bold text-white">
+                      {order.customer?.adSoyad || order.customer?.name || "İsimsiz Müşteri"}
+                    </h2>
+                    <p className="text-xs text-zinc-500 mt-1">
+                      {items.length} Ürün • Toplam:{" "}
+                      <span className="text-green-400 font-bold">{totalPrice} ₺</span>
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                    <select
+                      value={order.status || "Hazırlanıyor"}
+                      onChange={(e) => changeStatus(order.id, e.target.value)}
+                      className={`appearance-none bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-2 text-xs font-bold uppercase cursor-pointer hover:bg-zinc-800 focus:outline-none focus:border-white transition
+                        ${order.status === "Teslim Edildi" ? "text-green-400 border-green-900" : "text-zinc-300"}`}
+                    >
+                      {statusOptions.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button onClick={() => toggleExpand(order.id)} className="p-2 rounded-full hover:bg-zinc-800 transition">
+                      {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <nav className="space-y-2">
-                <a
-                  href="/admin/panel"
-                  className="block px-4 py-3 rounded-xl bg-black text-white font-bold"
-                >
-                  • Siparişler
-                </a>
-                <a
-                  href="/admin/urunler"
-                  className="block px-4 py-3 rounded-xl text-zinc-700 hover:bg-zinc-100 font-bold"
-                >
-                  Ürün Yönetimi
-                </a>
-              </nav>
-            </div>
-          </aside>
+                {/* DETAY */}
+                {isExpanded && (
+                  <div className="border-t border-zinc-800 bg-zinc-900/30 p-5 md:p-8 space-y-8 animate-in slide-in-from-top-2">
+                    {/* Müşteri */}
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div className="bg-black/40 border border-zinc-800 rounded-xl p-5">
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-4">
+                          TESLİMAT BİLGİLERİ
+                        </h3>
+                        <div className="space-y-2 text-sm text-zinc-300">
+                          <p>
+                            <span className="text-zinc-500 block text-xs mb-0.5">Müşteri:</span>{" "}
+                            {order.customer?.adSoyad || "-"}
+                          </p>
+                          <p>
+                            <span className="text-zinc-500 block text-xs mb-0.5">Telefon:</span>{" "}
+                            {order.customer?.telefon || "-"}
+                          </p>
+                          <p>
+                            <span className="text-zinc-500 block text-xs mb-0.5">Şehir:</span>{" "}
+                            {order.customer?.sehir || "-"}
+                          </p>
+                          <p>
+                            <span className="text-zinc-500 block text-xs mb-0.5">Adres:</span>{" "}
+                            {order.customer?.adres || "-"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="bg-black/40 border border-zinc-800 rounded-xl p-5 flex flex-col justify-center items-center text-center">
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2">
+                          ÖDEME YÖNTEMİ
+                        </h3>
+                        <p className="text-xl font-black text-white">{order.customer?.odemeYontemi || "Kredi Kartı"}</p>
+                        <button
+                          onClick={() => deleteOrder(order.id)}
+                          className="mt-4 text-xs text-red-500 hover:text-red-400 flex items-center gap-1"
+                        >
+                          <Trash2 size={12} /> Siparişi Sil
+                        </button>
+                      </div>
+                    </div>
 
-          {/* Main */}
-          <main className="flex-1">
-            <header className="mb-6">
-              <h1 className="text-4xl font-black tracking-tight">Sipariş Yönetimi</h1>
-              <p className="text-sm text-zinc-500 mt-2">
-                {loading ? "Yükleniyor..." : `Toplam ${orders.length} sipariş listeleniyor.`}
-              </p>
-            </header>
+                    {/* Ürünler */}
+                    <div>
+                      <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400 mb-4 border-b border-zinc-800 pb-2">
+                        SİPARİŞ İÇERİĞİ
+                      </h3>
 
-            <div className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-zinc-50 border-b border-zinc-100 text-[11px] font-black text-zinc-500 uppercase tracking-wider">
-                      <th className="p-5">Sipariş ID & Tarih</th>
-                      <th className="p-5">Müşteri</th>
-                      <th className="p-5 w-[520px]">Ürünler & Tasarımlar</th>
-                      <th className="p-5 text-right">Tutar</th>
-                      <th className="p-5">Durum</th>
-                      <th className="p-5 text-right">İşlem</th>
-                    </tr>
-                  </thead>
+                      <div className="space-y-12">
+                        {items.map((item, idx) => {
+                          const dd = item.designDetails || {};
 
-                  <tbody>
-                    {!loading && orders.length === 0 && (
-                      <tr>
-                        <td className="p-6 text-sm text-zinc-500" colSpan={6}>
-                          Sipariş yok.
-                        </td>
-                      </tr>
-                    )}
+                          const mockupFiles = dd.mockupFiles || {};
+                          const printFiles = dd.printFiles || {};
 
-                    {orders.map((o) => {
-                      const createdAt = o.createdAt || o.created || o.date || null;
-                      const total = Number(o.total || 0);
-                      const status = o.status || "Sipariş Alındı";
-                      const customer = o.customer || {};
-                      const items = Array.isArray(o.items) ? o.items : [];
+                          // ✅ userUploads yoksa sides’tan otomatik çıkar
+                          const userUploads =
+                            Array.isArray(dd.userUploads) && dd.userUploads.length > 0
+                              ? dd.userUploads
+                              : extractUserUploadsFromSides(dd);
 
-                      return (
-                        <tr key={o.id} className="border-b last:border-b-0 align-top">
-                          {/* ID & date */}
-                          <td className="p-5">
-                            <div className="font-black text-sm">#{String(o.id).slice(0, 10)}...</div>
-                            <div className="text-xs text-zinc-400 mt-1">
-                              {createdAt ? formatDateTR(createdAt) : "-"}
-                            </div>
-                          </td>
+                          // ✅ ana görsel: front mockup > herhangi mockup > item.image
+                          const mainPreview = mockupFiles.front || pickAny(mockupFiles) || item.image || null;
 
-                          {/* Customer */}
-                          <td className="p-5">
-                            <div className="font-bold text-sm">{customer.name || "-"}</div>
-                            <div className="text-xs text-zinc-500 mt-1">{customer.city || "-"}</div>
-                            <div className="text-xs text-zinc-500 mt-1">
-                              {customer.phone || "-"}
-                            </div>
-                          </td>
+                          const itemName = safeFileName(item.name || `urun_${idx + 1}`);
+                          const orderShort = order.id.slice(0, 8);
 
-                          {/* Items */}
-                          <td className="p-5">
-                            <div className="space-y-4">
-                              {items.length === 0 && (
-                                <div className="text-sm text-zinc-500">Ürün bulunamadı.</div>
-                              )}
-
-                              {items.map((it, idx) => {
-                                const name = it.name || "Ürün";
-                                const qty = it.quantity || 1;
-                                const size = it.size || "Standart";
-                                const color = it.color || "#000000";
-
-                                // ✅ Baskı (model üstünde duran) PNG
-                                const printFile = it?.designDetails?.printFile || "";
-
-                                // ✅ Kullanıcının yüklediği "ham" görseller (array)
-                                const userUploads = Array.isArray(it?.designDetails?.userUploads)
-                                  ? it.designDetails.userUploads.filter(Boolean)
-                                  : [];
-
-                                // Thumbnail: Önce ürün görseli, yoksa printFile
-                                const thumb = it.image || printFile || "";
-
-                                return (
-                                  <div key={`${o.id}_${idx}`} className="flex gap-4">
-                                    <div className="w-12 h-12 rounded-xl bg-zinc-100 border border-zinc-200 overflow-hidden shrink-0">
-                                      {thumb ? (
-                                        <img
-                                          src={thumb}
-                                          alt=""
-                                          className="w-full h-full object-cover"
-                                        />
-                                      ) : null}
-                                    </div>
-
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-2">
-                                        <div className="font-black text-sm">
-                                          {name} <span className="text-zinc-400 font-bold">x{qty}</span>
-                                        </div>
-                                      </div>
-
-                                      <div className="text-xs text-zinc-500 mt-1">
-                                        • Beden: {size} • Renk:{" "}
-                                        <span className="font-mono">{String(color)}</span>
-                                      </div>
-
-                                      {/* ✅ İndirme Butonları */}
-                                      <div className="mt-3 flex flex-wrap gap-2">
-                                        {printFile ? (
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              downloadByUrl(
-                                                printFile,
-                                                `${safeFileName(name)}_${o.id}_baski.png`
-                                              )
-                                            }
-                                            className="px-3 py-2 rounded-lg bg-blue-600 text-white text-[11px] font-black hover:bg-blue-700 transition"
-                                          >
-                                            İndir: Baskı PNG
-                                          </button>
-                                        ) : null}
-
-                                        {userUploads.length > 0
-                                          ? userUploads.map((u, uix) => (
-                                              <button
-                                                key={`${o.id}_${idx}_u_${uix}`}
-                                                type="button"
-                                                onClick={() =>
-                                                  downloadByUrl(
-                                                    u,
-                                                    `${safeFileName(name)}_${o.id}_yuklenen_${uix + 1}.png`
-                                                  )
-                                                }
-                                                className="px-3 py-2 rounded-lg bg-emerald-600 text-white text-[11px] font-black hover:bg-emerald-700 transition"
-                                              >
-                                                İndir: Yüklenen Görsel {uix + 1}
-                                              </button>
-                                            ))
-                                          : null}
-
-                                        {/* Eğer hiçbir dosya yoksa ufak bilgi */}
-                                        {!printFile && userUploads.length === 0 ? (
-                                          <span className="text-[11px] text-zinc-400 font-bold">
-                                            Dosya yok
-                                          </span>
-                                        ) : null}
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </td>
-
-                          {/* Total */}
-                          <td className="p-5 text-right">
-                            <div className="font-black text-sm">
-                              ₺{Number.isFinite(total) ? total.toFixed(2) : "0.00"}
-                            </div>
-                          </td>
-
-                          {/* Status */}
-                          <td className="p-5">
-                            <div className="inline-flex items-center px-3 py-1.5 rounded-full bg-zinc-100 text-zinc-800 text-[11px] font-black">
-                              {status}
-                            </div>
-
-                            <div className="mt-3">
-                              <select
-                                value={status}
-                                disabled={updatingId === o.id}
-                                onChange={(e) => updateStatus(o.id, e.target.value)}
-                                className="w-full border border-zinc-200 rounded-xl px-3 py-2 text-xs font-bold bg-white"
-                              >
-                                {STATUS_OPTIONS.map((s) => (
-                                  <option key={s} value={s}>
-                                    {s}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            {updatingId === o.id ? (
-                              <div className="text-[11px] text-zinc-400 font-bold mt-2">
-                                Güncelleniyor...
+                          return (
+                            <div key={idx} className="bg-black border border-zinc-800 rounded-2xl p-6 relative">
+                              <div className="absolute top-4 right-4 bg-white text-black text-xs font-bold px-2 py-1 rounded">
+                                #{idx + 1}
                               </div>
-                            ) : null}
-                          </td>
 
-                          {/* Actions */}
-                          <td className="p-5 text-right">
-                            <button
-                              type="button"
-                              className="px-4 py-2 rounded-xl bg-black text-white text-xs font-black hover:opacity-90 transition"
-                              onClick={() => alert(`Sipariş: ${o.id}`)}
-                            >
-                              Detay
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                              <div className="flex flex-col lg:flex-row gap-8">
+                                {/* SOL */}
+                                <div className="lg:w-1/3">
+                                  <div className="aspect-square bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800 mb-4 relative group">
+                                    {mainPreview ? (
+                                      <img src={mainPreview} className="w-full h-full object-contain" alt="Mockup" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center text-zinc-600 text-xs">
+                                        Görsel Yok
+                                      </div>
+                                    )}
+
+                                    {mainPreview && (
+                                      <button
+                                        onClick={() =>
+                                          downloadByUrl(
+                                            mainPreview,
+                                            `Mockup_${orderShort}_${itemName}.png`
+                                          )
+                                        }
+                                        className="absolute bottom-2 right-2 bg-white text-black p-2 rounded-lg opacity-0 group-hover:opacity-100 transition shadow-lg"
+                                        title="Önizlemeyi İndir"
+                                      >
+                                        <Download size={16} />
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  <h4 className="text-lg font-bold text-white">{item.name}</h4>
+                                  <div className="flex gap-4 text-xs text-zinc-400 mt-1">
+                                    <span>
+                                      Beden: <b className="text-white">{item.size}</b>
+                                    </span>
+                                    <span>
+                                      Renk: <b className="text-white">{item.color}</b>
+                                    </span>
+                                    <span>
+                                      Adet: <b className="text-white">{item.quantity}</b>
+                                    </span>
+                                  </div>
+                                  <div className="mt-2 text-xs text-zinc-500 font-mono">Model Kodu: {dd.model || "-"}</div>
+                                </div>
+
+                                {/* SAĞ */}
+                                <div className="lg:w-2/3 grid gap-6">
+                                  {/* A) Print */}
+                                  <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
+                                    <div className="flex items-center gap-2 mb-3 text-emerald-400">
+                                      <Printer size={16} />
+                                      <h5 className="text-xs font-black uppercase tracking-wider">
+                                        Üretim Dosyaları (Baskı PNG)
+                                      </h5>
+                                    </div>
+
+                                    {Object.keys(printFiles).length > 0 ? (
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                        {Object.entries(printFiles).map(([side, url]) => (
+                                          <div key={side} className="bg-black border border-zinc-700 rounded-lg p-2 text-center group relative">
+                                            <div className="aspect-square mb-2 bg-zinc-900 rounded overflow-hidden flex items-center justify-center">
+                                              <img src={url} className="max-w-full max-h-full object-contain" alt="" />
+                                            </div>
+                                            <p className="text-[10px] font-bold uppercase text-zinc-400 mb-2">{side}</p>
+                                            <button
+                                              onClick={() =>
+                                                downloadByUrl(url, `BASKI_${orderShort}_${itemName}_${side}.png`)
+                                              }
+                                              className="w-full bg-emerald-900/30 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-800/50 rounded py-1.5 text-[10px] font-bold transition flex items-center justify-center gap-1"
+                                            >
+                                              <Download size={10} /> İNDİR
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-zinc-500 italic">
+                                        Baskı dosyası bulunamadı. (Tasarım sayfasında `printFiles` oluşmuyor olabilir.)
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  {/* B) Mockup */}
+                                  <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
+                                    <div className="flex items-center gap-2 mb-3 text-blue-400">
+                                      <ImageIcon size={16} />
+                                      <h5 className="text-xs font-black uppercase tracking-wider">Model Görünümleri (Mockup)</h5>
+                                    </div>
+
+                                    {Object.keys(mockupFiles).length > 0 ? (
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                        {Object.entries(mockupFiles).map(([side, url]) => (
+                                          <div key={side} className="bg-black border border-zinc-700 rounded-lg p-2 text-center">
+                                            <div className="aspect-square mb-2 rounded overflow-hidden bg-zinc-800">
+                                              <img src={url} className="w-full h-full object-cover" alt="" />
+                                            </div>
+                                            <p className="text-[10px] font-bold uppercase text-zinc-400 mb-2">{side}</p>
+                                            <button
+                                              onClick={() =>
+                                                downloadByUrl(url, `MOCKUP_${orderShort}_${itemName}_${side}.png`)
+                                              }
+                                              className="w-full bg-blue-900/30 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-800/50 rounded py-1.5 text-[10px] font-bold transition flex items-center justify-center gap-1"
+                                            >
+                                              <Download size={10} /> İNDİR
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-zinc-500 italic">Mockup bulunamadı.</p>
+                                    )}
+                                  </div>
+
+                                  {/* C) User uploads */}
+                                  <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
+                                    <div className="flex items-center gap-2 mb-3 text-purple-400">
+                                      <ExternalLink size={16} />
+                                      <h5 className="text-xs font-black uppercase tracking-wider">Müşteri Görselleri (Ham Hali)</h5>
+                                    </div>
+
+                                    {userUploads.length > 0 ? (
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                        {userUploads.map((url, uIdx) => (
+                                          <div key={uIdx} className="bg-black border border-zinc-700 rounded-lg p-2 text-center">
+                                            <div className="aspect-square mb-2 rounded overflow-hidden bg-zinc-800 flex items-center justify-center">
+                                              <img src={url} className="max-w-full max-h-full object-contain" alt="" />
+                                            </div>
+                                            <p className="text-[10px] font-bold uppercase text-zinc-400 mb-2">Görsel {uIdx + 1}</p>
+                                            <button
+                                              onClick={() =>
+                                                downloadByUrl(url, `MUSTERI_GORSEL_${orderShort}_${itemName}_${uIdx + 1}.png`)
+                                              }
+                                              className="w-full bg-purple-900/30 hover:bg-purple-600 text-purple-400 hover:text-white border border-purple-800/50 rounded py-1.5 text-[10px] font-bold transition flex items-center justify-center gap-1"
+                                            >
+                                              <Download size={10} /> İNDİR
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-zinc-500 italic">
+                                        Müşteri görsel yüklememiş (Sadece yazı veya hazır tasarım).
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-
-            <div className="text-[11px] text-zinc-400 font-bold mt-6">
-              Not: “Yüklenen Görsel” butonlarının çıkması için siparişe
-              <span className="font-mono"> designDetails.userUploads[] </span>
-              alanının kaydedilmesi gerekir (aşağıdaki CartContext güncellemesi).
-            </div>
-          </main>
+            );
+          })}
         </div>
       </div>
     </div>
