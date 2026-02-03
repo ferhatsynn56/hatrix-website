@@ -290,8 +290,8 @@ function useDesignCanvas(sideData, opts = {}, isMobile) {
   const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}`;
   const posSignature = `${sideData?.textPos?.x}_${sideData?.textPos?.y}`;
 
-  // Mobilde çözünürlüğü düşür
-  const CANVAS_SIZE = isMobile ? 512 : 1024;
+  // Mobilde çözünürlüğü daha da düşür
+  const CANVAS_SIZE = isMobile ? 256 : 1024;
 
   useEffect(() => {
     const hasContent = logos.length > 0 || (customText?.text || "").trim();
@@ -1498,7 +1498,12 @@ export default function TasarimClient() {
   useEffect(() => {
     // Mobil kontrolünü yap ve render izni ver
     setMounted(true);
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    const checkMobile = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      // Daha katı mobil tespiti: tablet'leri de mobil say
+      setIsMobile(width < 1024 || (width < 768 && height < 1024));
+    };
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
@@ -1506,7 +1511,14 @@ export default function TasarimClient() {
 
   // Cihaz tipi belirlenene kadar render yapma (Çökme Önleyici Kalkan)
   if (!mounted) {
-    return <div className="w-full h-screen bg-[#252525]" />;
+    return (
+      <div className="w-full h-screen bg-[#252525] flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-sm">Yükleniyor...</p>
+        </div>
+      </div>
+    );
   }
 
   // ... (Geri kalan aynı)
@@ -1881,9 +1893,9 @@ function TasarimClientContent({ isMobile }) {
           }}
           gl={{
             preserveDrawingBuffer: true,
-            antialias: !isMobile, // Mobilde antialias kapat
+            antialias: false, // Mobilde tamamen kapat
             alpha: false,
-            powerPreference: "high-performance",
+            powerPreference: "default", // Mobilde high-performance yerine default
           }}
           onCreated={({ gl, scene, camera }) => {
             glRef.current = gl;
@@ -1896,7 +1908,7 @@ function TasarimClientContent({ isMobile }) {
           }}
           camera={{ position: [0, 0, 2.55], fov: 36 }}
           shadows={!isMobile} // Mobilde gölgeleri kapat
-          dpr={isMobile ? [1, 1.2] : [1, 1.5]}
+          dpr={isMobile ? 1 : [1, 1.5]}
         >
           <SceneBackgroundLock />
 

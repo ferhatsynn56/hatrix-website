@@ -181,7 +181,7 @@ export default function UrunDetayPage() {
 
 
     return (
-        <div className="min-h-screen bg-black font-sans text-white pt-[88px] pb-20 selection:bg-red-600 selection:text-white">
+        <div className="min-h-screen bg-black font-sans text-white pt-[60px] sm:pt-[70px] md:pt-[88px] pb-20 selection:bg-red-600 selection:text-white">
             
             {/* Breadcrumb & Geri Dön */}
             <div className="px-4 md:px-8 py-4 border-b border-zinc-900 flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-zinc-500">

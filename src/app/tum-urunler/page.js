@@ -172,7 +172,7 @@ function UrunlerIcerik() {
         )}
       </div>
 
-      <div className="pt-[140px] sm:pt-[150px] md:pt-[165px] lg:pt-[175px]" />
+      <div className="pt-[40px] sm:pt-[60px] md:pt-[165px] lg:pt-[175px]" />
 
       <main className="flex-grow px-3 sm:px-4 md:px-6 lg:px-8 pb-16 sm:pb-20">
         {yukleniyor ? (

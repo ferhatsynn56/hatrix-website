@@ -212,7 +212,7 @@ export default function Navbar() {
       `}</style>
 
       {/* MARQUEE */}
-      <div className="fixed top-0 left-0 w-full z-[60] overflow-hidden py-1 whitespace-nowrap bg-white text-black transition-colors duration-500 h-[24px]">
+      <div className="fixed top-0 left-0 w-full z-[60] overflow-hidden py-1 whitespace-nowrap bg-white text-black transition-colors duration-500 h-[24px] md:h-[24px]">
         <div className="inline-block animate-marquee font-black text-[10px] uppercase tracking-[0.2em]">
           Stenist • Automotive Fashion • Street Culture • Ready to Wear • Stenist • Automotive Fashion • Street Culture • Ready to Wear • Stenist • Automotive Fashion • Street Culture • Ready to Wear • Stenist • Automotive Fashion • Street Culture • Ready to Wear •
         </div>
