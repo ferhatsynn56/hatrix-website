@@ -832,14 +832,24 @@ function DesignModelItem({
 }
 
 /* ================= EDITOR PANEL ================= */
-function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view, isMobile }) {
+function EditorPanel({
+  design,
+  updateDesign,
+  loading,
+  onAddToCartAll,
+  view,
+  isMobile,
+  activeTab,
+  setActiveTab,
+}) {
+
   const isZipperFront = design.modelType === "fermuarli" && view === "front";
   const gap01 = MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
 
   const currentSide = view === "back" ? "back" : "front";
   const sideData = useMemo(() => design?.sides?.[currentSide] || createSideData(), [design, currentSide]);
 
-  const [activeTab, setActiveTab] = useState("upload");
+  
 
   // Eğer içerik varsa otomatik editor sekmesine geç
   useEffect(() => {
@@ -1482,6 +1492,8 @@ function EditorPanel({ design, updateDesign, loading, onAddToCartAll, view, isMo
 export default function TasarimClient() {
   const [mounted, setMounted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [activeTab, setActiveTab] = useState("upload");
+
 
   useEffect(() => {
     // Mobil kontrolünü yap ve render izni ver
@@ -1720,8 +1732,12 @@ function TasarimClientContent({ isMobile }) {
       onAddToCartAll={handleAddToCartAll}
       view={view}
       isMobile={isMobile}
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
     />
   );
+  
+  
 
   return (
     <div className="h-screen w-full text-white flex flex-col md:flex-row overflow-hidden font-sans" style={{ background: SCENE_BG_COLOR }}>
