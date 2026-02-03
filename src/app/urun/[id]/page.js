@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc, getFirestore } from 'firebase/firestore';
+import { doc, getDoc, getFirestore, collection, onSnapshot, query } from 'firebase/firestore';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { useCart } from '@/context/CartContext';
 import { ArrowLeft, ShoppingBag, ChevronDown, ChevronUp, Ruler, Truck, RotateCcw, ShieldCheck, Star, Share2, Heart } from 'lucide-react';
@@ -83,14 +83,29 @@ export default function UrunDetayPage() {
     const [selectedSize, setSelectedSize] = useState(null);
     const [selectedColor, setSelectedColor] = useState(null);
     const [addingToCart, setAddingToCart] = useState(false);
+    const [relatedProducts, setRelatedProducts] = useState([]);
     
     // Akordiyon State'leri
     const [openAccordion, setOpenAccordion] = useState('description');
 
-    // Zoom Efekti State'leri
-    const [bgPos, setBgPos] = useState('0% 0%');
-    const [showZoom, setShowZoom] = useState(false);
-    const imageContainerRef = useRef(null);
+    // Zoom Efekti State'leri (Kaldırıldı)
+    // const [bgPos, setBgPos] = useState('0% 0%');
+    // const [showZoom, setShowZoom] = useState(false);
+    // const imageContainerRef = useRef(null);
+
+    // İlgili Ürünleri Çek
+    useEffect(() => {
+        if (!db) return;
+        const q = query(collection(db, 'urunler'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            // Mevcut ürünü çıkar ve rastgele 6 tane seç
+            const filtered = products.filter(p => p.id !== id);
+            const shuffled = filtered.sort(() => 0.5 - Math.random());
+            setRelatedProducts(shuffled.slice(0, 6));
+        });
+        return () => unsubscribe();
+    }, [id]);
 
     // Veri Çekme
     useEffect(() => {
@@ -117,32 +132,40 @@ export default function UrunDetayPage() {
         fetchProduct();
     }, [id, router]);
 
-    // Zoom Efekti Fonksiyonu
-    const handleMouseMove = (e) => {
-        if (!imageContainerRef.current) return;
-        const { left, top, width, height } = imageContainerRef.current.getBoundingClientRect();
-        const x = ((e.clientX - left) / width) * 100;
-        const y = ((e.clientY - top) / height) * 100;
-        setBgPos(`${x}% ${y}%`);
-    };
+    // Zoom Efekti Fonksiyonu (Kaldırıldı)
+    // const handleMouseMove = (e) => {
+    //     if (!imageContainerRef.current) return;
+    //     const { left, top, width, height } = imageContainerRef.current.getBoundingClientRect();
+    //     const x = ((e.clientX - left) / width) * 100;
+    //     const y = ((e.clientY - top) / height) * 100;
+    //     setBgPos(`${x}% ${y}%`);
+    // };
 
     // Sepete Ekleme
     const handleAddToCart = async () => {
         if (!product) return;
         
-        // Beden/Renk zorunluluğu kontrolü (Eğer ürünün bu özellikleri varsa)
-        const hasSizes = product.bedenler && product.bedenler.length > 0;
-        const hasColors = product.renkler && product.renkler.length > 0;
-
-        if ((hasSizes && !selectedSize) || (hasColors && !selectedColor)) {
-            alert("Lütfen beden ve renk seçimi yapınız."); // Gerçek projede toast mesajı daha şık olur
-            return;
-        }
-
         setAddingToCart(true);
-        await addToCart(product, selectedSize, selectedColor);
-        setAddingToCart(false);
-        // Burada bir "Sepete Eklendi" bildirimi gösterilebilir.
+        try {
+            await addToCart({
+                id: product.id,
+                isim: product.isim,
+                fiyat: product.fiyat,
+                resim: product.resim,
+                kategori: product.kategori,
+                koleksiyon: product.koleksiyon,
+                modelKodu: product.modelKodu,
+                renk: product.renk,
+                stok: product.stok,
+                aktif: product.aktif
+            });
+            alert('Ürün sepete eklendi!');
+        } catch (error) {
+            console.error('Sepete ekleme hatası:', error);
+            alert('Sepete eklenirken hata oluştu.');
+        } finally {
+            setAddingToCart(false);
+        }
     };
 
     if (loading) return <LoadingSkeleton />;
@@ -167,34 +190,19 @@ export default function UrunDetayPage() {
                 <span className="text-white line-clamp-1">{product.isim}</span>
             </div>
 
-            <main className="max-w-[1400px] mx-auto px-4 md:px-8 mt-8 md:mt-16">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-24 items-start">
+            <main className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-8 mt-6 md:mt-16">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-24 items-start">
                     
-                    {/* --- SOL SÜTUN: GÖRSEL & ZOOM --- */}
-                    <div className="relative sticky top-24">
-                        <div 
-                            ref={imageContainerRef}
-                            className="aspect-[3/4] md:aspect-[4/5] w-full bg-zinc-900 rounded-xl overflow-hidden relative border border-zinc-900 group cursor-crosshair"
-                            onMouseEnter={() => setShowZoom(true)}
-                            onMouseLeave={() => setShowZoom(false)}
-                            onMouseMove={handleMouseMove}
-                        >
+                    {/* --- SOL SÜTUN: GÖRSEL --- */}
+                    <div className="relative lg:sticky lg:top-24 order-2 lg:order-1">
+                        <div className="aspect-[3/4] lg:aspect-[4/5] w-full bg-zinc-900 rounded-xl overflow-hidden relative border border-zinc-900">
                             {/* Ana Görsel */}
                             <img 
                                 src={product.resim} 
                                 alt={product.isim} 
-                                className={`w-full h-full object-cover transition-opacity duration-300 ${showZoom ? 'opacity-0' : 'opacity-100'}`}
+                                className="w-full h-full object-cover"
                                 onError={(e) => { e.target.src = 'https://placehold.co/600x800/111/fff?text=No+Image' }}
                             />
-                            {/* Zoom Görseli (Arkaplan olarak) */}
-                            <div 
-                                className={`absolute inset-0 bg-no-repeat transition-opacity duration-300 pointer-events-none ${showZoom ? 'opacity-100' : 'opacity-0'}`}
-                                style={{
-                                    backgroundImage: `url(${product.resim})`,
-                                    backgroundPosition: bgPos,
-                                    backgroundSize: '200%', // Büyütme oranı
-                                }}
-                            ></div>
                         </div>
                         
                         {/* İkonlar (Favori/Paylaş - İşlevsiz) */}
@@ -205,26 +213,26 @@ export default function UrunDetayPage() {
                     </div>
 
                     {/* --- SAĞ SÜTUN: DETAYLAR --- */}
-                    <div className="flex flex-col pt-4 md:pt-8">
+                    <div className="flex flex-col pt-4 lg:pt-8 order-1 lg:order-2">
                         
                         {/* Başlık & Fiyat */}
-                        <div className="mb-10">
-                            <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter mb-4 leading-none">{product.isim}</h1>
-                            <div className="flex items-center gap-4">
-                                <span className="text-2xl md:text-3xl font-black tracking-wide">₺{product.fiyat}</span>
-                                {product.eskiFiyat && <span className="text-lg text-zinc-500 line-through">₺{product.eskiFiyat}</span>}
+                        <div className="mb-6 md:mb-10">
+                            <h1 className="text-2xl md:text-3xl lg:text-5xl font-black uppercase tracking-tighter mb-3 md:mb-4 leading-none">{product.isim}</h1>
+                            <div className="flex items-center gap-3 md:gap-4">
+                                <span className="text-xl md:text-2xl lg:text-3xl font-black tracking-wide">₺{product.fiyat}</span>
+                                {product.eskiFiyat && <span className="text-sm md:text-lg text-zinc-500 line-through">₺{product.eskiFiyat}</span>}
                             </div>
-                            <p className="text-zinc-400 text-sm mt-4 leading-relaxed max-w-md">{product.aciklama || "Bu ürün için henüz kısa bir açıklama eklenmemiştir. Stenist kalitesiyle üretilmiştir."}</p>
+                            <p className="text-zinc-400 text-xs md:text-sm mt-3 md:mt-4 leading-relaxed max-w-md">{product.aciklama || "Bu ürün için henüz kısa bir açıklama eklenmemiştir. Stenist kalitesiyle üretilmiştir."}</p>
                         </div>
 
-                        <div className="space-y-8 mb-10">
+                        <div className="space-y-6 md:space-y-8 mb-6 md:mb-10">
                             {/* Renk Seçimi (Varsa) */}
                             {normalizeRenkler.length > 0 && (
                                 <div>
                                     <div className="flex justify-between mb-3">
                                         <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">Renk: <span className="text-white">{selectedColor?.name}</span></span>
                                     </div>
-                                    <div className="flex flex-wrap gap-3">
+                                    <div className="flex flex-wrap gap-2 md:gap-3">
                                         {normalizeRenkler.map((renk, index) => (
                                             <button
                                                 key={index}
@@ -247,7 +255,7 @@ export default function UrunDetayPage() {
                                             <Ruler size={12} /> Beden Tablosu
                                         </button>
                                     </div>
-                                    <div className="grid grid-cols-4 gap-2">
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                                         {bedenler.map((beden) => (
                                             <button
                                                 key={beden}
@@ -270,10 +278,10 @@ export default function UrunDetayPage() {
                         <button 
                             onClick={handleAddToCart}
                             disabled={addingToCart}
-                            className={`w-full py-5 bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-[0.2em] rounded-full transition-all transform active:scale-95 flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(220,38,38,0.3)] mb-10 ${addingToCart ? 'opacity-75 cursor-not-allowed' : ''}`}
+                            className={`w-full py-4 md:py-5 bg-white hover:bg-zinc-200 text-black font-black uppercase tracking-[0.2em] rounded-full transition-all transform active:scale-95 flex items-center justify-center gap-3 shadow-lg mb-6 md:mb-10 ${addingToCart ? 'opacity-75 cursor-not-allowed' : ''}`}
                         >
                             {addingToCart ? (
-                                <>Processing...</>
+                                <>İşleniyor...</>
                             ) : (
                                 <>
                                     <ShoppingBag size={20} /> SEPETE EKLE
@@ -282,18 +290,18 @@ export default function UrunDetayPage() {
                         </button>
                         
                         {/* Güvenlik Rozetleri */}
-                        <div className="grid grid-cols-3 gap-4 mb-10 py-6 border-t border-b border-zinc-900">
-                            <div className="flex flex-col items-center text-center gap-2">
-                                <Truck size={20} className="text-zinc-400" />
-                                <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">Hızlı<br/>Kargo</span>
+                        <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6 md:mb-10 py-4 md:py-6 border-t border-b border-zinc-900">
+                            <div className="flex flex-col items-center text-center gap-1 md:gap-2">
+                                <Truck size={16} className="text-zinc-400" />
+                                <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-zinc-500">Hızlı<br/>Kargo</span>
                             </div>
-                            <div className="flex flex-col items-center text-center gap-2">
-                                <RotateCcw size={20} className="text-zinc-400" />
-                                <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">Kolay<br/>İade</span>
+                            <div className="flex flex-col items-center text-center gap-1 md:gap-2">
+                                <RotateCcw size={16} className="text-zinc-400" />
+                                <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-zinc-500">Kolay<br/>İade</span>
                             </div>
-                            <div className="flex flex-col items-center text-center gap-2">
-                                <ShieldCheck size={20} className="text-zinc-400" />
-                                <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">Güvenli<br/>Ödeme</span>
+                            <div className="flex flex-col items-center text-center gap-1 md:gap-2">
+                                <ShieldCheck size={16} className="text-zinc-400" />
+                                <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-zinc-500">Güvenli<br/>Ödeme</span>
                             </div>
                         </div>
 
@@ -331,11 +339,39 @@ export default function UrunDetayPage() {
 
                     </div>
                 </div>
+
+                {/* İLGİLİ ÜRÜNLER */}
+                {relatedProducts.length > 0 && (
+                    <div className="mt-24 pt-12 border-t border-zinc-900">
+                        <div className="flex items-center justify-between mb-8">
+                            <h2 className="text-2xl font-black uppercase tracking-tighter">İLGİLİ ÜRÜNLER</h2>
+                            <Link href="/tum-urunler" className="text-sm font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition flex items-center gap-2">
+                                TÜMÜNÜ GÖR <ArrowLeft size={14} className="rotate-180" />
+                            </Link>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                            {relatedProducts.map((urun) => (
+                                <Link key={urun.id} href={`/urun/${urun.id}`} className="group">
+                                    <div className="aspect-[3/4] bg-zinc-900 rounded-lg overflow-hidden mb-2 md:mb-3 border border-zinc-900 hover:border-zinc-800 transition-colors">
+                                        <img 
+                                            src={urun.resim} 
+                                            alt={urun.isim}
+                                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                            onError={(e) => { e.currentTarget.src = "https://placehold.co/600x800/111/fff?text=RESİM+YOK"; }}
+                                        />
+                                    </div>
+                                    <h3 className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-white line-clamp-2 mb-1">{urun.isim}</h3>
+                                    <p className="text-xs md:text-sm font-bold text-zinc-400">₺{urun.fiyat}</p>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </main>
 
             {/* --- FOOTER (Diğer sayfalardaki ile aynı) --- */}
-            <footer className="bg-zinc-950 text-white py-20 px-8 border-t border-zinc-900 mt-24">
-                <div className="max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
+            <footer className="bg-zinc-950 text-white py-12 md:py-20 px-4 md:px-8 border-t border-zinc-900 mt-16 md:mt-24">
+                <div className="max-w-[1400px] mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12">
                     <div className="flex flex-col space-y-6">
                         <h4 className="text-xs font-bold uppercase tracking-widest text-zinc-500">Müşteri Hizmetleri</h4>
                         <ul className="space-y-4 text-sm font-medium text-zinc-300">

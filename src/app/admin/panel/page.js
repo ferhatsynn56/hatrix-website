@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   collection,
   getDocs,
@@ -10,7 +11,9 @@ import {
   query,
   orderBy,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
+import { signInAnonymously } from "firebase/auth";
+import AdminShell from "@/components/AdminShell";
 import {
   Loader2,
   Download,
@@ -106,19 +109,44 @@ const pickAny = (obj) => {
 };
 
 export default function AdminOrdersPage() {
+  const router = useRouter();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
+  const [errorMsg, setErrorMsg] = useState(null);
+
+  useEffect(() => {
+    try {
+      const ok = localStorage.getItem("hatrix_admin_auth") === "1";
+      if (!ok) router.push("/admin");
+    } catch {
+      router.push("/admin");
+    }
+  }, [router]);
 
   useEffect(() => {
     const fetchOrders = async () => {
+      if (!db) {
+        setLoading(false);
+        return;
+      }
       try {
+        if (auth && !auth.currentUser) {
+          try {
+            await signInAnonymously(auth);
+          } catch {}
+        }
         const q = query(collection(db, "siparisler"), orderBy("createdAt", "desc"));
         const snapshot = await getDocs(q);
         const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
         setOrders(list);
       } catch (error) {
         console.error("Siparişler çekilemedi:", error);
+        if (error?.code === "permission-denied") {
+          setErrorMsg("Firestore izin hatası: 'siparisler' koleksiyonu için okuma yetkisi yok. Firebase Console > Firestore Database > Rules kısmından admin için read izni vermen gerekiyor (veya Anonymous Auth/Email login ile request.auth dolu olmalı).");
+        } else {
+          setErrorMsg("Siparişler çekilemedi.");
+        }
       } finally {
         setLoading(false);
       }
@@ -159,11 +187,14 @@ export default function AdminOrdersPage() {
     );
 
   return (
-    <div className="p-4 md:p-8 text-white bg-[#0b0b0b] min-h-screen font-sans">
+    <AdminShell title="Siparişler">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-black mb-8 tracking-widest uppercase text-zinc-100 flex items-center gap-3">
-          <span className="bg-white text-black px-3 py-1 rounded text-xl">ADMIN</span> Sipariş Yönetimi
-        </h1>
+
+        {errorMsg && (
+          <div className="mb-6 p-4 rounded-2xl border border-zinc-800 bg-zinc-950 text-zinc-200 text-xs leading-relaxed">
+            {errorMsg}
+          </div>
+        )}
 
         <div className="space-y-4">
           {orders.length === 0 && <p className="text-zinc-500 text-center py-10">Henüz sipariş yok.</p>}
@@ -454,6 +485,6 @@ export default function AdminOrdersPage() {
           })}
         </div>
       </div>
-    </div>
+    </AdminShell>
   );
 }

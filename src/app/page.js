@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
     ArrowRight, ShoppingBag, Play, Instagram, Twitter, Youtube, 
     MousePointer2, PenTool, Download, Truck, RotateCcw, ShieldCheck, 
-    Sparkles, Beaker, X, Printer, Layers, Palette
+    Sparkles, Beaker, X, Printer, Layers, Palette, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 
@@ -33,12 +33,42 @@ try {
     }
 } catch (e) { console.error(e); }
 
+const HOME_HERO_SLIDES_1920x850 = [
+    {
+        src: "/urungorsel/1920x850/Start-ana-ekran.jpg",
+        kicker: "YENİ KOLEKSİYON",
+        title: "START",
+        subtitle: "Street-ready parçalar. Yeni sezonun en net hali.",
+    },
+    {
+        src: "/urungorsel/1920x850/Start-ana-ekranv2.jpg",
+        kicker: "YENİ KOLEKSİYON",
+        title: "START V2",
+        subtitle: "Minimal çizgi, maksimum duruş.",
+    },
+    {
+        src: "/urungorsel/1920x850/concept-black-hoodie-front-v2.jpg",
+        kicker: "CONCEPT",
+        title: "BLACK HOODIE",
+        subtitle: "Sokak stili için ağır kumaş, temiz silhouette.",
+    },
+];
+
+const HOME_CATEGORY_IMAGES_800x800 = {
+    tshirt: "/urungorsel/800x800/penguen arka.jpg",
+    hoodie: "/urungorsel/800x800/hoodie.jpg",
+    aksesuar: "/urungorsel/800x800/AY-AGE.jpg",
+    sweatshirt: "/urungorsel/800x800/11ss.jpg",
+};
+
 export default function HomePage() {
     const router = useRouter();
 
     // --- STATE'LER ---
     const [aktifBolum, setAktifBolum] = useState(null);
     const [bilimselAcik, setBilimselAcik] = useState(false);
+    const [heroIndex, setHeroIndex] = useState(0);
+    const heroTimerRef = useRef(null);
 
     // --- AKILLI NAVİGASYON KONTROLÜ ---
     useEffect(() => {
@@ -62,6 +92,52 @@ export default function HomePage() {
             }
         }
     }, []);
+
+    const startHeroTimer = useCallback(() => {
+        if (!Array.isArray(HOME_HERO_SLIDES_1920x850) || HOME_HERO_SLIDES_1920x850.length === 0) return;
+
+        if (heroTimerRef.current) {
+            clearInterval(heroTimerRef.current);
+            heroTimerRef.current = null;
+        }
+
+        heroTimerRef.current = setInterval(() => {
+            setHeroIndex((prev) => (prev + 1) % HOME_HERO_SLIDES_1920x850.length);
+        }, 5000);
+    }, []);
+
+    useEffect(() => {
+        if (aktifBolum !== 'steni') {
+            if (heroTimerRef.current) {
+                clearInterval(heroTimerRef.current);
+                heroTimerRef.current = null;
+            }
+            return;
+        }
+        if (!Array.isArray(HOME_HERO_SLIDES_1920x850) || HOME_HERO_SLIDES_1920x850.length === 0) return;
+
+        setHeroIndex(0);
+        startHeroTimer();
+
+        return () => {
+            if (heroTimerRef.current) {
+                clearInterval(heroTimerRef.current);
+                heroTimerRef.current = null;
+            }
+        };
+    }, [aktifBolum, startHeroTimer]);
+
+    const goNextHero = useCallback(() => {
+        if (!Array.isArray(HOME_HERO_SLIDES_1920x850) || HOME_HERO_SLIDES_1920x850.length === 0) return;
+        setHeroIndex((prev) => (prev + 1) % HOME_HERO_SLIDES_1920x850.length);
+        startHeroTimer();
+    }, [startHeroTimer]);
+
+    const goPrevHero = useCallback(() => {
+        if (!Array.isArray(HOME_HERO_SLIDES_1920x850) || HOME_HERO_SLIDES_1920x850.length === 0) return;
+        setHeroIndex((prev) => (prev - 1 + HOME_HERO_SLIDES_1920x850.length) % HOME_HERO_SLIDES_1920x850.length);
+        startHeroTimer();
+    }, [startHeroTimer]);
 
     const bolumSec = (bolum) => {
         sessionStorage.setItem('session_bolum_tercihi', bolum);
@@ -121,15 +197,15 @@ export default function HomePage() {
             <Navbar />
 
             {/* --- SWITCHER --- */}
-            <div className="fixed top-24 left-4 md:left-8 z-40 animate-in fade-in slide-in-from-left-4 duration-700 delay-500 w-48">
+            <div className="fixed top-20 left-4 sm:left-6 md:left-8 z-40 animate-in fade-in slide-in-from-left-4 duration-700 delay-500 w-40 sm:w-48">
                 <div className="bg-black/80 backdrop-blur-xl rounded-full p-1 border border-zinc-700 shadow-2xl flex w-full">
                     <div className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-full transition-all duration-300 shadow-sm ${aktifBolum === 'steni' ? 'left-1' : 'left-[calc(50%+2px)]'}`}></div>
-                    <button onClick={() => bolumSec('steni')} className={`flex-1 relative z-10 py-1.5 text-[10px] font-black tracking-widest transition-colors duration-300 rounded-full ${aktifBolum === 'steni' ? 'text-black' : 'text-zinc-400 hover:text-white'}`}>STENI</button>
-                    <button onClick={() => bolumSec('ozel')} className={`flex-1 relative z-10 py-1.5 text-[10px] font-black tracking-widest transition-colors duration-300 rounded-full ${aktifBolum === 'ozel' ? 'text-black' : 'text-zinc-400 hover:text-white'}`}>ÖZEL</button>
+                    <button onClick={() => bolumSec('steni')} className={`flex-1 relative z-10 py-1.5 text-[9px] sm:text-[10px] font-black tracking-widest transition-colors duration-300 rounded-full ${aktifBolum === 'steni' ? 'text-black' : 'text-zinc-400 hover:text-white'}`}>STENI</button>
+                    <button onClick={() => bolumSec('ozel')} className={`flex-1 relative z-10 py-1.5 text-[9px] sm:text-[10px] font-black tracking-widest transition-colors duration-300 rounded-full ${aktifBolum === 'ozel' ? 'text-black' : 'text-zinc-400 hover:text-white'}`}>ÖZEL</button>
                 </div>
             </div>
 
-            <div className="pb-[72px] md:pb-0"> 
+            <div className="pb-[60px] sm:pb-[72px] md:pb-0"> 
                 
                 {/* ================= STENI BÖLÜMÜ (HAZIR GİYİM) ================= */}
                 {aktifBolum === 'steni' && (
@@ -138,27 +214,58 @@ export default function HomePage() {
                         {/* HERO BANNER */}
                         <header className="relative w-full h-screen overflow-hidden">
                             <div className="absolute inset-0">
-                                <img 
-                                    src="/urungorsel/anasayfa-banner.jpg" 
-                                    alt="Stenist Hero" 
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1523398002811-999ca8dec234?q=80&w=2000&auto=format&fit=crop' }}
-                                />
-                                <div className="absolute inset-0 bg-black/40" />
+                                {HOME_HERO_SLIDES_1920x850.map((slide, i) => (
+                                    <img
+                                        key={slide.src}
+                                        src={encodeURI(slide.src)}
+                                        alt="Stenist Hero"
+                                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${i === heroIndex ? 'opacity-100' : 'opacity-0'}`}
+                                        onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1523398002811-999ca8dec234?q=80&w=2000&auto=format&fit=crop'; }}
+                                    />
+                                ))}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/30" />
                             </div>
-                            
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 z-10 pt-20">
-                                <h2 className="text-xs md:text-sm font-bold tracking-[0.5em] text-white/80 mb-6 animate-in slide-in-from-bottom-4 duration-1000 delay-300">
-                                    YENİ KOLEKSİYON
-                                </h2>
-                                <h1 className="text-5xl md:text-8xl lg:text-9xl font-black uppercase tracking-tighter text-white mb-10 animate-in zoom-in-95 duration-1000">
-                                    HUGO STYLE
-                                </h1>
-                                <button 
-                                    onClick={() => router.push('/tum-urunler')}
-                                    className="bg-white text-black px-10 py-4 rounded-full font-black text-xs md:text-sm tracking-[0.2em] hover:bg-zinc-200 hover:scale-105 transition-all duration-300 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-500"
+
+                            <div className="absolute left-4 right-4 sm:left-6 sm:right-6 md:left-12 md:right-12 bottom-12 sm:bottom-16 md:bottom-20 z-10">
+                                <div className="max-w-xl">
+                                    <div className="inline-flex items-center gap-2 text-white/85 text-[9px] sm:text-[10px] md:text-xs font-black tracking-[0.5em] uppercase mb-3 sm:mb-4">
+                                        {HOME_HERO_SLIDES_1920x850[heroIndex]?.kicker || ""}
+                                    </div>
+                                    <h2 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-black uppercase tracking-tighter text-white leading-none">
+                                        {HOME_HERO_SLIDES_1920x850[heroIndex]?.title || ""}
+                                    </h2>
+                                    <p className="text-zinc-200/80 text-xs sm:text-xs md:text-sm mt-3 sm:mt-4 max-w-md leading-relaxed">
+                                        {HOME_HERO_SLIDES_1920x850[heroIndex]?.subtitle || ""}
+                                    </p>
+
+                                    <div className="mt-6 sm:mt-8">
+                                        <button
+                                            onClick={() => router.push('/tum-urunler')}
+                                            className="bg-white text-black px-8 sm:px-10 py-3.5 sm:py-4 rounded-full font-black text-xs sm:text-xs md:text-sm tracking-[0.2em] hover:bg-zinc-200 hover:scale-105 transition-all duration-300"
+                                        >
+                                            KEŞFET
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="absolute inset-y-0 left-0 right-0 z-20 flex items-center justify-between px-3 sm:px-4 md:px-8 pointer-events-none">
+                                <button
+                                    type="button"
+                                    onClick={goPrevHero}
+                                    className="pointer-events-auto w-11 h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white hover:bg-black/60 transition flex items-center justify-center"
+                                    aria-label="Önceki banner"
                                 >
-                                    KEŞFET
+                                    <ChevronLeft size={18} className="sm:size-22" />
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={goNextHero}
+                                    className="pointer-events-auto w-11 h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white hover:bg-black/60 transition flex items-center justify-center"
+                                    aria-label="Sonraki banner"
+                                >
+                                    <ChevronRight size={18} className="sm:size-22" />
                                 </button>
                             </div>
                         </header>
@@ -167,39 +274,39 @@ export default function HomePage() {
                         <section className="w-full bg-white">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-[2px] bg-white px-[0px] pb-[0px]">
                                 {/* Kutu 1 - TSHIRT */}
-                                <div onClick={() => router.push('/tum-urunler?kategori=tshirt')} className="relative h-[520px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
-                                    <img src="https://images.unsplash.com/photo-1576566588028-4147f3842f27?q=80&w=1200&auto=format&fit=crop" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                                <div onClick={() => router.push('/tum-urunler?kategori=tshirt')} className="relative h-[400px] sm:h-[460px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
+                                    <img src={encodeURI(HOME_CATEGORY_IMAGES_800x800.tshirt)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                                     <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-500"></div>
-                                    <div className="absolute bottom-10 left-6 md:left-10 z-20">
-                                        <h3 className="text-4xl font-black text-white uppercase tracking-tighter mb-4 drop-shadow-md">T-Shirts</h3>
-                                        <span className="inline-block border-b-2 border-white text-white font-bold text-xs uppercase tracking-widest pb-1 hover:text-gray-200 hover:border-gray-200 transition">Koleksiyonu Keşfet</span>
+                                    <div className="absolute bottom-6 left-4 sm:left-6 md:left-10 z-20">
+                                        <h3 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tighter mb-3 sm:mb-4 drop-shadow-md">T-Shirts</h3>
+                                        <span className="inline-block border-b-2 border-white text-white font-bold text-[10px] sm:text-xs uppercase tracking-widest pb-1 hover:text-gray-200 hover:border-gray-200 transition">Koleksiyonu Keşfet</span>
                                     </div>
                                 </div>
                                 {/* Kutu 2 - HOODIE */}
-                                <div onClick={() => router.push('/tum-urunler?kategori=hoodie')} className="relative h-[520px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
-                                    <img src="https://images.unsplash.com/photo-1556905055-8f358a7a47b2?q=80&w=1200&auto=format&fit=crop" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                                <div onClick={() => router.push('/tum-urunler?kategori=hoodie')} className="relative h-[400px] sm:h-[460px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
+                                    <img src={encodeURI(HOME_CATEGORY_IMAGES_800x800.hoodie)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                                     <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-500"></div>
-                                    <div className="absolute bottom-10 left-6 md:left-10 z-20">
-                                        <h3 className="text-4xl font-black text-white uppercase tracking-tighter mb-4 drop-shadow-md">Hoodies</h3>
-                                        <span className="inline-block border-b-2 border-white text-white font-bold text-xs uppercase tracking-widest pb-1 hover:text-gray-200 hover:border-gray-200 transition">Sıcak Kal</span>
+                                    <div className="absolute bottom-6 left-4 sm:left-6 md:left-10 z-20">
+                                        <h3 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tighter mb-3 sm:mb-4 drop-shadow-md">Hoodies</h3>
+                                        <span className="inline-block border-b-2 border-white text-white font-bold text-[10px] sm:text-xs uppercase tracking-widest pb-1 hover:text-gray-200 hover:border-gray-200 transition">Sıcak Kal</span>
                                     </div>
                                 </div>
                                 {/* Kutu 3 - AKSESUAR */}
-                                <div onClick={() => router.push('/tum-urunler?kategori=aksesuar')} className="relative h-[520px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
-                                    <img src="https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1200&auto=format&fit=crop" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                                <div onClick={() => router.push('/tum-urunler?kategori=aksesuar')} className="relative h-[400px] sm:h-[460px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
+                                    <img src={encodeURI(HOME_CATEGORY_IMAGES_800x800.aksesuar)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                                     <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-500"></div>
-                                    <div className="absolute bottom-10 left-6 md:left-10 z-20">
-                                        <h3 className="text-4xl font-black text-white uppercase tracking-tighter mb-4 drop-shadow-md">Aksesuarlar</h3>
+                                    <div className="absolute bottom-6 left-4 sm:left-6 md:left-10 z-20">
+                                        <h3 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tighter mb-3 sm:mb-4 drop-shadow-md">Aksesuarlar</h3>
                                         <span className="inline-block border-b-2 border-white text-white font-bold text-xs uppercase tracking-widest pb-1 hover:text-gray-200 hover:border-gray-200 transition">Detayları Gör</span>
                                     </div>
                                 </div>
                                 {/* Kutu 4 - SWEATSHIRT (GÜNCELLENDİ: ARTIK SWEATSHIRT KUTUSU) */}
-                                <div onClick={() => router.push('/tum-urunler?kategori=sweatshirt')} className="relative h-[520px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
-                                    <img src="https://images.unsplash.com/photo-1620799140408-ed5341cd2431?q=80&w=1200&auto=format&fit=crop" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                                <div onClick={() => router.push('/tum-urunler?kategori=sweatshirt')} className="relative h-[400px] sm:h-[460px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
+                                    <img src={encodeURI(HOME_CATEGORY_IMAGES_800x800.sweatshirt)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                                     <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-500"></div>
-                                    <div className="absolute bottom-10 left-6 md:left-10 z-20">
-                                        <h3 className="text-4xl font-black text-white uppercase tracking-tighter mb-4 drop-shadow-md">Sweatshirts</h3>
-                                        <span className="inline-block border-b-2 border-white text-white font-bold text-xs uppercase tracking-widest pb-1 hover:text-gray-200 hover:border-gray-200 transition">İncele</span>
+                                    <div className="absolute bottom-6 left-4 sm:left-6 md:left-10 z-20">
+                                        <h3 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tighter mb-3 sm:mb-4 drop-shadow-md">Sweatshirts</h3>
+                                        <span className="inline-block border-b-2 border-white text-white font-bold text-[10px] sm:text-xs uppercase tracking-widest pb-1 hover:text-gray-200 hover:border-gray-200 transition">İncele</span>
                                     </div>
                                 </div>
                             </div>

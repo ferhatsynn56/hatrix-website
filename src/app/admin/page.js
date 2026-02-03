@@ -14,9 +14,15 @@ export default function AdminLogin() {
     // Basit Güvenlik (Demo İçin)
     // Gerçek projede bunlar veritabanından kontrol edilir.
     if (username === 'admin' && password === '123456') {
+      try {
+        localStorage.setItem('hatrix_admin_auth', '1');
+      } catch {}
       // Başarılıysa Panele Yönlendir
-      router.push('/admin/panel');
+      router.push('/admin/dashboard');
     } else {
+      try {
+        localStorage.removeItem('hatrix_admin_auth');
+      } catch {}
       alert('Hatalı kullanıcı adı veya şifre!');
     }
   };
