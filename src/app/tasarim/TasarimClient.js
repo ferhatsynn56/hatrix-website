@@ -166,7 +166,7 @@ const MODEL_PRINT_BOUNDS = {
       yBot: -0.24,
       z: 0.131,
       rotY: 0.1,
-      zipGap01: 0.08,
+      zipGap01: 0.02, // Yakadan biraz aşağı kadar
     },
     back: { xMin: -0.155, xMax: 0.155, yTop: 0.28, yBot: -0.24, z: -0.132, rotY: Math.PI },
   },
@@ -273,7 +273,7 @@ async function makePrintDataUrl(sideData, opts = {}) {
         const bw = box.w * SIZE;
         const bh = box.h * SIZE;
         const bx = box.x * SIZE - bw / 2;
-        const by = (1 - box.y) * SIZE - bh / 2;
+        const by = box.y * SIZE - bh / 2;
         ctx.drawImage(img, bx, by, bw, bh);
         res();
       };
@@ -285,7 +285,7 @@ async function makePrintDataUrl(sideData, opts = {}) {
   if ((t.text || "").trim()) {
     const fontSize = clamp(parseInt(t.size || 150, 10), 30, 420) * (SIZE / 1024);
     ctx.save();
-    ctx.translate(textPos.x * SIZE, (1 - textPos.y) * SIZE);
+    ctx.translate(textPos.x * SIZE, textPos.y * SIZE);
     ctx.scale(clamp(t.scaleX || 1, 0.3, 3), clamp(t.scaleY || 1, 0.3, 3));
     ctx.font = `900 ${fontSize}px Arial`;
     ctx.fillStyle = t.color || "#ffffff";
@@ -381,7 +381,7 @@ function useDesignCanvas(sideData, opts = {}, isMobile) {
   const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}`;
   const posSignature = `${sideData?.textPos?.x}_${sideData?.textPos?.y}`;
 
-  const CANVAS_SIZE = isMobile ? 256 : 1024;
+  const CANVAS_SIZE = isMobile ? 512 : 2048;
 
   useEffect(() => {
     const hasContent = logos.length > 0 || (customText?.text || "").trim();
@@ -408,7 +408,7 @@ function useDesignCanvas(sideData, opts = {}, isMobile) {
         const fontSize = clamp(parseInt(t.size || 150, 10), 30, 420) * scaleFactor;
 
         ctx.save();
-        ctx.translate((sideData?.textPos?.x ?? 0.5) * CANVAS_SIZE, (1 - (sideData?.textPos?.y ?? 0.85)) * CANVAS_SIZE);
+        ctx.translate((sideData?.textPos?.x ?? 0.5) * CANVAS_SIZE, (sideData?.textPos?.y ?? 0.85) * CANVAS_SIZE);
         ctx.scale(clamp(t.scaleX || 1, 0.3, 3), clamp(t.scaleY || 1, 0.3, 3));
         ctx.font = `900 ${fontSize}px Arial`;
         ctx.fillStyle = t.color || "#ffffff";
@@ -444,7 +444,7 @@ function useDesignCanvas(sideData, opts = {}, isMobile) {
               const bw = box.w * CANVAS_SIZE;
               const bh = box.h * CANVAS_SIZE;
               const bx = box.x * CANVAS_SIZE - bw / 2;
-              const by = (1 - box.y) * CANVAS_SIZE - bh / 2;
+              const by = box.y * CANVAS_SIZE - bh / 2;
               ctx.drawImage(img, bx, by, bw, bh);
               res();
             };
@@ -502,12 +502,15 @@ function pickDecalHostMesh(root, modelType) {
 function makeCanvasTexture(canvas) {
   if (!canvas) return null;
   const tex = new THREE.CanvasTexture(canvas);
-  tex.anisotropy = 1;
+  tex.anisotropy = 16; // Netlik için yüksek değer
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.flipY = false;
+  tex.flipY = true; // Görselin doğru yönde olması için
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   tex.needsUpdate = true;
+  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
   return tex;
 }
 
@@ -587,7 +590,7 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, v
       return;
     }
     const t = makeCanvasTexture(frontCanvas);
-    if (isMobile) t.anisotropy = 1;
+    if (isMobile) t.anisotropy = 8; // Mobilde daha yüksek netlik
     setFrontTex(t);
     return () => {
       if (t) t.dispose();
@@ -600,7 +603,7 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, v
       return;
     }
     const t = makeCanvasTexture(backCanvas);
-    if (isMobile) t.anisotropy = 1;
+    if (isMobile) t.anisotropy = 8; // Mobilde daha yüksek netlik
     setBackTex(t);
     return () => {
       if (t) t.dispose();
@@ -2002,7 +2005,7 @@ function TasarimClientContent({ isMobile }) {
             makeDefault
             enableZoom
             enablePan={false}
-            enableRotate={true}
+            enableRotate={false} // Döndürmeyi kapat
             enableDamping
             dampingFactor={0.08}
             zoomSpeed={0.9}
@@ -2015,7 +2018,10 @@ function TasarimClientContent({ isMobile }) {
 
         {/* MOBILE CONTROLS */}
         {isMobile && (
-          <div className="absolute left-0 right-0 z-[80] bottom-[62vh] px-4 pointer-events-none">
+          <div 
+            className="absolute left-0 right-0 z-[80] px-4 pointer-events-none transition-all duration-300"
+            style={{ bottom: drawerOpen ? '280px' : '62vh' }}
+          >
             <div className="flex justify-center mb-3 pointer-events-auto">
               <div className="flex bg-zinc-900/90 backdrop-blur rounded-full p-1 border border-zinc-700 shadow-lg">
                 {UI_VIEWS.map((v) => (
