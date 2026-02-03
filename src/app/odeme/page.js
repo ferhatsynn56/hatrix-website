@@ -83,12 +83,8 @@ export default function OdemeSayfasi() {
 
         const sonuc = await completeOrder(musteriBilgileri);
 
-        if (sonuc.success) {
-            alert(`Siparişiniz Başarıyla Alındı! Sipariş No: ${sonuc.orderId}`);
-            router.push('/'); // Anasayfaya yönlendir
-        } else {
-            throw new Error(sonuc.error || "Sipariş kaydedilemedi.");
-        }
+        
+        console.log("completeOrder sonucu:", sonuc);
 
     } catch (error) {
         console.error("Ödeme hatası:", error);
