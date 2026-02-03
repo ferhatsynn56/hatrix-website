@@ -102,6 +102,7 @@ function UrunlerIcerik() {
         });
       } catch (error) {
         console.error("Hata:", error);
+        setYukleniyor(false); // <--- BU SATIRI EKLEYİN
       }
     }
     veriCek();

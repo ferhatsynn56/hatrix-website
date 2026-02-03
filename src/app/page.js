@@ -205,28 +205,39 @@ export default function HomePage() {
                 </div>
             </div>
 
-            <div className="pb-[60px] sm:pb-[72px] md:pb-0"> 
+            {/*
+              ✅ Mobil alttaki sabit menü barı kaldırıldıysa (Navbar'dan),
+              burada ekstra padding'e gerek yok. Eğer tekrar sabit bar eklersen,
+              pb değerlerini geri açabilirsin.
+            */}
+            <div className="pb-0"> 
                 
                 {/* ================= STENI BÖLÜMÜ (HAZIR GİYİM) ================= */}
                 {aktifBolum === 'steni' && (
                     <div className="animate-in fade-in duration-700">
                         
-                        {/* HERO BANNER */}
-                        <header className="relative w-full h-screen overflow-hidden">
+                        {/* HERO BANNER (MOBİL UYUMLU) */}
+                        {/*
+                          Mobilde "çok yakından" görünmesin diye:
+                          - h-screen yerine daha kısa bir viewport yüksekliği
+                          - object-position'ı yukarı/merkeze alıp yüzü/kafayı kesmesin
+                          - minimum yükseklik verip aşırı küçülmeyi engelledik
+                        */}
+                        <header className="relative w-full h-[72svh] sm:h-[78svh] md:h-screen min-h-[520px] md:min-h-0 overflow-hidden">
                             <div className="absolute inset-0">
                                 {HOME_HERO_SLIDES_1920x850.map((slide, i) => (
                                     <img
                                         key={slide.src}
                                         src={encodeURI(slide.src)}
                                         alt="Stenist Hero"
-                                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${i === heroIndex ? 'opacity-100' : 'opacity-0'}`}
+                                        className={`absolute inset-0 w-full h-full object-cover object-[50%_30%] md:object-center transition-opacity duration-1000 ${i === heroIndex ? 'opacity-100' : 'opacity-0'}`}
                                         onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1523398002811-999ca8dec234?q=80&w=2000&auto=format&fit=crop'; }}
                                     />
                                 ))}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/30" />
                             </div>
 
-                            <div className="absolute left-4 right-4 sm:left-6 sm:right-6 md:left-12 md:right-12 bottom-12 sm:bottom-16 md:bottom-20 z-10">
+                            <div className="absolute left-4 right-4 sm:left-6 sm:right-6 md:left-12 md:right-12 bottom-10 sm:bottom-14 md:bottom-20 z-10">
                                 <div className="max-w-xl">
                                     <div className="inline-flex items-center gap-2 text-white/85 text-[9px] sm:text-[10px] md:text-xs font-black tracking-[0.5em] uppercase mb-3 sm:mb-4">
                                         {HOME_HERO_SLIDES_1920x850[heroIndex]?.kicker || ""}
@@ -253,7 +264,7 @@ export default function HomePage() {
                                 <button
                                     type="button"
                                     onClick={goPrevHero}
-                                    className="pointer-events-auto w-11 h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white hover:bg-black/60 transition flex items-center justify-center"
+                                    className="pointer-events-auto w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white hover:bg-black/60 transition flex items-center justify-center"
                                     aria-label="Önceki banner"
                                 >
                                     <ChevronLeft size={18} className="sm:size-22" />
@@ -262,7 +273,7 @@ export default function HomePage() {
                                 <button
                                     type="button"
                                     onClick={goNextHero}
-                                    className="pointer-events-auto w-11 h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white hover:bg-black/60 transition flex items-center justify-center"
+                                    className="pointer-events-auto w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white hover:bg-black/60 transition flex items-center justify-center"
                                     aria-label="Sonraki banner"
                                 >
                                     <ChevronRight size={18} className="sm:size-22" />
