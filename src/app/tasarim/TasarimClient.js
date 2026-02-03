@@ -94,6 +94,7 @@ const MODEL_PATHS = {
   "hoodie-oversize-cepli": "/models/HoodieOversizeCepli.glb",
   "hoodie-oversize-ceplipli": "/models/HoodieOversizeCepliIpli.glb",
   fermuarli: "/models/Fermuarli.glb",
+  polar: "/models/polar.glb",
 };
 
 const AVAILABLE_MODELS = [
@@ -110,6 +111,7 @@ const AVAILABLE_MODELS = [
   "hoodie-oversize-cepli",
   "hoodie-oversize-ceplipli",
   "fermuarli",
+  "polar",
 ];
 
 const MODEL_LABELS = {
@@ -126,6 +128,7 @@ const MODEL_LABELS = {
   "hoodie-oversize-cepli": "Oversize Hoodie Cepli",
   "hoodie-oversize-ceplipli": "Oversize Hoodie Cepli İpli",
   fermuarli: "Fermuarlı",
+  polar: "Polar",
 };
 
 /* ================= PRINT BOUNDS ================= */
@@ -139,6 +142,10 @@ const MODEL_PRINT_BOUNDS = {
     back: { xMin: -0.207, xMax: 0.206, yTop: 0.28, yBot: -0.3, z: -0.153, rotY: Math.PI },
   },
   sweatshirt: {
+    front: { xMin: -0.15, xMax: 0.18, yTop: 0.28, yBot: -0.25, z: 0.139, rotY: 0 },
+    back: { xMin: -0.15, xMax: 0.19, yTop: 0.31, yBot: -0.25, z: -0.14, rotY: Math.PI },
+  },
+  polar: {
     front: { xMin: -0.15, xMax: 0.18, yTop: 0.28, yBot: -0.25, z: 0.139, rotY: 0 },
     back: { xMin: -0.15, xMax: 0.19, yTop: 0.31, yBot: -0.25, z: -0.14, rotY: Math.PI },
   },
@@ -181,6 +188,7 @@ const CM_LABELS = {
   "oversize-tshirt": { front: { w: 45, h: 60 }, back: { w: 45, h: 60 } },
   "oversize-sweat": { front: { w: 58, h: 58 }, back: { w: 58, h: 58 } },
   fermuarli: { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
+  polar: { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
 };
 
 /* ================= FİYAT SISTEMI ================= */
@@ -1581,7 +1589,7 @@ function TasarimClientContent({ isMobile }) {
   const dragState = useRef({ dragging: false, startY: 0, startDrawerY: 0 });
 
   const MAX_OPEN = 0;
-  const MAX_CLOSED = 280;
+  const MAX_CLOSED = 400;
 
   useEffect(() => {
     document.documentElement.style.backgroundColor = SCENE_BG_COLOR;
@@ -1878,6 +1886,9 @@ function TasarimClientContent({ isMobile }) {
                     <button onClick={() => addModel("fermuarli")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
                       Fermuarlı
                     </button>
+                    <button onClick={() => addModel("polar")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
+                      Polar
+                    </button>
                   </>
                 )}
                 {pickerStep === "tshirt" && (
@@ -2005,7 +2016,7 @@ function TasarimClientContent({ isMobile }) {
             makeDefault
             enableZoom
             enablePan={false}
-            enableRotate={false} // Döndürmeyi kapat
+            enableRotate={true} // Döndürmeyi aktif et
             enableDamping
             dampingFactor={0.08}
             zoomSpeed={0.9}
@@ -2020,7 +2031,7 @@ function TasarimClientContent({ isMobile }) {
         {isMobile && (
           <div 
             className="absolute left-0 right-0 z-[80] px-4 pointer-events-none transition-all duration-300"
-            style={{ bottom: drawerOpen ? '280px' : '62vh' }}
+            style={{ bottom: drawerOpen ? '62vh' : '400px' }}
           >
             <div className="flex justify-center mb-3 pointer-events-auto">
               <div className="flex bg-zinc-900/90 backdrop-blur rounded-full p-1 border border-zinc-700 shadow-lg">
@@ -2121,6 +2132,7 @@ useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-ceplipli"]));
 useGLTF.preload(toSafeUrl(MODEL_PATHS["oversize-sweat"]));
 useGLTF.preload(toSafeUrl(MODEL_PATHS["oversize-tshirt"]));
 useGLTF.preload(toSafeUrl(MODEL_PATHS.fermuarli));
+useGLTF.preload(toSafeUrl(MODEL_PATHS.polar));
 useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-ipli"]));
 useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-oversize"]));
 useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-oversize-ipli"]));
