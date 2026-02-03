@@ -281,7 +281,7 @@ async function makePrintDataUrl(sideData, opts = {}) {
         const bw = box.w * SIZE;
         const bh = box.h * SIZE;
         const bx = box.x * SIZE - bw / 2;
-        const by = box.y * SIZE - bh / 2;
+        const by = (1 - box.y) * SIZE - bh / 2;
         ctx.drawImage(img, bx, by, bw, bh);
         res();
       };
@@ -293,7 +293,7 @@ async function makePrintDataUrl(sideData, opts = {}) {
   if ((t.text || "").trim()) {
     const fontSize = clamp(parseInt(t.size || 150, 10), 30, 420) * (SIZE / 1024);
     ctx.save();
-    ctx.translate(textPos.x * SIZE, textPos.y * SIZE);
+    ctx.translate(textPos.x * SIZE, (1 - textPos.y) * SIZE);
     ctx.scale(clamp(t.scaleX || 1, 0.3, 3), clamp(t.scaleY || 1, 0.3, 3));
     ctx.font = `900 ${fontSize}px Arial`;
     ctx.fillStyle = t.color || "#ffffff";
@@ -389,7 +389,7 @@ function useDesignCanvas(sideData, opts = {}, isMobile) {
   const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}`;
   const posSignature = `${sideData?.textPos?.x}_${sideData?.textPos?.y}`;
 
-  const CANVAS_SIZE = isMobile ? 512 : 2048;
+  const CANVAS_SIZE = isMobile ? 1024 : 2048;
 
   useEffect(() => {
     const hasContent = logos.length > 0 || (customText?.text || "").trim();
@@ -416,7 +416,7 @@ function useDesignCanvas(sideData, opts = {}, isMobile) {
         const fontSize = clamp(parseInt(t.size || 150, 10), 30, 420) * scaleFactor;
 
         ctx.save();
-        ctx.translate((sideData?.textPos?.x ?? 0.5) * CANVAS_SIZE, (sideData?.textPos?.y ?? 0.85) * CANVAS_SIZE);
+        ctx.translate((sideData?.textPos?.x ?? 0.5) * CANVAS_SIZE, (1 - (sideData?.textPos?.y ?? 0.85)) * CANVAS_SIZE);
         ctx.scale(clamp(t.scaleX || 1, 0.3, 3), clamp(t.scaleY || 1, 0.3, 3));
         ctx.font = `900 ${fontSize}px Arial`;
         ctx.fillStyle = t.color || "#ffffff";
@@ -452,7 +452,7 @@ function useDesignCanvas(sideData, opts = {}, isMobile) {
               const bw = box.w * CANVAS_SIZE;
               const bh = box.h * CANVAS_SIZE;
               const bx = box.x * CANVAS_SIZE - bw / 2;
-              const by = box.y * CANVAS_SIZE - bh / 2;
+              const by = (1 - box.y) * CANVAS_SIZE - bh / 2;
               ctx.drawImage(img, bx, by, bw, bh);
               res();
             };
@@ -512,7 +512,7 @@ function makeCanvasTexture(canvas) {
   const tex = new THREE.CanvasTexture(canvas);
   tex.anisotropy = 16; // Netlik için yüksek değer
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.flipY = true; // Görselin doğru yönde olması için
+  tex.flipY = false; // Decal/CanvasTexture için daha uygun
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   tex.needsUpdate = true;
@@ -1258,7 +1258,7 @@ function EditorPanel({
 
             <div
               ref={previewRef}
-              className="w-full aspect-square bg-zinc-900 rounded-xl border border-zinc-600 relative overflow-hidden shadow-2xl touch-none"
+              className={`w-full bg-zinc-900 rounded-xl border border-zinc-600 relative overflow-hidden shadow-2xl touch-none ${isMobile ? 'aspect-[4/5] h-64' : 'aspect-square'}`}
               style={{ touchAction: "none" }}
             >
               {/* hafif grid */}
@@ -1480,7 +1480,7 @@ function EditorPanel({
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-zinc-800 bg-[#111111] flex-shrink-0">
+      <div className={`p-4 border-t border-zinc-800 bg-[#111111] flex-shrink-0 ${isMobile ? 'pb-[calc(env(safe-area-inset-bottom)+16px)]' : ''}`}>
         <div className="mb-3 p-3 bg-zinc-900/50 rounded-xl border border-zinc-800">
           <div className="flex justify-between items-center">
             <span className="text-[10px] text-zinc-500 font-bold uppercase">Ana Fiyat</span>
@@ -1589,7 +1589,7 @@ function TasarimClientContent({ isMobile }) {
   const dragState = useRef({ dragging: false, startY: 0, startDrawerY: 0 });
 
   const MAX_OPEN = 0;
-  const MAX_CLOSED = 400;
+  const MAX_CLOSED = 500;
 
   useEffect(() => {
     document.documentElement.style.backgroundColor = SCENE_BG_COLOR;
@@ -1958,10 +1958,11 @@ function TasarimClientContent({ isMobile }) {
           }}
           gl={{
             preserveDrawingBuffer: true,
-            antialias: false,
+            antialias: true,
             alpha: false,
-            powerPreference: "default",
+            powerPreference: "high-performance",
           }}
+          dpr={isMobile ? 2 : [1, 2]}
           onCreated={({ gl, scene, camera }) => {
             glRef.current = gl;
             sceneRef.current = scene;
@@ -1973,7 +1974,6 @@ function TasarimClientContent({ isMobile }) {
           }}
           camera={{ position: [0, 0, 2.55], fov: 36 }}
           shadows={!isMobile}
-          dpr={isMobile ? 1 : [1, 1.5]}
         >
           <SceneBackgroundLock />
 
@@ -2028,10 +2028,10 @@ function TasarimClientContent({ isMobile }) {
         </Canvas>
 
         {/* MOBILE CONTROLS */}
-        {isMobile && (
+        {isMobile && activeTab !== "editor" && (
           <div 
-            className="absolute left-0 right-0 z-[80] px-4 pointer-events-none transition-all duration-300"
-            style={{ bottom: drawerOpen ? '62vh' : '400px' }}
+            className="absolute left-0 right-0 z-[30] px-4 pointer-events-none transition-all duration-300"
+            style={{ bottom: drawerOpen ? '62vh' : '500px' }}
           >
             <div className="flex justify-center mb-3 pointer-events-auto">
               <div className="flex bg-zinc-900/90 backdrop-blur rounded-full p-1 border border-zinc-700 shadow-lg">
@@ -2089,8 +2089,8 @@ function TasarimClientContent({ isMobile }) {
             style={{
               transform: `translateY(${drawerY}px)`,
               transition: dragState.current.dragging ? "none" : "transform 220ms ease",
-              maxHeight: "60vh",
-              height: "60vh",
+              maxHeight: "72vh",
+              height: "72vh",
               paddingBottom: "env(safe-area-inset-bottom)",
             }}
           >
@@ -2109,6 +2109,17 @@ function TasarimClientContent({ isMobile }) {
                   >
                     {drawerOpen ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
                   </button>
+                </div>
+              )}
+
+              {/* Editor modunda da drag handle göster */}
+              {activeTab === "editor" && (
+                <div
+                  className="w-full flex items-center justify-center py-2 border-b border-zinc-800 bg-[#0f0f0f] flex-shrink-0"
+                  onPointerDown={onDrawerPointerDown}
+                  style={{ touchAction: "none" }}
+                >
+                  <div className="w-12 h-1.5 rounded-full bg-zinc-600" />
                 </div>
               )}
 
