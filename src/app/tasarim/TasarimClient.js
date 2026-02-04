@@ -1612,7 +1612,7 @@ function TasarimClientContent({ isMobile }) {
 
   // Mobile drawer
   const DRAWER_PEEK = 76;
-  const CONTROLS_GAP = 28;
+  const CONTROLS_GAP = 56;
   const MAX_OPEN = 0;
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [drawerY, setDrawerY] = useState(0);
@@ -1816,9 +1816,9 @@ function TasarimClientContent({ isMobile }) {
   const drawerHeightStyle = drawerHeight ? `${drawerHeight}px` : "72vh";
   const controlsBottom = drawerOpen
     ? drawerHeight
-      ? `${drawerHeight + CONTROLS_GAP}px`
-      : `calc(72vh + ${CONTROLS_GAP}px)`
-    : `${DRAWER_PEEK + CONTROLS_GAP}px`;
+      ? `calc(${drawerHeight}px + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
+      : `calc(72vh + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
+    : `calc(${DRAWER_PEEK + CONTROLS_GAP}px + env(safe-area-inset-bottom))`;
 
   const renderPanel = (
     <EditorPanel
@@ -2086,7 +2086,7 @@ function TasarimClientContent({ isMobile }) {
         {/* MOBILE CONTROLS */}
         {isMobile && activeTab !== "editor" && (
           <div 
-            className="absolute left-0 right-0 z-[30] px-4 pointer-events-none transition-all duration-300"
+            className="absolute left-0 right-0 z-[90] px-4 pointer-events-none transition-all duration-300"
             style={{ bottom: controlsBottom }}
           >
             <div className="flex justify-center mb-3 pointer-events-auto">
