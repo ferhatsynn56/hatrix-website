@@ -44,6 +44,19 @@ const formatDate = (ts) => {
   }
 };
 
+const getMillis = (ts) => {
+  try {
+    if (!ts) return 0;
+    if (typeof ts.toMillis === "function") return ts.toMillis();
+    if (typeof ts.toDate === "function") return ts.toDate().getTime();
+    const d = new Date(ts);
+    const t = d.getTime();
+    return Number.isFinite(t) ? t : 0;
+  } catch {
+    return 0;
+  }
+};
+
 const safeFileName = (name) => {
   return String(name || "dosya")
     .trim()
@@ -139,6 +152,7 @@ export default function AdminOrdersPage() {
         const q = query(collection(db, "siparisler"), orderBy("createdAt", "desc"));
         const snapshot = await getDocs(q);
         const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        list.sort((a, b) => getMillis(b.createdAt) - getMillis(a.createdAt));
         setOrders(list);
       } catch (error) {
         console.error("Siparişler çekilemedi:", error);
@@ -224,7 +238,9 @@ export default function AdminOrdersPage() {
                       <span className="text-[10px] bg-zinc-800 px-2 py-1 rounded text-zinc-400 font-mono">
                         {order.id.slice(0, 8)}...
                       </span>
-                      <span className="text-xs font-bold text-zinc-300">{formatDate(order.createdAt)}</span>
+                      <span className="text-xs font-bold text-zinc-300">
+                        Tarih: {formatDate(order.createdAt) || "-"}
+                      </span>
                     </div>
                     <h2 className="text-lg font-bold text-white">
                       {order.customer?.adSoyad || order.customer?.name || "İsimsiz Müşteri"}
@@ -309,6 +325,7 @@ export default function AdminOrdersPage() {
 
                           const mockupFiles = dd.mockupFiles || {};
                           const printFiles = dd.printFiles || {};
+                          const adjustedUploads = dd.adjustedUploads || {};
 
                           // ✅ userUploads yoksa sides’tan otomatik çıkar
                           const userUploads =
@@ -404,6 +421,50 @@ export default function AdminOrdersPage() {
                                     ) : (
                                       <p className="text-xs text-zinc-500 italic">
                                         Baskı dosyası bulunamadı. (Tasarım sayfasında `printFiles` oluşmuyor olabilir.)
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  {/* A.5) Adjusted uploads */}
+                                  <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
+                                    <div className="flex items-center gap-2 mb-3 text-fuchsia-400">
+                                      <ImageIcon size={16} />
+                                      <h5 className="text-xs font-black uppercase tracking-wider">
+                                        Ayarlanmış Görseller (Son Hali)
+                                      </h5>
+                                    </div>
+
+                                    {Object.keys(adjustedUploads).length > 0 ? (
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        {Object.entries(adjustedUploads).map(([side, list]) => (
+                                          <div key={side} className="bg-black border border-zinc-700 rounded-lg p-3">
+                                            <p className="text-[10px] font-bold uppercase text-zinc-400 mb-3">{side}</p>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                              {(Array.isArray(list) ? list : []).map((url, uIdx) => (
+                                                <div key={uIdx} className="bg-zinc-900 border border-zinc-700 rounded p-2 text-center">
+                                                  <div className="aspect-square mb-2 rounded overflow-hidden bg-zinc-800 flex items-center justify-center">
+                                                    <img src={url} className="max-w-full max-h-full object-contain" alt="" />
+                                                  </div>
+                                                  <button
+                                                    onClick={() =>
+                                                      downloadByUrl(
+                                                        url,
+                                                        `AYARLI_${orderShort}_${itemName}_${side}_${uIdx + 1}.png`
+                                                      )
+                                                    }
+                                                    className="w-full bg-fuchsia-900/30 hover:bg-fuchsia-600 text-fuchsia-300 hover:text-white border border-fuchsia-800/50 rounded py-1 text-[10px] font-bold transition flex items-center justify-center gap-1"
+                                                  >
+                                                    <Download size={10} /> İNDİR
+                                                  </button>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-zinc-500 italic">
+                                        Ayarlanmış görsel bulunamadı.
                                       </p>
                                     )}
                                   </div>

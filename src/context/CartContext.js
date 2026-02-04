@@ -53,6 +53,28 @@ const uploadObjectOfImages = async (obj, basePath) => {
   return out;
 };
 
+const uploadArrayOfImages = async (arr, basePath) => {
+  if (!Array.isArray(arr)) return [];
+  const out = [];
+  for (let i = 0; i < arr.length; i++) {
+    const v = arr[i];
+    if (!v) continue;
+    // eslint-disable-next-line no-await-in-loop
+    out.push(await uploadDataUrl(v, `${basePath}/img_${i}_${Date.now()}`));
+  }
+  return out;
+};
+
+const uploadNestedUploads = async (obj, basePath) => {
+  if (!obj || typeof obj !== "object") return {};
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    // eslint-disable-next-line no-await-in-loop
+    out[k] = await uploadArrayOfImages(v, `${basePath}/${k}`);
+  }
+  return out;
+};
+
 const compactSides = (sides) => {
   if (!sides || typeof sides !== "object") return undefined;
   const out = {};
@@ -189,6 +211,11 @@ export function CartProvider({ children }) {
         }
       }
 
+      // 5) upload adjustedUploads (kullanıcının son ayarladığı görseller)
+      const uploadedAdjustedUploads = dd.adjustedUploads
+        ? await uploadNestedUploads(dd.adjustedUploads, `orders/${orderIdSeed}/items/${idx}/adjusted`)
+        : {};
+
       const compactDesignDetails = dd
         ? {
             model: dd.model,
@@ -197,6 +224,7 @@ export function CartProvider({ children }) {
             printFiles: uploadedPrintFiles,
             mockupFiles: uploadedMockupFiles,
             userUploads: uploadedUserUploads,
+            adjustedUploads: uploadedAdjustedUploads,
             sides: compactSides(dd.sides),
           }
         : undefined;

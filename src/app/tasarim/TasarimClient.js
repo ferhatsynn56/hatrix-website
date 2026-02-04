@@ -318,6 +318,50 @@ async function makePrintDataUrl(sideData, opts = {}) {
   return c.toDataURL("image/png");
 }
 
+/* ================= ADJUSTED LOGO EXPORT (PER LOGO) ================= */
+async function makeAdjustedLogoDataUrls(sideData) {
+  const logos = sideData?.logos || [];
+  if (!logos.length) return [];
+
+  const SIZE = 2048;
+  const results = [];
+
+  for (const l of logos) {
+    const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
+    const bw = Math.max(1, Math.round(box.w * SIZE));
+    const bh = Math.max(1, Math.round(box.h * SIZE));
+
+    const c = document.createElement("canvas");
+    c.width = bw;
+    c.height = bh;
+    const ctx = c.getContext("2d");
+    if (!ctx) {
+      results.push(null);
+      continue;
+    }
+
+    ctx.clearRect(0, 0, bw, bh);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((res) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = l.url;
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, bw, bh);
+        res();
+      };
+      img.onerror = () => res();
+    });
+
+    results.push(c.toDataURL("image/png"));
+  }
+
+  return results.filter(Boolean);
+}
+
 /* ================= SCENE BACKGROUND ================= */
 function SceneBackgroundLock() {
   const { gl, scene } = useThree();
@@ -846,7 +890,12 @@ function DesignModelItem({
   const dragRef = useRef({ active: false, pid: null, startX: 0, startY: 0, startRotY: 0, startRotX: 0 });
 
   const ROT_SPEED = 0.01;
-  const clampRotX = (v) => Math.max(-0.9, Math.min(0.9, v));
+  const clampRotX = (v) => Math.max(-0.75, Math.min(0.75, v));
+  const clampRotY = (v) => Math.max(-0.85, Math.min(0.85, v));
+
+  useEffect(() => {
+    userRotRef.current = { x: 0, y: 0 };
+  }, [view]);
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
@@ -910,11 +959,14 @@ function DesignModelItem({
         if (!dragRef.current.active || dragRef.current.pid !== e.pointerId) return;
         e.stopPropagation();
 
-        const invert = view === "back" ? -1 : 1;
-        userRotRef.current.y =
-          dragRef.current.startRotY + (e.clientX - dragRef.current.startX) * ROT_SPEED * invert;
-        userRotRef.current.x =
-          clampRotX(dragRef.current.startRotX + (e.clientY - dragRef.current.startY) * ROT_SPEED * invert);
+        const invertY = view === "back" ? -1 : 1;
+        const invertX = view === "back" ? -1 : 1;
+        const nextY =
+          dragRef.current.startRotY + (e.clientX - dragRef.current.startX) * ROT_SPEED * invertY;
+        const nextX =
+          dragRef.current.startRotX + (e.clientY - dragRef.current.startY) * ROT_SPEED * invertX;
+        userRotRef.current.y = clampRotY(nextY);
+        userRotRef.current.x = clampRotX(nextX);
       }}
       onPointerUp={(e) => {
         if (disableDrag) return;
@@ -1721,6 +1773,7 @@ function TasarimClientContent({ isMobile }) {
         if (activeSides.length === 0) continue;
 
         const printFiles = {};
+        const adjustedUploads = {};
         for (const [sideKey, sideData] of activeSides) {
           if (d.modelType === "fermuarli" && sideKey === "front") {
             const g = MODEL_PRINT_BOUNDS.fermuarli.front.zipGap01 ?? 0.08;
@@ -1730,6 +1783,8 @@ function TasarimClientContent({ isMobile }) {
             // eslint-disable-next-line no-await-in-loop
             printFiles[sideKey] = await makePrintDataUrl(sideData);
           }
+          // eslint-disable-next-line no-await-in-loop
+          adjustedUploads[sideKey] = await makeAdjustedLogoDataUrls(sideData);
         }
 
         const mockupFiles = {};
@@ -1758,6 +1813,7 @@ function TasarimClientContent({ isMobile }) {
             stringColor: d.stringColor,
             printFiles,
             mockupFiles,
+            adjustedUploads,
             sides: d.sides,
           },
         });
