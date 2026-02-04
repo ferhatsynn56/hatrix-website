@@ -906,9 +906,11 @@ function DesignModelItem({
         if (!dragRef.current.active || dragRef.current.pid !== e.pointerId) return;
         e.stopPropagation();
 
-        const invert = 1;
-        userRotRef.current.y = dragRef.current.startRotY + (e.clientX - dragRef.current.startX) * ROT_SPEED * invert;
-        userRotRef.current.x = clampRotX(dragRef.current.startRotX + (e.clientY - dragRef.current.startY) * ROT_SPEED * invert);
+        const invert = view === "back" ? -1 : 1;
+        userRotRef.current.y =
+          dragRef.current.startRotY + (e.clientX - dragRef.current.startX) * ROT_SPEED * invert;
+        userRotRef.current.x =
+          clampRotX(dragRef.current.startRotX + (e.clientY - dragRef.current.startY) * ROT_SPEED * invert);
       }}
       onPointerUp={(e) => {
         if (disableDrag) return;
@@ -1814,11 +1816,10 @@ function TasarimClientContent({ isMobile }) {
 
   const effectiveView = captureView || view;
   const drawerHeightStyle = drawerHeight ? `${drawerHeight}px` : "72vh";
-  const controlsBottom = drawerOpen
-    ? drawerHeight
-      ? `calc(${drawerHeight}px + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
-      : `calc(72vh + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
-    : `calc(${DRAWER_PEEK + CONTROLS_GAP}px + env(safe-area-inset-bottom))`;
+  const drawerTopGap = drawerHeight ? Math.max(0, drawerHeight - drawerY) : null;
+  const controlsBottom = drawerHeight
+    ? `calc(${drawerTopGap}px + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
+    : `calc(72vh + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`;
 
   const renderPanel = (
     <EditorPanel
@@ -2060,7 +2061,7 @@ function TasarimClientContent({ isMobile }) {
                   targetRotY={layout.rotY}
                   targetScale={layout.scale}
                   hidden={layout.hidden}
-                  disableDrag={isMobile}
+                  disableDrag={false}
                   isMobile={isMobile}
                 />
               );

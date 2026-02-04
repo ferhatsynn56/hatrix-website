@@ -194,7 +194,7 @@ export default function UrunDetayPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-24 items-start">
                     
                     {/* --- SOL SÜTUN: GÖRSEL --- */}
-                    <div className="relative lg:sticky lg:top-24 order-2 lg:order-1">
+                    <div className="relative lg:sticky lg:top-24 order-1 lg:order-1">
                         <div className="aspect-[3/4] lg:aspect-[4/5] w-full bg-zinc-900 rounded-xl overflow-hidden relative border border-zinc-900">
                             {/* Ana Görsel */}
                             <img 
@@ -213,7 +213,7 @@ export default function UrunDetayPage() {
                     </div>
 
                     {/* --- SAĞ SÜTUN: DETAYLAR --- */}
-                    <div className="flex flex-col pt-4 lg:pt-8 order-1 lg:order-2">
+                    <div className="flex flex-col pt-4 lg:pt-8 order-2 lg:order-2">
                         
                         {/* Başlık & Fiyat */}
                         <div className="mb-6 md:mb-10">
