@@ -316,7 +316,7 @@ export default function ModelSecimSayfasi() {
                     <h2 className="text-2xl md:text-3xl font-black">
                       {group.title}
                     </h2>
-                    <p className="text-xs text-zinc-500 uppercase tracking-[0.2em] mt-1 leading-relaxed max-w-3xl">
+                    <p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-[0.2em] mt-1 leading-relaxed max-w-3xl">
                       {variantList}
                     </p>
                   </div>

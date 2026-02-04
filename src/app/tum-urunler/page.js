@@ -163,7 +163,7 @@ function UrunlerIcerik() {
         </div>
         
         {filtreMenuAcik && (
-          <div className="absolute top-full right-2 sm:right-4 mt-2 w-64 sm:w-72 bg-[#111] border border-zinc-800 p-4 sm:p-5 rounded-2xl z-50">
+          <div className="absolute top-full right-2 sm:right-4 mt-2 w-[92vw] sm:w-72 bg-[#111] border border-zinc-800 p-4 sm:p-5 rounded-2xl z-50">
              {["ONERILEN", "ARTAN", "AZALAN"].map((tip) => (
                 <button key={tip} onClick={() => { setFiyatSiralamasi(tip); setFiltreMenuAcik(false); }} className="block w-full text-left text-[11px] py-3 text-zinc-400 hover:text-white font-bold">
                   {tip === "ONERILEN" ? "ÖNERİLEN SIRALAMA" : tip === "ARTAN" ? "FİYAT: DÜŞÜKTEN YÜKSEĞE" : "FİYAT: YÜKSEKTEN DÜŞÜĞE"}

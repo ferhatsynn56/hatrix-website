@@ -64,7 +64,7 @@ export default function BilimselSayfa() {
     <div className="min-h-screen bg-black text-white font-sans selection:bg-blue-600 selection:text-white">
       
       {/* --- NAVBAR --- */}
-      <nav className="fixed w-full bg-black/90 backdrop-blur-md z-50 border-b border-zinc-900 h-20 flex items-center px-6 md:px-12 justify-between">
+      <nav className="fixed w-full bg-black/90 backdrop-blur-md z-50 border-b border-zinc-900 h-16 md:h-20 flex items-center px-4 md:px-12 justify-between" style={{ paddingTop: "env(safe-area-inset-top)" }}>
           <Link href="/" className="text-2xl font-black tracking-widest font-mono flex items-center gap-2 cursor-pointer">
             STENIST<span className="text-blue-600 border border-blue-600 text-[10px] px-1.5 py-0.5 rounded">LAB</span>
           </Link>
@@ -74,11 +74,11 @@ export default function BilimselSayfa() {
       </nav>
 
       {/* --- HERO SECTION --- */}
-      <header className="pt-40 pb-16 px-6 container mx-auto text-center">
+      <header className="pt-28 sm:pt-32 md:pt-40 pb-16 px-4 md:px-6 container mx-auto text-center">
          <div className="inline-flex items-center gap-2 text-zinc-500 font-mono text-xs font-bold mb-4 border border-zinc-800 px-3 py-1 rounded-full uppercase tracking-wider">
             <Microscope size={14}/> Production Technology
          </div>
-         <h1 className="text-4xl md:text-6xl font-black mb-6 tracking-tighter">
+         <h1 className="text-3xl sm:text-4xl md:text-6xl font-black mb-6 tracking-tighter">
             BİLİM, KUMAŞLA BULUŞUYOR.
          </h1>
          <p className="text-zinc-400 max-w-xl mx-auto text-base leading-relaxed">

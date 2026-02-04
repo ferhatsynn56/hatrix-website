@@ -35,14 +35,14 @@ export default function GirisSayfasi() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 font-sans">
-      <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-gray-100">
+      <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-xl w-full max-w-md border border-gray-100">
         
         {/* Başlık */}
         <div className="text-center mb-8">
             <Link href="/" className="inline-flex items-center text-gray-400 hover:text-black mb-6 text-sm font-medium transition">
                 <ArrowLeft size={16} className="mr-1"/> Ana Sayfaya Dön
             </Link>
-            <h1 className="text-3xl font-black text-gray-900 tracking-tight mb-2">Tekrar Hoş Geldin</h1>
+            <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight mb-2">Tekrar Hoş Geldin</h1>
             <p className="text-gray-500">Hesabına giriş yap ve tasarlamaya devam et.</p>
         </div>
 

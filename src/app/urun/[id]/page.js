@@ -190,7 +190,7 @@ export default function UrunDetayPage() {
                 <span className="text-white line-clamp-1">{product.isim}</span>
             </div>
 
-            <main className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-8 mt-6 md:mt-16">
+            <main className="max-w-[1400px] mx-auto px-4 sm:px-6 md:px-8 mt-4 sm:mt-6 md:mt-16">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-24 items-start">
                     
                     {/* --- SOL SÜTUN: GÖRSEL --- */}
@@ -217,7 +217,7 @@ export default function UrunDetayPage() {
                         
                         {/* Başlık & Fiyat */}
                         <div className="mb-6 md:mb-10">
-                            <h1 className="text-2xl md:text-3xl lg:text-5xl font-black uppercase tracking-tighter mb-3 md:mb-4 leading-none">{product.isim}</h1>
+                            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-5xl font-black uppercase tracking-tighter mb-3 md:mb-4 leading-none">{product.isim}</h1>
                             <div className="flex items-center gap-3 md:gap-4">
                                 <span className="text-xl md:text-2xl lg:text-3xl font-black tracking-wide">₺{product.fiyat}</span>
                                 {product.eskiFiyat && <span className="text-sm md:text-lg text-zinc-500 line-through">₺{product.eskiFiyat}</span>}

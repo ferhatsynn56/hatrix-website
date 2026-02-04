@@ -97,7 +97,7 @@ export default function OdemeSayfasi() {
   if (yukleniyor) return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-500">Yükleniyor...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans text-gray-900 py-10 px-4">
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-900 py-8 sm:py-10 px-4">
       <div className="max-w-6xl mx-auto">
         
         {/* Üst Başlık */}
@@ -202,7 +202,7 @@ export default function OdemeSayfasi() {
 
             {/* SAĞ TARAF: SİPARİŞ ÖZETİ */}
             <div className="lg:col-span-1">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 sticky top-4">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:sticky lg:top-4">
                     <h2 className="text-lg font-bold flex items-center gap-2 mb-6">
                         <ShoppingBag className="text-blue-600"/> Sipariş Özeti
                     </h2>

@@ -29,7 +29,7 @@ export default function SepetSayfasi() {
         <div className="min-h-screen bg-black text-white font-sans">
 
             {/* HEADER */}
-            <div className="fixed top-0 left-0 w-full bg-black/80 backdrop-blur-md border-b border-zinc-800 z-50 px-6 py-4 flex items-center justify-between">
+            <div className="fixed top-0 left-0 w-full bg-black/80 backdrop-blur-md border-b border-zinc-800 z-50 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between" style={{ paddingTop: "calc(12px + env(safe-area-inset-top))" }}>
                 <Link href="/" className="flex items-center gap-2 text-zinc-400 hover:text-white transition uppercase text-xs font-bold tracking-widest">
                     <ArrowLeft size={16} /> Alışverişe Dön
                 </Link>
@@ -37,7 +37,7 @@ export default function SepetSayfasi() {
                 <div className="w-20"></div> {/* Hizalama için boşluk */}
             </div>
 
-            <div className="pt-24 pb-32 max-w-5xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-3 gap-12">
+            <div className="pt-28 sm:pt-28 pb-32 max-w-5xl mx-auto px-4 sm:px-6 grid grid-cols-1 lg:grid-cols-3 gap-12">
 
                 {/* ÜRÜN LİSTESİ (SOL) */}
                 <div className="lg:col-span-2 space-y-4">
@@ -69,7 +69,7 @@ export default function SepetSayfasi() {
 
                 {/* ÖZET VE ÖDEME (SAĞ) */}
                 <div className="lg:col-span-1">
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 sticky top-24">
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 lg:sticky lg:top-24">
                         <h2 className="text-lg font-black uppercase tracking-widest mb-6 border-b border-zinc-800 pb-4">Sipariş Özeti</h2>
 
                         <div className="flex justify-between items-center mb-4 text-sm text-zinc-400">

@@ -164,8 +164,8 @@ export default function HomePage() {
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/40"></div>
                     </div>
-                    <div className="absolute inset-0 flex flex-col justify-center items-center text-center p-8 z-10">
-                        <h2 className="text-6xl md:text-8xl font-black text-white uppercase tracking-tighter leading-none mb-4 group-hover:translate-y-[-10px] transition duration-500 shadow-black drop-shadow-2xl">STENI</h2>
+                    <div className="absolute inset-0 flex flex-col justify-center items-center text-center p-6 sm:p-8 z-10">
+                        <h2 className="text-5xl sm:text-6xl md:text-8xl font-black text-white uppercase tracking-tighter leading-none mb-4 group-hover:translate-y-[-10px] transition duration-500 shadow-black drop-shadow-2xl">STENI</h2>
                         <p className="text-white/80 font-bold tracking-[0.3em] text-xs uppercase group-hover:text-white transition">Ready to Wear</p>
                     </div>
                 </div>
@@ -179,8 +179,8 @@ export default function HomePage() {
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/40"></div>
                     </div>
-                    <div className="absolute inset-0 flex flex-col justify-center items-center text-center p-8 z-10">
-                        <h2 className="text-6xl md:text-8xl font-black text-white uppercase tracking-tighter leading-none mb-4 group-hover:translate-y-[-10px] transition duration-500 shadow-black drop-shadow-2xl">ÖZEL</h2>
+                    <div className="absolute inset-0 flex flex-col justify-center items-center text-center p-6 sm:p-8 z-10">
+                        <h2 className="text-5xl sm:text-6xl md:text-8xl font-black text-white uppercase tracking-tighter leading-none mb-4 group-hover:translate-y-[-10px] transition duration-500 shadow-black drop-shadow-2xl">ÖZEL</h2>
                         <p className="text-white/80 font-bold tracking-[0.3em] text-xs uppercase group-hover:text-white transition">Design Studio</p>
                     </div>
                 </div>
@@ -285,7 +285,7 @@ export default function HomePage() {
                         <section className="w-full bg-white">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-[2px] bg-white px-[0px] pb-[0px]">
                                 {/* Kutu 1 - TSHIRT */}
-                                <div onClick={() => router.push('/tum-urunler?kategori=tshirt')} className="relative h-[400px] sm:h-[460px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
+                                <div onClick={() => router.push('/tum-urunler?kategori=tshirt')} className="relative h-[320px] sm:h-[420px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
                                     <img src={encodeURI(HOME_CATEGORY_IMAGES_800x800.tshirt)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                                     <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-500"></div>
                                     <div className="absolute bottom-6 left-4 sm:left-6 md:left-10 z-20">
@@ -294,7 +294,7 @@ export default function HomePage() {
                                     </div>
                                 </div>
                                 {/* Kutu 2 - HOODIE */}
-                                <div onClick={() => router.push('/tum-urunler?kategori=hoodie')} className="relative h-[400px] sm:h-[460px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
+                                <div onClick={() => router.push('/tum-urunler?kategori=hoodie')} className="relative h-[320px] sm:h-[420px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
                                     <img src={encodeURI(HOME_CATEGORY_IMAGES_800x800.hoodie)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                                     <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-500"></div>
                                     <div className="absolute bottom-6 left-4 sm:left-6 md:left-10 z-20">
@@ -303,7 +303,7 @@ export default function HomePage() {
                                     </div>
                                 </div>
                                 {/* Kutu 3 - AKSESUAR */}
-                                <div onClick={() => router.push('/tum-urunler?kategori=aksesuar')} className="relative h-[400px] sm:h-[460px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
+                                <div onClick={() => router.push('/tum-urunler?kategori=aksesuar')} className="relative h-[320px] sm:h-[420px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
                                     <img src={encodeURI(HOME_CATEGORY_IMAGES_800x800.aksesuar)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                                     <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-500"></div>
                                     <div className="absolute bottom-6 left-4 sm:left-6 md:left-10 z-20">
@@ -312,7 +312,7 @@ export default function HomePage() {
                                     </div>
                                 </div>
                                 {/* Kutu 4 - SWEATSHIRT (GÜNCELLENDİ: ARTIK SWEATSHIRT KUTUSU) */}
-                                <div onClick={() => router.push('/tum-urunler?kategori=sweatshirt')} className="relative h-[400px] sm:h-[460px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
+                                <div onClick={() => router.push('/tum-urunler?kategori=sweatshirt')} className="relative h-[320px] sm:h-[420px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
                                     <img src={encodeURI(HOME_CATEGORY_IMAGES_800x800.sweatshirt)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                                     <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-500"></div>
                                     <div className="absolute bottom-6 left-4 sm:left-6 md:left-10 z-20">
