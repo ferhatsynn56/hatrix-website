@@ -197,7 +197,7 @@ export default function HomePage() {
             <Navbar />
 
             {/* --- SWITCHER --- */}
-            <div className="fixed top-20 left-4 sm:left-6 md:left-8 z-40 animate-in fade-in slide-in-from-left-4 duration-700 delay-500 w-40 sm:w-48">
+            <div className="fixed top-16 sm:top-20 left-4 sm:left-6 md:left-8 z-40 animate-in fade-in slide-in-from-left-4 duration-700 delay-500 w-40 sm:w-48">
                 <div className="bg-black/80 backdrop-blur-xl rounded-full p-1 border border-zinc-700 shadow-2xl flex w-full">
                     <div className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-full transition-all duration-300 shadow-sm ${aktifBolum === 'steni' ? 'left-1' : 'left-[calc(50%+2px)]'}`}></div>
                     <button onClick={() => bolumSec('steni')} className={`flex-1 relative z-10 py-1.5 text-[9px] sm:text-[10px] font-black tracking-widest transition-colors duration-300 rounded-full ${aktifBolum === 'steni' ? 'text-black' : 'text-zinc-400 hover:text-white'}`}>STENI</button>
@@ -223,26 +223,26 @@ export default function HomePage() {
                           - object-position'ı yukarı/merkeze alıp yüzü/kafayı kesmesin
                           - minimum yükseklik verip aşırı küçülmeyi engelledik
                         */}
-                        <header className="relative w-full h-[72svh] sm:h-[78svh] md:h-screen min-h-[520px] md:min-h-0 overflow-hidden">
+                        <header className="relative w-full h-[68svh] sm:h-[76svh] md:h-screen min-h-[480px] sm:min-h-[520px] md:min-h-0 overflow-hidden">
                             <div className="absolute inset-0">
                                 {HOME_HERO_SLIDES_1920x850.map((slide, i) => (
                                     <img
                                         key={slide.src}
                                         src={encodeURI(slide.src)}
                                         alt="Stenist Hero"
-                                        className={`absolute inset-0 w-full h-full object-cover object-[50%_30%] md:object-center transition-opacity duration-1000 ${i === heroIndex ? 'opacity-100' : 'opacity-0'}`}
+                                        className={`absolute inset-0 w-full h-full object-cover object-[50%_18%] sm:object-[50%_28%] md:object-center transition-opacity duration-1000 ${i === heroIndex ? 'opacity-100' : 'opacity-0'}`}
                                         onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1523398002811-999ca8dec234?q=80&w=2000&auto=format&fit=crop'; }}
                                     />
                                 ))}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/30" />
                             </div>
 
-                            <div className="absolute left-4 right-4 sm:left-6 sm:right-6 md:left-12 md:right-12 bottom-10 sm:bottom-14 md:bottom-20 z-10">
+                            <div className="absolute left-4 right-4 sm:left-6 sm:right-6 md:left-12 md:right-12 bottom-8 sm:bottom-12 md:bottom-20 z-10">
                                 <div className="max-w-xl">
                                     <div className="inline-flex items-center gap-2 text-white/85 text-[9px] sm:text-[10px] md:text-xs font-black tracking-[0.5em] uppercase mb-3 sm:mb-4">
                                         {HOME_HERO_SLIDES_1920x850[heroIndex]?.kicker || ""}
                                     </div>
-                                    <h2 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-black uppercase tracking-tighter text-white leading-none">
+                                    <h2 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-black uppercase tracking-tighter text-white leading-[0.9]">
                                         {HOME_HERO_SLIDES_1920x850[heroIndex]?.title || ""}
                                     </h2>
                                     <p className="text-zinc-200/80 text-xs sm:text-xs md:text-sm mt-3 sm:mt-4 max-w-md leading-relaxed">
@@ -252,7 +252,7 @@ export default function HomePage() {
                                     <div className="mt-6 sm:mt-8">
                                         <button
                                             onClick={() => router.push('/tum-urunler')}
-                                            className="bg-white text-black px-8 sm:px-10 py-3.5 sm:py-4 rounded-full font-black text-xs sm:text-xs md:text-sm tracking-[0.2em] hover:bg-zinc-200 hover:scale-105 transition-all duration-300"
+                                            className="w-full sm:w-auto bg-white text-black px-8 sm:px-10 py-3.5 sm:py-4 rounded-full font-black text-xs sm:text-xs md:text-sm tracking-[0.2em] hover:bg-zinc-200 hover:scale-105 transition-all duration-300"
                                         >
                                             KEŞFET
                                         </button>
@@ -360,7 +360,7 @@ export default function HomePage() {
                 {aktifBolum === 'ozel' && (
                     <div className="animate-in fade-in duration-700">
                         {/* 1. VIDEO BANNER */}
-                        <header className="relative h-screen w-full overflow-hidden bg-black">
+                        <header className="relative h-[70svh] sm:h-[82svh] md:h-screen w-full overflow-hidden bg-black">
                             <div className="absolute inset-0">
                                 <video autoPlay loop muted playsInline className="w-full h-full object-cover opacity-60" src="https://videos.pexels.com/video-files/3163534/3163534-uhd_2560_1440_30fps.mp4" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/60"></div>
@@ -369,14 +369,14 @@ export default function HomePage() {
                                 <div className="border border-white/30 backdrop-blur-md px-6 py-2 rounded-full mb-8 animate-in fade-in slide-in-from-top-4">
                                     <span className="text-xs font-bold uppercase tracking-[0.3em] text-white">Interactive Studio</span>
                                 </div>
-                                <h1 className="text-6xl md:text-[8rem] font-black tracking-tighter text-white leading-none mb-6 animate-in zoom-in duration-1000">
+                                <h1 className="text-4xl sm:text-5xl md:text-[8rem] font-black tracking-tighter text-white leading-[0.9] mb-6 animate-in zoom-in duration-1000">
                                     DESIGN<br />YOURSELF
                                 </h1>
                                 <p className="text-zinc-300 text-sm md:text-lg max-w-xl font-light tracking-wide mb-10 animate-in fade-in delay-300">
                                     Sınırları kaldır. Kendi koleksiyonunu tasarla ve anında üretime gönder.
                                 </p>
                                 <a href="/tasarim-secim">
-                                    <button className="bg-red-600 text-white px-10 py-4 font-black text-xs uppercase tracking-[0.2em] hover:bg-white hover:text-red-600 transition duration-300 rounded-full shadow-[0_0_20px_rgba(220,38,38,0.5)]">
+                                    <button className="w-full sm:w-auto bg-red-600 text-white px-8 sm:px-10 py-3.5 sm:py-4 font-black text-xs uppercase tracking-[0.2em] hover:bg-white hover:text-red-600 transition duration-300 rounded-full shadow-[0_0_20px_rgba(220,38,38,0.5)]">
                                             Stüdyoyu Başlat
                                     </button>
                                 </a>
@@ -414,9 +414,9 @@ export default function HomePage() {
 
                         {/* 3. TOPLULUK TASARIMLARI */}
                         <section className="bg-zinc-950 py-20">
-                            <div className="container mx-auto px-6 mb-12 flex justify-between items-end">
+                            <div className="container mx-auto px-6 mb-12 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
                                 <div>
-                                    <h2 className="text-4xl font-black uppercase tracking-tighter text-white">Topluluk<br />Tasarimları</h2>
+                                    <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tighter text-white">Topluluk<br />Tasarimları</h2>
                                 </div>
                                 <button className="text-xs font-bold uppercase tracking-widest text-zinc-500 hover:text-white transition flex items-center gap-2">Tümünü Gör <ArrowRight size={14} /></button>
                             </div>
@@ -446,7 +446,7 @@ export default function HomePage() {
                                     <div className="flex items-center gap-2 text-red-500 mb-6 font-bold uppercase tracking-widest text-xs animate-pulse">
                                         <Sparkles size={16} /> Best Seller
                                     </div>
-                                    <h2 className="text-6xl md:text-8xl font-black text-white uppercase tracking-tighter leading-none mb-8">
+                                    <h2 className="text-4xl sm:text-5xl md:text-8xl font-black text-white uppercase tracking-tighter leading-[0.9] mb-8">
                                         İKONİK<br />ÜRÜN:<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-600">HATRIX.</span>
                                     </h2>
                                     <p className="text-zinc-400 text-lg max-w-md mb-10 leading-relaxed">

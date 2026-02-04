@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React from "react";
 import Link from "next/link";
 import { ArrowLeft, Sparkles, Check, ArrowRight } from "lucide-react";
 import { Space_Grotesk, Fraunces } from "next/font/google";
@@ -24,7 +24,6 @@ const MODELS = [
     tags: ["Pamuk", "Klasik", "Hafif"],
     accent: "from-emerald-400/25 via-transparent to-transparent",
     recommended: true,
-    video: "/previews/tshirt.mp4",
   },
   {
     id: "oversize-tshirt",
@@ -33,7 +32,6 @@ const MODELS = [
     desc: "Daha geniş kalıp, rahat ve modern görünüm.",
     tags: ["Oversize", "Rahat", "Günlük"],
     accent: "from-emerald-400/25 via-transparent to-transparent",
-    video: "/previews/oversize-tshirt.mp4",
   },
   {
     id: "sweatshirt",
@@ -42,7 +40,6 @@ const MODELS = [
     desc: "Şardonlu iç yüzey, mevsim geçişleri için ideal.",
     tags: ["Şardonlu", "Sıcak", "Klasik"],
     accent: "from-amber-300/25 via-transparent to-transparent",
-    video: "/previews/sweatshirt.mp4",
   },
   {
     id: "oversize-sweat",
@@ -51,7 +48,6 @@ const MODELS = [
     desc: "Bol kesim ve rahat düşüş, sokak stiline uygun.",
     tags: ["Oversize", "Rahat", "Kalın"],
     accent: "from-amber-300/25 via-transparent to-transparent",
-    video: "/previews/oversize-sweat.mp4",
   },
   {
     id: "hoodie",
@@ -60,7 +56,6 @@ const MODELS = [
     desc: "Kapüşonlu, günlük kullanım için temel parça.",
     tags: ["Kapüşon", "Sokak", "Klasik"],
     accent: "from-indigo-400/25 via-transparent to-transparent",
-    video: "/previews/hoodie.mp4",
   },
   {
     id: "hoodie-ipli",
@@ -69,7 +64,6 @@ const MODELS = [
     desc: "İpli kapüşon ile sportif görünüm.",
     tags: ["Kapüşon", "İpli", "Klasik"],
     accent: "from-indigo-400/25 via-transparent to-transparent",
-    video: "/previews/hoodie-ipli.mp4",
   },
   {
     id: "hoodie-cepli",
@@ -78,7 +72,6 @@ const MODELS = [
     desc: "Ön cep detaylı, günlük kullanım için pratik.",
     tags: ["Kapüşon", "Cep", "Klasik"],
     accent: "from-indigo-400/25 via-transparent to-transparent",
-    video: "/previews/hoodie-cepli.mp4",
   },
   {
     id: "hoodie-ceplipli",
@@ -87,7 +80,6 @@ const MODELS = [
     desc: "Cep + ipli kapüşon bir arada.",
     tags: ["Kapüşon", "Cep", "İpli"],
     accent: "from-indigo-400/25 via-transparent to-transparent",
-    video: "/previews/hoodie-ceplipli.mp4",
   },
   {
     id: "hoodie-oversize",
@@ -96,7 +88,6 @@ const MODELS = [
     desc: "Bol kalıp ve geniş omuz, modern sokak stili.",
     tags: ["Oversize", "Kapüşon", "Rahat"],
     accent: "from-indigo-400/25 via-transparent to-transparent",
-    video: "/previews/hoodie-oversize.mp4",
   },
   {
     id: "hoodie-oversize-ipli",
@@ -105,7 +96,6 @@ const MODELS = [
     desc: "Oversize kesim + ipli kapüşon.",
     tags: ["Oversize", "Kapüşon", "İpli"],
     accent: "from-indigo-400/25 via-transparent to-transparent",
-    video: "/previews/hoodie-oversize-ipli.mp4",
   },
   {
     id: "hoodie-oversize-cepli",
@@ -114,7 +104,6 @@ const MODELS = [
     desc: "Oversize kesim + cep detayı.",
     tags: ["Oversize", "Kapüşon", "Cep"],
     accent: "from-indigo-400/25 via-transparent to-transparent",
-    video: "/previews/hoodie-oversize-cepli.mp4",
   },
   {
     id: "hoodie-oversize-ceplipli",
@@ -123,7 +112,6 @@ const MODELS = [
     desc: "Oversize + cep + ipli kapüşon.",
     tags: ["Oversize", "Cep", "İpli"],
     accent: "from-indigo-400/25 via-transparent to-transparent",
-    video: "/previews/hoodie-oversize-ceplipli.mp4",
   },
   {
     id: "fermuarli",
@@ -132,7 +120,6 @@ const MODELS = [
     desc: "Önü fermuarlı, katmanlı giyim için ideal.",
     tags: ["Fermuar", "Katman", "Pratik"],
     accent: "from-indigo-400/25 via-transparent to-transparent",
-    video: "/previews/fermuarli.mp4",
   },
   {
     id: "polar",
@@ -141,7 +128,6 @@ const MODELS = [
     desc: "Yumuşak dokulu, sıcak tutan polar kumaş.",
     tags: ["Sıcak", "Yumuşak", "Kış"],
     accent: "from-sky-400/25 via-transparent to-transparent",
-    video: "/previews/polar.mp4",
   },
 ];
 
@@ -157,10 +143,10 @@ const formatPrice = (value) =>
 const totalModels = MODELS.length;
 
 const GROUPS = [
-  { id: "tshirt", title: "Tişört", subtitle: "Düz ve oversize seçenekler" },
-  { id: "sweat", title: "Sweat", subtitle: "Klasik ve oversize" },
-  { id: "hoodie", title: "Hoodie", subtitle: "Cep / ipli / oversize varyasyonları" },
-  { id: "outer", title: "Dış Giyim", subtitle: "Fermuarlı ve polar" },
+  { id: "tshirt", title: "Tişört" },
+  { id: "sweat", title: "Sweat" },
+  { id: "hoodie", title: "Hoodie" },
+  { id: "outer", title: "Dış Giyim" },
 ];
 
 const getGroupId = (tag) => {
@@ -171,50 +157,10 @@ const getGroupId = (tag) => {
 };
 
 function ModelCard({ model }) {
-  const videoRef = useRef(null);
-  const timerRef = useRef(null);
-  const pressRef = useRef({ start: 0 });
-  const PREVIEW_MS = 1800;
-  const PRESS_BLOCK_MS = 260;
-
-  const playPreview = () => {
-    if (!model.video) return;
-    const v = videoRef.current;
-    if (!v) return;
-    v.currentTime = 0;
-    const p = v.play();
-    if (p?.catch) p.catch(() => {});
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      v.pause();
-    }, PREVIEW_MS);
-  };
-
-  const stopPreview = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    v.pause();
-  };
-
   return (
     <Link
       href={`/tasarim?model=${model.id}`}
       className="group relative overflow-hidden rounded-3xl border border-white/10 bg-[#0a0a0a] transition-all duration-500 hover:border-white/30"
-      onMouseEnter={playPreview}
-      onMouseLeave={stopPreview}
-      onPointerDown={() => {
-        pressRef.current.start = Date.now();
-        playPreview();
-      }}
-      onPointerUp={stopPreview}
-      onPointerCancel={stopPreview}
-      onClick={(e) => {
-        if (Date.now() - pressRef.current.start > PRESS_BLOCK_MS) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      }}
     >
       <div
         className={`absolute inset-0 bg-gradient-to-br ${model.accent} opacity-60 group-hover:opacity-100 transition-opacity duration-500`}
@@ -224,17 +170,6 @@ function ModelCard({ model }) {
         <div className="absolute top-4 left-4 z-20 rounded-full bg-emerald-300/20 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-200">
           Önerilen
         </div>
-      )}
-
-      {model.video && (
-        <video
-          ref={videoRef}
-          className="absolute inset-0 w-full h-full object-cover opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-          muted
-          playsInline
-          preload="metadata"
-          src={model.video}
-        />
       )}
 
       <div className="relative z-10 p-6">
@@ -274,11 +209,6 @@ function ModelCard({ model }) {
           </span>
         </div>
 
-        {model.video && (
-          <div className="mt-4 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-            Üzerine gel / basılı tut
-          </div>
-        )}
       </div>
     </Link>
   );
@@ -378,6 +308,7 @@ export default function ModelSecimSayfasi() {
           {GROUPS.map((group) => {
             const items = MODELS.filter((m) => getGroupId(m.tag) === group.id);
             if (!items.length) return null;
+            const variantList = items.map((m) => m.name).join(", ");
             return (
               <section key={group.id} className="space-y-4">
                 <div className="flex items-end justify-between">
@@ -385,8 +316,8 @@ export default function ModelSecimSayfasi() {
                     <h2 className="text-2xl md:text-3xl font-black">
                       {group.title}
                     </h2>
-                    <p className="text-xs text-zinc-500 uppercase tracking-[0.2em] mt-1">
-                      {group.subtitle}
+                    <p className="text-xs text-zinc-500 uppercase tracking-[0.2em] mt-1 leading-relaxed max-w-3xl">
+                      {variantList}
                     </p>
                   </div>
                   <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">
