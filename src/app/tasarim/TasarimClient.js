@@ -8,7 +8,7 @@ import React, {
   useEffect,
   useMemo,
 } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   OrbitControls,
@@ -375,7 +375,7 @@ function CameraController({ view, count, onAnimatingChange }) {
 }
 
 /* ================= CANVAS TEXTURE (OPTIMIZED) ================= */
-function useDesignCanvas(sideData, opts = {}, isMobile) {
+function useDesignCanvas(sideData, opts = {}) {
   const [canvas, setCanvas] = useState(null);
 
   const logos = sideData?.logos || [];
@@ -389,7 +389,7 @@ function useDesignCanvas(sideData, opts = {}, isMobile) {
   const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}`;
   const posSignature = `${sideData?.textPos?.x}_${sideData?.textPos?.y}`;
 
-  const CANVAS_SIZE = isMobile ? 1024 : 2048;
+  const CANVAS_SIZE = 2048;
 
   useEffect(() => {
     const hasContent = logos.length > 0 || (customText?.text || "").trim();
@@ -598,7 +598,6 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, v
       return;
     }
     const t = makeCanvasTexture(frontCanvas);
-    if (isMobile) t.anisotropy = 8; // Mobilde daha yüksek netlik
     setFrontTex(t);
     return () => {
       if (t) t.dispose();
@@ -611,7 +610,6 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, v
       return;
     }
     const t = makeCanvasTexture(backCanvas);
-    if (isMobile) t.anisotropy = 8; // Mobilde daha yüksek netlik
     setBackTex(t);
     return () => {
       if (t) t.dispose();
@@ -867,8 +865,8 @@ function DesignModelItem({
   const isZipper = design.modelType === "fermuarli";
   const gap01 = MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
 
-  const frontCanvas = useDesignCanvas(design.sides.front || EMPTY_SIDE, isZipper ? { clearCenterStripe01: gap01 } : {}, isMobile);
-  const backCanvas = useDesignCanvas(design.sides.back || EMPTY_SIDE, {}, isMobile);
+  const frontCanvas = useDesignCanvas(design.sides.front || EMPTY_SIDE, isZipper ? { clearCenterStripe01: gap01 } : {});
+  const backCanvas = useDesignCanvas(design.sides.back || EMPTY_SIDE, {});
 
   if (hidden) return null;
 
@@ -1567,6 +1565,7 @@ export default function TasarimClient() {
 function TasarimClientContent({ isMobile }) {
   const { addToCart } = useCart();
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   // ✅ activeTab artık burada (hata bitti)
   const [activeTab, setActiveTab] = useState("upload");
@@ -1602,16 +1601,18 @@ function TasarimClientContent({ isMobile }) {
 
   const modelCount = designs.length;
   const perf = useMemo(() => {
-    const heavy = isMobile || modelCount > 2;
+    const heavy = modelCount > 2;
     return {
-      dpr: isMobile ? 1.2 : modelCount > 2 ? 1.3 : 1.6,
-      antialias: !isMobile && !heavy,
+      dpr: isMobile ? 2 : heavy ? 1.3 : 1.6,
+      antialias: isMobile ? true : !heavy,
       shadowMap: heavy ? 512 : 768,
+      powerPreference: "high-performance",
     };
   }, [isMobile, modelCount]);
 
   // Mobile drawer
   const DRAWER_PEEK = 76;
+  const CONTROLS_GAP = 28;
   const MAX_OPEN = 0;
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [drawerY, setDrawerY] = useState(0);
@@ -1756,7 +1757,7 @@ function TasarimClientContent({ isMobile }) {
         });
       }
 
-      alert("Tüm ürünler sepete eklendi!");
+      router.push("/");
     } catch (err) {
       console.error("Sepete ekle hata:", err);
       alert("Bir hata oluştu. Lütfen tekrar deneyin.");
@@ -1815,9 +1816,9 @@ function TasarimClientContent({ isMobile }) {
   const drawerHeightStyle = drawerHeight ? `${drawerHeight}px` : "72vh";
   const controlsBottom = drawerOpen
     ? drawerHeight
-      ? `${drawerHeight + 12}px`
-      : "calc(72vh + 12px)"
-    : `${DRAWER_PEEK + 16}px`;
+      ? `${drawerHeight + CONTROLS_GAP}px`
+      : `calc(72vh + ${CONTROLS_GAP}px)`
+    : `${DRAWER_PEEK + CONTROLS_GAP}px`;
 
   const renderPanel = (
     <EditorPanel
@@ -2009,7 +2010,7 @@ function TasarimClientContent({ isMobile }) {
             preserveDrawingBuffer: true,
             antialias: perf.antialias,
             alpha: false,
-            powerPreference: isMobile ? "low-power" : "high-performance",
+            powerPreference: perf.powerPreference,
           }}
           dpr={perf.dpr}
           onCreated={({ gl, scene, camera }) => {
