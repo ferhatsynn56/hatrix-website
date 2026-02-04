@@ -138,24 +138,46 @@ const MODEL_PRINT_BOUNDS = {
     back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
   },
   "oversize-tshirt": {
-    front: { xMin: -0.207, xMax: 0.206, yTop: 0.28, yBot: -0.3, z: 0.153, rotY: 0 },
-    back: { xMin: -0.207, xMax: 0.206, yTop: 0.28, yBot: -0.3, z: -0.153, rotY: Math.PI },
+    front: { xMin: -0.17, xMax: 0.17, yTop: 0.265, yBot: -0.30, z: 0.147, rotY: 0 },
+    back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
   },
   sweatshirt: {
-    front: { xMin: -0.15, xMax: 0.18, yTop: 0.28, yBot: -0.25, z: 0.139, rotY: 0 },
-    back: { xMin: -0.15, xMax: 0.19, yTop: 0.31, yBot: -0.25, z: -0.14, rotY: Math.PI },
+    front: { xMin: -0.17, xMax: 0.17, yTop: 0.275, yBot: -0.24, z: 0.147, rotY: 0 },
+    back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.245, z: -0.148, rotY: Math.PI },
   },
+  "oversize-sweat": {
+    front: { xMin: -0.17, xMax: 0.17, yTop: 0.270, yBot: -0.255, z: 0.147, rotY: 0 },
+    back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.26, z: -0.148, rotY: Math.PI },
+  },
+  hoodie: {
+    front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
+    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
+  },
+  "hoodie-ipli": {
+    front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
+    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
+  },
+  "hoodie-oversize": {
+    front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
+    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
+  },
+  "hoodie-oversize-ipli": {
+    front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
+    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
+  },
+  "hoodie-oversize-cepli": {
+    front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
+    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
+  },
+  "hoodie-oversize-ceplipli": {
+    front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
+    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
+  },
+
+  // İstisnalar (sonraki isteğinde özel değerler gelecek)
   polar: {
     front: { xMin: -0.15, xMax: 0.18, yTop: 0.28, yBot: -0.25, z: 0.139, rotY: 0 },
     back: { xMin: -0.15, xMax: 0.19, yTop: 0.31, yBot: -0.25, z: -0.14, rotY: Math.PI },
-  },
-  "oversize-sweat": {
-    front: { xMin: -0.168, xMax: 0.168, yTop: 0.275, yBot: -0.26, z: 0.138, rotY: 0 },
-    back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.26, z: -0.138, rotY: Math.PI },
-  },
-  hoodie: {
-    front: { xMin: -0.13, xMax: 0.13, yTop: 0.13, yBot: -0.27, z: 0.104, rotY: 0 },
-    back: { xMin: -0.125, xMax: 0.125, yTop: 0.15, yBot: -0.287, z: -0.104, rotY: Math.PI },
   },
   "hoodie-cepli": {
     front: { xMin: -0.13, xMax: 0.13, yTop: 0.13, yBot: -0.135, z: 0.112, rotY: 0 },
@@ -1497,6 +1519,36 @@ function EditorPanel({
                   +
                 </button>
               </div>
+            </div>
+
+            <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] text-zinc-500 font-bold uppercase">Yatay Genişlik</p>
+                <p className="text-xs text-white font-mono">x{(t.scaleX || 1).toFixed(2)}</p>
+              </div>
+              <input
+                type="range"
+                min="0.3"
+                max="3"
+                step="0.05"
+                value={t.scaleX || 1}
+                onChange={(e) => bumpText({ scaleX: Number(e.target.value) })}
+                className="w-full accent-white"
+              />
+
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-[10px] text-zinc-500 font-bold uppercase">Dikey Yükseklik</p>
+                <p className="text-xs text-white font-mono">y{(t.scaleY || 1).toFixed(2)}</p>
+              </div>
+              <input
+                type="range"
+                min="0.3"
+                max="3"
+                step="0.05"
+                value={t.scaleY || 1}
+                onChange={(e) => bumpText({ scaleY: Number(e.target.value) })}
+                className="w-full accent-white"
+              />
             </div>
 
             {t.text && (
