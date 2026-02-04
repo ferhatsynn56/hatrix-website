@@ -2072,7 +2072,7 @@ function TasarimClientContent({ isMobile }) {
             makeDefault
             enableZoom
             enablePan={false}
-            enableRotate={true} // Döndürmeyi aktif et
+            enableRotate={false}
             enableDamping
             dampingFactor={0.08}
             zoomSpeed={0.9}
@@ -2080,6 +2080,8 @@ function TasarimClientContent({ isMobile }) {
             maxDistance={10}
             zoomToCursor={true}
             enabled={!camAnimating}
+            mouseButtons={{ LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null }}
+            touches={{ ONE: THREE.TOUCH.NONE, TWO: THREE.TOUCH.DOLLY_PAN }}
           />
         </Canvas>
 

@@ -2,7 +2,6 @@
 
 import React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { ArrowLeft, Sparkles, Check, ArrowRight } from "lucide-react";
 import { Space_Grotesk, Fraunces } from "next/font/google";
 
@@ -19,39 +18,116 @@ const display = Fraunces({
 const MODELS = [
   {
     id: "tshirt",
-    name: "T‑Shirt",
-    tag: "Klasik Fit",
-    desc: "Günlük kullanım için hafif ve rahat, %100 pamuklu doku.",
-    price: 750,
-    print: "40×54 cm baskı alanı",
-    image: "/urungorsel/tişört 2 k ön.png",
+    name: "Normal Tişört",
+    tag: "Tişört",
+    desc: "Klasik kesim, günlük kullanım için ideal.",
+    tags: ["Pamuk", "Klasik", "Hafif"],
     accent: "from-emerald-400/25 via-transparent to-transparent",
-    img: { pos: "50% 45%", scale: "scale-[0.9]", shift: "translate-y-2" },
     recommended: true,
+  },
+  {
+    id: "oversize-tshirt",
+    name: "Oversize Tişört",
+    tag: "Tişört",
+    desc: "Daha geniş kalıp, rahat ve modern görünüm.",
+    tags: ["Oversize", "Rahat", "Günlük"],
+    accent: "from-emerald-400/25 via-transparent to-transparent",
+  },
+  {
+    id: "sweatshirt",
+    name: "Normal Sweat",
+    tag: "Sweat",
+    desc: "Şardonlu iç yüzey, mevsim geçişleri için ideal.",
+    tags: ["Şardonlu", "Sıcak", "Klasik"],
+    accent: "from-amber-300/25 via-transparent to-transparent",
+  },
+  {
+    id: "oversize-sweat",
+    name: "Oversize Sweat",
+    tag: "Sweat",
+    desc: "Bol kesim ve rahat düşüş, sokak stiline uygun.",
+    tags: ["Oversize", "Rahat", "Kalın"],
+    accent: "from-amber-300/25 via-transparent to-transparent",
   },
   {
     id: "hoodie",
     name: "Hoodie",
-    tag: "Oversize",
-    desc: "Kalın ve tok kumaş, sokak stiline uygun oversize kesim.",
-    price: 1250,
-    print: "64×55 cm baskı alanı",
-    image: "/urungorsel/hoodie ön.jpg",
+    tag: "Hoodie",
+    desc: "Kapüşonlu, günlük kullanım için temel parça.",
+    tags: ["Kapüşon", "Sokak", "Klasik"],
     accent: "from-indigo-400/25 via-transparent to-transparent",
-    img: { pos: "50% 35%", scale: "scale-[0.92]", shift: "translate-y-3" },
-    recommended: false,
   },
   {
-    id: "sweatshirt",
-    name: "Sweatshirt",
-    tag: "Rahat Kesim",
-    desc: "Şardonlu iç yüzey, mevsim geçişleri için ideal.",
-    price: 950,
-    print: "43×62 cm baskı alanı",
-    image: "/urungorsel/sweat ön.png",
-    accent: "from-amber-300/25 via-transparent to-transparent",
-    img: { pos: "50% 50%", scale: "scale-[1]", shift: "translate-y-0" },
-    recommended: false,
+    id: "hoodie-ipli",
+    name: "Hoodie İpli",
+    tag: "Hoodie",
+    desc: "İpli kapüşon ile sportif görünüm.",
+    tags: ["Kapüşon", "İpli", "Klasik"],
+    accent: "from-indigo-400/25 via-transparent to-transparent",
+  },
+  {
+    id: "hoodie-cepli",
+    name: "Hoodie Cepli",
+    tag: "Hoodie",
+    desc: "Ön cep detaylı, günlük kullanım için pratik.",
+    tags: ["Kapüşon", "Cep", "Klasik"],
+    accent: "from-indigo-400/25 via-transparent to-transparent",
+  },
+  {
+    id: "hoodie-ceplipli",
+    name: "Hoodie Cepli İpli",
+    tag: "Hoodie",
+    desc: "Cep + ipli kapüşon bir arada.",
+    tags: ["Kapüşon", "Cep", "İpli"],
+    accent: "from-indigo-400/25 via-transparent to-transparent",
+  },
+  {
+    id: "hoodie-oversize",
+    name: "Oversize Hoodie",
+    tag: "Hoodie",
+    desc: "Bol kalıp ve geniş omuz, modern sokak stili.",
+    tags: ["Oversize", "Kapüşon", "Rahat"],
+    accent: "from-indigo-400/25 via-transparent to-transparent",
+  },
+  {
+    id: "hoodie-oversize-ipli",
+    name: "Oversize Hoodie İpli",
+    tag: "Hoodie",
+    desc: "Oversize kesim + ipli kapüşon.",
+    tags: ["Oversize", "Kapüşon", "İpli"],
+    accent: "from-indigo-400/25 via-transparent to-transparent",
+  },
+  {
+    id: "hoodie-oversize-cepli",
+    name: "Oversize Hoodie Cepli",
+    tag: "Hoodie",
+    desc: "Oversize kesim + cep detayı.",
+    tags: ["Oversize", "Kapüşon", "Cep"],
+    accent: "from-indigo-400/25 via-transparent to-transparent",
+  },
+  {
+    id: "hoodie-oversize-ceplipli",
+    name: "Oversize Hoodie Cepli İpli",
+    tag: "Hoodie",
+    desc: "Oversize + cep + ipli kapüşon.",
+    tags: ["Oversize", "Cep", "İpli"],
+    accent: "from-indigo-400/25 via-transparent to-transparent",
+  },
+  {
+    id: "fermuarli",
+    name: "Fermuarlı",
+    tag: "Hoodie",
+    desc: "Önü fermuarlı, katmanlı giyim için ideal.",
+    tags: ["Fermuar", "Katman", "Pratik"],
+    accent: "from-indigo-400/25 via-transparent to-transparent",
+  },
+  {
+    id: "polar",
+    name: "Polar",
+    tag: "Dış Giyim",
+    desc: "Yumuşak dokulu, sıcak tutan polar kumaş.",
+    tags: ["Sıcak", "Yumuşak", "Kış"],
+    accent: "from-sky-400/25 via-transparent to-transparent",
   },
 ];
 
@@ -62,7 +138,9 @@ const STEPS = [
 ];
 
 const formatPrice = (value) =>
-  `${new Intl.NumberFormat("tr-TR").format(value)} ₺`;
+  value ? `${new Intl.NumberFormat("tr-TR").format(value)} ₺` : "Fiyat: tasarımda";
+
+const totalModels = MODELS.length;
 
 export default function ModelSecimSayfasi() {
   return (
@@ -105,10 +183,13 @@ export default function ModelSecimSayfasi() {
               <br />
               hikayeni başlat.
             </h1>
-            <p className="mt-5 text-zinc-400 text-sm md:text-base leading-relaxed max-w-xl">
-              Tasarıma başlamadan önce ürün tipini seç. Sonrasında renk, yazı ve
-              baskı görselini ekleyip ürünü anında önizleyebilirsin.
-            </p>
+          <p className="mt-5 text-zinc-400 text-sm md:text-base leading-relaxed max-w-xl">
+            Tasarıma başlamadan önce ürün tipini seç. Sonrasında renk, yazı ve
+            baskı görselini ekleyip ürünü anında önizleyebilirsin.
+          </p>
+          <p className="mt-3 text-[11px] uppercase tracking-[0.25em] text-zinc-500">
+            Toplam {totalModels} model
+          </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
               {STEPS.map((step) => (
@@ -168,23 +249,6 @@ export default function ModelSecimSayfasi() {
                 </div>
               )}
 
-              <div className="relative h-[320px] w-full overflow-hidden bg-white">
-                <div
-                  className={`absolute inset-0 ${model.img?.shift || ""} ${model.img?.scale || ""} transition-transform duration-700 ease-out group-hover:scale-[1.04]`}
-                >
-                  <Image
-                    src={model.image}
-                    alt={model.name}
-                    fill
-                    className="object-contain drop-shadow-2xl"
-                    style={{ objectPosition: model.img?.pos || "50% 50%" }}
-                    priority={model.id === "tshirt"}
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw"
-                  />
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-              </div>
-
               <div className="relative z-10 p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -193,7 +257,7 @@ export default function ModelSecimSayfasi() {
                     </p>
                     <h3 className="mt-2 text-2xl font-black">{model.name}</h3>
                   </div>
-                  <span className="text-sm font-mono text-zinc-300">
+                  <span className="text-[11px] font-mono text-zinc-300">
                     {formatPrice(model.price)}
                   </span>
                 </div>
@@ -202,12 +266,23 @@ export default function ModelSecimSayfasi() {
                   {model.desc}
                 </p>
 
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {(model.tags || []).map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-zinc-300"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+
                 <div className="mt-4 flex items-center justify-between">
                   <span className="text-[11px] text-zinc-500 uppercase tracking-[0.2em]">
-                    {model.print}
+                    Ön + Arka Baskı
                   </span>
                   <span className="text-[11px] uppercase tracking-[0.2em] text-white">
-                    Başla
+                    Seç
                   </span>
                 </div>
               </div>
