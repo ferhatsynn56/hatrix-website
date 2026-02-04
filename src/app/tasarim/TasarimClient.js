@@ -539,16 +539,20 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, v
     return cloned;
   }, [gltf.scene, hasSkinned]);
 
-  const bodyMaterial = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color(color || BRAND_DEFAULT_COLOR),
-        roughness: 0.9,
-        metalness: 0.03,
-        side: THREE.FrontSide,
-      }),
-    [color]
-  );
+  const bodyMaterial = useMemo(() => {
+    const base = new THREE.Color(color || BRAND_DEFAULT_COLOR);
+    const lum = 0.2126 * base.r + 0.7152 * base.g + 0.0722 * base.b;
+    const boost = clamp((0.35 - lum) / 0.35, 0, 1);
+
+    return new THREE.MeshStandardMaterial({
+      color: base,
+      roughness: 0.9 - 0.18 * boost,
+      metalness: 0.03 + 0.08 * boost,
+      emissive: base,
+      emissiveIntensity: 0.12 * boost,
+      side: THREE.FrontSide,
+    });
+  }, [color]);
 
   const laceMaterial = useMemo(
     () =>
