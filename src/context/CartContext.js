@@ -53,6 +53,65 @@ const uploadObjectOfImages = async (obj, basePath) => {
   return out;
 };
 
+const compactSides = (sides) => {
+  if (!sides || typeof sides !== "object") return undefined;
+  const out = {};
+  for (const [key, sd] of Object.entries(sides)) {
+    if (!sd) continue;
+    const logos = Array.isArray(sd.logos)
+      ? sd.logos.map((l) => ({ id: l.id, box: l.box }))
+      : [];
+    out[key] = {
+      logos,
+      customText: sd.customText || null,
+      textPos: sd.textPos || null,
+    };
+  }
+  return out;
+};
+
+const sanitizeForFirestore = (value) => {
+  if (value === undefined) return undefined;
+  if (typeof value === "function" || typeof value === "symbol") return undefined;
+  if (typeof value === "number" && !Number.isFinite(value)) return 0;
+  if (value instanceof Blob) return undefined;
+  if (value instanceof File) return undefined;
+  if (value && typeof value === "object") {
+    if (value instanceof Date) return value;
+    if (Array.isArray(value)) {
+      const next = value.map(sanitizeForFirestore).filter((v) => v !== undefined);
+      return next;
+    }
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      const sv = sanitizeForFirestore(v);
+      if (sv !== undefined) out[k] = sv;
+    }
+    return out;
+  }
+  return value;
+};
+
+const stripHeavyItemForStorage = (item) => {
+  if (!item || typeof item !== "object") return item;
+  const safe = { ...item };
+
+  // dataURL görseller localStorage'ı şişirir
+  if (isDataUrl(safe.image)) safe.image = null;
+
+  if (safe.designDetails) {
+    const dd = safe.designDetails || {};
+    safe.designDetails = {
+      model: dd.model,
+      baseColor: dd.baseColor,
+      stringColor: dd.stringColor,
+      // ağır alanları localStorage'dan çıkar
+    };
+  }
+
+  return safe;
+};
+
 export function CartProvider({ children }) {
   const [cart, setCart] = useState([]);
 
@@ -62,7 +121,17 @@ export function CartProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(cart));
+    try {
+      localStorage.setItem("cart", JSON.stringify(cart));
+    } catch (e) {
+      // QuotaExceededError: base64/dataURL şişmesi
+      try {
+        const lite = cart.map(stripHeavyItemForStorage);
+        localStorage.setItem("cart", JSON.stringify(lite));
+      } catch {
+        // tamamen doluysa sessiz geç
+      }
+    }
   }, [cart]);
 
   const addToCart = (item) => {
@@ -120,15 +189,22 @@ export function CartProvider({ children }) {
         }
       }
 
+      const compactDesignDetails = dd
+        ? {
+            model: dd.model,
+            baseColor: dd.baseColor,
+            stringColor: dd.stringColor,
+            printFiles: uploadedPrintFiles,
+            mockupFiles: uploadedMockupFiles,
+            userUploads: uploadedUserUploads,
+            sides: compactSides(dd.sides),
+          }
+        : undefined;
+
       normalizedItems.push({
         ...item,
         image: uploadedPreview || item.image || null,
-        designDetails: {
-          ...dd,
-          printFiles: uploadedPrintFiles,
-          mockupFiles: uploadedMockupFiles,
-          userUploads: uploadedUserUploads,
-        },
+        designDetails: compactDesignDetails,
       });
     }
 
@@ -139,7 +215,8 @@ export function CartProvider({ children }) {
       items: normalizedItems,
     };
 
-    const docRef = await addDoc(collection(db, "siparisler"), orderDoc);
+    const safeOrderDoc = sanitizeForFirestore(orderDoc);
+    const docRef = await addDoc(collection(db, "siparisler"), safeOrderDoc);
 
     // sipariş tamam
     clearCart();
