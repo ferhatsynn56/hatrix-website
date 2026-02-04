@@ -2022,23 +2022,25 @@ function TasarimClientContent({ isMobile }) {
             scene.background = bgColor;
             gl.setClearColor(bgColor, 1);
             gl.outputColorSpace = THREE.SRGBColorSpace;
+            gl.toneMapping = THREE.ACESFilmicToneMapping;
+            gl.toneMappingExposure = 0.9;
           }}
           camera={{ position: [0, 0, 2.55], fov: 36 }}
           shadows={!isMobile}
         >
           <SceneBackgroundLock />
 
-          <ambientLight intensity={1.4} />
-          <hemisphereLight intensity={0.6} groundColor={"#1a1a1a"} />
+          <ambientLight intensity={0.9} />
+          <hemisphereLight intensity={0.35} groundColor={"#1a1a1a"} />
           <directionalLight
             position={[6, 10, 8]}
-            intensity={1.0}
+            intensity={0.9}
             castShadow={!isMobile}
             shadow-mapSize-width={perf.shadowMap}
             shadow-mapSize-height={perf.shadowMap}
           />
-          <directionalLight position={[-6, 6, -6]} intensity={0.45} />
-          <pointLight position={[0, 2.6, 2.2]} intensity={0.45} />
+          <directionalLight position={[-6, 6, -6]} intensity={0.35} />
+          <pointLight position={[0, 2.6, 2.2]} intensity={0.3} />
           {!isMobile && <ContactShadows position={[0, -1.4, 0]} opacity={0.16} scale={7} blur={2.2} far={3.2} />}
 
           <CameraController view={effectiveView} count={designs.length} onAnimatingChange={setCamAnimating} />
