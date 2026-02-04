@@ -281,7 +281,7 @@ async function makePrintDataUrl(sideData, opts = {}) {
         const bw = box.w * SIZE;
         const bh = box.h * SIZE;
         const bx = box.x * SIZE - bw / 2;
-        const by = (1 - box.y) * SIZE - bh / 2;
+        const by = box.y * SIZE - bh / 2;
         ctx.drawImage(img, bx, by, bw, bh);
         res();
       };
@@ -293,7 +293,7 @@ async function makePrintDataUrl(sideData, opts = {}) {
   if ((t.text || "").trim()) {
     const fontSize = clamp(parseInt(t.size || 150, 10), 30, 420) * (SIZE / 1024);
     ctx.save();
-    ctx.translate(textPos.x * SIZE, (1 - textPos.y) * SIZE);
+    ctx.translate(textPos.x * SIZE, textPos.y * SIZE);
     ctx.scale(clamp(t.scaleX || 1, 0.3, 3), clamp(t.scaleY || 1, 0.3, 3));
     ctx.font = `900 ${fontSize}px Arial`;
     ctx.fillStyle = t.color || "#ffffff";
@@ -416,7 +416,7 @@ function useDesignCanvas(sideData, opts = {}, isMobile) {
         const fontSize = clamp(parseInt(t.size || 150, 10), 30, 420) * scaleFactor;
 
         ctx.save();
-        ctx.translate((sideData?.textPos?.x ?? 0.5) * CANVAS_SIZE, (1 - (sideData?.textPos?.y ?? 0.85)) * CANVAS_SIZE);
+        ctx.translate((sideData?.textPos?.x ?? 0.5) * CANVAS_SIZE, (sideData?.textPos?.y ?? 0.85) * CANVAS_SIZE);
         ctx.scale(clamp(t.scaleX || 1, 0.3, 3), clamp(t.scaleY || 1, 0.3, 3));
         ctx.font = `900 ${fontSize}px Arial`;
         ctx.fillStyle = t.color || "#ffffff";
@@ -452,7 +452,7 @@ function useDesignCanvas(sideData, opts = {}, isMobile) {
               const bw = box.w * CANVAS_SIZE;
               const bh = box.h * CANVAS_SIZE;
               const bx = box.x * CANVAS_SIZE - bw / 2;
-              const by = (1 - box.y) * CANVAS_SIZE - bh / 2;
+              const by = box.y * CANVAS_SIZE - bh / 2;
               ctx.drawImage(img, bx, by, bw, bh);
               res();
             };
@@ -512,7 +512,7 @@ function makeCanvasTexture(canvas) {
   const tex = new THREE.CanvasTexture(canvas);
   tex.anisotropy = 16; // Netlik için yüksek değer
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.flipY = false; // Decal/CanvasTexture için daha uygun
+  tex.flipY = true; // Canvas Y ekseni ile model UV yönünü eşleştir
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   tex.needsUpdate = true;
@@ -619,10 +619,7 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, v
   }, [backCanvas, isMobile]);
 
   const decalHost = useMemo(() => pickDecalHostMesh(root, modelType), [root, modelType]);
-  const decalHostMat = useMemo(
-    () => new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
-    []
-  );
+  const decalHostRef = useMemo(() => ({ current: decalHost }), [decalHost]);
 
   const TORSO_DEPTH = 0.3;
 
@@ -649,9 +646,10 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, v
         <primitive object={root} />
 
         {decalHost && (
-          <mesh geometry={decalHost.geometry} material={decalHostMat}>
+          <>
             {showFront && frontTex && (
               <Decal
+                mesh={decalHostRef}
                 position={[0, frontCY, frontProfile.z + torsoZOffsetFront]}
                 rotation={[0, frontProfile.rotY || 0, 0]}
                 scale={[frontW, frontH, TORSO_DEPTH]}
@@ -672,6 +670,7 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, v
 
             {showBack && backTex && (
               <Decal
+                mesh={decalHostRef}
                 position={[0, backCY, backProfile.z + torsoZOffsetBack]}
                 rotation={[0, backProfile.rotY || Math.PI, 0]}
                 scale={[backW, backH, TORSO_DEPTH]}
@@ -689,7 +688,7 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, v
                 />
               </Decal>
             )}
-          </mesh>
+          </>
         )}
       </Center>
     </group>
@@ -1102,6 +1101,24 @@ function EditorPanel({
               </div>
             )}
           </div>
+        </div>
+
+        <div className="p-3 border-t border-zinc-800 bg-[#111111]">
+          <div className="flex items-center justify-between text-[10px] text-zinc-400 font-bold uppercase mb-2">
+            <span>Toplam</span>
+            <span className="text-white font-black">{totalPrice} ₺</span>
+          </div>
+
+          <button
+            onClick={onAddToCartAll}
+            disabled={loading}
+            className={`w-full bg-white text-black py-3 rounded-full font-black uppercase tracking-[0.18em] transition flex items-center justify-center gap-2 ${
+              loading ? "opacity-70 cursor-not-allowed" : ""
+            }`}
+          >
+            {loading ? <Loader2 className="animate-spin" /> : <ShoppingBag size={18} />}
+            {loading ? "HAZIRLANIYOR..." : "SEPETE EKLE"}
+          </button>
         </div>
       </div>
     );
@@ -1583,13 +1600,24 @@ function TasarimClientContent({ isMobile }) {
   const [captureId, setCaptureId] = useState(null);
   const [camAnimating, setCamAnimating] = useState(false);
 
+  const modelCount = designs.length;
+  const perf = useMemo(() => {
+    const heavy = isMobile || modelCount > 2;
+    return {
+      dpr: isMobile ? 1.2 : modelCount > 2 ? 1.3 : 1.6,
+      antialias: !isMobile && !heavy,
+      shadowMap: heavy ? 512 : 768,
+    };
+  }, [isMobile, modelCount]);
+
   // Mobile drawer
+  const DRAWER_PEEK = 76;
+  const MAX_OPEN = 0;
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [drawerY, setDrawerY] = useState(0);
+  const [drawerHeight, setDrawerHeight] = useState(0);
+  const [drawerMaxClosed, setDrawerMaxClosed] = useState(500);
   const dragState = useRef({ dragging: false, startY: 0, startDrawerY: 0 });
-
-  const MAX_OPEN = 0;
-  const MAX_CLOSED = 500;
 
   useEffect(() => {
     document.documentElement.style.backgroundColor = SCENE_BG_COLOR;
@@ -1739,11 +1767,26 @@ function TasarimClientContent({ isMobile }) {
     }
   };
 
+  // drawer sizing (iPhone-safe)
+  useEffect(() => {
+    if (!isMobile) return;
+    const calc = () => {
+      const h = Math.min(window.innerHeight * 0.72, 560);
+      const maxClosed = Math.max(0, h - DRAWER_PEEK);
+      setDrawerHeight(h);
+      setDrawerMaxClosed(maxClosed);
+      setDrawerY((y) => clamp(y, MAX_OPEN, maxClosed));
+    };
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
+  }, [isMobile]);
+
   // drawer behavior
   useEffect(() => {
     if (!isMobile) return;
-    setDrawerY(drawerOpen ? MAX_OPEN : MAX_CLOSED);
-  }, [drawerOpen, isMobile]);
+    setDrawerY(drawerOpen ? MAX_OPEN : drawerMaxClosed);
+  }, [drawerOpen, isMobile, drawerMaxClosed]);
 
   const onDrawerPointerDown = (e) => {
     dragState.current.dragging = true;
@@ -1756,7 +1799,7 @@ function TasarimClientContent({ isMobile }) {
   const onDrawerPointerMove = (e) => {
     if (!dragState.current.dragging) return;
     const dy = e.clientY - dragState.current.startY;
-    const next = clamp(dragState.current.startDrawerY + dy, MAX_OPEN, MAX_CLOSED);
+    const next = clamp(dragState.current.startDrawerY + dy, MAX_OPEN, drawerMaxClosed);
     setDrawerY(next);
   };
 
@@ -1764,11 +1807,17 @@ function TasarimClientContent({ isMobile }) {
     dragState.current.dragging = false;
     window.removeEventListener("pointermove", onDrawerPointerMove);
     window.removeEventListener("pointerup", onDrawerPointerUp);
-    const mid = (MAX_CLOSED - MAX_OPEN) * 0.55;
+    const mid = (drawerMaxClosed - MAX_OPEN) * 0.55;
     setDrawerOpen(drawerY < mid);
   };
 
   const effectiveView = captureView || view;
+  const drawerHeightStyle = drawerHeight ? `${drawerHeight}px` : "72vh";
+  const controlsBottom = drawerOpen
+    ? drawerHeight
+      ? `${drawerHeight + 12}px`
+      : "calc(72vh + 12px)"
+    : `${DRAWER_PEEK + 16}px`;
 
   const renderPanel = (
     <EditorPanel
@@ -1958,11 +2007,11 @@ function TasarimClientContent({ isMobile }) {
           }}
           gl={{
             preserveDrawingBuffer: true,
-            antialias: true,
+            antialias: perf.antialias,
             alpha: false,
-            powerPreference: "high-performance",
+            powerPreference: isMobile ? "low-power" : "high-performance",
           }}
-          dpr={isMobile ? 2 : [1, 2]}
+          dpr={perf.dpr}
           onCreated={({ gl, scene, camera }) => {
             glRef.current = gl;
             sceneRef.current = scene;
@@ -1979,7 +2028,13 @@ function TasarimClientContent({ isMobile }) {
 
           <ambientLight intensity={1.4} />
           <hemisphereLight intensity={0.6} groundColor={"#1a1a1a"} />
-          <directionalLight position={[6, 10, 8]} intensity={1.0} castShadow={!isMobile} shadow-mapSize-width={768} shadow-mapSize-height={768} />
+          <directionalLight
+            position={[6, 10, 8]}
+            intensity={1.0}
+            castShadow={!isMobile}
+            shadow-mapSize-width={perf.shadowMap}
+            shadow-mapSize-height={perf.shadowMap}
+          />
           <directionalLight position={[-6, 6, -6]} intensity={0.45} />
           <pointLight position={[0, 2.6, 2.2]} intensity={0.45} />
           {!isMobile && <ContactShadows position={[0, -1.4, 0]} opacity={0.16} scale={7} blur={2.2} far={3.2} />}
@@ -2031,7 +2086,7 @@ function TasarimClientContent({ isMobile }) {
         {isMobile && activeTab !== "editor" && (
           <div 
             className="absolute left-0 right-0 z-[30] px-4 pointer-events-none transition-all duration-300"
-            style={{ bottom: drawerOpen ? '62vh' : '500px' }}
+            style={{ bottom: controlsBottom }}
           >
             <div className="flex justify-center mb-3 pointer-events-auto">
               <div className="flex bg-zinc-900/90 backdrop-blur rounded-full p-1 border border-zinc-700 shadow-lg">
@@ -2085,13 +2140,14 @@ function TasarimClientContent({ isMobile }) {
         {/* MOBILE DRAWER */}
         {isMobile && activeDesign && (
           <div
-            className="absolute left-0 right-0 bottom-0 z-[85]"
+            className="fixed left-0 right-0 bottom-0 z-[85]"
             style={{
               transform: `translateY(${drawerY}px)`,
               transition: dragState.current.dragging ? "none" : "transform 220ms ease",
-              maxHeight: "72vh",
-              height: "72vh",
+              maxHeight: drawerHeightStyle,
+              height: drawerHeightStyle,
               paddingBottom: "env(safe-area-inset-bottom)",
+              willChange: "transform",
             }}
           >
             <div className="w-full h-full rounded-t-3xl overflow-hidden border-t border-zinc-700 shadow-2xl bg-[#111111] flex flex-col">
