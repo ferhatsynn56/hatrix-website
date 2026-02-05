@@ -218,7 +218,10 @@ const BASE_PRICE = 750;
 const EXTRA_SIDE_PRICE = 150;
 
 /* ================= BRAND / UI ================= */
-const SCENE_BG_COLOR = "#252525";
+const SCENE_BG_COLOR = "#f3f3f3";
+const PANEL_BG_COLOR = "#e8e8e8";
+const PANEL_BORDER_COLOR = "#d0d0d0";
+const DESKTOP_DRAWER_HEIGHT = 320;
 const BRAND_COLORS = ["#1A1A1A", "#F0F0F0", "#D2C6B6", "#3F432C", "#191C25", "#363636", "#1EF292", "#3E191D"];
 const BRAND_DEFAULT_COLOR = BRAND_COLORS[0];
 
@@ -405,8 +408,8 @@ function CameraController({ view, count, onAnimatingChange }) {
 
   const positions = useMemo(
     () => ({
-      front: new THREE.Vector3(0, 0, 2.55 + extra),
-      back: new THREE.Vector3(0, 0, -(2.55 + extra)),
+      front: new THREE.Vector3(0, 0.2, 2.55 + extra),
+      back: new THREE.Vector3(0, 0.2, -(2.55 + extra)),
     }),
     [extra]
   );
@@ -1021,9 +1024,15 @@ function EditorPanel({
   isMobile,
   activeTab,
   setActiveTab,
+  layout = "standard",
+  onRequestDrawerCollapse,
+  onRequestShowEditorOverlay,
+  forceShowEditorOverlay = false,
+  suppressEditorInPanel = false,
 }) {
   const isZipperFront = design.modelType === "fermuarli" && view === "front";
   const gap01 = MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
+  const isDrawerLayout = layout === "drawer";
 
   const currentSide = view === "back" ? "back" : "front";
   const sideData = useMemo(() => design?.sides?.[currentSide] || createSideData(), [design, currentSide]);
@@ -1085,7 +1094,7 @@ function EditorPanel({
           </button>
         </div>
 
-        <div className="flex-1 flex flex-col items-center justify-center p-4 bg-zinc-900/30">
+        <div className="flex-1 flex flex-col items-start justify-center p-4 bg-zinc-900/30">
           <p className="text-[10px] text-zinc-400 mb-2">Görseli köşelerden boyutlandır, ortadan taşı.</p>
 
           <div
@@ -1204,68 +1213,77 @@ function EditorPanel({
 
   return (
     <div
-      className={`w-full ${isMobile ? "h-full flex flex-col" : "md:w-[420px]"} bg-[#111111] z-20 shadow-2xl border-t md:border-t-0 md:border-l border-zinc-800`}
-      style={isMobile ? { touchAction: "pan-y" } : {}}
+      className={`w-full ${isMobile ? "h-full flex flex-col" : isDrawerLayout ? "h-full" : "md:w-[420px]"} bg-[#111111] z-20 shadow-2xl border-t md:border-t-0 md:border-l border-zinc-800`}
+      style={isMobile || isDrawerLayout ? { touchAction: "pan-y" } : {}}
     >
-      {/* Header */}
-      <div className="p-4 border-b border-zinc-800 bg-[#111111] flex-shrink-0">
-        <div className="flex justify-between items-start gap-3">
-          <div>
-            <p className="text-zinc-500 text-[10px] font-bold">BASKI ALANI — {sideLabel}</p>
-            <h2 className="text-sm font-mono text-white">
-              {cm.w}×{cm.h} CM
-            </h2>
-            <p className="text-[10px] text-zinc-500 mt-1 font-bold uppercase tracking-widest">
-              SEÇİLİ: {MODEL_LABELS[design.modelType] || design.modelType}
-            </p>
-            {isZipperFront && (
-              <p className="text-[10px] text-zinc-400 mt-2">
-                Fermuar boşluğu aktif: <span className="text-white font-black">{Math.round(gap01 * 100)}%</span>
-              </p>
-            )}
-          </div>
+      {!isDrawerLayout && (
+        <>
+          {/* Header */}
+          <div className="p-4 border-b border-zinc-800 bg-[#111111] flex-shrink-0">
+            <div className="flex justify-between items-start gap-3">
+              <div>
+                <p className="text-zinc-500 text-[10px] font-bold">BASKI ALANI — {sideLabel}</p>
+                <h2 className="text-sm font-mono text-white">
+                  {cm.w}×{cm.h} CM
+                </h2>
+                <p className="text-[10px] text-zinc-500 mt-1 font-bold uppercase tracking-widest">
+                  SEÇİLİ: {MODEL_LABELS[design.modelType] || design.modelType}
+                </p>
+                {isZipperFront && (
+                  <p className="text-[10px] text-zinc-400 mt-2">
+                    Fermuar boşluğu aktif: <span className="text-white font-black">{Math.round(gap01 * 100)}%</span>
+                  </p>
+                )}
+              </div>
 
-          <div className="text-right">
-            <p className="text-zinc-500 text-[10px] font-bold mb-1">BEDEN</p>
-            <div className="flex gap-1">
-              {sizes.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => updateDesign({ size: s })}
-                  className={`w-7 h-7 text-[10px] font-bold rounded border transition ${
-                    design.size === s ? "bg-white text-black border-white" : "text-zinc-500 border-zinc-700"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
+              <div className="text-right">
+                <p className="text-zinc-500 text-[10px] font-bold mb-1">BEDEN</p>
+                <div className="flex gap-1">
+                  {sizes.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => updateDesign({ size: s })}
+                      className={`w-7 h-7 text-[10px] font-bold rounded border transition ${
+                        design.size === s ? "bg-white text-black border-white" : "text-zinc-500 border-zinc-700"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-zinc-800 bg-[#111111] flex-shrink-0">
-        {[
-          { id: "editor", icon: Move, label: "Yerleşim" },
-          { id: "upload", icon: ImageIcon, label: "Baskı" },
-          { id: "text", icon: Type, label: "Yazı" },
-          { id: "color", icon: Palette, label: "Renk" },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 py-3 text-[10px] font-bold uppercase flex flex-col items-center gap-1 ${
-              activeTab === tab.id ? "text-white border-b-2 border-white" : "text-zinc-500"
-            }`}
-          >
-            <tab.icon size={14} /> {tab.label}
-          </button>
-        ))}
-      </div>
+          {/* Tabs */}
+          <div className="flex border-b border-zinc-800 bg-[#111111] flex-shrink-0">
+            {[
+              { id: "upload", icon: ImageIcon, label: "Baskı" },
+              { id: "text", icon: Type, label: "Yazı" },
+              { id: "color", icon: Palette, label: "Renk" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  if (tab.id === "upload") onRequestDrawerCollapse?.();
+                }}
+                className={`flex-1 py-3 text-[10px] font-bold uppercase flex flex-col items-center gap-1 ${
+                  activeTab === tab.id ? "text-white border-b-2 border-white" : "text-zinc-500"
+                }`}
+              >
+                <tab.icon size={14} /> {tab.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Content */}
-      <div className="flex-1 p-4 overflow-y-auto bg-[#111111]" style={{ touchAction: "pan-y" }}>
+      <div
+        className={`flex-1 ${isDrawerLayout ? "p-3" : "p-4"} overflow-y-auto`}
+        style={{ touchAction: "pan-y", minHeight: 0, backgroundColor: PANEL_BG_COLOR }}
+      >
         {/* UPLOAD */}
         {activeTab === "upload" && (
           <div className="space-y-4">
@@ -1274,7 +1292,13 @@ function EditorPanel({
               {isZipperFront && <span className="text-zinc-500"> (fermuar boşluğu açık)</span>}
             </p>
 
-            <label className="flex flex-col items-center justify-center w-full h-32 border border-dashed border-zinc-700 rounded-xl cursor-pointer hover:border-white hover:bg-zinc-900 transition">
+            <label
+              className="flex flex-col items-center justify-center w-full h-32 border border-dashed border-zinc-700 rounded-xl cursor-pointer hover:border-white hover:bg-zinc-900 transition"
+              onClick={() => {
+                onRequestDrawerCollapse?.();
+                onRequestShowEditorOverlay?.();
+              }}
+            >
               <Upload className="w-8 h-8 mb-2 text-zinc-500" />
               <p className="text-xs text-zinc-400 font-bold uppercase">Baskı Görseli Ekle</p>
               {isZipperFront && (
@@ -1344,18 +1368,21 @@ function EditorPanel({
           </div>
         )}
 
-                {/* EDITOR (KONUM/BOYUT) */}
-        {activeTab === "editor" && (
-          <div className="space-y-3">
-            <p className="text-[10px] text-zinc-400 font-bold uppercase">
-              Konum / Boyut — <span className="text-white">{sideLabel}</span>
-            </p>
+        {/* EDITOR (KONUM/BOYUT) - Panel içinde değil, ayrı overlay */}
+        {false && (activeTab === "editor" || forceShowEditorOverlay) && (() => {
+          const editorInner = (
+            <>
+              <p className="text-[10px] text-zinc-400 font-bold uppercase">
+                Konum / Boyut — <span className="text-white">{sideLabel}</span>
+              </p>
 
-            <div
-              ref={previewRef}
-              className={`w-full bg-zinc-900 rounded-xl border border-zinc-600 relative overflow-hidden shadow-2xl touch-none ${isMobile ? 'aspect-[4/5] h-64' : 'aspect-square'}`}
-              style={{ touchAction: "none" }}
-            >
+              <div
+                ref={previewRef}
+                className={`w-full max-w-[520px] mr-auto bg-zinc-900 rounded-xl border border-zinc-600 relative overflow-hidden shadow-2xl touch-none ${
+                  isMobile ? "aspect-[4/5] h-64" : "aspect-square"
+                }`}
+                style={{ touchAction: "none" }}
+              >
               {/* hafif grid */}
               <div
                 className="absolute inset-0 opacity-20 pointer-events-none"
@@ -1463,13 +1490,24 @@ function EditorPanel({
                   </span>
                 </div>
               )}
-            </div>
+              </div>
 
-            <p className="text-[10px] text-zinc-500">
-              İpucu: Görseli ortadan sürükle, köşelerden büyüt/küçült. (Mobilde de çalışır)
-            </p>
-          </div>
-        )}
+              <p className="text-[10px] text-zinc-500">
+                İpucu: Görseli ortadan sürükle, köşelerden büyüt/küçült. (Mobilde de çalışır)
+              </p>
+            </>
+          );
+
+          if (isDrawerLayout && !isMobile) {
+            return (
+              <>
+                <div className="space-y-3">{editorInner}</div>
+              </>
+            );
+          }
+
+          return <div className="space-y-3">{editorInner}</div>;
+        })()}
 
 
         {/* TEXT */}
@@ -1679,6 +1717,8 @@ function TasarimClientContent({ isMobile }) {
 
   // ✅ activeTab artık burada (hata bitti)
   const [activeTab, setActiveTab] = useState("upload");
+  const TAB_ORDER = ["upload", "text", "editor", "color"];
+  const [forceEditorOverlay, setForceEditorOverlay] = useState(false);
 
   // ✅ designs/activeId init bug fix
   const initialDesignRef = useRef(null);
@@ -1708,6 +1748,31 @@ function TasarimClientContent({ isMobile }) {
   const [captureView, setCaptureView] = useState(null);
   const [captureId, setCaptureId] = useState(null);
   const [camAnimating, setCamAnimating] = useState(false);
+  const previewRef = useRef(null);
+
+  // Editor overlay için gerekli değişkenler
+  const currentActiveDesign = designs.find(d => d.id === activeId);
+  const currentSide = view;
+  const sideLabel = currentSide === "front" ? "ÖN" : "ARKA";
+  const sideData = currentActiveDesign?.sides?.[currentSide] || {};
+  const logos = sideData?.logos || [];
+  const customText = sideData?.customText || {};
+  const activeLogo = logos.find(l => l.id === (sideData?.activeLogoId || logos[0]?.id));
+  const isZipperFront = currentActiveDesign?.modelType === "fermuarli" && currentSide === "front";
+  const gap01 = MODEL_PRINT_BOUNDS[currentActiveDesign?.modelType]?.front?.zipGap01 || 0;
+
+  // Editor overlay için updateSide fonksiyonu
+  const updateSide = (patch) => {
+    setDesigns(prev => prev.map(d => 
+      d.id === activeId ? {
+        ...d,
+        sides: {
+          ...d.sides,
+          [currentSide]: { ...d.sides[currentSide], ...patch }
+        }
+      } : d
+    ));
+  };
 
   const modelCount = designs.length;
   const perf = useMemo(() => {
@@ -1758,6 +1823,19 @@ function TasarimClientContent({ isMobile }) {
   }, [activeId, designs]);
 
   const activeDesign = useMemo(() => designs.find((d) => d.id === activeId) || designs[0], [designs, activeId]);
+  const tabIndex = Math.max(0, TAB_ORDER.indexOf(activeTab));
+  const tabLabelMap = {
+    upload: "Baskı",
+    text: "Yazı",
+    editor: "Yerleşim",
+    color: "Renk",
+  };
+  const goPrevTab = () => setActiveTab(TAB_ORDER[(tabIndex - 1 + TAB_ORDER.length) % TAB_ORDER.length]);
+  const goNextTab = () => setActiveTab(TAB_ORDER[(tabIndex + 1) % TAB_ORDER.length]);
+
+  useEffect(() => {
+    if (activeTab !== "upload") setForceEditorOverlay(false);
+  }, [activeTab]);
 
   const updateActive = (patch) => {
     if (patch?.__setView) {
@@ -1790,7 +1868,10 @@ function TasarimClientContent({ isMobile }) {
       return { hidden: false, x: 0, z: 0, rotY: 0, scale: 1.05 };
     }
 
-    if (designId === activeId) return { hidden: false, x: 0, z: 0, rotY: 0, scale: 1.03 };
+    if (designId === activeId) {
+      const editorOffsetX = !isMobile && activeTab === "editor" ? 0.35 : 0;
+      return { hidden: false, x: editorOffsetX, z: 0, rotY: 0, scale: 1.03 };
+    }
 
     const others = designs.filter((d) => d.id !== activeId);
     const idx = others.findIndex((d) => d.id === designId);
@@ -1926,12 +2007,23 @@ function TasarimClientContent({ isMobile }) {
     setDrawerOpen(drawerY < mid);
   };
 
+  const toggleDrawer = () => {
+    if (isMobile) setDrawerOpen((s) => !s);
+    else setDrawerOpen((s) => !s);
+  };
+
   const effectiveView = captureView || view;
-  const drawerHeightStyle = drawerHeight ? `${drawerHeight}px` : "72vh";
-  const drawerTopGap = drawerHeight ? Math.max(0, drawerHeight - drawerY) : null;
-  const controlsBottom = drawerHeight
-    ? `calc(${drawerTopGap}px + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
-    : `calc(72vh + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`;
+  const drawerHeightStyle = isMobile
+    ? drawerHeight
+      ? `${drawerHeight}px`
+      : "72vh"
+    : `${DESKTOP_DRAWER_HEIGHT}px`;
+  const drawerTopGap = isMobile && drawerHeight ? Math.max(0, drawerHeight - drawerY) : 0;
+  const controlsBottom = isMobile
+    ? drawerHeight
+      ? `calc(${drawerTopGap}px + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
+      : `calc(72vh + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
+    : `calc(${drawerOpen ? DESKTOP_DRAWER_HEIGHT : 72}px + ${CONTROLS_GAP}px)`;
 
   const renderPanel = (
     <EditorPanel
@@ -1943,66 +2035,95 @@ function TasarimClientContent({ isMobile }) {
       isMobile={isMobile}
       activeTab={activeTab}
       setActiveTab={setActiveTab}
+      layout="drawer"
+      onRequestDrawerCollapse={() => setDrawerOpen(false)}
+      onRequestShowEditorOverlay={() => setForceEditorOverlay(true)}
+      forceShowEditorOverlay={forceEditorOverlay}
+      suppressEditorInPanel={!isMobile && forceEditorOverlay}
     />
   );
 
   return (
-    <div className="fixed inset-0 h-screen w-full text-white flex flex-col md:flex-row overflow-hidden font-sans" style={{ background: SCENE_BG_COLOR, overscrollBehavior: "none", touchAction: "none" }}>
-      <Link href="/" className="absolute top-2 left-2 z-[90]">
-        <div className="px-3 py-2 rounded-xl border border-zinc-700 bg-zinc-900/70 backdrop-blur-md hover:bg-zinc-800 transition flex items-center gap-2">
-          <span className="text-xs">←</span>
-          <span className="text-xs font-bold">Geri</span>
+    <div className="fixed inset-0 h-screen w-full text-white overflow-hidden font-sans" style={{ background: SCENE_BG_COLOR, overscrollBehavior: "none", touchAction: "none" }}>
+      {/* Top Header */}
+      <div className="absolute top-0 left-0 right-0 z-[90] px-4 pt-4 pb-3 flex items-start justify-between pointer-events-none">
+        <div className="flex items-start gap-3 pointer-events-auto">
+          <Link href="/" className="px-2 py-2 rounded-full border border-zinc-300 bg-white/80 backdrop-blur-md hover:bg-white transition text-xs text-black">
+            ←
+          </Link>
+          <div>
+            <p className="text-sm font-bold text-black">{MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}</p>
+            <p className="text-xs text-zinc-600">{getPrice(activeDesign || createDesign("tshirt"))} ₺</p>
+          </div>
         </div>
-      </Link>
 
-      <div className="w-full h-full md:flex-1 relative" style={{ background: SCENE_BG_COLOR }}>
-        {/* DESKTOP CONTROLS */}
-        {!isMobile && (
-          <>
-            <div className="absolute bottom-16 md:bottom-24 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 bg-zinc-900/90 backdrop-blur-md p-1 rounded-full border border-zinc-700 shadow-xl">
-              {UI_VIEWS.map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setView(v)}
-                  className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all duration-300 ${
-                    view === v ? "bg-white text-black shadow-md" : "text-zinc-400 hover:text-white hover:bg-zinc-800"
-                  }`}
-                >
-                  {v === "front" ? "Ön" : "Arka"}
-                </button>
-              ))}
+        <div className="flex items-center gap-2 pointer-events-auto">
+          <button
+            onClick={handleAddToCartAll}
+            disabled={loading}
+            className={`px-4 py-2 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${
+              loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
+            }`}
+          >
+            {loading ? "HAZIRLANIYOR..." : "BİTTİ"}
+          </button>
+        </div>
+      </div>
+
+      <div className="w-full h-full relative" style={{ background: SCENE_BG_COLOR }}>
+        {/* Floating Controls */}
+        {activeTab !== "editor" && (
+          <div
+            className="absolute right-4 z-[90] pointer-events-none transition-all duration-300"
+            style={{ bottom: controlsBottom }}
+          >
+            <div className="flex justify-center mb-3 pointer-events-auto">
+              <div className="flex flex-col bg-zinc-900/90 backdrop-blur rounded-full p-1 border border-zinc-700 shadow-lg">
+                {UI_VIEWS.map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setView(v)}
+                    className={`px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
+                      view === v ? "bg-white text-black shadow-md" : "text-zinc-400"
+                    }`}
+                  >
+                    {v === "front" ? "ÖN" : "ARKA"}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="absolute bottom-3 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2">
+            <div className="flex flex-col items-center justify-center gap-2 pointer-events-auto">
               <button
                 onClick={() => {
                   setPickerStep("root");
                   setPickerOpen(true);
                 }}
-                className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center font-black shadow-xl hover:bg-zinc-200 transition"
+                className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center font-black shadow-xl active:scale-95 transition"
                 title="Model Ekle"
               >
-                <Plus size={18} />
+                <Plus size={20} />
               </button>
 
-              <div className="flex items-center gap-2 bg-zinc-900/70 border border-zinc-700 rounded-full px-3 py-2">
-                <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">MODELLER: {designs.length}</span>
-                <span className="text-[10px] text-white font-bold uppercase tracking-widest">
-                  SEÇİLİ: {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
-                </span>
-
+              <div className="flex items-center gap-2 bg-zinc-900/80 border border-zinc-700 rounded-full pl-4 pr-2 py-3 backdrop-blur shadow-lg">
+                <div className="flex flex-col leading-tight">
+                  <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest">SEÇİLİ MODEL ({designs.length})</span>
+                  <span className="text-[11px] text-white font-black uppercase tracking-widest">
+                    {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
+                  </span>
+                </div>
                 {designs.length > 1 && (
                   <button
                     onClick={() => removeModel(activeId)}
-                    className="ml-1 w-7 h-7 rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center"
+                    className="ml-2 w-8 h-8 rounded-full bg-zinc-800 active:scale-95 transition flex items-center justify-center text-zinc-300 hover:text-white"
                     title="Seçili modeli kaldır"
                   >
-                    <X size={14} />
+                    <X size={16} />
                   </button>
                 )}
               </div>
             </div>
-          </>
+          </div>
         )}
 
         {/* Model picker modal */}
@@ -2109,6 +2230,118 @@ function TasarimClientContent({ isMobile }) {
           </div>
         )}
 
+        {/* Editor Overlay - Sol Taraf */}
+        {activeTab === "editor" && (
+          <div className="absolute left-4 top-4 bottom-4 w-80 z-[80] bg-zinc-900/95 backdrop-blur-md rounded-2xl border border-zinc-700 shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-zinc-800 bg-zinc-800/50">
+              <h3 className="text-xs font-black uppercase tracking-widest text-white">Yerleşim Ayarı</h3>
+              <p className="text-[10px] text-zinc-400 mt-1">{sideLabel}</p>
+            </div>
+            
+            <div className="flex-1 p-4 overflow-y-auto">
+              <div
+                ref={previewRef}
+                className="w-full aspect-[4/5] bg-zinc-900 rounded-xl border border-zinc-600 relative overflow-hidden shadow-2xl touch-none"
+                style={{ touchAction: "none" }}
+              >
+                {/* hafif grid */}
+                <div
+                  className="absolute inset-0 opacity-20 pointer-events-none"
+                  style={{
+                    backgroundImage: "radial-gradient(#fff 1px, transparent 1px)",
+                    backgroundSize: "10px 10px",
+                  }}
+                />
+
+                {/* fermuar boşluğu görünsün */}
+                {isZipperFront && (
+                  <div
+                    className="absolute top-0 bottom-0 pointer-events-none"
+                    style={{
+                      left: "50%",
+                      width: `${Math.round(gap01 * 100)}%`,
+                      transform: "translateX(-50%)",
+                      background: "rgba(255,255,255,0.07)",
+                      borderLeft: "1px dashed rgba(255,255,255,0.20)",
+                      borderRight: "1px dashed rgba(255,255,255,0.20)",
+                    }}
+                  />
+                )}
+
+                {/* logolar */}
+                {(logos || []).map((l) => {
+                  const isSelected = l.id === (sideData?.activeLogoId || sideData?.logos?.[0]?.id);
+                  const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
+                  const pct = (v) => `${v * 100}%`;
+                  return (
+                    <div
+                      key={l.id}
+                      className={`absolute border-2 transition-all ${
+                        isSelected ? "border-white" : "border-transparent"
+                      }`}
+                      style={{
+                        left: pct(box.x - box.w / 2),
+                        top: pct(box.y - box.h / 2),
+                        width: pct(box.w),
+                        height: pct(box.h),
+                        touchAction: "none",
+                      }}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        updateSide({ activeLogoId: l.id });
+                      }}
+                    >
+                      <img
+                        src={l.url}
+                        alt=""
+                        className="w-full h-full object-fill pointer-events-none"
+                      />
+                    </div>
+                  );
+                })}
+
+                {/* seçili logo resize/drag çerçevesi */}
+                {activeLogo && (
+                  <ResizeFrame
+                    box={activeLogo.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 }}
+                    containerRef={previewRef}
+                    onChange={(next) => {
+                      const nextLogos = (logos || []).map((l) =>
+                        l.id === activeLogo.id ? { ...l, box: next } : l
+                      );
+                      updateSide({ logos: nextLogos });
+                    }}
+                  />
+                )}
+
+                {/* metin */}
+                {customText?.text && (
+                  <div
+                    className="absolute pointer-events-none"
+                    style={{
+                      left: `${(sideData?.textPos?.x ?? 0.5) * 100}%`,
+                      top: `${(sideData?.textPos?.y ?? 0.85) * 100}%`,
+                      transform: "translate(-50%, -50%)",
+                      touchAction: "none",
+                    }}
+                  >
+                    <span
+                      className="text-xs font-black select-none"
+                      style={{ color: sideData.customText.color }}
+                    >
+                      {sideData.customText.text}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-[10px] text-zinc-500 mt-3">
+                İpucu: Görseli ortadan sürükle, köşelerden büyüt/küçült.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* THREE.js Canvas */}
         <Canvas
           style={{
@@ -2137,7 +2370,7 @@ function TasarimClientContent({ isMobile }) {
             gl.toneMapping = THREE.ACESFilmicToneMapping;
             gl.toneMappingExposure = 0.9;
           }}
-          camera={{ position: [0, 0, 2.55], fov: 36 }}
+          camera={{ position: [0, 0.2, 2.55], fov: 36 }}
           shadows={!isMobile}
         >
           <SceneBackgroundLock />
@@ -2193,117 +2426,134 @@ function TasarimClientContent({ isMobile }) {
             zoomSpeed={0.9}
             minDistance={1.5}
             maxDistance={10}
-            zoomToCursor={true}
+            zoomToCursor={false}
             enabled={!camAnimating}
             mouseButtons={{ LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null }}
-            touches={{ ONE: THREE.TOUCH.NONE, TWO: THREE.TOUCH.DOLLY_PAN }}
+            touches={{ ONE: THREE.TOUCH.NONE, TWO: THREE.TOUCH.DOLLY }}
           />
         </Canvas>
 
-        {/* MOBILE CONTROLS */}
-        {isMobile && activeTab !== "editor" && (
-          <div 
-            className="absolute left-0 right-0 z-[90] px-4 pointer-events-none transition-all duration-300"
-            style={{ bottom: controlsBottom }}
+        {/* LEFT OVERLAY EDITOR (DESKTOP ONLY) */}
+        {!isMobile && forceEditorOverlay && (
+          <div
+            className="absolute left-6 z-[88] w-[360px] pointer-events-auto"
+            style={{
+              top: "96px",
+              bottom: `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : 72) + 24}px`,
+            }}
           >
-            <div className="flex justify-center mb-3 pointer-events-auto">
-              <div className="flex bg-zinc-900/90 backdrop-blur rounded-full p-1 border border-zinc-700 shadow-lg">
-                {UI_VIEWS.map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setView(v)}
-                    className={`px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
-                      view === v ? "bg-white text-black shadow-md" : "text-zinc-400"
-                    }`}
-                  >
-                    {v === "front" ? "ÖN" : "ARKA"}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-center gap-2 pointer-events-auto">
-              <button
-                onClick={() => {
-                  setPickerStep("root");
-                  setPickerOpen(true);
-                }}
-                className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center font-black shadow-xl active:scale-95 transition"
-                title="Model Ekle"
-              >
-                <Plus size={20} />
-              </button>
-
-              <div className="flex items-center gap-2 bg-zinc-900/80 border border-zinc-700 rounded-full pl-4 pr-2 py-3 backdrop-blur shadow-lg">
-                <div className="flex flex-col leading-tight">
-                  <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest">SEÇİLİ MODEL ({designs.length})</span>
-                  <span className="text-[11px] text-white font-black uppercase tracking-widest">
-                    {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
-                  </span>
-                </div>
-                {designs.length > 1 && (
-                  <button
-                    onClick={() => removeModel(activeId)}
-                    className="ml-2 w-8 h-8 rounded-full bg-zinc-800 active:scale-95 transition flex items-center justify-center text-zinc-300 hover:text-white"
-                    title="Seçili modeli kaldır"
-                  >
-                    <X size={16} />
-                  </button>
-                )}
-              </div>
+            <div className="h-full overflow-y-auto">
+              <EditorPanel
+                design={activeDesign}
+                updateDesign={updateActive}
+                loading={loading}
+                onAddToCartAll={handleAddToCartAll}
+                view={view}
+                isMobile={isMobile}
+                activeTab="editor"
+                setActiveTab={setActiveTab}
+                layout="standard"
+                onRequestDrawerCollapse={() => setDrawerOpen(false)}
+              />
             </div>
           </div>
         )}
 
-        {/* MOBILE DRAWER */}
-        {isMobile && activeDesign && (
+        {/* DRAWER (MOBILE + DESKTOP) */}
+        {activeDesign && (
           <div
-            className="fixed left-0 right-0 bottom-0 z-[85]"
+            className="fixed left-0 right-0 bottom-0 z-[85] pointer-events-auto"
             style={{
-              transform: `translateY(${drawerY}px)`,
-              transition: dragState.current.dragging ? "none" : "transform 220ms ease",
+              transform: isMobile
+                ? `translateY(${drawerY}px)`
+                : drawerOpen
+                  ? "translateY(0)"
+                  : `translateY(${DESKTOP_DRAWER_HEIGHT - 72}px)`,
+              transition: isMobile && dragState.current.dragging ? "none" : "transform 220ms ease",
               maxHeight: drawerHeightStyle,
               height: drawerHeightStyle,
               paddingBottom: "env(safe-area-inset-bottom)",
               willChange: "transform",
             }}
           >
-            <div className="w-full h-full rounded-t-3xl overflow-hidden border-t border-zinc-700 shadow-2xl bg-[#111111] flex flex-col">
-              {!(activeTab === "editor") && (
-                <div
-                  className="w-full flex items-center justify-center py-3 border-b border-zinc-800 bg-[#0f0f0f] flex-shrink-0"
-                  onPointerDown={onDrawerPointerDown}
-                  style={{ touchAction: "none" }}
+            <div
+              className="w-full h-full rounded-t-3xl overflow-hidden border-t shadow-2xl flex flex-col pointer-events-auto"
+              style={{ backgroundColor: PANEL_BG_COLOR, borderColor: PANEL_BORDER_COLOR }}
+            >
+              <div
+                className="w-full flex items-center justify-start py-2 border-b flex-shrink-0"
+                onPointerDown={isMobile ? onDrawerPointerDown : undefined}
+                style={isMobile ? { touchAction: "none" } : {}}
+              >
+                <button
+                  onClick={toggleDrawer}
+                  className="ml-3 w-9 h-9 rounded-full border border-zinc-300 bg-white text-zinc-700 hover:text-black hover:bg-zinc-50 flex items-center justify-center"
+                  aria-label="panel toggle"
                 >
-                  <div className="w-12 h-1.5 rounded-full bg-zinc-600" />
-                  <button
-                    onClick={() => setDrawerOpen((s) => !s)}
-                    className="ml-3 text-zinc-300 hover:text-white"
-                    aria-label="panel toggle"
-                  >
-                    {drawerOpen ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-                  </button>
-                </div>
-              )}
+                  {drawerOpen ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                </button>
+              </div>
 
-              {/* Editor modunda da drag handle göster */}
-              {activeTab === "editor" && (
-                <div
-                  className="w-full flex items-center justify-center py-2 border-b border-zinc-800 bg-[#0f0f0f] flex-shrink-0"
-                  onPointerDown={onDrawerPointerDown}
-                  style={{ touchAction: "none" }}
+              <div className="px-3 py-2 border-b flex items-center justify-between gap-2" style={{ borderColor: PANEL_BORDER_COLOR }}>
+                <button
+                  onClick={goPrevTab}
+                  className="w-8 h-8 rounded-full border border-zinc-300 text-zinc-700 hover:bg-white"
+                  aria-label="Önceki adım"
                 >
-                  <div className="w-12 h-1.5 rounded-full bg-zinc-600" />
+                  ‹
+                </button>
+
+                <div className="text-center">
+                  <p className="text-xs font-bold uppercase tracking-widest text-black">
+                    {tabLabelMap[activeTab] || "Baskı"}
+                  </p>
+                  <p className="text-[10px] text-zinc-600 font-bold">Adım {tabIndex + 1}/{TAB_ORDER.length}</p>
                 </div>
-              )}
+
+                <button
+                  onClick={goNextTab}
+                  className="w-8 h-8 rounded-full border border-zinc-300 text-zinc-700 hover:bg-white"
+                  aria-label="Sonraki adım"
+                >
+                  ›
+                </button>
+
+                <button
+                  onClick={() => {
+                    setPickerStep("root");
+                    setPickerOpen(true);
+                  }}
+                  className="ml-auto px-3 py-2 rounded-full border border-zinc-300 text-[10px] text-black font-black uppercase tracking-widest hover:bg-white"
+                >
+                  Menü
+                </button>
+              </div>
+
+              <div className="px-3 py-2 border-b flex gap-2 overflow-x-auto" style={{ borderColor: PANEL_BORDER_COLOR }}>
+                {TAB_ORDER.map((id) => (
+                  <button
+                    key={id}
+                    onClick={() => {
+                      setActiveTab(id);
+                      if (id === "upload") {
+                        setDrawerOpen(false);
+                        setForceEditorOverlay(true);
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
+                      activeTab === id ? "bg-white text-black border-white" : "text-zinc-500 border-zinc-300"
+                    }`}
+                  >
+                  {tabLabelMap[id] || id}
+                </button>
+                ))}
+              </div>
 
               {renderPanel}
             </div>
           </div>
         )}
       </div>
-
-      {!isMobile && activeDesign && renderPanel}
     </div>
   );
 }
