@@ -33,6 +33,8 @@ import {
   Image as ImageIcon,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Check,
 } from "lucide-react";
 
@@ -83,6 +85,8 @@ const toSafeUrl = (p) => (typeof window !== "undefined" ? encodeURI(p) : p);
 const MODEL_PATHS = {
   tshirt: "/models/NormalTshirt.glb",
   sweatshirt: "/models/NormalSweat.glb",
+  "sweat-yeni": "/models/yeni sweat 331231.glb",
+  "sweat-deneme": "/models/Deneme 4.glb",
   "oversize-tshirt": "/models/OversizeTshirt.glb",
   "oversize-sweat": "/models/OversizeSweat.glb",
   hoodie: "/models/Hoodie.glb",
@@ -100,6 +104,8 @@ const MODEL_PATHS = {
 const AVAILABLE_MODELS = [
   "tshirt",
   "sweatshirt",
+  "sweat-yeni",
+  "sweat-deneme",
   "oversize-tshirt",
   "oversize-sweat",
   "hoodie",
@@ -117,6 +123,8 @@ const AVAILABLE_MODELS = [
 const MODEL_LABELS = {
   tshirt: "Normal Tişört",
   sweatshirt: "Normal Sweat",
+  "sweat-yeni": "Yeni Sweat",
+  "sweat-deneme": "Deneme Sweat",
   "oversize-tshirt": "Oversize Tişört",
   "oversize-sweat": "Oversize Sweat",
   hoodie: "Hoodie",
@@ -142,6 +150,10 @@ const MODEL_PRINT_BOUNDS = {
     back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
   },
   sweatshirt: {
+    front: { xMin: -0.17, xMax: 0.17, yTop: 0.275, yBot: -0.24, z: 0.147, rotY: 0 },
+    back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.245, z: -0.148, rotY: Math.PI },
+  },
+  "sweat-deneme": {
     front: { xMin: -0.17, xMax: 0.17, yTop: 0.275, yBot: -0.24, z: 0.147, rotY: 0 },
     back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.245, z: -0.148, rotY: Math.PI },
   },
@@ -204,6 +216,8 @@ const MODEL_PRINT_BOUNDS = {
 const CM_LABELS = {
   tshirt: { front: { w: 40, h: 54 }, back: { w: 40, h: 54 } },
   sweatshirt: { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
+  "sweat-yeni": { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
+  "sweat-deneme": { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
   hoodie: { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
   "hoodie-cepli": { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
   "hoodie-ceplipli": { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
@@ -1286,23 +1300,23 @@ function EditorPanel({
       >
         {/* UPLOAD */}
         {activeTab === "upload" && (
-          <div className="space-y-4">
-            <p className="text-[10px] text-zinc-400 font-bold uppercase">
-              Şu an düzenlenen alan: <span className="text-white">{sideLabel}</span>
-              {isZipperFront && <span className="text-zinc-500"> (fermuar boşluğu açık)</span>}
+          <div className="space-y-3">
+            <p className="text-xs text-gray-600 font-medium">
+              Şu an düzenlenen alan: <span className="text-gray-900 font-semibold">{sideLabel}</span>
+              {isZipperFront && <span className="text-gray-500"> (fermuar boşluğu açık)</span>}
             </p>
 
             <label
-              className="flex flex-col items-center justify-center w-full h-32 border border-dashed border-zinc-700 rounded-xl cursor-pointer hover:border-white hover:bg-zinc-900 transition"
+              className="flex flex-col items-center justify-center w-full h-20 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition"
               onClick={() => {
                 onRequestDrawerCollapse?.();
                 onRequestShowEditorOverlay?.();
               }}
             >
-              <Upload className="w-8 h-8 mb-2 text-zinc-500" />
-              <p className="text-xs text-zinc-400 font-bold uppercase">Baskı Görseli Ekle</p>
+              <Upload className="w-6 h-6 mb-1 text-gray-400" />
+              <p className="text-xs text-gray-600 font-medium">Baskı Görseli Ekle</p>
               {isZipperFront && (
-                <p className="text-[10px] text-zinc-500 mt-1">Not: Fermuar şeridi otomatik boş kalır.</p>
+                <p className="text-[10px] text-gray-500 mt-1">Not: Fermuar şeridi otomatik boş kalır.</p>
               )}
 
               <input
@@ -2164,6 +2178,12 @@ function TasarimClientContent({ isMobile }) {
                     <button onClick={() => setPickerStep("sweat")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
                       Sweatshirt
                     </button>
+                    <button onClick={() => addModel("sweat-yeni")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
+                      Yeni Sweat
+                    </button>
+                    <button onClick={() => addModel("sweat-deneme")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
+                      Deneme Sweat
+                    </button>
                     <button onClick={() => setPickerStep("hoodie")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
                       Hoodie
                     </button>
@@ -2189,6 +2209,12 @@ function TasarimClientContent({ isMobile }) {
                   <>
                     <button onClick={() => addModel("sweatshirt")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
                       Normal Sweat
+                    </button>
+                    <button onClick={() => addModel("sweat-yeni")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
+                      Yeni Sweat
+                    </button>
+                    <button onClick={() => addModel("sweat-deneme")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
+                      Deneme Sweat
                     </button>
                     <button onClick={() => addModel("oversize-sweat")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
                       Oversize Sweat
@@ -2346,11 +2372,15 @@ function TasarimClientContent({ isMobile }) {
         <Canvas
           style={{
             position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
+            left: isMobile ? "50%" : activeTab === "editor" ? "60%" : "50%",
+            top: isMobile ? "50%" : "50%",
+            transform: `translate(-50%, -50%) scale(${isMobile ? (drawerOpen ? 0.7 : 1) : (activeTab === "editor" ? 0.8 : 1)})`,
+            width: isMobile ? (drawerOpen ? "60vw" : "80vw") : (activeTab === "editor" ? "40vw" : "50vw"),
+            height: isMobile ? (drawerOpen ? "60vh" : "80vh") : (activeTab === "editor" ? "60vh" : "70vh"),
             display: "block",
             backgroundColor: SCENE_BG_COLOR,
+            transition: "transform 0.3s ease, width 0.3s ease, height 0.3s ease",
+            zIndex: 10,
           }}
           gl={{
             preserveDrawingBuffer: true,
@@ -2370,7 +2400,7 @@ function TasarimClientContent({ isMobile }) {
             gl.toneMapping = THREE.ACESFilmicToneMapping;
             gl.toneMappingExposure = 0.9;
           }}
-          camera={{ position: [0, 0.2, 2.55], fov: 36 }}
+          camera={{ position: [0, 0.8, 2.2], fov: 32 }}
           shadows={!isMobile}
         >
           <SceneBackgroundLock />
@@ -2423,9 +2453,9 @@ function TasarimClientContent({ isMobile }) {
             enableRotate={false}
             enableDamping
             dampingFactor={0.08}
-            zoomSpeed={0.9}
-            minDistance={1.5}
-            maxDistance={10}
+            zoomSpeed={0.6}
+            minDistance={2.0}
+            maxDistance={4.5}
             zoomToCursor={false}
             enabled={!camAnimating}
             mouseButtons={{ LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null }}
@@ -2459,10 +2489,12 @@ function TasarimClientContent({ isMobile }) {
           </div>
         )}
 
-        {/* DRAWER (MOBILE + DESKTOP) */}
+        {/* DRAWER (MOBILE + DESKTOP) - Nike Style */}
         {activeDesign && (
           <div
-            className="fixed left-0 right-0 bottom-0 z-[85] pointer-events-auto"
+            className={`fixed left-0 right-0 z-[85] pointer-events-auto transition-all duration-300 ${
+              isMobile ? "bottom-0" : "bottom-0"
+            }`}
             style={{
               transform: isMobile
                 ? `translateY(${drawerY}px)`
@@ -2473,64 +2505,65 @@ function TasarimClientContent({ isMobile }) {
               maxHeight: drawerHeightStyle,
               height: drawerHeightStyle,
               paddingBottom: "env(safe-area-inset-bottom)",
-              willChange: "transform",
+              backgroundColor: "#ffffff",
+              borderTopLeftRadius: isMobile ? "24px" : "0",
+              borderTopRightRadius: isMobile ? "24px" : "0",
+              boxShadow: isMobile ? "0 -4px 20px rgba(0,0,0,0.15)" : "0 -2px 10px rgba(0,0,0,0.1)",
             }}
           >
             <div
-              className="w-full h-full rounded-t-3xl overflow-hidden border-t shadow-2xl flex flex-col pointer-events-auto"
-              style={{ backgroundColor: PANEL_BG_COLOR, borderColor: PANEL_BORDER_COLOR }}
+              className="w-full h-full overflow-hidden flex flex-col pointer-events-auto"
+              style={{ backgroundColor: "#ffffff" }}
             >
+              {/* Nike Style Drawer Handle */}
               <div
-                className="w-full flex items-center justify-start py-2 border-b flex-shrink-0"
+                className="w-full flex items-center justify-between px-4 py-3 flex-shrink-0"
                 onPointerDown={isMobile ? onDrawerPointerDown : undefined}
                 style={isMobile ? { touchAction: "none" } : {}}
               >
+                <div className="w-12 h-1.5 rounded-full bg-gray-300" />
                 <button
-                  onClick={toggleDrawer}
-                  className="ml-3 w-9 h-9 rounded-full border border-zinc-300 bg-white text-zinc-700 hover:text-black hover:bg-zinc-50 flex items-center justify-center"
-                  aria-label="panel toggle"
+                  onClick={() => setDrawerOpen(!drawerOpen)}
+                  className="w-8 h-8 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 flex items-center justify-center"
+                  aria-label="Paneli aç/kapa"
                 >
-                  {drawerOpen ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                  {drawerOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
                 </button>
               </div>
 
-              <div className="px-3 py-2 border-b flex items-center justify-between gap-2" style={{ borderColor: PANEL_BORDER_COLOR }}>
-                <button
-                  onClick={goPrevTab}
-                  className="w-8 h-8 rounded-full border border-zinc-300 text-zinc-700 hover:bg-white"
-                  aria-label="Önceki adım"
-                >
-                  ‹
-                </button>
+              {/* Nike Style Tab Navigation */}
+              <div className="px-4 py-3 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={goPrevTab}
+                    className="w-8 h-8 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 flex items-center justify-center"
+                    aria-label="Önceki adım"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
 
-                <div className="text-center">
-                  <p className="text-xs font-bold uppercase tracking-widest text-black">
-                    {tabLabelMap[activeTab] || "Baskı"}
-                  </p>
-                  <p className="text-[10px] text-zinc-600 font-bold">Adım {tabIndex + 1}/{TAB_ORDER.length}</p>
+                  <div className="text-center">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {tabLabelMap[activeTab] || "Baskı"}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={goNextTab}
+                    className="w-8 h-8 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 flex items-center justify-center"
+                    aria-label="Sonraki adım"
+                  >
+                  <ChevronRight size={16} />
+                  </button>
                 </div>
-
-                <button
-                  onClick={goNextTab}
-                  className="w-8 h-8 rounded-full border border-zinc-300 text-zinc-700 hover:bg-white"
-                  aria-label="Sonraki adım"
-                >
-                  ›
-                </button>
-
-                <button
-                  onClick={() => {
-                    setPickerStep("root");
-                    setPickerOpen(true);
-                  }}
-                  className="ml-auto px-3 py-2 rounded-full border border-zinc-300 text-[10px] text-black font-black uppercase tracking-widest hover:bg-white"
-                >
-                  Menü
-                </button>
               </div>
 
-              <div className="px-3 py-2 border-b flex gap-2 overflow-x-auto" style={{ borderColor: PANEL_BORDER_COLOR }}>
-                {TAB_ORDER.map((id) => (
+              {/* Nike Style Tab Pills */}
+              <div className="px-4 py-3 flex gap-2 overflow-x-auto">
+                {["upload", "text", "color"].map((id) => (
                   <button
                     key={id}
                     onClick={() => {
@@ -2540,12 +2573,14 @@ function TasarimClientContent({ isMobile }) {
                         setForceEditorOverlay(true);
                       }
                     }}
-                    className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border ${
-                      activeTab === id ? "bg-white text-black border-white" : "text-zinc-500 border-zinc-300"
+                    className={`px-4 py-2 rounded-full text-xs font-medium border transition-colors ${
+                      activeTab === id
+                        ? "bg-black text-white border-black"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                     }`}
                   >
-                  {tabLabelMap[id] || id}
-                </button>
+                    {id === "upload" ? "Baskı" : id === "text" ? "Yazı" : "Renk"}
+                  </button>
                 ))}
               </div>
 
@@ -2562,6 +2597,8 @@ function TasarimClientContent({ isMobile }) {
 useGLTF.preload(toSafeUrl(MODEL_PATHS.tshirt));
 useGLTF.preload(toSafeUrl(MODEL_PATHS.hoodie));
 useGLTF.preload(toSafeUrl(MODEL_PATHS.sweatshirt));
+useGLTF.preload(toSafeUrl(MODEL_PATHS["sweat-yeni"]));
+useGLTF.preload(toSafeUrl(MODEL_PATHS["sweat-deneme"]));
 useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-cepli"]));
 useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-ceplipli"]));
 useGLTF.preload(toSafeUrl(MODEL_PATHS["oversize-sweat"]));
