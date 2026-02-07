@@ -277,6 +277,14 @@ const pct = (v01) => `${Math.round(v01 * 100)}%`;
 const MAX_UPLOAD_FILE_MB = 16;
 const MAX_UPLOAD_RENDER_SIDE = 2048;
 
+const fileToDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Dosya okunamadi."));
+    reader.readAsDataURL(file);
+  });
+
 const loadImg = (src) =>
   new Promise((resolve, reject) => {
     const img = new Image();
@@ -293,37 +301,37 @@ async function optimizeUploadDataUrl(file) {
     throw new Error(`Dosya çok büyük. Maksimum ${MAX_UPLOAD_FILE_MB}MB.`);
   }
 
-  const objectUrl = URL.createObjectURL(file);
-  let img;
+  const rawDataUrl = await fileToDataUrl(file);
+  if (typeof document === "undefined") return rawDataUrl;
+
   try {
-    img = await loadImg(objectUrl);
-  } finally {
-    URL.revokeObjectURL(objectUrl);
-  }
+    const img = await loadImg(rawDataUrl);
+    const srcW = img.naturalWidth || img.width || 1;
+    const srcH = img.naturalHeight || img.height || 1;
+    const scale = Math.min(1, MAX_UPLOAD_RENDER_SIDE / Math.max(srcW, srcH));
+    const w = Math.max(1, Math.round(srcW * scale));
+    const h = Math.max(1, Math.round(srcH * scale));
 
-  const srcW = img.naturalWidth || img.width || 1;
-  const srcH = img.naturalHeight || img.height || 1;
-  const scale = Math.min(1, MAX_UPLOAD_RENDER_SIDE / Math.max(srcW, srcH));
-  const w = Math.max(1, Math.round(srcW * scale));
-  const h = Math.max(1, Math.round(srcH * scale));
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext("2d");
+    if (!ctx) return rawDataUrl;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
 
-  const c = document.createElement("canvas");
-  c.width = w;
-  c.height = h;
-  const ctx = c.getContext("2d");
-  if (!ctx) return rawDataUrl;
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
-  ctx.clearRect(0, 0, w, h);
-  ctx.drawImage(img, 0, 0, w, h);
-
-  const wantTransparent = /png|webp/i.test(file.type);
-  try {
-    return wantTransparent
-      ? c.toDataURL("image/webp", 0.9)
-      : c.toDataURL("image/jpeg", 0.88);
+    const wantTransparent = /png|webp/i.test(file.type);
+    try {
+      return wantTransparent
+        ? c.toDataURL("image/webp", 0.9)
+        : c.toDataURL("image/jpeg", 0.88);
+    } catch {
+      return c.toDataURL("image/png");
+    }
   } catch {
-    return c.toDataURL("image/png");
+    return rawDataUrl;
   }
 }
 
@@ -1317,7 +1325,7 @@ function EditorPanel({
                   </div>
                 );
               };
-              const textEl = customText?.text ? (
+              const textEl = t?.text ? (
                 <div
                   className="absolute"
                   style={{
@@ -1349,7 +1357,7 @@ function EditorPanel({
                     className="text-xs font-black select-none"
                     style={{ color: sideData.customText.color, fontFamily: sideData.customText.font || FONT_OPTIONS[0].value }}
                   >
-                    {sideData.customText.text}
+                    {t.text}
                   </span>
                 </div>
               ) : null;
