@@ -234,8 +234,9 @@ const EXTRA_SIDE_PRICE = 150;
 const SCENE_BG_COLOR = "#f3f3f3";
 const PANEL_BG_COLOR = "#e8e8e8";
 const PANEL_BORDER_COLOR = "#d0d0d0";
-const DESKTOP_DRAWER_HEIGHT = 300;
+const DESKTOP_DRAWER_HEIGHT = 312;
 const DESKTOP_DRAWER_PEEK = 56;
+const MAX_LOGOS_PER_SIDE = 3;
 const LEFT_PRINT_AREA_WIDTH = 420;
 const LEFT_PRINT_AREA_GAP = 0;
 const BRAND_COLORS = ["#1A1A1A", "#F0F0F0", "#D2C6B6", "#3F432C", "#191C25", "#363636", "#1EF292", "#3E191D"];
@@ -996,9 +997,9 @@ function DesignModelItem({
   const userRotRef = useRef({ x: 0, y: 0 });
   const dragRef = useRef({ active: false, pid: null, startX: 0, startY: 0, startRotY: 0, startRotX: 0 });
 
-  const ROT_SPEED = 0.01;
-  const clampRotX = (v) => Math.max(-0.75, Math.min(0.75, v));
-  const clampRotY = (v) => Math.max(-0.85, Math.min(0.85, v));
+  const ROT_SPEED = isMobile ? 0.014 : 0.01;
+  const clampRotX = (v) => Math.max(isMobile ? -0.9 : -0.75, Math.min(isMobile ? 0.9 : 0.75, v));
+  const clampRotY = (v) => Math.max(isMobile ? -1.05 : -0.85, Math.min(isMobile ? 1.05 : 0.85, v));
 
   useEffect(() => {
     userRotRef.current = { x: 0, y: 0 };
@@ -1120,6 +1121,7 @@ function EditorPanel({
   const isZipperFront = design.modelType === "fermuarli" && view === "front";
   const gap01 = MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
   const isDrawerLayout = layout === "drawer";
+  const isMobileDrawer = isDrawerLayout && isMobile;
 
   const currentSide = view === "back" ? "back" : "front";
   const sideData = useMemo(() => design?.sides?.[currentSide] || createSideData(), [design, currentSide]);
@@ -1165,11 +1167,14 @@ function EditorPanel({
 
   const logos = sideData?.logos || [];
   const activeLogo = logos.find((l) => l.id === sideData.activeLogoId) || logos[0] || null;
+  const logoCount = logos.length;
+  const canUploadMoreLogos = logoCount < MAX_LOGOS_PER_SIDE;
 
   const isFocusMode = isMobile && activeTab === "editor";
+  const drawerHeadingClass = "text-[13px] font-black tracking-[0.14em] text-gray-500 uppercase";
 
   const checkoutCard = (
-    <div className="shrink-0 w-[220px] rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
+    <div className={`${isMobileDrawer ? "w-full" : "shrink-0 w-[210px] h-full min-h-[188px]"} rounded-xl border border-gray-200 bg-white p-2 shadow-sm flex flex-col justify-between overflow-hidden`}>
       <div className="flex items-center justify-between text-[10px] text-gray-500 font-bold uppercase">
         <span>Toplam</span>
         <span className="text-gray-900 font-black">{totalPrice} ₺</span>
@@ -1177,7 +1182,7 @@ function EditorPanel({
       <button
         onClick={onAddToCartAll}
         disabled={loading}
-        className={`mt-2 w-full bg-black text-white py-2 rounded-full font-black uppercase tracking-[0.12em] text-[10px] hover:bg-zinc-800 transition ${
+        className={`mt-2 w-full bg-black text-white py-2.5 rounded-full font-black uppercase tracking-[0.12em] text-[10px] hover:bg-zinc-800 transition ${
           loading ? "opacity-70 cursor-not-allowed" : ""
         }`}
       >
@@ -1415,13 +1420,19 @@ function EditorPanel({
 
       {/* Content */}
       <div
-        className={`flex-1 ${isDrawerLayout ? "p-2.5 flex items-start gap-2.5 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" : "p-4 overflow-y-auto"}`}
+        className={`flex-1 ${
+          isDrawerLayout
+            ? isMobileDrawer
+              ? "h-full p-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)] flex flex-col items-stretch gap-2 overflow-y-auto overflow-x-hidden"
+              : "h-full p-2.5 pr-4 flex items-stretch gap-2 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            : "p-4 overflow-y-auto"
+        }`}
         style={{ touchAction: "pan-y", minHeight: 0, backgroundColor: contentBackground }}
       >
         {isDrawerLayout && (
-          <div className="shrink-0 w-[320px] rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
+          <div className={`${isMobileDrawer ? "w-full" : "shrink-0 w-[248px] h-full min-h-[188px]"} rounded-xl border border-gray-200 bg-white p-2 shadow-sm flex flex-col overflow-hidden`}>
             <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] font-black tracking-wider text-gray-500 uppercase">Model Yönetimi</p>
+              <p className={drawerHeadingClass}>Model Yönetimi</p>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
@@ -1442,13 +1453,18 @@ function EditorPanel({
               </div>
             </div>
 
-            <div className="mt-2 flex gap-1.5 overflow-x-auto overflow-y-hidden pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <div
+              className={`mt-3 ${isMobileDrawer
+                ? "grid grid-cols-1 gap-2"
+                : "flex-1 flex items-stretch gap-2 overflow-x-auto overflow-y-hidden pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+              }`}
+            >
               {(designs || []).map((item) => {
                 const selected = item.id === activeId;
                 return (
                   <div
                     key={item.id}
-                    className={`shrink-0 flex items-center justify-between gap-2 rounded-lg border px-2 py-1 ${
+                    className={`${isMobileDrawer ? "w-full" : "shrink-0 self-stretch min-w-[156px]"} flex items-center justify-between gap-2 rounded-lg border px-2.5 py-2 ${
                       selected ? "border-black bg-gray-50" : "border-gray-200 bg-white"
                     }`}
                   >
@@ -1479,33 +1495,41 @@ function EditorPanel({
 
         {/* UPLOAD */}
         {activeTab === "upload" && (
-          <div className={`${isDrawerLayout ? "shrink-0 flex items-start gap-2" : "space-y-2.5"}`}>
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 ${isDrawerLayout ? "shrink-0 w-[230px]" : ""}`}>
-              <p className="text-[10px] font-black tracking-wider text-gray-500 uppercase">Çalışma Alanı</p>
-              <p className="text-xs text-gray-900 mt-1">
+          <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "shrink-0 h-full flex items-stretch gap-2.5") : "space-y-2.5"}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+              <p className={drawerHeadingClass}>Çalışma Alanı</p>
+              <p className="text-sm text-gray-900 mt-2">
                 {sideLabel} {isZipperFront ? " • Fermuar boşluğu aktif" : ""}
               </p>
             </div>
 
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-1.5 ${isDrawerLayout ? "shrink-0 w-[230px]" : ""}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px] h-full min-h-[188px] flex flex-col justify-between overflow-hidden") : ""}`}>
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-black tracking-wider text-gray-500 uppercase">Dosya</p>
-                <p className="text-[10px] text-gray-500">{(sideData?.logos || []).length}/3 katman</p>
+                <p className={drawerHeadingClass}>Dosya</p>
+                <p className="text-[10px] text-gray-500">{logoCount}/{MAX_LOGOS_PER_SIDE} katman</p>
               </div>
 
               <label
-                className="flex flex-col items-center justify-center w-full h-16 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition"
+                className={`flex flex-col items-center justify-center w-full h-20 border border-dashed rounded-lg transition ${
+                  canUploadMoreLogos
+                    ? "border-gray-300 cursor-pointer hover:border-gray-400 hover:bg-gray-50"
+                    : "border-gray-200 bg-gray-100 cursor-not-allowed opacity-70"
+                }`}
                 onClick={() => {
+                  if (!canUploadMoreLogos) return;
                   onRequestDrawerCollapse?.();
                   onRequestShowEditorOverlay?.();
                 }}
               >
                 <Upload className="w-4 h-4 mb-1 text-gray-400" />
-                <p className="text-[10px] text-gray-700 font-semibold">Baskı Görseli Ekle</p>
+                <p className="text-[10px] text-gray-700 font-semibold">
+                  {canUploadMoreLogos ? "Baskı Görseli Ekle" : "Maksimum 3 görsel yüklendi"}
+                </p>
                 <input
                   type="file"
                   className="hidden"
                   accept="image/*"
+                  disabled={!canUploadMoreLogos}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
@@ -1513,7 +1537,7 @@ function EditorPanel({
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                       const id = makeId();
-                  const nextLogo = {
+                      const nextLogo = {
                         id,
                         url: ev.target.result,
                         box: { x: 0.5, y: 0.6, w: 0.7, h: 0.45 },
@@ -1521,8 +1545,8 @@ function EditorPanel({
                         z: 0,
                       };
 
-                      if ((sideData.logos || []).length >= 3) {
-                        alert("Bu alanda en fazla 3 baskı görseli yükleyebilirsin.");
+                      if ((sideData.logos || []).length >= MAX_LOGOS_PER_SIDE) {
+                        alert(`Bu alanda en fazla ${MAX_LOGOS_PER_SIDE} baskı görseli yükleyebilirsin.`);
                         e.target.value = "";
                         return;
                       }
@@ -1538,8 +1562,8 @@ function EditorPanel({
             </div>
 
             {(sideData?.logos || []).length > 0 && (
-              <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-1.5 ${isDrawerLayout ? "shrink-0 w-[230px]" : ""}`}>
-                <p className="text-[10px] font-black tracking-wider text-gray-500 uppercase">Katmanlar</p>
+              <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+                <p className={drawerHeadingClass}>Katmanlar</p>
                 <div className="flex flex-wrap gap-1.5">
                   {(sideData.logos || []).map((l, idx) => {
                     const selected = (sideData.activeLogoId || sideData.logos?.[0]?.id) === l.id;
@@ -1733,26 +1757,26 @@ function EditorPanel({
 
         {/* TEXT */}
         {activeTab === "text" && (
-          <div className={`${isDrawerLayout ? "shrink-0 flex items-start gap-2" : "space-y-2.5"}`}>
-            <div className={`rounded-xl border border-gray-200 bg-white p-1.5 space-y-1 shadow-sm ${isDrawerLayout ? "shrink-0 w-[220px]" : ""}`}>
-              <p className="text-[10px] font-black tracking-wider text-gray-500 uppercase">Metin İçeriği</p>
+          <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "shrink-0 h-full flex items-stretch gap-2.5") : "space-y-2.5"}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+              <p className={drawerHeadingClass}>Metin İçeriği</p>
               <input
                 type="text"
                 value={t.text || ""}
                 onChange={(e) => bumpText({ text: e.target.value })}
                 placeholder="Metni yaz..."
-                className="w-full bg-white border border-gray-300 p-1.5 rounded-lg text-[11px] text-gray-900 focus:border-black outline-none"
+                className="w-full bg-white border border-gray-300 p-2 rounded-lg text-sm text-gray-900 focus:border-black outline-none"
               />
             </div>
 
-            <div className={`rounded-xl border border-gray-200 bg-white p-1.5 space-y-1 shadow-sm ${isDrawerLayout ? "shrink-0 w-[220px]" : ""}`}>
-              <p className="text-[10px] font-black tracking-wider text-gray-500 uppercase">Tipografi</p>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+              <p className={drawerHeadingClass}>Tipografi</p>
               <div>
-                <label className="text-[9px] text-gray-500 font-bold uppercase block mb-1">Font</label>
+                <label className="text-[10px] text-gray-500 font-bold uppercase block mb-1">Font</label>
                 <select
                   value={t.font || FONT_OPTIONS[0].value}
                   onChange={(e) => bumpText({ font: e.target.value })}
-                  className="w-full bg-white border border-gray-300 p-1 rounded-lg text-[10px] text-gray-900 focus:border-black outline-none"
+                  className="w-full bg-white border border-gray-300 p-2 rounded-lg text-xs text-gray-900 focus:border-black outline-none"
                 >
                   {FONT_OPTIONS.map((f) => (
                     <option key={f.value} value={f.value}>
@@ -1763,13 +1787,13 @@ function EditorPanel({
               </div>
 
               <div>
-                <label className="text-[9px] text-gray-500 font-bold uppercase block mb-1">Renk</label>
-                <div className="flex gap-1 flex-wrap">
+                <label className="text-[10px] text-gray-500 font-bold uppercase block mb-1">Renk</label>
+                <div className="flex gap-1.5 flex-wrap">
                   {["#ffffff", "#000000", "#ff0000", "#00ff00", "#0000ff"].map((c) => (
                     <button
                       key={c}
                       onClick={() => bumpText({ color: c })}
-                      className={`w-5 h-5 rounded-full border-2 ${t.color === c ? "border-black scale-110" : "border-gray-300"}`}
+                      className={`w-6 h-6 rounded-full border-2 ${t.color === c ? "border-black scale-110" : "border-gray-300"}`}
                       style={{ backgroundColor: c }}
                     />
                   ))}
@@ -1778,7 +1802,7 @@ function EditorPanel({
 
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <p className="text-[9px] text-gray-500 font-bold uppercase">Boyut</p>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase">Boyut</p>
                   <p className="text-gray-900 text-[10px] font-mono">{t.size || 150}px</p>
                 </div>
                 <input
@@ -1788,15 +1812,15 @@ function EditorPanel({
                   step="2"
                   value={t.size || 150}
                   onChange={(e) => bumpText({ size: Number(e.target.value) })}
-                  className="w-full accent-black h-1.5"
+                  className="w-full accent-black h-2"
                 />
               </div>
             </div>
 
-            <div className={`rounded-xl border border-gray-200 bg-white p-1.5 space-y-1 shadow-sm ${isDrawerLayout ? "shrink-0 w-[220px]" : ""}`}>
-              <p className="text-[10px] font-black tracking-wider text-gray-500 uppercase">Dönüşüm</p>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+              <p className={drawerHeadingClass}>Dönüşüm</p>
               <div className="flex items-center justify-between">
-                <p className="text-[9px] text-gray-600 font-bold uppercase">Yatay Ölçek</p>
+                <p className="text-[10px] text-gray-600 font-bold uppercase">Yatay Ölçek</p>
                 <p className="text-[10px] text-gray-900 font-mono">x{(t.scaleX || 1).toFixed(2)}</p>
               </div>
               <input
@@ -1806,11 +1830,11 @@ function EditorPanel({
                 step="0.05"
                 value={t.scaleX || 1}
                 onChange={(e) => bumpText({ scaleX: Number(e.target.value) })}
-                className="w-full accent-black h-1.5"
+                className="w-full accent-black h-2"
               />
 
               <div className="flex items-center justify-between pt-1">
-                <p className="text-[9px] text-gray-600 font-bold uppercase">Dikey Ölçek</p>
+                <p className="text-[10px] text-gray-600 font-bold uppercase">Dikey Ölçek</p>
                 <p className="text-[10px] text-gray-900 font-mono">y{(t.scaleY || 1).toFixed(2)}</p>
               </div>
               <input
@@ -1820,19 +1844,19 @@ function EditorPanel({
                 step="0.05"
                 value={t.scaleY || 1}
                 onChange={(e) => bumpText({ scaleY: Number(e.target.value) })}
-                className="w-full accent-black h-1.5"
+                className="w-full accent-black h-2"
               />
 
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => bumpText({ scaleX: 1, scaleY: 1 })}
-                  className="flex-1 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 text-[10px] font-black uppercase"
+                  className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 text-[10px] font-black uppercase"
                 >
                   Ölçeği Sıfırla
                 </button>
                 <button
                   onClick={() => updateSide({ textPos: { x: 0.5, y: 0.85 } })}
-                  className="flex-1 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 text-[10px] font-black uppercase"
+                  className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 text-[10px] font-black uppercase"
                 >
                   Konumu Ortala
                 </button>
@@ -1842,7 +1866,7 @@ function EditorPanel({
             {t.text && (
               <button
                 onClick={() => bumpText({ text: "", color: "#ffffff", size: 150, scaleX: 1, scaleY: 1 })}
-                className={`${isDrawerLayout ? "shrink-0 w-[220px]" : "w-full"} py-1 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold flex items-center justify-center gap-2 border border-red-200 hover:bg-red-100`}
+                className={`${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px]") : "w-full"} py-2 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold flex items-center justify-center gap-2 border border-red-200 hover:bg-red-100`}
               >
                 <Trash2 size={14} /> Yazıyı Sil
               </button>
@@ -1853,10 +1877,10 @@ function EditorPanel({
 
         {/* COLOR */}
         {activeTab === "color" && (
-          <div className={`${isDrawerLayout ? "shrink-0 flex items-start gap-2.5" : "space-y-2.5"}`}>
-            <div className={`rounded-xl border border-gray-200 bg-white p-2.5 shadow-sm ${isDrawerLayout ? "shrink-0 w-[260px]" : ""}`}>
+          <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "shrink-0 h-full flex items-stretch gap-2.5") : "space-y-2.5"}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[220px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
               <div className="flex items-center justify-between mb-3">
-                <p className="text-[10px] font-black tracking-wider text-gray-500 uppercase">Ürün Rengi</p>
+                <p className={drawerHeadingClass}>Ürün Rengi</p>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] text-gray-500 font-bold uppercase">Seçili</span>
                   <span
@@ -1871,7 +1895,7 @@ function EditorPanel({
                   <button
                     key={c}
                     onClick={() => updateDesign({ color: c })}
-                    className={`w-8 h-8 rounded-full border-2 transition hover:scale-110 ${
+                    className={`w-10 h-10 rounded-full border-2 transition hover:scale-110 ${
                       design.color === c ? "border-black scale-110" : "border-gray-200"
                     }`}
                     style={{ backgroundColor: c }}
@@ -1881,9 +1905,9 @@ function EditorPanel({
             </div>
 
             {design.modelType.includes("hoodie") && (
-              <div className={`rounded-xl border border-gray-200 bg-white p-2.5 shadow-sm ${isDrawerLayout ? "shrink-0 w-[260px]" : ""}`}>
+              <div className={`rounded-xl border border-gray-200 bg-white p-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[220px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-[10px] font-black tracking-wider text-gray-500 uppercase">İp Rengi</p>
+                  <p className={drawerHeadingClass}>İp Rengi</p>
                   <span
                     className="w-4 h-4 rounded-full border border-gray-300"
                     style={{ backgroundColor: design.stringColor || "#e6e6e6" }}
@@ -1895,7 +1919,7 @@ function EditorPanel({
                     <button
                       key={c}
                       onClick={() => updateDesign({ stringColor: c })}
-                      className={`w-8 h-8 rounded-full border-2 transition ${
+                      className={`w-10 h-10 rounded-full border-2 transition ${
                         (design.stringColor || "#e6e6e6") === c ? "border-black scale-110" : "border-gray-300"
                       }`}
                       style={{ backgroundColor: c }}
@@ -2113,9 +2137,9 @@ function TasarimClientContent({ isMobile }) {
   const perf = useMemo(() => {
     const heavy = modelCount > 2;
     return {
-      dpr: isMobile ? 2 : heavy ? 1.3 : 1.6,
-      antialias: isMobile ? true : !heavy,
-      shadowMap: heavy ? 512 : 768,
+      dpr: isMobile ? (heavy ? 1.1 : 1.25) : heavy ? 1.3 : 1.6,
+      antialias: isMobile ? false : !heavy,
+      shadowMap: isMobile ? 256 : heavy ? 512 : 768,
       powerPreference: "high-performance",
     };
   }, [isMobile, modelCount]);
@@ -2408,7 +2432,7 @@ function TasarimClientContent({ isMobile }) {
   );
 
   return (
-    <div className="fixed inset-0 h-screen w-full text-white overflow-hidden font-sans" style={{ background: SCENE_BG_COLOR, overscrollBehavior: "none", touchAction: "none" }}>
+    <div className="fixed inset-0 h-screen w-full text-white overflow-hidden font-sans" style={{ background: SCENE_BG_COLOR, overscrollBehavior: "none", touchAction: isMobile ? "pan-y" : "none" }}>
       {/* Top Header */}
       <div className="absolute top-0 left-0 right-0 z-[90] px-4 pt-4 pb-3 flex items-start justify-between pointer-events-none">
         <div className="flex items-start gap-3 pointer-events-auto">
@@ -2897,7 +2921,7 @@ function TasarimClientContent({ isMobile }) {
           const desktopHeight = isPrintAreaOpen ? "82vh" : "86vh";
           const desktopTop = "50%";
           const desktopShiftY = drawerOpen ? (isPrintAreaOpen ? "-18%" : "-12%") : "0%";
-          const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.35 : drawerOpen ? 2.2 : 1.95) : 1.85;
+          const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.35 : drawerOpen ? 2.2 : 1.95) : 1.65;
           const controlsTargetY = !isMobile ? (isPrintAreaOpen ? -0.12 : drawerOpen ? -0.2 : -0.1) : -0.1;
           return (
         <Canvas
@@ -2905,14 +2929,14 @@ function TasarimClientContent({ isMobile }) {
             position: "absolute",
             left: isMobile ? "50%" : isPrintAreaOpen ? "63%" : "50%",
             top: isMobile ? "50%" : desktopTop,
-            transform: `translate(-50%, -50%) translateY(${isMobile ? "0%" : desktopShiftY}) scale(${isMobile ? (drawerOpen ? 0.7 : 1) : desktopScale})`,
+            transform: `translate(-50%, -50%) translateY(${isMobile ? "0%" : desktopShiftY}) scale(${isMobile ? (drawerOpen ? 0.78 : 1) : desktopScale})`,
             width: isMobile ? "80vw" : desktopWidth,
             height: isMobile ? "80vh" : desktopHeight,
             display: "block",
             backgroundColor: SCENE_BG_COLOR,
             willChange: "transform",
             transformOrigin: "center center",
-            transition: "transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1)",
+            transition: isMobile ? "transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1)" : "transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1)",
             zIndex: 10,
           }}
           gl={{
@@ -2985,8 +3009,8 @@ function TasarimClientContent({ isMobile }) {
             enablePan={false}
             enableRotate={false}
             enableDamping
-            dampingFactor={0.08}
-            zoomSpeed={0.7}
+            dampingFactor={isMobile ? 0.12 : 0.08}
+            zoomSpeed={isMobile ? 0.95 : 0.7}
             minDistance={minZoomDistance}
             maxDistance={4.2}
             zoomToCursor={false}
@@ -3089,7 +3113,7 @@ function TasarimClientContent({ isMobile }) {
                     </button>
 
                   <div className="text-center">
-                    <p className="text-xs font-semibold text-gray-900">
+                    <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
                       {tabLabelMap[activeTab] || "Baskı"}
                     </p>
                     <p className="text-[11px] text-gray-500 mt-0.5">
