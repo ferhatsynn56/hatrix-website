@@ -1275,7 +1275,7 @@ function EditorPanel({
   const drawerHeadingClass = "text-[13px] font-black tracking-[0.14em] text-gray-500 uppercase";
 
   const checkoutCard = (
-    <div className={`${isMobileDrawer ? "w-full" : "shrink-0 w-[210px] h-full min-h-[188px]"} rounded-xl border border-gray-200 bg-white p-2 shadow-sm flex flex-col justify-between overflow-hidden`}>
+    <div className={`${isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[210px] h-full min-h-[188px]"} rounded-xl border border-gray-200 bg-white p-2 shadow-sm flex flex-col justify-between overflow-hidden`}>
       <div className="flex items-center justify-between text-[10px] text-gray-500 font-bold uppercase">
         <span>Toplam</span>
         <span className="text-gray-900 font-black">{totalPrice} ₺</span>
@@ -1537,7 +1537,7 @@ function EditorPanel({
         style={{ touchAction: "pan-y", minHeight: 0, backgroundColor: contentBackground }}
       >
         {isDrawerLayout && (
-          <div className={`${isMobileDrawer ? "w-full" : "shrink-0 w-[248px] h-full min-h-[188px]"} rounded-xl border border-gray-200 bg-white p-2 shadow-sm flex flex-col overflow-hidden`}>
+          <div className={`${isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[248px] h-full min-h-[188px]"} rounded-xl border border-gray-200 bg-white p-2 shadow-sm flex flex-col overflow-hidden`}>
             <div className="flex items-center justify-between gap-2">
               <p className={drawerHeadingClass}>Model Yönetimi</p>
               <div className="flex items-center gap-2">
@@ -1604,14 +1604,14 @@ function EditorPanel({
         {/* UPLOAD */}
         {activeTab === "upload" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "shrink-0 h-full flex items-stretch gap-2.5") : "space-y-2.5"}`}>
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[214px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
               <p className={drawerHeadingClass}>Çalışma Alanı</p>
               <p className="text-sm text-gray-900 mt-2">
                 {sideLabel} {isZipperFront ? " • Fermuar boşluğu aktif" : ""}
               </p>
             </div>
 
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px] h-full min-h-[188px] flex flex-col justify-between overflow-hidden") : ""}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[214px] h-full min-h-[188px] flex flex-col justify-between overflow-hidden") : ""}`}>
               <div className="flex items-center justify-between">
                 <p className={drawerHeadingClass}>Dosya</p>
                 <p className="text-[10px] text-gray-500">{logoCount}/{MAX_LOGOS_PER_SIDE} katman</p>
@@ -1677,7 +1677,7 @@ function EditorPanel({
             </div>
 
             {(sideData?.logos || []).length > 0 && (
-              <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+              <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[214px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
                 <p className={drawerHeadingClass}>Katmanlar</p>
                 <div className="flex flex-wrap gap-1.5">
                   {(sideData.logos || []).map((l, idx) => {
@@ -1883,7 +1883,7 @@ function EditorPanel({
         {/* TEXT */}
         {activeTab === "text" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "shrink-0 h-full flex items-start gap-2.5") : "space-y-2.5"}`}>
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px] min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[214px] min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
               <p className={drawerHeadingClass}>Metin İçeriği</p>
               <input
                 type="text"
@@ -1894,7 +1894,7 @@ function EditorPanel({
               />
             </div>
 
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px] min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[214px] min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
               <p className={drawerHeadingClass}>Tipografi</p>
               <div>
                 <label className="text-[10px] text-gray-500 font-bold uppercase block mb-1">Font</label>
@@ -1942,7 +1942,7 @@ function EditorPanel({
               </div>
             </div>
 
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px] min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[214px] min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
               <p className={drawerHeadingClass}>Dönüşüm</p>
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-gray-600 font-bold uppercase">Yatay Ölçek</p>
@@ -2003,7 +2003,7 @@ function EditorPanel({
         {/* COLOR */}
         {activeTab === "color" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "shrink-0 h-full flex items-stretch gap-2.5") : "space-y-2.5"}`}>
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[220px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[220px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
               <div className="flex items-center justify-between mb-3">
                 <p className={drawerHeadingClass}>Ürün Rengi</p>
                 <div className="flex items-center gap-2">
@@ -2030,7 +2030,7 @@ function EditorPanel({
             </div>
 
             {design.modelType.includes("hoodie") && (
-              <div className={`rounded-xl border border-gray-200 bg-white p-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[220px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+              <div className={`rounded-xl border border-gray-200 bg-white p-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[220px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
                 <div className="flex items-center justify-between mb-3">
                   <p className={drawerHeadingClass}>İp Rengi</p>
                   <span
@@ -2418,7 +2418,7 @@ function TasarimClientContent({ isMobile }) {
     const others = designs.filter((d) => d.id !== activeId);
     const idx = others.findIndex((d) => d.id === designId);
 
-    if (isMobile) return { hidden: false, x: -0.52 - idx * 0.34, z: -0.9 - idx * 0.24, rotY: 0.68, scale: 0.77 };
+    if (isMobile) return { hidden: false, x: -0.36 - idx * 0.3, z: -0.86 - idx * 0.22, rotY: 0.64, scale: 0.78 };
     return { hidden: false, x: -1.1 - idx * 0.55, z: -0.9 - idx * 0.32, rotY: 0.9, scale: 0.9 };
   };
 
@@ -2509,7 +2509,11 @@ function TasarimClientContent({ isMobile }) {
   useEffect(() => {
     if (!isMobile) return;
     const calc = () => {
-      const h = Math.min(window.innerHeight * 0.72, 560);
+      const zoomButtonTop = activeTab === "editor" ? 182 : 238;
+      const zoomButtonApproxHeight = 86;
+      const drawerTopLimit = zoomButtonTop + zoomButtonApproxHeight + 8;
+      const maxByZoomReference = Math.max(280, window.innerHeight - drawerTopLimit);
+      const h = clamp(Math.min(window.innerHeight * 0.72, 560), 280, maxByZoomReference);
       const maxClosed = Math.max(0, h - DRAWER_PEEK);
       setDrawerHeight(h);
       setDrawerMaxClosed(maxClosed);
@@ -2518,7 +2522,7 @@ function TasarimClientContent({ isMobile }) {
     calc();
     window.addEventListener("resize", calc);
     return () => window.removeEventListener("resize", calc);
-  }, [isMobile]);
+  }, [isMobile, activeTab]);
 
   // drawer behavior
   useEffect(() => {
@@ -2817,24 +2821,26 @@ function TasarimClientContent({ isMobile }) {
             className="absolute z-[90] backdrop-blur-md rounded-2xl border border-gray-200 shadow-2xl overflow-hidden flex flex-col"
             style={{
               backgroundColor: "#f7f8fa",
-              left: isMobile ? "8px" : `${LEFT_PRINT_AREA_GAP}px`,
-              width: isMobile ? "min(44vw, 280px)" : `${LEFT_PRINT_AREA_WIDTH}px`,
-              maxWidth: isMobile ? "calc(100vw - 16px)" : undefined,
-              top: isMobile ? "84px" : "72px",
+              left: isMobile ? "10px" : `${LEFT_PRINT_AREA_GAP}px`,
+              right: isMobile ? "10px" : undefined,
+              width: isMobile ? "auto" : `${LEFT_PRINT_AREA_WIDTH}px`,
+              maxWidth: isMobile ? "calc(100vw - 20px)" : undefined,
+              top: isMobile ? "auto" : "72px",
               bottom: isMobile
                 ? `${Math.round(visibleDrawerHeight) + 8}px`
                 : `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
+              maxHeight: isMobile ? "36vh" : undefined,
             }}
           >
-            <div className="p-4 border-b border-gray-200 bg-white/85">
+            <div className={`${isMobile ? "p-3" : "p-4"} border-b border-gray-200 bg-white/85`}>
               <h3 className="text-xs font-black uppercase tracking-widest text-gray-900">Yerleşim Ayarı</h3>
               <p className="text-[10px] text-gray-500 mt-1">{sideLabel}</p>
             </div>
             
-            <div className="flex-1 p-4 overflow-y-auto overflow-x-visible">
+            <div className={`flex-1 overflow-y-auto overflow-x-visible ${isMobile ? "p-3" : "p-4"}`}>
               <div
                 ref={previewRef}
-                className={`w-full rounded-xl border border-gray-300 relative overflow-hidden shadow-xl touch-none ${isMobile ? "h-[34vh] min-h-[250px]" : "h-[56vh]"}`}
+                className={`w-full rounded-xl border border-gray-300 relative overflow-hidden shadow-xl touch-none ${isMobile ? "h-[20vh] min-h-[165px]" : "h-[56vh]"}`}
                 style={{ touchAction: "none", backgroundColor: "#eef1f5" }}
               >
                 {/* hafif grid */}
@@ -2933,7 +2939,7 @@ function TasarimClientContent({ isMobile }) {
               </div>
 
               {activeLogo && (
-                <div className="mt-3 p-3 rounded-xl border border-zinc-700 bg-zinc-800/60 space-y-3 relative">
+                  <div className={`mt-3 rounded-xl border border-zinc-700 bg-zinc-800/60 space-y-3 relative ${isMobile ? "p-2.5" : "p-3"}`}>
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">Görsel Ayarları</p>
                     <button
@@ -3282,7 +3288,7 @@ function TasarimClientContent({ isMobile }) {
           const desktopTop = "50%";
           const desktopShiftY = drawerOpen ? (isPrintAreaOpen ? "-18%" : "-12%") : "0%";
           const mobileScale = isPrintAreaOpen ? (drawerOpen ? 0.72 : 0.86) : drawerOpen ? 0.8 : 0.96;
-          const mobileLeft = isPrintAreaOpen ? "56%" : "50%";
+          const mobileLeft = "50%";
           const mobileShiftY = isPrintAreaOpen ? "-2%" : "0%";
           const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.35 : drawerOpen ? 2.2 : 1.95) : isPrintAreaOpen ? 2.35 : 2.2;
           const controlsTargetY = !isMobile ? (isPrintAreaOpen ? -0.12 : drawerOpen ? -0.2 : -0.1) : isPrintAreaOpen ? -0.05 : -0.1;
