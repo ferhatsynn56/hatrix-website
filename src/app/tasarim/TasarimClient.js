@@ -25,6 +25,9 @@ import {
   ShoppingBag,
   Palette,
   Move,
+  Menu,
+  Plus,
+  Minus,
   Loader2,
   Type,
   Trash2,
@@ -269,6 +272,16 @@ const splitLogoLayers = (logos) => {
   };
 };
 
+const LOGO_STYLE_DEFAULTS = Object.freeze({
+  opacity: 1,
+  brightness: 100,
+  contrast: 100,
+  saturation: 100,
+  grayscale: 0,
+  flipX: false,
+  flipY: false,
+});
+
 /* ================= HELPERS ================= */
 const makeId = () => `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -276,6 +289,21 @@ const clamp01 = (v) => clamp(v, 0, 1);
 const pct = (v01) => `${Math.round(v01 * 100)}%`;
 const MAX_UPLOAD_FILE_MB = 16;
 const MAX_UPLOAD_RENDER_SIDE = 2048;
+
+const getLogoStyle = (logo) => ({
+  opacity: clamp(logo?.opacity ?? LOGO_STYLE_DEFAULTS.opacity, 0, 1),
+  brightness: clamp(logo?.brightness ?? LOGO_STYLE_DEFAULTS.brightness, 0, 200),
+  contrast: clamp(logo?.contrast ?? LOGO_STYLE_DEFAULTS.contrast, 0, 200),
+  saturation: clamp(logo?.saturation ?? LOGO_STYLE_DEFAULTS.saturation, 0, 250),
+  grayscale: clamp(logo?.grayscale ?? LOGO_STYLE_DEFAULTS.grayscale, 0, 100),
+  flipX: Boolean(logo?.flipX),
+  flipY: Boolean(logo?.flipY),
+});
+
+const logoFilterCss = (logo) => {
+  const fx = getLogoStyle(logo);
+  return `brightness(${fx.brightness}%) contrast(${fx.contrast}%) saturate(${fx.saturation}%) grayscale(${fx.grayscale}%)`;
+};
 
 const fileToDataUrl = (file) =>
   new Promise((resolve, reject) => {
@@ -401,6 +429,7 @@ async function makePrintDataUrl(sideData, opts = {}) {
   const drawLogo = async (l) => {
     const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
     const rotation = (l.rotation || 0) * (Math.PI / 180);
+    const fx = getLogoStyle(l);
     // eslint-disable-next-line no-await-in-loop
     await new Promise((res) => {
       const img = new Image();
@@ -414,6 +443,9 @@ async function makePrintDataUrl(sideData, opts = {}) {
         ctx.save();
         ctx.translate(cx, cy);
         if (rotation) ctx.rotate(rotation);
+        ctx.scale(fx.flipX ? -1 : 1, fx.flipY ? -1 : 1);
+        ctx.globalAlpha = fx.opacity;
+        ctx.filter = logoFilterCss(fx);
         ctx.drawImage(img, -bw / 2, -bh / 2, bw, bh);
         ctx.restore();
         res();
@@ -476,6 +508,7 @@ async function makeAdjustedLogoDataUrls(sideData) {
     const bw = Math.max(1, Math.round(box.w * SIZE));
     const bh = Math.max(1, Math.round(box.h * SIZE));
     const rotation = (l.rotation || 0) * (Math.PI / 180);
+    const fx = getLogoStyle(l);
 
     const c = document.createElement("canvas");
     c.width = bw;
@@ -499,6 +532,9 @@ async function makeAdjustedLogoDataUrls(sideData) {
         ctx.save();
         ctx.translate(bw / 2, bh / 2);
         if (rotation) ctx.rotate(rotation);
+        ctx.scale(fx.flipX ? -1 : 1, fx.flipY ? -1 : 1);
+        ctx.globalAlpha = fx.opacity;
+        ctx.filter = logoFilterCss(fx);
         ctx.drawImage(img, -bw / 2, -bh / 2, bw, bh);
         ctx.restore();
         res();
@@ -576,7 +612,7 @@ function useDesignCanvas(sideData, opts = {}) {
   const logoSignature = logos
     .map(
       (l) =>
-        `${l.id}_${l.box.x.toFixed(3)}_${l.box.y.toFixed(3)}_${l.box.w.toFixed(3)}_${l.box.h.toFixed(3)}_${l.rotation || 0}_${l.z || 0}`
+        `${l.id}_${l.box.x.toFixed(3)}_${l.box.y.toFixed(3)}_${l.box.w.toFixed(3)}_${l.box.h.toFixed(3)}_${l.rotation || 0}_${l.z || 0}_${l.opacity ?? 1}_${l.brightness ?? 100}_${l.contrast ?? 100}_${l.saturation ?? 100}_${l.grayscale ?? 0}_${Number(Boolean(l.flipX))}_${Number(Boolean(l.flipY))}`
     )
     .join("|");
   const customText = sideData?.customText;
@@ -635,6 +671,7 @@ function useDesignCanvas(sideData, opts = {}) {
       const drawLogo = async (l) => {
         const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
         const rotation = (l.rotation || 0) * (Math.PI / 180);
+        const fx = getLogoStyle(l);
         // eslint-disable-next-line no-await-in-loop
         await new Promise((res) => {
           const img = new Image();
@@ -648,6 +685,9 @@ function useDesignCanvas(sideData, opts = {}) {
             ctx.save();
             ctx.translate(cx, cy);
             if (rotation) ctx.rotate(rotation);
+            ctx.scale(fx.flipX ? -1 : 1, fx.flipY ? -1 : 1);
+            ctx.globalAlpha = fx.opacity;
+            ctx.filter = logoFilterCss(fx);
             ctx.drawImage(img, -bw / 2, -bh / 2, bw, bh);
             ctx.restore();
             res();
@@ -1300,6 +1340,7 @@ function EditorPanel({
               const renderLogo = (l) => {
                 const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
                 const isSel = (sideData.activeLogoId || logos[0]?.id) === l.id;
+                const fx = getLogoStyle(l);
                 return (
                   <div
                     key={l.id}
@@ -1320,7 +1361,12 @@ function EditorPanel({
                       src={l.url}
                       alt=""
                       className="w-full h-full object-fill pointer-events-none"
-                      style={{ transform: `rotate(${l.rotation || 0}deg)` }}
+                      style={{
+                        transform: `rotate(${l.rotation || 0}deg) scale(${fx.flipX ? -1 : 1}, ${fx.flipY ? -1 : 1})`,
+                        filter: logoFilterCss(fx),
+                        opacity: fx.opacity,
+                        transformOrigin: "center center",
+                      }}
                     />
                   </div>
                 );
@@ -1498,7 +1544,7 @@ function EditorPanel({
                 <button
                   onClick={() => {
                     setActiveTab("editor");
-                    if (isMobileDrawer) onRequestDrawerExpand?.();
+                    if (isMobileDrawer) onRequestDrawerCollapse?.();
                     else onRequestDrawerCollapse?.();
                     onRequestShowEditorOverlay?.();
                   }}
@@ -1610,11 +1656,12 @@ function EditorPanel({
                         box: { x: 0.5, y: 0.6, w: 0.7, h: 0.45 },
                         rotation: 0,
                         z: 0,
+                        ...LOGO_STYLE_DEFAULTS,
                       };
 
                       const nextLogos = [...(sideData.logos || []), nextLogo];
                       updateSide({ logos: nextLogos, activeLogoId: id });
-                      if (isMobileDrawer) onRequestDrawerExpand?.();
+                      if (isMobileDrawer) onRequestDrawerCollapse?.();
                       else onRequestDrawerCollapse?.();
                       onRequestShowEditorOverlay?.();
                       setActiveTab("editor");
@@ -1653,7 +1700,7 @@ function EditorPanel({
                   <button
                     onClick={() => {
                       setActiveTab("editor");
-                      if (isMobileDrawer) onRequestDrawerExpand?.();
+                      if (isMobileDrawer) onRequestDrawerCollapse?.();
                     }}
                     className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2"
                   >
@@ -1727,6 +1774,7 @@ function EditorPanel({
               {(logos || []).map((l) => {
                 const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
                 const isSel = (sideData.activeLogoId || logos[0]?.id) === l.id;
+                const fx = getLogoStyle(l);
 
                 return (
                   <div
@@ -1750,6 +1798,12 @@ function EditorPanel({
                       src={l.url}
                       alt=""
                       className="w-full h-full object-fill pointer-events-none"
+                      style={{
+                        transform: `rotate(${l.rotation || 0}deg) scale(${fx.flipX ? -1 : 1}, ${fx.flipY ? -1 : 1})`,
+                        filter: logoFilterCss(fx),
+                        opacity: fx.opacity,
+                        transformOrigin: "center center",
+                      }}
                     />
                   </div>
                 );
@@ -1828,8 +1882,8 @@ function EditorPanel({
 
         {/* TEXT */}
         {activeTab === "text" && (
-          <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "shrink-0 h-full flex items-stretch gap-2.5") : "space-y-2.5"}`}>
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+          <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "shrink-0 h-full flex items-start gap-2.5") : "space-y-2.5"}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px] min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
               <p className={drawerHeadingClass}>Metin İçeriği</p>
               <input
                 type="text"
@@ -1840,7 +1894,7 @@ function EditorPanel({
               />
             </div>
 
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px] min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
               <p className={drawerHeadingClass}>Tipografi</p>
               <div>
                 <label className="text-[10px] text-gray-500 font-bold uppercase block mb-1">Font</label>
@@ -1888,7 +1942,7 @@ function EditorPanel({
               </div>
             </div>
 
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px] min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
               <p className={drawerHeadingClass}>Dönüşüm</p>
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-gray-600 font-bold uppercase">Yatay Ölçek</p>
@@ -2087,6 +2141,8 @@ function TasarimClientContent({ isMobile }) {
   // ✅ activeTab artık burada (hata bitti)
   const [activeTab, setActiveTab] = useState("upload");
   const [forceEditorOverlay, setForceEditorOverlay] = useState(false);
+  const [drawerMenuOpen, setDrawerMenuOpen] = useState(false);
+  const [drawerMenuMounted, setDrawerMenuMounted] = useState(false);
 
   // ✅ designs/activeId init bug fix
   const initialDesignRef = useRef(null);
@@ -2111,6 +2167,7 @@ function TasarimClientContent({ isMobile }) {
   const [lockAspect, setLockAspect] = useState(true);
   const [cmInputW, setCmInputW] = useState("");
   const [cmInputH, setCmInputH] = useState("");
+  const [showLogoEffects, setShowLogoEffects] = useState(false);
 
   const glRef = useRef(null);
   const sceneRef = useRef(null);
@@ -2131,8 +2188,9 @@ function TasarimClientContent({ isMobile }) {
   const logos = sideData?.logos || [];
   const customText = sideData?.customText || {};
   const activeLogo = logos.find(l => l.id === (sideData?.activeLogoId || logos[0]?.id));
-  const isPrintAreaOpen = !isMobile && activeTab === "editor";
+  const isPrintAreaOpen = activeTab === "editor";
   const activeLogoBox = activeLogo?.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
+  const activeLogoFx = getLogoStyle(activeLogo);
   const snapThreshold = 0.02;
   const guideStops = [0.25, 0.5, 0.75];
   const activeVGuides = isLogoDragging
@@ -2204,6 +2262,10 @@ function TasarimClientContent({ isMobile }) {
     setCmInputH((activeLogoBox.h * printCm.h).toFixed(1));
   }, [activeLogo?.id, activeLogoBox.w, activeLogoBox.h, printCm.w, printCm.h, activeId, currentSide]);
 
+  useEffect(() => {
+    if (!activeLogo) setShowLogoEffects(false);
+  }, [activeLogo, activeId, currentSide]);
+
   const modelCount = designs.length;
   const perf = useMemo(() => {
     const heavy = modelCount > 2;
@@ -2216,7 +2278,7 @@ function TasarimClientContent({ isMobile }) {
   }, [isMobile, modelCount]);
 
   // Mobile drawer
-  const DRAWER_PEEK = 76;
+  const DRAWER_PEEK = 52;
   const CONTROLS_GAP = 56;
   const MAX_OPEN = 0;
   const [drawerOpen, setDrawerOpen] = useState(true);
@@ -2262,6 +2324,7 @@ function TasarimClientContent({ isMobile }) {
     color: "Renk",
   };
   const goPrevTab = () => {
+    setDrawerMenuOpen(false);
     if (tabIndex < 0) {
       setActiveTab("upload");
       return;
@@ -2269,16 +2332,44 @@ function TasarimClientContent({ isMobile }) {
     setActiveTab(DRAWER_TABS[(tabIndex - 1 + DRAWER_TABS.length) % DRAWER_TABS.length]);
   };
   const goNextTab = () => {
+    setDrawerMenuOpen(false);
     if (tabIndex < 0) {
       setActiveTab("upload");
       return;
     }
     setActiveTab(DRAWER_TABS[(tabIndex + 1) % DRAWER_TABS.length]);
   };
+  const menuTabs = [
+    { id: "upload", label: "Baskı", icon: ImageIcon },
+    { id: "text", label: "Yazı", icon: Type },
+    { id: "color", label: "Renk", icon: Palette },
+  ];
+  const selectMenuTab = (id) => {
+    setActiveTab(id);
+    setDrawerMenuOpen(false);
+  };
+  const openDrawerMenu = () => {
+    setDrawerMenuMounted(true);
+    setDrawerMenuOpen(true);
+  };
+  const closeDrawerMenu = () => setDrawerMenuOpen(false);
 
   useEffect(() => {
     if (activeTab !== "upload") setForceEditorOverlay(false);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!drawerOpen) setDrawerMenuOpen(false);
+  }, [drawerOpen]);
+
+  useEffect(() => {
+    if (drawerMenuOpen) {
+      setDrawerMenuMounted(true);
+      return;
+    }
+    const timer = setTimeout(() => setDrawerMenuMounted(false), 200);
+    return () => clearTimeout(timer);
+  }, [drawerMenuOpen]);
 
   useEffect(() => {
     setIsLogoDragging(false);
@@ -2327,8 +2418,8 @@ function TasarimClientContent({ isMobile }) {
     const others = designs.filter((d) => d.id !== activeId);
     const idx = others.findIndex((d) => d.id === designId);
 
-    if (isMobile) return { hidden: false, x: -0.65 - idx * 0.42, z: -0.95 - idx * 0.26, rotY: 0.72, scale: 0.76 };
-    return { hidden: false, x: -1.4 - idx * 0.68, z: -0.95 - idx * 0.36, rotY: 0.95, scale: 0.88 };
+    if (isMobile) return { hidden: false, x: -0.52 - idx * 0.34, z: -0.9 - idx * 0.24, rotY: 0.68, scale: 0.77 };
+    return { hidden: false, x: -1.1 - idx * 0.55, z: -0.9 - idx * 0.32, rotY: 0.9, scale: 0.9 };
   };
 
   const captureMockupForSide = async (designId, sideView) => {
@@ -2463,6 +2554,15 @@ function TasarimClientContent({ isMobile }) {
     else setDrawerOpen((s) => !s);
   };
 
+  const handleZoom = (dir) => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    const factor = isMobile ? 1.16 : 1.12;
+    if (dir === "in") controls.dollyIn(factor);
+    else controls.dollyOut(factor);
+    controls.update();
+  };
+
   const effectiveView = captureView || view;
   const drawerHeightStyle = isMobile
     ? drawerHeight
@@ -2475,6 +2575,12 @@ function TasarimClientContent({ isMobile }) {
       ? `calc(${drawerTopGap}px + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
       : `calc(72vh + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
     : `calc(${drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK}px + ${CONTROLS_GAP}px)`;
+  const visibleDrawerHeight = isMobile
+    ? Math.max(DRAWER_PEEK, drawerHeight ? drawerHeight - drawerY : DRAWER_PEEK)
+    : drawerOpen
+      ? DESKTOP_DRAWER_HEIGHT
+      : DESKTOP_DRAWER_PEEK;
+  const menuPanelBottom = `calc(${Math.round(visibleDrawerHeight)}px + 12px)`;
 
   const renderPanel = (
     <EditorPanel
@@ -2562,6 +2668,32 @@ function TasarimClientContent({ isMobile }) {
             </div>
           </div>
         )}
+
+        <div
+          className="absolute z-[90] pointer-events-auto transition-all duration-300"
+          style={
+            isMobile
+              ? { top: activeTab === "editor" ? "182px" : "238px", right: "10px" }
+              : { right: "16px", bottom: controlsBottom, transform: "translateY(-78px)" }
+          }
+        >
+          <div className="flex flex-col gap-2 rounded-2xl border border-zinc-300 bg-white/90 backdrop-blur px-2 py-2 shadow-lg">
+            <button
+              onClick={() => handleZoom("in")}
+              className="w-8 h-8 rounded-full border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 flex items-center justify-center"
+              aria-label="Yakınlaştır"
+            >
+              <Plus size={15} />
+            </button>
+            <button
+              onClick={() => handleZoom("out")}
+              className="w-8 h-8 rounded-full border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 flex items-center justify-center"
+              aria-label="Uzaklaştır"
+            >
+              <Minus size={15} />
+            </button>
+          </div>
+        </div>
 
         {/* Model picker modal */}
         {pickerOpen && (
@@ -2685,10 +2817,13 @@ function TasarimClientContent({ isMobile }) {
             className="absolute z-[90] backdrop-blur-md rounded-2xl border border-gray-200 shadow-2xl overflow-hidden flex flex-col"
             style={{
               backgroundColor: "#f7f8fa",
-              left: `${LEFT_PRINT_AREA_GAP}px`,
-              width: `${LEFT_PRINT_AREA_WIDTH}px`,
-              top: "72px",
-              bottom: `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
+              left: isMobile ? "8px" : `${LEFT_PRINT_AREA_GAP}px`,
+              width: isMobile ? "min(44vw, 280px)" : `${LEFT_PRINT_AREA_WIDTH}px`,
+              maxWidth: isMobile ? "calc(100vw - 16px)" : undefined,
+              top: isMobile ? "84px" : "72px",
+              bottom: isMobile
+                ? `${Math.round(visibleDrawerHeight) + 8}px`
+                : `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
             }}
           >
             <div className="p-4 border-b border-gray-200 bg-white/85">
@@ -2696,10 +2831,10 @@ function TasarimClientContent({ isMobile }) {
               <p className="text-[10px] text-gray-500 mt-1">{sideLabel}</p>
             </div>
             
-            <div className="flex-1 p-4 overflow-y-auto">
+            <div className="flex-1 p-4 overflow-y-auto overflow-x-visible">
               <div
                 ref={previewRef}
-                className="w-full h-[56vh] rounded-xl border border-gray-300 relative overflow-hidden shadow-xl touch-none"
+                className={`w-full rounded-xl border border-gray-300 relative overflow-hidden shadow-xl touch-none ${isMobile ? "h-[34vh] min-h-[250px]" : "h-[56vh]"}`}
                 style={{ touchAction: "none", backgroundColor: "#eef1f5" }}
               >
                 {/* hafif grid */}
@@ -2750,6 +2885,7 @@ function TasarimClientContent({ isMobile }) {
                 {(logos || []).map((l) => {
                   const isSelected = l.id === (sideData?.activeLogoId || sideData?.logos?.[0]?.id);
                   const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
+                  const fx = getLogoStyle(l);
                   const pct = (v) => `${v * 100}%`;
                   return (
                     <div
@@ -2773,7 +2909,12 @@ function TasarimClientContent({ isMobile }) {
                         src={l.url}
                         alt=""
                         className="w-full h-full object-fill pointer-events-none"
-                        style={{ transform: `rotate(${l.rotation || 0}deg)` }}
+                        style={{
+                          transform: `rotate(${l.rotation || 0}deg) scale(${fx.flipX ? -1 : 1}, ${fx.flipY ? -1 : 1})`,
+                          filter: logoFilterCss(fx),
+                          opacity: fx.opacity,
+                          transformOrigin: "center center",
+                        }}
                       />
                     </div>
                   );
@@ -2792,8 +2933,20 @@ function TasarimClientContent({ isMobile }) {
               </div>
 
               {activeLogo && (
-                <div className="mt-3 p-3 rounded-xl border border-zinc-700 bg-zinc-800/60 space-y-3">
-                  <p className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">Görsel Ayarları</p>
+                <div className="mt-3 p-3 rounded-xl border border-zinc-700 bg-zinc-800/60 space-y-3 relative">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">Görsel Ayarları</p>
+                    <button
+                      onClick={() => setShowLogoEffects((v) => !v)}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border transition ${
+                        showLogoEffects
+                          ? "bg-cyan-100 text-cyan-900 border-cyan-300"
+                          : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
+                      }`}
+                    >
+                      Efektler
+                    </button>
+                  </div>
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -2952,6 +3105,133 @@ function TasarimClientContent({ isMobile }) {
                     />
                   </div>
 
+                  {showLogoEffects && (
+                    <div
+                      className={`rounded-xl border border-cyan-400/40 bg-zinc-900/90 p-3 space-y-2 shadow-xl ${
+                        isMobile ? "" : "absolute top-9 left-[calc(100%+12px)] w-[286px] z-20"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] text-cyan-200 font-bold uppercase tracking-wider">Efektler</p>
+                        <button
+                          onClick={() => setShowLogoEffects(false)}
+                          className="text-[10px] px-2 py-1 rounded-md border border-cyan-400/40 text-cyan-100 hover:bg-cyan-900/30"
+                        >
+                          Kapat
+                        </button>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-zinc-300">
+                          <span>Opaklık</span>
+                          <span>{Math.round(activeLogoFx.opacity * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="1"
+                          value={Math.round(activeLogoFx.opacity * 100)}
+                          onChange={(e) => updateActiveLogo({ opacity: Number(e.target.value) / 100 })}
+                          className="w-full accent-cyan-300"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-zinc-300">
+                            <span>Parlaklık</span>
+                            <span>{Math.round(activeLogoFx.brightness)}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="20"
+                            max="200"
+                            step="1"
+                            value={Math.round(activeLogoFx.brightness)}
+                            onChange={(e) => updateActiveLogo({ brightness: Number(e.target.value) })}
+                            className="w-full accent-cyan-300"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-zinc-300">
+                            <span>Kontrast</span>
+                            <span>{Math.round(activeLogoFx.contrast)}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="20"
+                            max="200"
+                            step="1"
+                            value={Math.round(activeLogoFx.contrast)}
+                            onChange={(e) => updateActiveLogo({ contrast: Number(e.target.value) })}
+                            className="w-full accent-cyan-300"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-zinc-300">
+                            <span>Doygunluk</span>
+                            <span>{Math.round(activeLogoFx.saturation)}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="250"
+                            step="1"
+                            value={Math.round(activeLogoFx.saturation)}
+                            onChange={(e) => updateActiveLogo({ saturation: Number(e.target.value) })}
+                            className="w-full accent-cyan-300"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-zinc-300">
+                            <span>Gri Ton</span>
+                            <span>{Math.round(activeLogoFx.grayscale)}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={Math.round(activeLogoFx.grayscale)}
+                            onChange={(e) => updateActiveLogo({ grayscale: Number(e.target.value) })}
+                            className="w-full accent-cyan-300"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => updateActiveLogo({ flipX: !activeLogoFx.flipX })}
+                          className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase border ${
+                            activeLogoFx.flipX
+                              ? "bg-cyan-100 text-cyan-900 border-cyan-300"
+                              : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
+                          }`}
+                        >
+                          Yatay
+                        </button>
+                        <button
+                          onClick={() => updateActiveLogo({ flipY: !activeLogoFx.flipY })}
+                          className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase border ${
+                            activeLogoFx.flipY
+                              ? "bg-cyan-100 text-cyan-900 border-cyan-300"
+                              : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
+                          }`}
+                        >
+                          Dikey
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={() => updateActiveLogo({ ...LOGO_STYLE_DEFAULTS })}
+                        className="w-full py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-[10px] font-bold uppercase"
+                      >
+                        Efekti Sıfırla
+                      </button>
+                    </div>
+                  )}
+
                   <div className="flex gap-2">
                     <button
                       onClick={() => setActiveLogoLayer("front")}
@@ -3001,15 +3281,18 @@ function TasarimClientContent({ isMobile }) {
           const desktopHeight = isPrintAreaOpen ? "82vh" : "86vh";
           const desktopTop = "50%";
           const desktopShiftY = drawerOpen ? (isPrintAreaOpen ? "-18%" : "-12%") : "0%";
-          const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.35 : drawerOpen ? 2.2 : 1.95) : 2.2;
-          const controlsTargetY = !isMobile ? (isPrintAreaOpen ? -0.12 : drawerOpen ? -0.2 : -0.1) : -0.1;
+          const mobileScale = isPrintAreaOpen ? (drawerOpen ? 0.72 : 0.86) : drawerOpen ? 0.8 : 0.96;
+          const mobileLeft = isPrintAreaOpen ? "56%" : "50%";
+          const mobileShiftY = isPrintAreaOpen ? "-2%" : "0%";
+          const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.35 : drawerOpen ? 2.2 : 1.95) : isPrintAreaOpen ? 2.35 : 2.2;
+          const controlsTargetY = !isMobile ? (isPrintAreaOpen ? -0.12 : drawerOpen ? -0.2 : -0.1) : isPrintAreaOpen ? -0.05 : -0.1;
           return (
         <Canvas
           style={{
             position: "absolute",
-            left: isMobile ? "50%" : isPrintAreaOpen ? "63%" : "50%",
+            left: isMobile ? mobileLeft : isPrintAreaOpen ? "63%" : "50%",
             top: isMobile ? "50%" : desktopTop,
-            transform: `translate(-50%, -50%) translateY(${isMobile ? "0%" : desktopShiftY}) scale(${isMobile ? (drawerOpen ? 0.8 : 0.96) : desktopScale})`,
+            transform: `translate(-50%, -50%) translateY(${isMobile ? mobileShiftY : desktopShiftY}) scale(${isMobile ? mobileScale : desktopScale})`,
             width: isMobile ? "100vw" : desktopWidth,
             height: isMobile ? "100vh" : desktopHeight,
             display: "block",
@@ -3037,7 +3320,7 @@ function TasarimClientContent({ isMobile }) {
             gl.toneMapping = THREE.ACESFilmicToneMapping;
             gl.toneMappingExposure = 0.9;
           }}
-          camera={{ position: [0, 0.36, 2.34], fov: isMobile ? 34 : 30 }}
+          camera={{ position: [0, 0.36, 2.34], fov: isMobile ? (isPrintAreaOpen ? 38 : 34) : 30 }}
           shadows={!isMobile}
         >
           <SceneBackgroundLock />
@@ -3183,16 +3466,16 @@ function TasarimClientContent({ isMobile }) {
 
               {/* Drawer Tab Navigation */}
               <div className="px-3 py-2 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                    <button
-                      onClick={goPrevTab}
-                      className="w-8 h-8 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 flex items-center justify-center"
-                      aria-label="Önceki adım"
-                    >
-                      <ChevronLeft size={16} />
-                    </button>
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    onClick={goPrevTab}
+                    className="w-8 h-8 shrink-0 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 flex items-center justify-center"
+                    aria-label="Önceki adım"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
 
-                  <div className="text-center">
+                  <div className="text-center min-w-0 flex-1">
                     <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
                       {tabLabelMap[activeTab] || "Baskı"}
                     </p>
@@ -3201,6 +3484,7 @@ function TasarimClientContent({ isMobile }) {
                     </p>
                   </div>
 
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={goNextTab}
                       className="w-8 h-8 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 flex items-center justify-center"
@@ -3208,10 +3492,86 @@ function TasarimClientContent({ isMobile }) {
                     >
                       <ChevronRight size={16} />
                     </button>
+
+                    <button
+                      onClick={openDrawerMenu}
+                      className="h-8 px-3 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-wide"
+                      aria-label="Kategori menüsünü aç"
+                    >
+                      <Menu size={14} />
+                      Menü
+                    </button>
+                  </div>
                 </div>
               </div>
 
               {renderPanel}
+            </div>
+          </div>
+        )}
+
+        {drawerMenuMounted && (
+          <div
+            className={`fixed inset-0 z-[96] transition-opacity duration-200 ${
+              drawerMenuOpen
+                ? "opacity-100 pointer-events-auto bg-black/16 backdrop-blur-[2px]"
+                : "opacity-0 pointer-events-none bg-black/0 backdrop-blur-0"
+            }`}
+            onClick={closeDrawerMenu}
+          >
+            <div
+              className={`absolute left-1/2 -translate-x-1/2 w-[min(96vw,720px)] rounded-2xl border border-gray-200 bg-white/95 shadow-2xl p-4 transform-gpu will-change-transform transition-all duration-200 ease-out ${
+                drawerMenuOpen ? "translate-y-0 opacity-100 scale-100" : "translate-y-3 opacity-0 scale-[0.985]"
+              }`}
+              style={{
+                bottom: menuPanelBottom,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-black tracking-[0.16em] uppercase text-gray-500">Menü</p>
+                <button
+                  onClick={closeDrawerMenu}
+                  className="w-8 h-8 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-100 flex items-center justify-center"
+                  aria-label="Menüyü kapat"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className={`grid gap-2 ${isMobile ? "grid-cols-2" : "grid-cols-4"}`}>
+                {menuTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => selectMenuTab(tab.id)}
+                    className={`px-3 py-3 rounded-xl border text-[11px] font-black uppercase tracking-wide transition flex items-center justify-center gap-2 ${
+                      activeTab === tab.id
+                        ? "bg-black text-white border-black"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                    }`}
+                  >
+                    <tab.icon size={14} />
+                    {tab.label}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => {
+                    setActiveTab("editor");
+                    setDrawerOpen(false);
+                    setForceEditorOverlay(true);
+                    closeDrawerMenu();
+                  }}
+                  className={`px-3 py-3 rounded-xl border text-[11px] font-black uppercase tracking-wide transition flex items-center justify-center gap-2 ${
+                    activeTab === "editor"
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-white text-blue-700 border-blue-200 hover:bg-blue-50"
+                  }`}
+                >
+                  <Move size={14} />
+                  Yerleşim
+                </button>
+              </div>
             </div>
           </div>
         )}
