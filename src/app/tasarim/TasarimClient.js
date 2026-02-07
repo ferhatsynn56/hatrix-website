@@ -277,14 +277,6 @@ const pct = (v01) => `${Math.round(v01 * 100)}%`;
 const MAX_UPLOAD_FILE_MB = 16;
 const MAX_UPLOAD_RENDER_SIDE = 2048;
 
-const readFileAsDataUrl = (file) =>
-  new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(String(fr.result || ""));
-    fr.onerror = () => reject(new Error("Dosya okunamadı."));
-    fr.readAsDataURL(file);
-  });
-
 const loadImg = (src) =>
   new Promise((resolve, reject) => {
     const img = new Image();
@@ -301,10 +293,14 @@ async function optimizeUploadDataUrl(file) {
     throw new Error(`Dosya çok büyük. Maksimum ${MAX_UPLOAD_FILE_MB}MB.`);
   }
 
-  const rawDataUrl = await readFileAsDataUrl(file);
-  if (file.size < 2.5 * 1024 * 1024) return rawDataUrl;
+  const objectUrl = URL.createObjectURL(file);
+  let img;
+  try {
+    img = await loadImg(objectUrl);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 
-  const img = await loadImg(rawDataUrl);
   const srcW = img.naturalWidth || img.width || 1;
   const srcH = img.naturalHeight || img.height || 1;
   const scale = Math.min(1, MAX_UPLOAD_RENDER_SIDE / Math.max(srcW, srcH));
@@ -322,11 +318,13 @@ async function optimizeUploadDataUrl(file) {
   ctx.drawImage(img, 0, 0, w, h);
 
   const wantTransparent = /png|webp/i.test(file.type);
-  const optimized = wantTransparent
-    ? c.toDataURL("image/webp", 0.9)
-    : c.toDataURL("image/jpeg", 0.88);
-
-  return optimized.length < rawDataUrl.length ? optimized : rawDataUrl;
+  try {
+    return wantTransparent
+      ? c.toDataURL("image/webp", 0.9)
+      : c.toDataURL("image/jpeg", 0.88);
+  } catch {
+    return c.toDataURL("image/png");
+  }
 }
 
 const createSideData = () => ({
@@ -1571,12 +1569,6 @@ function EditorPanel({
                     ? "border-gray-300 cursor-pointer hover:border-gray-400 hover:bg-gray-50"
                     : "border-gray-200 bg-gray-100 cursor-not-allowed opacity-70"
                 }`}
-                onClick={() => {
-                  if (!canUploadMoreLogos) return;
-                  if (isMobileDrawer) onRequestDrawerExpand?.();
-                  else onRequestDrawerCollapse?.();
-                  onRequestShowEditorOverlay?.();
-                }}
               >
                 <Upload className="w-4 h-4 mb-1 text-gray-400" />
                 <p className="text-[10px] text-gray-700 font-semibold">
@@ -1587,6 +1579,9 @@ function EditorPanel({
                   className="hidden"
                   accept="image/*"
                   disabled={!canUploadMoreLogos}
+                  onClick={(e) => {
+                    if (!canUploadMoreLogos) e.preventDefault();
+                  }}
                   onChange={async (e) => {
                     const inputEl = e.currentTarget;
                     const file = inputEl.files?.[0];
@@ -1611,8 +1606,10 @@ function EditorPanel({
 
                       const nextLogos = [...(sideData.logos || []), nextLogo];
                       updateSide({ logos: nextLogos, activeLogoId: id });
-                      setActiveTab("editor");
                       if (isMobileDrawer) onRequestDrawerExpand?.();
+                      else onRequestDrawerCollapse?.();
+                      onRequestShowEditorOverlay?.();
+                      setActiveTab("editor");
                     } catch (err) {
                       console.error("Gorsel yukleme hatasi:", err);
                       alert(err?.message || "Görsel yüklenemedi. Farklı bir görsel deneyin.");
@@ -3004,7 +3001,7 @@ function TasarimClientContent({ isMobile }) {
             position: "absolute",
             left: isMobile ? "50%" : isPrintAreaOpen ? "63%" : "50%",
             top: isMobile ? "50%" : desktopTop,
-            transform: `translate(-50%, -50%) translateY(${isMobile ? "0%" : desktopShiftY}) scale(${isMobile ? (drawerOpen ? 0.82 : 1) : desktopScale})`,
+            transform: `translate(-50%, -50%) translateY(${isMobile ? "0%" : desktopShiftY}) scale(${isMobile ? (drawerOpen ? 0.8 : 0.96) : desktopScale})`,
             width: isMobile ? "100vw" : desktopWidth,
             height: isMobile ? "100vh" : desktopHeight,
             display: "block",
