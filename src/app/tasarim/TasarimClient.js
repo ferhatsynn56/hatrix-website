@@ -1109,6 +1109,7 @@ function EditorPanel({
   setActiveTab,
   layout = "standard",
   onRequestDrawerCollapse,
+  onRequestDrawerExpand,
   onRequestShowEditorOverlay,
   forceShowEditorOverlay = false,
   suppressEditorInPanel = false,
@@ -1405,7 +1406,7 @@ function EditorPanel({
                 key={tab.id}
                 onClick={() => {
                   setActiveTab(tab.id);
-                  if (tab.id === "upload") onRequestDrawerCollapse?.();
+                  if (tab.id === "upload" && !isMobileDrawer) onRequestDrawerCollapse?.();
                 }}
                 className={`flex-1 py-3 text-[10px] font-bold uppercase flex flex-col items-center gap-1 ${
                   activeTab === tab.id ? "text-white border-b-2 border-white" : "text-zinc-500"
@@ -1437,7 +1438,8 @@ function EditorPanel({
                 <button
                   onClick={() => {
                     setActiveTab("editor");
-                    onRequestDrawerCollapse?.();
+                    if (isMobileDrawer) onRequestDrawerExpand?.();
+                    else onRequestDrawerCollapse?.();
                     onRequestShowEditorOverlay?.();
                   }}
                   className="px-2.5 py-1 rounded-full bg-zinc-900 text-white text-[10px] font-black uppercase tracking-wide"
@@ -1517,7 +1519,8 @@ function EditorPanel({
                 }`}
                 onClick={() => {
                   if (!canUploadMoreLogos) return;
-                  onRequestDrawerCollapse?.();
+                  if (isMobileDrawer) onRequestDrawerExpand?.();
+                  else onRequestDrawerCollapse?.();
                   onRequestShowEditorOverlay?.();
                 }}
               >
@@ -1554,6 +1557,7 @@ function EditorPanel({
                       const nextLogos = [...(sideData.logos || []), nextLogo];
                       updateSide({ logos: nextLogos, activeLogoId: id });
                       setActiveTab("editor");
+                      if (isMobileDrawer) onRequestDrawerExpand?.();
                     };
                     reader.readAsDataURL(file);
                   }}
@@ -1583,7 +1587,10 @@ function EditorPanel({
 
                 <div className="grid grid-cols-1 gap-1.5">
                   <button
-                    onClick={() => setActiveTab("editor")}
+                    onClick={() => {
+                      setActiveTab("editor");
+                      if (isMobileDrawer) onRequestDrawerExpand?.();
+                    }}
                     className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2"
                   >
                     <Move size={14} /> Konum / Boyut
@@ -2256,8 +2263,8 @@ function TasarimClientContent({ isMobile }) {
     const others = designs.filter((d) => d.id !== activeId);
     const idx = others.findIndex((d) => d.id === designId);
 
-    if (isMobile) return { hidden: false, x: -1.2 - idx * 0.5, z: -0.5, rotY: 0.6, scale: 0.8 };
-    return { hidden: false, x: -2.2 - idx * 0.85, z: -0.35, rotY: 0.85, scale: 0.92 };
+    if (isMobile) return { hidden: false, x: -0.65 - idx * 0.42, z: -0.95 - idx * 0.26, rotY: 0.72, scale: 0.76 };
+    return { hidden: false, x: -1.4 - idx * 0.68, z: -0.95 - idx * 0.36, rotY: 0.95, scale: 0.88 };
   };
 
   const captureMockupForSide = async (designId, sideView) => {
@@ -2417,6 +2424,7 @@ function TasarimClientContent({ isMobile }) {
       setActiveTab={setActiveTab}
       layout="drawer"
       onRequestDrawerCollapse={() => setDrawerOpen(false)}
+      onRequestDrawerExpand={() => setDrawerOpen(true)}
       onRequestShowEditorOverlay={() => setForceEditorOverlay(true)}
       forceShowEditorOverlay={forceEditorOverlay}
       suppressEditorInPanel={!isMobile && forceEditorOverlay}
@@ -2462,16 +2470,24 @@ function TasarimClientContent({ isMobile }) {
         {/* Floating Controls */}
         {activeTab !== "editor" && (
           <div
-            className="absolute right-4 z-[90] pointer-events-none transition-all duration-300"
-            style={{ bottom: controlsBottom }}
+            className="absolute z-[90] pointer-events-none transition-all duration-300"
+            style={
+              isMobile
+                ? { top: "110px", right: "10px" }
+                : { bottom: controlsBottom, right: "16px" }
+            }
           >
             <div className="flex justify-center pointer-events-auto">
-              <div className="flex flex-col bg-zinc-900/90 backdrop-blur rounded-full p-1 border border-zinc-700 shadow-lg">
+              <div
+                className={`flex flex-col bg-zinc-900/90 backdrop-blur rounded-full border border-zinc-700 shadow-lg ${
+                  isMobile ? "p-[3px]" : "p-1"
+                }`}
+              >
                 {UI_VIEWS.map((v) => (
                   <button
                     key={v}
                     onClick={() => setView(v)}
-                    className={`px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
+                    className={`${isMobile ? "px-3 py-1 text-[9px]" : "px-5 py-2 text-[10px]"} rounded-full font-bold uppercase tracking-widest transition-all ${
                       view === v ? "bg-white text-black shadow-md" : "text-zinc-400"
                     }`}
                   >
@@ -2921,7 +2937,7 @@ function TasarimClientContent({ isMobile }) {
           const desktopHeight = isPrintAreaOpen ? "82vh" : "86vh";
           const desktopTop = "50%";
           const desktopShiftY = drawerOpen ? (isPrintAreaOpen ? "-18%" : "-12%") : "0%";
-          const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.35 : drawerOpen ? 2.2 : 1.95) : 1.65;
+          const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.35 : drawerOpen ? 2.2 : 1.95) : 2.05;
           const controlsTargetY = !isMobile ? (isPrintAreaOpen ? -0.12 : drawerOpen ? -0.2 : -0.1) : -0.1;
           return (
         <Canvas
@@ -2929,9 +2945,9 @@ function TasarimClientContent({ isMobile }) {
             position: "absolute",
             left: isMobile ? "50%" : isPrintAreaOpen ? "63%" : "50%",
             top: isMobile ? "50%" : desktopTop,
-            transform: `translate(-50%, -50%) translateY(${isMobile ? "0%" : desktopShiftY}) scale(${isMobile ? (drawerOpen ? 0.78 : 1) : desktopScale})`,
-            width: isMobile ? "80vw" : desktopWidth,
-            height: isMobile ? "80vh" : desktopHeight,
+            transform: `translate(-50%, -50%) translateY(${isMobile ? "0%" : desktopShiftY}) scale(${isMobile ? (drawerOpen ? 0.82 : 1) : desktopScale})`,
+            width: isMobile ? "100vw" : desktopWidth,
+            height: isMobile ? "100vh" : desktopHeight,
             display: "block",
             backgroundColor: SCENE_BG_COLOR,
             willChange: "transform",
@@ -2957,7 +2973,7 @@ function TasarimClientContent({ isMobile }) {
             gl.toneMapping = THREE.ACESFilmicToneMapping;
             gl.toneMappingExposure = 0.9;
           }}
-          camera={{ position: [0, 0.36, 2.34], fov: 30 }}
+          camera={{ position: [0, 0.36, 2.34], fov: isMobile ? 34 : 30 }}
           shadows={!isMobile}
         >
           <SceneBackgroundLock />
@@ -3012,7 +3028,7 @@ function TasarimClientContent({ isMobile }) {
             dampingFactor={isMobile ? 0.12 : 0.08}
             zoomSpeed={isMobile ? 0.95 : 0.7}
             minDistance={minZoomDistance}
-            maxDistance={4.2}
+            maxDistance={isMobile ? 4.8 : 4.2}
             zoomToCursor={false}
             enabled={!camAnimating}
             target={[0, controlsTargetY, 0]}
