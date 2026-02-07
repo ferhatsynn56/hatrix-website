@@ -1545,13 +1545,13 @@ function EditorPanel({
           isDrawerLayout
             ? isMobileDrawer
               ? "h-full p-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)] flex flex-col items-stretch gap-2 overflow-y-auto overflow-x-hidden"
-              : "h-full p-2.5 pr-4 flex items-stretch gap-2 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+              : "h-full p-2.5 flex items-stretch justify-center gap-2 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
             : "p-4 overflow-y-auto"
         }`}
         style={{ touchAction: "pan-y", minHeight: 0, backgroundColor: contentBackground }}
       >
         {isDrawerLayout && (
-          <div className={`${isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[248px] h-full min-h-[188px]"} rounded-xl border border-gray-200 bg-white p-2 shadow-sm flex flex-col overflow-hidden`}>
+          <div className={`${isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[250px] max-w-[390px] h-full min-h-[188px]"} rounded-xl border border-gray-200 bg-white p-2 shadow-sm flex flex-col overflow-hidden`}>
             <div className="flex items-center justify-between gap-2">
               <p className={drawerHeadingClass}>Model Yönetimi</p>
               <div className="flex items-center gap-2">
@@ -1617,15 +1617,15 @@ function EditorPanel({
 
         {/* UPLOAD */}
         {activeTab === "upload" && (
-          <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "shrink-0 h-full flex items-stretch gap-2.5") : "space-y-2.5"}`}>
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[214px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+          <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-stretch justify-center gap-2.5") : "space-y-2.5"}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[220px] max-w-[320px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
               <p className={drawerHeadingClass}>Çalışma Alanı</p>
               <p className="text-sm text-gray-900 mt-2">
                 {sideLabel} {isZipperFront ? " • Fermuar boşluğu aktif" : ""}
               </p>
             </div>
 
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[214px] h-full min-h-[188px] flex flex-col justify-between overflow-hidden") : ""}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[220px] max-w-[320px] h-full min-h-[188px] flex flex-col justify-between overflow-hidden") : ""}`}>
               <div className="flex items-center justify-between">
                 <p className={drawerHeadingClass}>Dosya</p>
                 <p className="text-[10px] text-gray-500">{logoCount}/{MAX_LOGOS_PER_SIDE} katman</p>
@@ -1691,7 +1691,7 @@ function EditorPanel({
             </div>
 
             {(sideData?.logos || []).length > 0 && (
-              <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[214px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+              <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[220px] max-w-[320px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
                 <p className={drawerHeadingClass}>Katmanlar</p>
                 <div className="flex flex-wrap gap-1.5">
                   {(sideData.logos || []).map((l, idx) => {
@@ -1895,8 +1895,8 @@ function EditorPanel({
 
         {/* TEXT */}
         {activeTab === "text" && (
-          <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "shrink-0 h-full flex items-start gap-2.5") : "space-y-2.5"}`}>
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[214px] min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+          <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-start justify-center gap-2.5") : "space-y-2.5"}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[220px] max-w-[320px] min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
               <p className={drawerHeadingClass}>Metin İçeriği</p>
               <input
                 type="text"
@@ -1907,7 +1907,7 @@ function EditorPanel({
               />
             </div>
 
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[214px] min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[220px] max-w-[320px] min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
               <p className={drawerHeadingClass}>Tipografi</p>
               <div>
                 <label className="text-[10px] text-gray-500 font-bold uppercase block mb-1">Font</label>
@@ -1955,7 +1955,7 @@ function EditorPanel({
               </div>
             </div>
 
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[214px] min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[220px] max-w-[320px] min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
               <p className={drawerHeadingClass}>Dönüşüm</p>
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-gray-600 font-bold uppercase">Yatay Ölçek</p>
@@ -2004,7 +2004,7 @@ function EditorPanel({
             {t.text && (
               <button
                 onClick={() => bumpText({ text: "", color: "#ffffff", size: 150, scaleX: 1, scaleY: 1 })}
-                className={`${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 w-[214px]") : "w-full"} py-2 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold flex items-center justify-center gap-2 border border-red-200 hover:bg-red-100`}
+                className={`${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 min-w-[220px] max-w-[320px]") : "w-full"} py-2 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold flex items-center justify-center gap-2 border border-red-200 hover:bg-red-100`}
               >
                 <Trash2 size={14} /> Yazıyı Sil
               </button>
@@ -2014,8 +2014,8 @@ function EditorPanel({
 
         {/* COLOR */}
         {activeTab === "color" && (
-          <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "shrink-0 h-full flex items-stretch gap-2.5") : "space-y-2.5"}`}>
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[220px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+          <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-stretch justify-center gap-2.5") : "space-y-2.5"}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[220px] max-w-[320px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
               <div className="flex items-center justify-between mb-3">
                 <p className={drawerHeadingClass}>Ürün Rengi</p>
                 <div className="flex items-center gap-2">
@@ -2042,7 +2042,7 @@ function EditorPanel({
             </div>
 
             {design.modelType.includes("hoodie") && (
-              <div className={`rounded-xl border border-gray-200 bg-white p-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[220px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
+              <div className={`rounded-xl border border-gray-200 bg-white p-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[220px] max-w-[320px] h-full min-h-[188px] flex flex-col overflow-hidden") : ""}`}>
                 <div className="flex items-center justify-between mb-3">
                   <p className={drawerHeadingClass}>İp Rengi</p>
                   <span
@@ -2562,8 +2562,13 @@ function TasarimClientContent({ isMobile }) {
     const controls = controlsRef.current;
     if (!controls) return;
     const factor = isMobile ? 1.16 : 1.12;
-    if (dir === "in") controls.dollyIn(factor);
-    else controls.dollyOut(factor);
+    if (isMobile) {
+      if (dir === "in") controls.dollyOut(factor);
+      else controls.dollyIn(factor);
+    } else {
+      if (dir === "in") controls.dollyIn(factor);
+      else controls.dollyOut(factor);
+    }
     controls.update();
   };
 
@@ -2671,31 +2676,29 @@ function TasarimClientContent({ isMobile }) {
           </div>
         )}
 
-        <div
-          className="absolute z-[90] pointer-events-auto transition-all duration-300"
-          style={
-            isMobile
-              ? { top: activeTab === "editor" ? "182px" : "238px", right: "10px" }
-              : { right: "16px", bottom: controlsBottom, transform: "translateY(-78px)" }
-          }
-        >
-          <div className="flex flex-col gap-2 rounded-2xl border border-zinc-300 bg-white/90 backdrop-blur px-2 py-2 shadow-lg">
-            <button
-              onClick={() => handleZoom("in")}
-              className="w-8 h-8 rounded-full border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 flex items-center justify-center"
-              aria-label="Yakınlaştır"
-            >
-              <Plus size={15} />
-            </button>
-            <button
-              onClick={() => handleZoom("out")}
-              className="w-8 h-8 rounded-full border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 flex items-center justify-center"
-              aria-label="Uzaklaştır"
-            >
-              <Minus size={15} />
-            </button>
+        {isMobile && (
+          <div
+            className="absolute z-[90] pointer-events-auto transition-all duration-300"
+            style={{ top: activeTab === "editor" ? "182px" : "238px", right: "10px" }}
+          >
+            <div className="flex flex-col gap-2 rounded-2xl border border-zinc-300 bg-white/90 backdrop-blur px-2 py-2 shadow-lg">
+              <button
+                onClick={() => handleZoom("in")}
+                className="w-8 h-8 rounded-full border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 flex items-center justify-center"
+                aria-label="Yakınlaştır"
+              >
+                <Plus size={15} />
+              </button>
+              <button
+                onClick={() => handleZoom("out")}
+                className="w-8 h-8 rounded-full border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 flex items-center justify-center"
+                aria-label="Uzaklaştır"
+              >
+                <Minus size={15} />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Model picker modal */}
         {pickerOpen && (
