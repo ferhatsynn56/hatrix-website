@@ -239,6 +239,33 @@ const LEFT_PRINT_AREA_WIDTH = 420;
 const LEFT_PRINT_AREA_GAP = 0;
 const BRAND_COLORS = ["#1A1A1A", "#F0F0F0", "#D2C6B6", "#3F432C", "#191C25", "#363636", "#1EF292", "#3E191D"];
 const BRAND_DEFAULT_COLOR = BRAND_COLORS[0];
+const FONT_OPTIONS = [
+  { label: "Arial Black", value: "Arial Black, Arial, sans-serif" },
+  { label: "Impact", value: "Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif" },
+  { label: "Trebuchet", value: "Trebuchet MS, Arial, sans-serif" },
+  { label: "Verdana", value: "Verdana, Geneva, sans-serif" },
+  { label: "Georgia", value: "Georgia, 'Times New Roman', serif" },
+  { label: "Times", value: "'Times New Roman', Times, serif" },
+];
+
+const splitLogoLayers = (logos) => {
+  const back = [];
+  const front = [];
+  logos.forEach((l, idx) => {
+    const z = l?.z ?? 0;
+    (z < 0 ? back : front).push({ l, idx });
+  });
+  const sortFn = (a, b) => {
+    const za = a.l?.z ?? 0;
+    const zb = b.l?.z ?? 0;
+    if (za !== zb) return za - zb;
+    return a.idx - b.idx;
+  };
+  return {
+    back: back.sort(sortFn).map((i) => i.l),
+    front: front.sort(sortFn).map((i) => i.l),
+  };
+};
 
 /* ================= HELPERS ================= */
 const makeId = () => `${Date.now()}_${Math.random().toString(16).slice(2)}`;
@@ -249,7 +276,7 @@ const pct = (v01) => `${Math.round(v01 * 100)}%`;
 const createSideData = () => ({
   logos: [],
   activeLogoId: null,
-  customText: { text: "", color: "#ffffff", size: 150, scaleX: 1, scaleY: 1 },
+  customText: { text: "", color: "#ffffff", size: 150, scaleX: 1, scaleY: 1, font: FONT_OPTIONS[0].value },
   textPos: { x: 0.5, y: 0.85 },
 });
 
@@ -309,9 +336,9 @@ async function makePrintDataUrl(sideData, opts = {}) {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
 
-  // LOGOS
-  for (const l of logos) {
+  const drawLogo = async (l) => {
     const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
+    const rotation = (l.rotation || 0) * (Math.PI / 180);
     // eslint-disable-next-line no-await-in-loop
     await new Promise((res) => {
       const img = new Image();
@@ -320,13 +347,24 @@ async function makePrintDataUrl(sideData, opts = {}) {
       img.onload = () => {
         const bw = box.w * SIZE;
         const bh = box.h * SIZE;
-        const bx = box.x * SIZE - bw / 2;
-        const by = box.y * SIZE - bh / 2;
-        ctx.drawImage(img, bx, by, bw, bh);
+        const cx = box.x * SIZE;
+        const cy = box.y * SIZE;
+        ctx.save();
+        ctx.translate(cx, cy);
+        if (rotation) ctx.rotate(rotation);
+        ctx.drawImage(img, -bw / 2, -bh / 2, bw, bh);
+        ctx.restore();
         res();
       };
       img.onerror = () => res();
     });
+  };
+
+  // LOGOS (TEXT ALT/ÜST)
+  const { back: logosBack, front: logosFront } = splitLogoLayers(logos);
+  for (const l of logosBack) {
+    // eslint-disable-next-line no-await-in-loop
+    await drawLogo(l);
   }
 
   // TEXT
@@ -335,12 +373,17 @@ async function makePrintDataUrl(sideData, opts = {}) {
     ctx.save();
     ctx.translate(textPos.x * SIZE, textPos.y * SIZE);
     ctx.scale(clamp(t.scaleX || 1, 0.3, 3), clamp(t.scaleY || 1, 0.3, 3));
-    ctx.font = `900 ${fontSize}px Arial`;
+    ctx.font = `900 ${fontSize}px ${t.font || FONT_OPTIONS[0].value}`;
     ctx.fillStyle = t.color || "#ffffff";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(t.text, 0, 0);
     ctx.restore();
+  }
+
+  for (const l of logosFront) {
+    // eslint-disable-next-line no-await-in-loop
+    await drawLogo(l);
   }
 
   // ZIP STRIPE CLEAR
@@ -370,6 +413,7 @@ async function makeAdjustedLogoDataUrls(sideData) {
     const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
     const bw = Math.max(1, Math.round(box.w * SIZE));
     const bh = Math.max(1, Math.round(box.h * SIZE));
+    const rotation = (l.rotation || 0) * (Math.PI / 180);
 
     const c = document.createElement("canvas");
     c.width = bw;
@@ -390,7 +434,11 @@ async function makeAdjustedLogoDataUrls(sideData) {
       img.crossOrigin = "anonymous";
       img.src = l.url;
       img.onload = () => {
-        ctx.drawImage(img, 0, 0, bw, bh);
+        ctx.save();
+        ctx.translate(bw / 2, bh / 2);
+        if (rotation) ctx.rotate(rotation);
+        ctx.drawImage(img, -bw / 2, -bh / 2, bw, bh);
+        ctx.restore();
         res();
       };
       img.onerror = () => res();
@@ -466,11 +514,11 @@ function useDesignCanvas(sideData, opts = {}) {
   const logoSignature = logos
     .map(
       (l) =>
-        `${l.id}_${l.box.x.toFixed(3)}_${l.box.y.toFixed(3)}_${l.box.w.toFixed(3)}_${l.box.h.toFixed(3)}`
+        `${l.id}_${l.box.x.toFixed(3)}_${l.box.y.toFixed(3)}_${l.box.w.toFixed(3)}_${l.box.h.toFixed(3)}_${l.rotation || 0}_${l.z || 0}`
     )
     .join("|");
   const customText = sideData?.customText;
-  const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}`;
+  const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}_${customText?.font}`;
   const posSignature = `${sideData?.textPos?.x}_${sideData?.textPos?.y}`;
 
   const CANVAS_SIZE = 2048;
@@ -502,7 +550,7 @@ function useDesignCanvas(sideData, opts = {}) {
         ctx.save();
         ctx.translate((sideData?.textPos?.x ?? 0.5) * CANVAS_SIZE, (sideData?.textPos?.y ?? 0.85) * CANVAS_SIZE);
         ctx.scale(clamp(t.scaleX || 1, 0.3, 3), clamp(t.scaleY || 1, 0.3, 3));
-        ctx.font = `900 ${fontSize}px Arial`;
+        ctx.font = `900 ${fontSize}px ${t.font || FONT_OPTIONS[0].value}`;
         ctx.fillStyle = t.color || "#ffffff";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -522,29 +570,45 @@ function useDesignCanvas(sideData, opts = {}) {
         ctx.restore();
       };
 
+      const drawLogo = async (l) => {
+        const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
+        const rotation = (l.rotation || 0) * (Math.PI / 180);
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((res) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.src = l.url;
+          img.onload = () => {
+            const bw = box.w * CANVAS_SIZE;
+            const bh = box.h * CANVAS_SIZE;
+            const cx = box.x * CANVAS_SIZE;
+            const cy = box.y * CANVAS_SIZE;
+            ctx.save();
+            ctx.translate(cx, cy);
+            if (rotation) ctx.rotate(rotation);
+            ctx.drawImage(img, -bw / 2, -bh / 2, bw, bh);
+            ctx.restore();
+            res();
+          };
+          img.onerror = () => res();
+        });
+      };
+
       const drawAll = async () => {
         ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-        for (const l of logos) {
-          const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
+        const { back: logosBack, front: logosFront } = splitLogoLayers(logos);
+        for (const l of logosBack) {
           // eslint-disable-next-line no-await-in-loop
-          await new Promise((res) => {
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            img.src = l.url;
-            img.onload = () => {
-              const bw = box.w * CANVAS_SIZE;
-              const bh = box.h * CANVAS_SIZE;
-              const bx = box.x * CANVAS_SIZE - bw / 2;
-              const by = box.y * CANVAS_SIZE - bh / 2;
-              ctx.drawImage(img, bx, by, bw, bh);
-              res();
-            };
-            img.onerror = () => res();
-          });
+          await drawLogo(l);
         }
 
         drawText();
+
+        for (const l of logosFront) {
+          // eslint-disable-next-line no-await-in-loop
+          await drawLogo(l);
+        }
         clearCenterStripe();
         setCanvas(c);
       };
@@ -1103,6 +1167,24 @@ function EditorPanel({
 
   const isFocusMode = isMobile && activeTab === "editor";
 
+  const checkoutCard = (
+    <div className="shrink-0 w-[220px] rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
+      <div className="flex items-center justify-between text-[10px] text-gray-500 font-bold uppercase">
+        <span>Toplam</span>
+        <span className="text-gray-900 font-black">{totalPrice} ₺</span>
+      </div>
+      <button
+        onClick={onAddToCartAll}
+        disabled={loading}
+        className={`mt-2 w-full bg-black text-white py-2 rounded-full font-black uppercase tracking-[0.12em] text-[10px] hover:bg-zinc-800 transition ${
+          loading ? "opacity-70 cursor-not-allowed" : ""
+        }`}
+      >
+        {loading ? "HAZIRLANIYOR..." : "SEPETE EKLE"}
+      </button>
+    </div>
+  );
+
   if (isFocusMode) {
     return (
       <div className="w-full h-full flex flex-col bg-[#111111]" style={{ touchAction: "none" }}>
@@ -1146,29 +1228,81 @@ function EditorPanel({
               />
             )}
 
-            {(logos || []).map((l) => {
-              const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
-              const isSel = (sideData.activeLogoId || logos[0]?.id) === l.id;
-              return (
+            {(() => {
+              const { back, front } = splitLogoLayers(logos || []);
+              const renderLogo = (l) => {
+                const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
+                const isSel = (sideData.activeLogoId || logos[0]?.id) === l.id;
+                return (
+                  <div
+                    key={l.id}
+                    className={`absolute rounded-lg overflow-hidden border ${isSel ? "border-white" : "border-white/10"}`}
+                    style={{
+                      left: pct(box.x - box.w / 2),
+                      top: pct(box.y - box.h / 2),
+                      width: pct(box.w),
+                      height: pct(box.h),
+                      touchAction: "none",
+                    }}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      updateSide({ activeLogoId: l.id });
+                    }}
+                  >
+                    <img
+                      src={l.url}
+                      alt=""
+                      className="w-full h-full object-fill pointer-events-none"
+                      style={{ transform: `rotate(${l.rotation || 0}deg)` }}
+                    />
+                  </div>
+                );
+              };
+              const textEl = customText?.text ? (
                 <div
-                  key={l.id}
-                  className={`absolute rounded-lg overflow-hidden border ${isSel ? "border-white" : "border-white/10"}`}
+                  className="absolute"
                   style={{
-                    left: pct(box.x - box.w / 2),
-                    top: pct(box.y - box.h / 2),
-                    width: pct(box.w),
-                    height: pct(box.h),
+                    left: `${(sideData?.textPos?.x ?? 0.5) * 100}%`,
+                    top: `${(sideData?.textPos?.y ?? 0.85) * 100}%`,
+                    transform: "translate(-50%, -50%)",
                     touchAction: "none",
                   }}
                   onPointerDown={(e) => {
+                    e.preventDefault();
                     e.stopPropagation();
-                    updateSide({ activeLogoId: l.id });
+                    const rect = previewRef.current.getBoundingClientRect();
+                    const move = (ev) =>
+                      updateSide({
+                        textPos: {
+                          x: clamp01((ev.clientX - rect.left) / rect.width),
+                          y: clamp01((ev.clientY - rect.top) / rect.height),
+                        },
+                      });
+                    const up = () => {
+                      window.removeEventListener("pointermove", move);
+                      window.removeEventListener("pointerup", up);
+                    };
+                    window.addEventListener("pointermove", move);
+                    window.addEventListener("pointerup", up);
                   }}
                 >
-                  <img src={l.url} alt="" className="w-full h-full object-fill pointer-events-none" />
+                  <span
+                    className="text-xs font-black select-none"
+                    style={{ color: sideData.customText.color, fontFamily: sideData.customText.font || FONT_OPTIONS[0].value }}
+                  >
+                    {sideData.customText.text}
+                  </span>
                 </div>
+              ) : null;
+
+              return (
+                <>
+                  {back.map(renderLogo)}
+                  {textEl}
+                  {front.map(renderLogo)}
+                </>
               );
-            })}
+            })()}
 
             {activeLogo && (
               <ResizeFrame
@@ -1181,34 +1315,6 @@ function EditorPanel({
               />
             )}
 
-            {sideData?.customText?.text && (
-              <div
-                className="absolute -translate-x-1/2 -translate-y-1/2 px-2 py-1 rounded bg-black/30 border border-white/20"
-                style={{ left: pct(sideData.textPos.x), top: pct(sideData.textPos.y), touchAction: "none" }}
-                onPointerDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const rect = previewRef.current.getBoundingClientRect();
-                  const move = (ev) =>
-                    updateSide({
-                      textPos: {
-                        x: clamp01((ev.clientX - rect.left) / rect.width),
-                        y: clamp01((ev.clientY - rect.top) / rect.height),
-                      },
-                    });
-                  const up = () => {
-                    window.removeEventListener("pointermove", move);
-                    window.removeEventListener("pointerup", up);
-                  };
-                  window.addEventListener("pointermove", move);
-                  window.addEventListener("pointerup", up);
-                }}
-              >
-                <span className="text-xs font-black" style={{ color: sideData.customText.color }}>
-                  {sideData.customText.text}
-                </span>
-              </div>
-            )}
           </div>
         </div>
 
@@ -1360,29 +1466,29 @@ function EditorPanel({
 
         {/* UPLOAD */}
         {activeTab === "upload" && (
-          <div className={`${isDrawerLayout ? "shrink-0 flex items-start gap-2.5" : "space-y-2.5"}`}>
-            <div className={`rounded-xl border border-gray-200 bg-white p-2.5 ${isDrawerLayout ? "shrink-0 w-[250px]" : ""}`}>
+          <div className={`${isDrawerLayout ? "shrink-0 flex items-start gap-2" : "space-y-2.5"}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 ${isDrawerLayout ? "shrink-0 w-[230px]" : ""}`}>
               <p className="text-[10px] font-black tracking-wider text-gray-500 uppercase">Çalışma Alanı</p>
               <p className="text-xs text-gray-900 mt-1">
                 {sideLabel} {isZipperFront ? " • Fermuar boşluğu aktif" : ""}
               </p>
             </div>
 
-            <div className={`rounded-xl border border-gray-200 bg-white p-2.5 space-y-2 ${isDrawerLayout ? "shrink-0 w-[250px]" : ""}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-1.5 ${isDrawerLayout ? "shrink-0 w-[230px]" : ""}`}>
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-black tracking-wider text-gray-500 uppercase">Dosya</p>
                 <p className="text-[10px] text-gray-500">{(sideData?.logos || []).length}/3 katman</p>
               </div>
 
               <label
-                className="flex flex-col items-center justify-center w-full h-20 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition"
+                className="flex flex-col items-center justify-center w-full h-16 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition"
                 onClick={() => {
                   onRequestDrawerCollapse?.();
                   onRequestShowEditorOverlay?.();
                 }}
               >
-                <Upload className="w-5 h-5 mb-1 text-gray-400" />
-                <p className="text-[11px] text-gray-700 font-semibold">Baskı Görseli Ekle</p>
+                <Upload className="w-4 h-4 mb-1 text-gray-400" />
+                <p className="text-[10px] text-gray-700 font-semibold">Baskı Görseli Ekle</p>
                 <input
                   type="file"
                   className="hidden"
@@ -1394,10 +1500,12 @@ function EditorPanel({
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                       const id = makeId();
-                      const nextLogo = {
+                  const nextLogo = {
                         id,
                         url: ev.target.result,
                         box: { x: 0.5, y: 0.6, w: 0.7, h: 0.45 },
+                        rotation: 0,
+                        z: 0,
                       };
 
                       if ((sideData.logos || []).length >= 3) {
@@ -1417,16 +1525,16 @@ function EditorPanel({
             </div>
 
             {(sideData?.logos || []).length > 0 && (
-              <div className={`rounded-xl border border-gray-200 bg-white p-2.5 space-y-2 ${isDrawerLayout ? "shrink-0 w-[250px]" : ""}`}>
+              <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-1.5 ${isDrawerLayout ? "shrink-0 w-[230px]" : ""}`}>
                 <p className="text-[10px] font-black tracking-wider text-gray-500 uppercase">Katmanlar</p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {(sideData.logos || []).map((l, idx) => {
                     const selected = (sideData.activeLogoId || sideData.logos?.[0]?.id) === l.id;
                     return (
                       <button
                         key={l.id}
                         onClick={() => updateSide({ activeLogoId: l.id })}
-                        className={`px-2 py-1 rounded-md text-[10px] font-bold border ${
+                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${
                           selected ? "bg-black text-white border-black" : "bg-white text-gray-700 border-gray-300"
                         }`}
                       >
@@ -1436,10 +1544,10 @@ function EditorPanel({
                   })}
                 </div>
 
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-1 gap-1.5">
                   <button
                     onClick={() => setActiveTab("editor")}
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-black uppercase flex items-center justify-center gap-2"
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2"
                   >
                     <Move size={14} /> Konum / Boyut
                   </button>
@@ -1450,20 +1558,21 @@ function EditorPanel({
                       const next = (sideData.logos || []).filter((l) => l.id !== currentId);
                       updateSide({ logos: next, activeLogoId: next[0]?.id || null });
                     }}
-                    className="w-full py-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold flex items-center justify-center gap-2 border border-red-200 hover:bg-red-100"
+                    className="w-full py-1.5 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold flex items-center justify-center gap-2 border border-red-200 hover:bg-red-100"
                   >
                     <Trash2 size={14} /> Seçili Katmanı Sil
                   </button>
 
                   <button
                     onClick={() => updateSide({ logos: [], activeLogoId: null })}
-                    className="w-full py-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold flex items-center justify-center gap-2 border border-red-200 hover:bg-red-100"
+                    className="w-full py-1.5 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold flex items-center justify-center gap-2 border border-red-200 hover:bg-red-100"
                   >
                     <Trash2 size={14} /> Tüm Katmanları Temizle
                   </button>
                 </div>
               </div>
             )}
+            {isDrawerLayout && checkoutCard}
           </div>
         )}
 
@@ -1611,28 +1720,43 @@ function EditorPanel({
 
         {/* TEXT */}
         {activeTab === "text" && (
-          <div className={`${isDrawerLayout ? "shrink-0 flex items-start gap-2.5" : "space-y-2.5"}`}>
-            <div className={`rounded-xl border border-gray-200 bg-white p-2.5 space-y-2 shadow-sm ${isDrawerLayout ? "shrink-0 w-[250px]" : ""}`}>
+          <div className={`${isDrawerLayout ? "shrink-0 flex items-start gap-2" : "space-y-2.5"}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-1.5 space-y-1 shadow-sm ${isDrawerLayout ? "shrink-0 w-[220px]" : ""}`}>
               <p className="text-[10px] font-black tracking-wider text-gray-500 uppercase">Metin İçeriği</p>
               <input
                 type="text"
                 value={t.text || ""}
                 onChange={(e) => bumpText({ text: e.target.value })}
                 placeholder="Metni yaz..."
-                className="w-full bg-white border border-gray-300 p-2.5 rounded-lg text-sm text-gray-900 focus:border-black outline-none"
+                className="w-full bg-white border border-gray-300 p-1.5 rounded-lg text-[11px] text-gray-900 focus:border-black outline-none"
               />
             </div>
 
-            <div className={`rounded-xl border border-gray-200 bg-white p-2.5 space-y-2 shadow-sm ${isDrawerLayout ? "shrink-0 w-[250px]" : ""}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-1.5 space-y-1 shadow-sm ${isDrawerLayout ? "shrink-0 w-[220px]" : ""}`}>
               <p className="text-[10px] font-black tracking-wider text-gray-500 uppercase">Tipografi</p>
               <div>
-                <label className="text-[10px] text-gray-500 font-bold uppercase block mb-2">Renk</label>
-                <div className="flex gap-2 flex-wrap">
+                <label className="text-[9px] text-gray-500 font-bold uppercase block mb-1">Font</label>
+                <select
+                  value={t.font || FONT_OPTIONS[0].value}
+                  onChange={(e) => bumpText({ font: e.target.value })}
+                  className="w-full bg-white border border-gray-300 p-1 rounded-lg text-[10px] text-gray-900 focus:border-black outline-none"
+                >
+                  {FONT_OPTIONS.map((f) => (
+                    <option key={f.value} value={f.value}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[9px] text-gray-500 font-bold uppercase block mb-1">Renk</label>
+                <div className="flex gap-1 flex-wrap">
                   {["#ffffff", "#000000", "#ff0000", "#00ff00", "#0000ff"].map((c) => (
                     <button
                       key={c}
                       onClick={() => bumpText({ color: c })}
-                      className={`w-8 h-8 rounded-full border-2 ${t.color === c ? "border-black scale-110" : "border-gray-300"}`}
+                      className={`w-5 h-5 rounded-full border-2 ${t.color === c ? "border-black scale-110" : "border-gray-300"}`}
                       style={{ backgroundColor: c }}
                     />
                   ))}
@@ -1641,8 +1765,8 @@ function EditorPanel({
 
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] text-gray-500 font-bold uppercase">Boyut</p>
-                  <p className="text-gray-900 text-xs font-mono">{t.size || 150}px</p>
+                  <p className="text-[9px] text-gray-500 font-bold uppercase">Boyut</p>
+                  <p className="text-gray-900 text-[10px] font-mono">{t.size || 150}px</p>
                 </div>
                 <input
                   type="range"
@@ -1651,16 +1775,16 @@ function EditorPanel({
                   step="2"
                   value={t.size || 150}
                   onChange={(e) => bumpText({ size: Number(e.target.value) })}
-                  className="w-full accent-black"
+                  className="w-full accent-black h-1.5"
                 />
               </div>
             </div>
 
-            <div className={`rounded-xl border border-gray-200 bg-white p-2.5 space-y-2 shadow-sm ${isDrawerLayout ? "shrink-0 w-[250px]" : ""}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-1.5 space-y-1 shadow-sm ${isDrawerLayout ? "shrink-0 w-[220px]" : ""}`}>
               <p className="text-[10px] font-black tracking-wider text-gray-500 uppercase">Dönüşüm</p>
               <div className="flex items-center justify-between">
-                <p className="text-[10px] text-gray-600 font-bold uppercase">Yatay Ölçek</p>
-                <p className="text-xs text-gray-900 font-mono">x{(t.scaleX || 1).toFixed(2)}</p>
+                <p className="text-[9px] text-gray-600 font-bold uppercase">Yatay Ölçek</p>
+                <p className="text-[10px] text-gray-900 font-mono">x{(t.scaleX || 1).toFixed(2)}</p>
               </div>
               <input
                 type="range"
@@ -1669,12 +1793,12 @@ function EditorPanel({
                 step="0.05"
                 value={t.scaleX || 1}
                 onChange={(e) => bumpText({ scaleX: Number(e.target.value) })}
-                className="w-full accent-black"
+                className="w-full accent-black h-1.5"
               />
 
               <div className="flex items-center justify-between pt-1">
-                <p className="text-[10px] text-gray-600 font-bold uppercase">Dikey Ölçek</p>
-                <p className="text-xs text-gray-900 font-mono">y{(t.scaleY || 1).toFixed(2)}</p>
+                <p className="text-[9px] text-gray-600 font-bold uppercase">Dikey Ölçek</p>
+                <p className="text-[10px] text-gray-900 font-mono">y{(t.scaleY || 1).toFixed(2)}</p>
               </div>
               <input
                 type="range"
@@ -1683,19 +1807,19 @@ function EditorPanel({
                 step="0.05"
                 value={t.scaleY || 1}
                 onChange={(e) => bumpText({ scaleY: Number(e.target.value) })}
-                className="w-full accent-black"
+                className="w-full accent-black h-1.5"
               />
 
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => bumpText({ scaleX: 1, scaleY: 1 })}
-                  className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 text-xs font-black uppercase"
+                  className="flex-1 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 text-[10px] font-black uppercase"
                 >
                   Ölçeği Sıfırla
                 </button>
                 <button
                   onClick={() => updateSide({ textPos: { x: 0.5, y: 0.85 } })}
-                  className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 text-xs font-black uppercase"
+                  className="flex-1 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 text-[10px] font-black uppercase"
                 >
                   Konumu Ortala
                 </button>
@@ -1705,11 +1829,12 @@ function EditorPanel({
             {t.text && (
               <button
                 onClick={() => bumpText({ text: "", color: "#ffffff", size: 150, scaleX: 1, scaleY: 1 })}
-                className={`${isDrawerLayout ? "shrink-0 w-[250px]" : "w-full"} py-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold flex items-center justify-center gap-2 border border-red-200 hover:bg-red-100`}
+                className={`${isDrawerLayout ? "shrink-0 w-[220px]" : "w-full"} py-1 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold flex items-center justify-center gap-2 border border-red-200 hover:bg-red-100`}
               >
                 <Trash2 size={14} /> Yazıyı Sil
               </button>
             )}
+            {isDrawerLayout && checkoutCard}
           </div>
         )}
 
@@ -1767,6 +1892,7 @@ function EditorPanel({
                 </div>
               </div>
             )}
+            {isDrawerLayout && checkoutCard}
           </div>
         )}
 
@@ -1774,46 +1900,41 @@ function EditorPanel({
             If you want desktop editor preview back, tell me, eklerim. */}
       </div>
 
-      {/* Footer */}
-      <div
-        className={`p-3 flex-shrink-0 ${isMobile ? "pb-[calc(env(safe-area-inset-bottom)+12px)]" : ""} ${
-          isDrawerLayout ? "border-t border-gray-200 bg-white" : "border-t border-zinc-800 bg-[#111111]"
-        }`}
-      >
+      {!isDrawerLayout && (
         <div
-          className={`mb-2 p-2.5 rounded-xl ${
-            isDrawerLayout ? "bg-gray-50 border border-gray-200" : "bg-zinc-900/50 border border-zinc-800"
-          }`}
+          className={`p-3 flex-shrink-0 ${isMobile ? "pb-[calc(env(safe-area-inset-bottom)+12px)]" : ""} border-t border-zinc-800 bg-[#111111]`}
         >
-          <div className="flex justify-between items-center">
-            <span className={`text-[10px] font-bold uppercase ${isDrawerLayout ? "text-gray-500" : "text-zinc-500"}`}>Ana Fiyat</span>
-            <span className={`text-xs font-mono ${isDrawerLayout ? "text-gray-700" : "text-zinc-300"}`}>{BASE_PRICE} ₺</span>
-          </div>
-
-          {activeSides.length > 1 && (
-            <div className="flex justify-between items-center mt-1">
-              <span className={`text-[10px] font-bold uppercase ${isDrawerLayout ? "text-gray-500" : "text-zinc-500"}`}>Ek Taraf ({activeSides.length - 1}×)</span>
-              <span className={`text-xs font-mono ${isDrawerLayout ? "text-gray-700" : "text-zinc-300"}`}>+{(activeSides.length - 1) * EXTRA_SIDE_PRICE} ₺</span>
+          <div className="mb-2 p-2.5 rounded-xl bg-zinc-900/50 border border-zinc-800">
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] font-bold uppercase text-zinc-500">Ana Fiyat</span>
+              <span className="text-xs font-mono text-zinc-300">{BASE_PRICE} ₺</span>
             </div>
-          )}
 
-          <div className={`flex justify-between items-center mt-2 pt-2 ${isDrawerLayout ? "border-t border-gray-200" : "border-t border-zinc-800"}`}>
-            <span className={`text-[10px] font-bold uppercase ${isDrawerLayout ? "text-gray-900" : "text-white"}`}>Toplam</span>
-            <span className={`text-sm font-black font-mono ${isDrawerLayout ? "text-gray-900" : "text-white"}`}>{totalPrice} ₺</span>
+            {activeSides.length > 1 && (
+              <div className="flex justify-between items-center mt-1">
+                <span className="text-[10px] font-bold uppercase text-zinc-500">Ek Taraf ({activeSides.length - 1}×)</span>
+                <span className="text-xs font-mono text-zinc-300">+{(activeSides.length - 1) * EXTRA_SIDE_PRICE} ₺</span>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center mt-2 pt-2 border-t border-zinc-800">
+              <span className="text-[10px] font-bold uppercase text-white">Toplam</span>
+              <span className="text-sm font-black font-mono text-white">{totalPrice} ₺</span>
+            </div>
           </div>
-        </div>
 
-        <button
-          onClick={onAddToCartAll}
-          disabled={loading}
-          className={`w-full bg-black text-white py-3 rounded-full font-black uppercase tracking-[0.15em] hover:bg-zinc-800 transition flex items-center justify-center gap-2 ${
-            loading ? "opacity-70 cursor-not-allowed" : ""
-          }`}
-        >
-          {loading ? <Loader2 className="animate-spin" /> : <ShoppingBag size={20} />}
-          {loading ? "HAZIRLANIYOR..." : "SEPETE EKLE"}
-        </button>
-      </div>
+          <button
+            onClick={onAddToCartAll}
+            disabled={loading}
+            className={`w-full bg-black text-white py-3 rounded-full font-black uppercase tracking-[0.15em] hover:bg-zinc-800 transition flex items-center justify-center gap-2 ${
+              loading ? "opacity-70 cursor-not-allowed" : ""
+            }`}
+          >
+            {loading ? <Loader2 className="animate-spin" /> : <ShoppingBag size={20} />}
+            {loading ? "HAZIRLANIYOR..." : "SEPETE EKLE"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1879,6 +2000,7 @@ function TasarimClientContent({ isMobile }) {
   const [loading, setLoading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerStep, setPickerStep] = useState("root");
+  const [lockAspect, setLockAspect] = useState(true);
 
   const glRef = useRef(null);
   const sceneRef = useRef(null);
@@ -1895,14 +2017,20 @@ function TasarimClientContent({ isMobile }) {
   const currentSide = view;
   const sideLabel = currentSide === "front" ? "ÖN" : "ARKA";
   const sideData = currentActiveDesign?.sides?.[currentSide] || {};
+  const printCm = CM_LABELS[currentActiveDesign?.modelType]?.[currentSide] || { w: 0, h: 0 };
   const logos = sideData?.logos || [];
   const customText = sideData?.customText || {};
   const activeLogo = logos.find(l => l.id === (sideData?.activeLogoId || logos[0]?.id));
   const isPrintAreaOpen = !isMobile && activeTab === "editor";
   const activeLogoBox = activeLogo?.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
   const snapThreshold = 0.02;
-  const showVerticalGuide = isLogoDragging && Math.abs((activeLogoBox?.x ?? 0.5) - 0.5) <= snapThreshold;
-  const showHorizontalGuide = isLogoDragging && Math.abs((activeLogoBox?.y ?? 0.5) - 0.5) <= snapThreshold;
+  const guideStops = [0.25, 0.5, 0.75];
+  const activeVGuides = isLogoDragging
+    ? guideStops.filter((p) => Math.abs((activeLogoBox?.x ?? 0.5) - p) <= snapThreshold)
+    : [];
+  const activeHGuides = isLogoDragging
+    ? guideStops.filter((p) => Math.abs((activeLogoBox?.y ?? 0.5) - p) <= snapThreshold)
+    : [];
   const isZipperFront = currentActiveDesign?.modelType === "fermuarli" && currentSide === "front";
   const gap01 = MODEL_PRINT_BOUNDS[currentActiveDesign?.modelType]?.front?.zipGap01 || 0;
 
@@ -1936,6 +2064,18 @@ function TasarimClientContent({ isMobile }) {
     const safe = sanitizeLogoBox(nextBox);
     const nextLogos = (logos || []).map((l) => (l.id === activeLogo.id ? { ...l, box: safe } : l));
     updateSide({ logos: nextLogos });
+  };
+
+  const updateActiveLogo = (patch) => {
+    if (!activeLogo) return;
+    const nextLogos = (logos || []).map((l) => (l.id === activeLogo.id ? { ...l, ...patch } : l));
+    updateSide({ logos: nextLogos });
+  };
+
+  const setActiveLogoLayer = (layer) => {
+    if (!activeLogo) return;
+    const z = layer === "front" ? 1 : layer === "back" ? -1 : 0;
+    updateActiveLogo({ z });
   };
 
   const modelCount = designs.length;
@@ -2441,12 +2581,20 @@ function TasarimClientContent({ isMobile }) {
                   style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.05) 100%)" }}
                 />
 
-                {showVerticalGuide && (
-                  <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-px bg-cyan-300/80 pointer-events-none" />
-                )}
-                {showHorizontalGuide && (
-                  <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-px bg-cyan-300/80 pointer-events-none" />
-                )}
+                {activeVGuides.map((p) => (
+                  <div
+                    key={`vg-${p}`}
+                    className={`absolute top-0 bottom-0 w-px pointer-events-none ${p === 0.5 ? "bg-cyan-300/90" : "bg-cyan-200/70"}`}
+                    style={{ left: `${p * 100}%` }}
+                  />
+                ))}
+                {activeHGuides.map((p) => (
+                  <div
+                    key={`hg-${p}`}
+                    className={`absolute left-0 right-0 h-px pointer-events-none ${p === 0.5 ? "bg-cyan-300/90" : "bg-cyan-200/70"}`}
+                    style={{ top: `${p * 100}%` }}
+                  />
+                ))}
 
                 {/* fermuar boşluğu görünsün */}
                 {isZipperFront && (
@@ -2490,6 +2638,7 @@ function TasarimClientContent({ isMobile }) {
                         src={l.url}
                         alt=""
                         className="w-full h-full object-fill pointer-events-none"
+                        style={{ transform: `rotate(${l.rotation || 0}deg)` }}
                       />
                     </div>
                   );
@@ -2505,30 +2654,64 @@ function TasarimClientContent({ isMobile }) {
                   />
                 )}
 
-                {/* metin */}
-                {customText?.text && (
-                  <div
-                    className="absolute pointer-events-none"
-                    style={{
-                      left: `${(sideData?.textPos?.x ?? 0.5) * 100}%`,
-                      top: `${(sideData?.textPos?.y ?? 0.85) * 100}%`,
-                      transform: "translate(-50%, -50%)",
-                      touchAction: "none",
-                    }}
-                  >
-                    <span
-                      className="text-xs font-black select-none"
-                      style={{ color: sideData.customText.color }}
-                    >
-                      {sideData.customText.text}
-                    </span>
-                  </div>
-                )}
               </div>
 
               {activeLogo && (
                 <div className="mt-3 p-3 rounded-xl border border-zinc-700 bg-zinc-800/60 space-y-3">
                   <p className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">Görsel Ayarları</p>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] text-zinc-400 font-bold uppercase">Ölçü (cm)</p>
+                      <button
+                        onClick={() => setLockAspect((v) => !v)}
+                        className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+                          lockAspect ? "bg-white text-black" : "bg-zinc-700 text-zinc-200"
+                        }`}
+                      >
+                        {lockAspect ? "Kilit Açık" : "Kilit Kapalı"}
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-zinc-400">En</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={Number((activeLogoBox.w * printCm.w).toFixed(1))}
+                          onChange={(e) => {
+                            const nextCm = parseFloat(e.target.value);
+                            if (!Number.isFinite(nextCm) || !printCm.w) return;
+                            const ratio = activeLogoBox.h / activeLogoBox.w;
+                            const nextW = clamp(nextCm / printCm.w, 0.12, 0.95);
+                            const nextH = lockAspect ? clamp(nextW * ratio, 0.12, 0.95) : activeLogoBox.h;
+                            updateActiveLogoBox({ ...activeLogoBox, w: nextW, h: nextH });
+                          }}
+                          className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 px-2 py-1 text-[11px] text-white"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-zinc-400">Boy</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={Number((activeLogoBox.h * printCm.h).toFixed(1))}
+                          onChange={(e) => {
+                            const nextCm = parseFloat(e.target.value);
+                            if (!Number.isFinite(nextCm) || !printCm.h) return;
+                            const ratio = activeLogoBox.h / activeLogoBox.w;
+                            const nextH = clamp(nextCm / printCm.h, 0.12, 0.95);
+                            const nextW = lockAspect ? clamp(nextH / ratio, 0.12, 0.95) : activeLogoBox.w;
+                            updateActiveLogoBox({ ...activeLogoBox, w: nextW, h: nextH });
+                          }}
+                          className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 px-2 py-1 text-[11px] text-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
 
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[10px] text-zinc-400">
@@ -2594,6 +2777,37 @@ function TasarimClientContent({ isMobile }) {
                     />
                   </div>
 
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                      <span>Döndürme</span>
+                      <span>{Math.round(activeLogo?.rotation || 0)}°</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-180"
+                      max="180"
+                      step="1"
+                      value={activeLogo?.rotation || 0}
+                      onChange={(e) => updateActiveLogo({ rotation: Number(e.target.value) })}
+                      className="w-full accent-cyan-300"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setActiveLogoLayer("front")}
+                      className="flex-1 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-[10px] font-bold uppercase"
+                    >
+                      Öne Al
+                    </button>
+                    <button
+                      onClick={() => setActiveLogoLayer("back")}
+                      className="flex-1 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-[10px] font-bold uppercase"
+                    >
+                      Arkaya Al
+                    </button>
+                  </div>
+
                   <div className="flex gap-2">
                     <button
                       onClick={() => updateActiveLogoBox({ ...activeLogoBox, x: 0.5, y: 0.5 })}
@@ -2621,10 +2835,13 @@ function TasarimClientContent({ isMobile }) {
         {/* THREE.js Canvas */}
         {/** Drawer state'e göre desktop'ta da model ölçeklenir: açıkken küçük, kapalıyken büyük */}
         {(() => {
-          const desktopScale = drawerOpen ? (isPrintAreaOpen ? 0.86 : 0.95) : (isPrintAreaOpen ? 0.96 : 1.06);
-          const desktopWidth = drawerOpen ? (isPrintAreaOpen ? "50vw" : "56vw") : (isPrintAreaOpen ? "56vw" : "62vw");
-          const desktopHeight = drawerOpen ? (isPrintAreaOpen ? "66vh" : "72vh") : (isPrintAreaOpen ? "82vh" : "86vh");
-          const desktopTop = drawerOpen ? (isPrintAreaOpen ? "30%" : "34%") : "52%";
+          const desktopClosedScale = isPrintAreaOpen ? 0.96 : 1.06;
+          const desktopOpenScale = isPrintAreaOpen ? 0.86 : 0.95;
+          const desktopScale = drawerOpen ? desktopOpenScale : desktopClosedScale;
+          const desktopWidth = isPrintAreaOpen ? "56vw" : "62vw";
+          const desktopHeight = isPrintAreaOpen ? "82vh" : "86vh";
+          const desktopTop = "50%";
+          const desktopShiftY = drawerOpen ? (isPrintAreaOpen ? "-18%" : "-12%") : "0%";
           const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.35 : drawerOpen ? 2.2 : 1.95) : 1.85;
           const controlsTargetY = !isMobile ? (isPrintAreaOpen ? -0.12 : drawerOpen ? -0.2 : -0.1) : -0.1;
           return (
@@ -2633,12 +2850,14 @@ function TasarimClientContent({ isMobile }) {
             position: "absolute",
             left: isMobile ? "50%" : isPrintAreaOpen ? "63%" : "50%",
             top: isMobile ? "50%" : desktopTop,
-            transform: `translate(-50%, -50%) scale(${isMobile ? (drawerOpen ? 0.7 : 1) : desktopScale})`,
-            width: isMobile ? (drawerOpen ? "60vw" : "80vw") : desktopWidth,
-            height: isMobile ? (drawerOpen ? "60vh" : "80vh") : desktopHeight,
+            transform: `translate(-50%, -50%) translateY(${isMobile ? "0%" : desktopShiftY}) scale(${isMobile ? (drawerOpen ? 0.7 : 1) : desktopScale})`,
+            width: isMobile ? "80vw" : desktopWidth,
+            height: isMobile ? "80vh" : desktopHeight,
             display: "block",
             backgroundColor: SCENE_BG_COLOR,
-            transition: "transform 0.3s ease, width 0.3s ease, height 0.3s ease",
+            willChange: "transform",
+            transformOrigin: "center center",
+            transition: "transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1)",
             zIndex: 10,
           }}
           gl={{
