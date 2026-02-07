@@ -274,6 +274,60 @@ const makeId = () => `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const clamp01 = (v) => clamp(v, 0, 1);
 const pct = (v01) => `${Math.round(v01 * 100)}%`;
+const MAX_UPLOAD_FILE_MB = 16;
+const MAX_UPLOAD_RENDER_SIDE = 2048;
+
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result || ""));
+    fr.onerror = () => reject(new Error("Dosya okunamadı."));
+    fr.readAsDataURL(file);
+  });
+
+const loadImg = (src) =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Görsel çözümlenemedi."));
+    img.src = src;
+  });
+
+async function optimizeUploadDataUrl(file) {
+  if (!file || !String(file.type || "").startsWith("image/")) {
+    throw new Error("Desteklenmeyen dosya türü.");
+  }
+  if (file.size > MAX_UPLOAD_FILE_MB * 1024 * 1024) {
+    throw new Error(`Dosya çok büyük. Maksimum ${MAX_UPLOAD_FILE_MB}MB.`);
+  }
+
+  const rawDataUrl = await readFileAsDataUrl(file);
+  if (file.size < 2.5 * 1024 * 1024) return rawDataUrl;
+
+  const img = await loadImg(rawDataUrl);
+  const srcW = img.naturalWidth || img.width || 1;
+  const srcH = img.naturalHeight || img.height || 1;
+  const scale = Math.min(1, MAX_UPLOAD_RENDER_SIDE / Math.max(srcW, srcH));
+  const w = Math.max(1, Math.round(srcW * scale));
+  const h = Math.max(1, Math.round(srcH * scale));
+
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d");
+  if (!ctx) return rawDataUrl;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.clearRect(0, 0, w, h);
+  ctx.drawImage(img, 0, 0, w, h);
+
+  const wantTransparent = /png|webp/i.test(file.type);
+  const optimized = wantTransparent
+    ? c.toDataURL("image/webp", 0.9)
+    : c.toDataURL("image/jpeg", 0.88);
+
+  return optimized.length < rawDataUrl.length ? optimized : rawDataUrl;
+}
 
 const createSideData = () => ({
   logos: [],
@@ -1533,33 +1587,38 @@ function EditorPanel({
                   className="hidden"
                   accept="image/*"
                   disabled={!canUploadMoreLogos}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
+                  onChange={async (e) => {
+                    const inputEl = e.currentTarget;
+                    const file = inputEl.files?.[0];
                     if (!file) return;
 
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
+                    try {
+                      if ((sideData.logos || []).length >= MAX_LOGOS_PER_SIDE) {
+                        alert(`Bu alanda en fazla ${MAX_LOGOS_PER_SIDE} baskı görseli yükleyebilirsin.`);
+                        inputEl.value = "";
+                        return;
+                      }
+
+                      const optimizedUrl = await optimizeUploadDataUrl(file);
                       const id = makeId();
                       const nextLogo = {
                         id,
-                        url: ev.target.result,
+                        url: optimizedUrl,
                         box: { x: 0.5, y: 0.6, w: 0.7, h: 0.45 },
                         rotation: 0,
                         z: 0,
                       };
 
-                      if ((sideData.logos || []).length >= MAX_LOGOS_PER_SIDE) {
-                        alert(`Bu alanda en fazla ${MAX_LOGOS_PER_SIDE} baskı görseli yükleyebilirsin.`);
-                        e.target.value = "";
-                        return;
-                      }
-
                       const nextLogos = [...(sideData.logos || []), nextLogo];
                       updateSide({ logos: nextLogos, activeLogoId: id });
                       setActiveTab("editor");
                       if (isMobileDrawer) onRequestDrawerExpand?.();
-                    };
-                    reader.readAsDataURL(file);
+                    } catch (err) {
+                      console.error("Gorsel yukleme hatasi:", err);
+                      alert(err?.message || "Görsel yüklenemedi. Farklı bir görsel deneyin.");
+                    } finally {
+                      inputEl.value = "";
+                    }
                   }}
                 />
               </label>
@@ -2937,7 +2996,7 @@ function TasarimClientContent({ isMobile }) {
           const desktopHeight = isPrintAreaOpen ? "82vh" : "86vh";
           const desktopTop = "50%";
           const desktopShiftY = drawerOpen ? (isPrintAreaOpen ? "-18%" : "-12%") : "0%";
-          const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.35 : drawerOpen ? 2.2 : 1.95) : 2.05;
+          const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.35 : drawerOpen ? 2.2 : 1.95) : 2.2;
           const controlsTargetY = !isMobile ? (isPrintAreaOpen ? -0.12 : drawerOpen ? -0.2 : -0.1) : -0.1;
           return (
         <Canvas
