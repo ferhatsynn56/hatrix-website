@@ -234,7 +234,8 @@ const EXTRA_SIDE_PRICE = 150;
 const SCENE_BG_COLOR = "#f3f3f3";
 const PANEL_BG_COLOR = "#e8e8e8";
 const PANEL_BORDER_COLOR = "#d0d0d0";
-const DESKTOP_DRAWER_HEIGHT = 288;
+const DESKTOP_DRAWER_HEIGHT = 300;
+const DESKTOP_DRAWER_PEEK = 56;
 const LEFT_PRINT_AREA_WIDTH = 420;
 const LEFT_PRINT_AREA_GAP = 0;
 const BRAND_COLORS = ["#1A1A1A", "#F0F0F0", "#D2C6B6", "#3F432C", "#191C25", "#363636", "#1EF292", "#3E191D"];
@@ -1421,12 +1422,24 @@ function EditorPanel({
           <div className="shrink-0 w-[320px] rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
             <div className="flex items-center justify-between gap-2">
               <p className="text-[10px] font-black tracking-wider text-gray-500 uppercase">Model Yönetimi</p>
-              <button
-                onClick={onOpenModelPicker}
-                className="px-2.5 py-1 rounded-full bg-black text-white text-[10px] font-black uppercase tracking-wide"
-              >
-                + Model
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setActiveTab("editor");
+                    onRequestDrawerCollapse?.();
+                    onRequestShowEditorOverlay?.();
+                  }}
+                  className="px-2.5 py-1 rounded-full bg-zinc-900 text-white text-[10px] font-black uppercase tracking-wide"
+                >
+                  Yerleşim
+                </button>
+                <button
+                  onClick={onOpenModelPicker}
+                  className="px-2.5 py-1 rounded-full bg-black text-white text-[10px] font-black uppercase tracking-wide"
+                >
+                  + Model
+                </button>
+              </div>
             </div>
 
             <div className="mt-2 flex gap-1.5 overflow-x-auto overflow-y-hidden pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
@@ -2001,6 +2014,8 @@ function TasarimClientContent({ isMobile }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerStep, setPickerStep] = useState("root");
   const [lockAspect, setLockAspect] = useState(true);
+  const [cmInputW, setCmInputW] = useState("");
+  const [cmInputH, setCmInputH] = useState("");
 
   const glRef = useRef(null);
   const sceneRef = useRef(null);
@@ -2077,6 +2092,22 @@ function TasarimClientContent({ isMobile }) {
     const z = layer === "front" ? 1 : layer === "back" ? -1 : 0;
     updateActiveLogo({ z });
   };
+
+  const toNumber = (raw) => {
+    if (raw === "" || raw == null) return NaN;
+    const norm = String(raw).replace(",", ".");
+    return parseFloat(norm);
+  };
+
+  useEffect(() => {
+    if (!activeLogo || !printCm.w || !printCm.h) {
+      setCmInputW("");
+      setCmInputH("");
+      return;
+    }
+    setCmInputW((activeLogoBox.w * printCm.w).toFixed(1));
+    setCmInputH((activeLogoBox.h * printCm.h).toFixed(1));
+  }, [activeLogo?.id, activeLogoBox.w, activeLogoBox.h, printCm.w, printCm.h, activeId, currentSide]);
 
   const modelCount = designs.length;
   const perf = useMemo(() => {
@@ -2348,7 +2379,7 @@ function TasarimClientContent({ isMobile }) {
     ? drawerHeight
       ? `calc(${drawerTopGap}px + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
       : `calc(72vh + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
-    : `calc(${drawerOpen ? DESKTOP_DRAWER_HEIGHT : 72}px + ${CONTROLS_GAP}px)`;
+    : `calc(${drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK}px + ${CONTROLS_GAP}px)`;
 
   const renderPanel = (
     <EditorPanel
@@ -2553,7 +2584,7 @@ function TasarimClientContent({ isMobile }) {
               left: `${LEFT_PRINT_AREA_GAP}px`,
               width: `${LEFT_PRINT_AREA_WIDTH}px`,
               top: "72px",
-              bottom: `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : 72) + 12}px`,
+              bottom: `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
             }}
           >
             <div className="p-4 border-b border-gray-200 bg-white/85">
@@ -2677,12 +2708,15 @@ function TasarimClientContent({ isMobile }) {
                       <div className="space-y-1">
                         <label className="text-[10px] text-zinc-400">En</label>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
                           min="0"
                           step="0.1"
-                          value={Number((activeLogoBox.w * printCm.w).toFixed(1))}
+                          value={cmInputW}
                           onChange={(e) => {
-                            const nextCm = parseFloat(e.target.value);
+                            const raw = e.target.value;
+                            setCmInputW(raw);
+                            const nextCm = toNumber(raw);
                             if (!Number.isFinite(nextCm) || !printCm.w) return;
                             const ratio = activeLogoBox.h / activeLogoBox.w;
                             const nextW = clamp(nextCm / printCm.w, 0.12, 0.95);
@@ -2690,17 +2724,29 @@ function TasarimClientContent({ isMobile }) {
                             updateActiveLogoBox({ ...activeLogoBox, w: nextW, h: nextH });
                           }}
                           className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 px-2 py-1 text-[11px] text-white"
+                          onFocus={(e) => e.currentTarget.select()}
+                          onClick={(e) => e.currentTarget.select()}
+                          onBlur={() => {
+                            if (!activeLogo || !printCm.w) return;
+                            const nextCm = toNumber(cmInputW);
+                            if (!Number.isFinite(nextCm)) {
+                              setCmInputW((activeLogoBox.w * printCm.w).toFixed(1));
+                            }
+                          }}
                         />
                       </div>
                       <div className="space-y-1">
                         <label className="text-[10px] text-zinc-400">Boy</label>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
                           min="0"
                           step="0.1"
-                          value={Number((activeLogoBox.h * printCm.h).toFixed(1))}
+                          value={cmInputH}
                           onChange={(e) => {
-                            const nextCm = parseFloat(e.target.value);
+                            const raw = e.target.value;
+                            setCmInputH(raw);
+                            const nextCm = toNumber(raw);
                             if (!Number.isFinite(nextCm) || !printCm.h) return;
                             const ratio = activeLogoBox.h / activeLogoBox.w;
                             const nextH = clamp(nextCm / printCm.h, 0.12, 0.95);
@@ -2708,6 +2754,15 @@ function TasarimClientContent({ isMobile }) {
                             updateActiveLogoBox({ ...activeLogoBox, w: nextW, h: nextH });
                           }}
                           className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 px-2 py-1 text-[11px] text-white"
+                          onFocus={(e) => e.currentTarget.select()}
+                          onClick={(e) => e.currentTarget.select()}
+                          onBlur={() => {
+                            if (!activeLogo || !printCm.h) return;
+                            const nextCm = toNumber(cmInputH);
+                            if (!Number.isFinite(nextCm)) {
+                              setCmInputH((activeLogoBox.h * printCm.h).toFixed(1));
+                            }
+                          }}
                         />
                       </div>
                     </div>
@@ -2950,7 +3005,7 @@ function TasarimClientContent({ isMobile }) {
             className="absolute left-6 z-[88] w-[360px] pointer-events-auto"
             style={{
               top: "96px",
-              bottom: `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : 72) + 24}px`,
+              bottom: `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 24}px`,
             }}
           >
             <div className="h-full overflow-y-auto">
@@ -2991,7 +3046,7 @@ function TasarimClientContent({ isMobile }) {
                 ? `translateY(${drawerY}px)`
                 : drawerOpen
                   ? "translateY(0)"
-                  : `translateY(${DESKTOP_DRAWER_HEIGHT + 24}px)`,
+                  : `translateY(${DESKTOP_DRAWER_HEIGHT - DESKTOP_DRAWER_PEEK}px)`,
               transition: isMobile && dragState.current.dragging ? "none" : "transform 220ms ease",
               maxHeight: drawerHeightStyle,
               height: drawerHeightStyle,
