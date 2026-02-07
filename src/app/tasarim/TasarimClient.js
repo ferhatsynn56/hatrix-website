@@ -22,13 +22,11 @@ import {
 
 import {
   Upload,
-  ShoppingBag,
   Palette,
   Move,
   Menu,
   Plus,
   Minus,
-  Loader2,
   Type,
   Trash2,
   X,
@@ -620,6 +618,7 @@ function useDesignCanvas(sideData, opts = {}) {
   const posSignature = `${sideData?.textPos?.x}_${sideData?.textPos?.y}`;
 
   const CANVAS_SIZE = 2048;
+  const CANVAS_UPDATE_DEBOUNCE_MS = 16;
 
   useEffect(() => {
     const hasContent = logos.length > 0 || (customText?.text || "").trim();
@@ -628,6 +627,7 @@ function useDesignCanvas(sideData, opts = {}) {
       return;
     }
 
+    let cancelled = false;
     const timeoutId = setTimeout(() => {
       const c = document.createElement("canvas");
       c.width = CANVAS_SIZE;
@@ -674,10 +674,18 @@ function useDesignCanvas(sideData, opts = {}) {
         const fx = getLogoStyle(l);
         // eslint-disable-next-line no-await-in-loop
         await new Promise((res) => {
+          if (cancelled) {
+            res();
+            return;
+          }
           const img = new Image();
           img.crossOrigin = "anonymous";
           img.src = l.url;
           img.onload = () => {
+            if (cancelled) {
+              res();
+              return;
+            }
             const bw = box.w * CANVAS_SIZE;
             const bh = box.h * CANVAS_SIZE;
             const cx = box.x * CANVAS_SIZE;
@@ -697,6 +705,7 @@ function useDesignCanvas(sideData, opts = {}) {
       };
 
       const drawAll = async () => {
+        if (cancelled) return;
         ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
         const { back: logosBack, front: logosFront } = splitLogoLayers(logos);
@@ -711,14 +720,18 @@ function useDesignCanvas(sideData, opts = {}) {
           // eslint-disable-next-line no-await-in-loop
           await drawLogo(l);
         }
+        if (cancelled) return;
         clearCenterStripe();
         setCanvas(c);
       };
 
       drawAll();
-    }, 100);
+    }, CANVAS_UPDATE_DEBOUNCE_MS);
 
-    return () => clearTimeout(timeoutId);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logoSignature, textSignature, posSignature, opts?.clearCenterStripe01, CANVAS_SIZE]);
 
@@ -950,6 +963,23 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, v
 /* ================= RESIZE FRAME ================= */
 function ResizeFrame({ box, onChange, containerRef, onDragStateChange }) {
   const dragRef = useRef(null);
+  const rafRef = useRef(0);
+  const pendingBoxRef = useRef(null);
+
+  const flushPendingChange = () => {
+    if (!pendingBoxRef.current) return;
+    onChange(pendingBoxRef.current);
+    pendingBoxRef.current = null;
+  };
+
+  const queueChange = (nextBox) => {
+    pendingBoxRef.current = nextBox;
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0;
+      flushPendingChange();
+    });
+  };
 
   const getPointer01 = (e, rect) => ({
     x: clamp01((e.clientX - rect.left) / rect.width),
@@ -959,6 +989,7 @@ function ResizeFrame({ box, onChange, containerRef, onDragStateChange }) {
   const begin = (mode, e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!containerRef?.current) return;
     if (e.target?.setPointerCapture) {
       try {
         e.target.setPointerCapture(e.pointerId);
@@ -998,7 +1029,7 @@ function ResizeFrame({ box, onChange, containerRef, onDragStateChange }) {
     if (s.mode === "move") {
       const halfW = s.startBox.w / 2;
       const halfH = s.startBox.h / 2;
-      onChange({
+      queueChange({
         x: clamp(px + s.moveOffset.dx, halfW, 1 - halfW),
         y: clamp(py + s.moveOffset.dy, halfH, 1 - halfH),
         w: s.startBox.w,
@@ -1015,7 +1046,7 @@ function ResizeFrame({ box, onChange, containerRef, onDragStateChange }) {
 
     const w = right - left;
     const h = bottom - top;
-    onChange({ x: left + w / 2, y: top + h / 2, w, h });
+    queueChange({ x: left + w / 2, y: top + h / 2, w, h });
   };
 
   const end = (e) => {
@@ -1025,10 +1056,24 @@ function ResizeFrame({ box, onChange, containerRef, onDragStateChange }) {
       } catch {}
     }
     dragRef.current = null;
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
+    flushPendingChange();
     onDragStateChange?.(false);
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", end);
   };
+
+  useEffect(
+    () => () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+    },
+    []
+  );
 
   return (
     <div
@@ -1201,8 +1246,6 @@ function DesignModelItem({
 function EditorPanel({
   design,
   updateDesign,
-  loading,
-  onAddToCartAll,
   view,
   isMobile,
   activeTab,
@@ -1273,24 +1316,6 @@ function EditorPanel({
 
   const isFocusMode = isMobile && activeTab === "editor";
   const drawerHeadingClass = "text-[13px] font-black tracking-[0.14em] text-gray-500 uppercase";
-
-  const checkoutCard = (
-    <div className={`${isMobileDrawer ? "w-full shrink-0" : "shrink-0 w-[210px] h-full min-h-[188px]"} rounded-xl border border-gray-200 bg-white p-2 shadow-sm flex flex-col justify-between overflow-hidden`}>
-      <div className="flex items-center justify-between text-[10px] text-gray-500 font-bold uppercase">
-        <span>Toplam</span>
-        <span className="text-gray-900 font-black">{totalPrice} ₺</span>
-      </div>
-      <button
-        onClick={onAddToCartAll}
-        disabled={loading}
-        className={`mt-2 w-full bg-black text-white py-2.5 rounded-full font-black uppercase tracking-[0.12em] text-[10px] hover:bg-zinc-800 transition ${
-          loading ? "opacity-70 cursor-not-allowed" : ""
-        }`}
-      >
-        {loading ? "HAZIRLANIYOR..." : "SEPETE EKLE"}
-      </button>
-    </div>
-  );
 
   if (isFocusMode) {
     return (
@@ -1436,17 +1461,6 @@ function EditorPanel({
             <span>Toplam</span>
             <span className="text-white font-black">{totalPrice} ₺</span>
           </div>
-
-          <button
-            onClick={onAddToCartAll}
-            disabled={loading}
-            className={`w-full bg-white text-black py-3 rounded-full font-black uppercase tracking-[0.18em] transition flex items-center justify-center gap-2 ${
-              loading ? "opacity-70 cursor-not-allowed" : ""
-            }`}
-          >
-            {loading ? <Loader2 className="animate-spin" /> : <ShoppingBag size={18} />}
-            {loading ? "HAZIRLANIYOR..." : "SEPETE EKLE"}
-          </button>
         </div>
       </div>
     );
@@ -1727,7 +1741,6 @@ function EditorPanel({
                 </div>
               </div>
             )}
-            {isDrawerLayout && checkoutCard}
           </div>
         )}
 
@@ -1996,7 +2009,6 @@ function EditorPanel({
                 <Trash2 size={14} /> Yazıyı Sil
               </button>
             )}
-            {isDrawerLayout && checkoutCard}
           </div>
         )}
 
@@ -2054,7 +2066,6 @@ function EditorPanel({
                 </div>
               </div>
             )}
-            {isDrawerLayout && checkoutCard}
           </div>
         )}
 
@@ -2084,17 +2095,6 @@ function EditorPanel({
               <span className="text-sm font-black font-mono text-white">{totalPrice} ₺</span>
             </div>
           </div>
-
-          <button
-            onClick={onAddToCartAll}
-            disabled={loading}
-            className={`w-full bg-black text-white py-3 rounded-full font-black uppercase tracking-[0.15em] hover:bg-zinc-800 transition flex items-center justify-center gap-2 ${
-              loading ? "opacity-70 cursor-not-allowed" : ""
-            }`}
-          >
-            {loading ? <Loader2 className="animate-spin" /> : <ShoppingBag size={20} />}
-            {loading ? "HAZIRLANIYOR..." : "SEPETE EKLE"}
-          </button>
         </div>
       )}
     </div>
@@ -2590,8 +2590,6 @@ function TasarimClientContent({ isMobile }) {
     <EditorPanel
       design={activeDesign}
       updateDesign={updateActive}
-      loading={loading}
-      onAddToCartAll={handleAddToCartAll}
       view={view}
       isMobile={isMobile}
       activeTab={activeTab}
@@ -2635,7 +2633,7 @@ function TasarimClientContent({ isMobile }) {
               loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
             }`}
           >
-            {loading ? "HAZIRLANIYOR..." : "BİTTİ"}
+            {loading ? "HAZIRLANIYOR..." : "SEPETE EKLE"}
           </button>
         </div>
       </div>
@@ -3288,8 +3286,8 @@ function TasarimClientContent({ isMobile }) {
           const desktopTop = "50%";
           const desktopShiftY = drawerOpen ? (isPrintAreaOpen ? "-18%" : "-12%") : "0%";
           const mobileScale = isPrintAreaOpen ? (drawerOpen ? 0.72 : 0.86) : drawerOpen ? 0.8 : 0.96;
-          const mobileLeft = "50%";
-          const mobileShiftY = isPrintAreaOpen ? "-2%" : "0%";
+          const mobileLeft = isPrintAreaOpen ? "52%" : "51.5%";
+          const mobileShiftY = isPrintAreaOpen ? "-5%" : "-3%";
           const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.35 : drawerOpen ? 2.2 : 1.95) : isPrintAreaOpen ? 2.35 : 2.2;
           const controlsTargetY = !isMobile ? (isPrintAreaOpen ? -0.12 : drawerOpen ? -0.2 : -0.1) : isPrintAreaOpen ? -0.05 : -0.1;
           return (
@@ -3405,8 +3403,6 @@ function TasarimClientContent({ isMobile }) {
               <EditorPanel
                 design={activeDesign}
                 updateDesign={updateActive}
-                loading={loading}
-                onAddToCartAll={handleAddToCartAll}
                 view={view}
                 isMobile={isMobile}
                 activeTab="editor"
