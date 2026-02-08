@@ -2962,17 +2962,17 @@ function TasarimClientContent({ isMobile }) {
             className="absolute z-[90] backdrop-blur-md rounded-2xl border border-gray-200 shadow-2xl overflow-hidden flex flex-col"
             style={{
               backgroundColor: "#f7f8fa",
-              left: isMobile ? "10px" : `${LEFT_PRINT_AREA_GAP}px`,
-              right: isMobile ? "10px" : undefined,
-              width: isMobile ? "auto" : `${LEFT_PRINT_AREA_WIDTH}px`,
-              maxWidth: isMobile ? "calc(100vw - 20px)" : undefined,
+              left: isMobile ? (hideMobileDrawerInEditor ? "12px" : "10px") : `${LEFT_PRINT_AREA_GAP}px`,
+              right: isMobile ? (hideMobileDrawerInEditor ? "auto" : "10px") : undefined,
+              width: isMobile ? (hideMobileDrawerInEditor ? "min(86vw, 340px)" : "auto") : `${LEFT_PRINT_AREA_WIDTH}px`,
+              maxWidth: isMobile ? (hideMobileDrawerInEditor ? "min(86vw, 340px)" : "calc(100vw - 20px)") : undefined,
               top: isMobile ? "auto" : "72px",
               bottom: isMobile
                 ? hideMobileDrawerInEditor
-                  ? "calc(env(safe-area-inset-bottom) + 12px)"
+                  ? "calc(env(safe-area-inset-bottom) + 4px)"
                   : `${Math.round(visibleDrawerHeight) + 48}px`
                 : `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
-              maxHeight: isMobile ? "58vh" : undefined,
+              maxHeight: isMobile ? (hideMobileDrawerInEditor ? "46vh" : "58vh") : undefined,
             }}
           >
             <div className={`${isMobile ? "p-3" : "p-4"} border-b border-gray-200 bg-white/85`}>
@@ -2995,7 +2995,7 @@ function TasarimClientContent({ isMobile }) {
               </div>
             </div>
             
-            <div className={`flex-1 overflow-y-auto overflow-x-visible ${isMobile ? "p-3" : "p-4"}`}>
+            <div className={`flex-1 ${isMobile ? "overflow-hidden p-3" : "overflow-y-auto overflow-x-visible p-4"}`}>
               <div
                 ref={previewRef}
                 className={`w-full rounded-xl border border-gray-300 relative overflow-hidden shadow-xl touch-none ${isMobile ? "min-h-[220px]" : "h-[56vh]"}`}
@@ -3004,6 +3004,7 @@ function TasarimClientContent({ isMobile }) {
                   backgroundColor: "#eef1f5",
                   aspectRatio: isMobile ? previewAspect : undefined,
                   height: isMobile ? "auto" : undefined,
+                  minHeight: isMobile ? "150px" : undefined,
                 }}
               >
                 {/* hafif grid */}
@@ -3101,7 +3102,7 @@ function TasarimClientContent({ isMobile }) {
 
               </div>
 
-              {activeLogo && (
+              {activeLogo && !isMobile && (
                   <div className={`mt-3 rounded-xl border border-zinc-700 bg-zinc-800/60 space-y-3 relative ${isMobile ? "p-2.5" : "p-3"}`}>
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">Görsel Ayarları</p>
@@ -3433,6 +3434,35 @@ function TasarimClientContent({ isMobile }) {
                 </div>
               )}
 
+              {activeLogo && isMobile && (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setActiveLogoLayer("front")}
+                    className="py-1.5 rounded-lg bg-zinc-700 text-white text-[10px] font-bold uppercase"
+                  >
+                    Öne Al
+                  </button>
+                  <button
+                    onClick={() => setActiveLogoLayer("back")}
+                    className="py-1.5 rounded-lg bg-zinc-700 text-white text-[10px] font-bold uppercase"
+                  >
+                    Arkaya Al
+                  </button>
+                  <button
+                    onClick={() => updateActiveLogoBox({ ...activeLogoBox, x: 0.5, y: 0.5 })}
+                    className="py-1.5 rounded-lg bg-zinc-700 text-white text-[10px] font-bold uppercase"
+                  >
+                    Ortala
+                  </button>
+                  <button
+                    onClick={() => updateActiveLogoBox({ x: 0.5, y: 0.6, w: 0.7, h: 0.45 })}
+                    className="py-1.5 rounded-lg bg-zinc-700 text-white text-[10px] font-bold uppercase"
+                  >
+                    Sıfırla
+                  </button>
+                </div>
+              )}
+
               <p className="text-[10px] text-zinc-500 mt-3">
                 İpucu: Görseli ortadan sürükle, köşelerden büyüt/küçült.
               </p>
@@ -3452,7 +3482,7 @@ function TasarimClientContent({ isMobile }) {
           const desktopShiftY = drawerOpen ? (isPrintAreaOpen ? "-18%" : "-12%") : "0%";
           const mobileScale = isPrintAreaOpen ? (drawerOpen ? 0.72 : 0.86) : drawerOpen ? 0.8 : 0.96;
           const mobileLeft = isPrintAreaOpen ? "60%" : drawerOpen ? "55%" : "57%";
-          const mobileShiftY = isPrintAreaOpen ? (drawerOpen ? "-22%" : "-18%") : drawerOpen ? "-14%" : "-8%";
+          const mobileShiftY = isPrintAreaOpen ? (drawerOpen ? "-24%" : "-20%") : drawerOpen ? "-14%" : "-8%";
           const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.35 : drawerOpen ? 2.2 : 1.95) : isPrintAreaOpen ? 2.35 : 2.2;
           const controlsTargetY = !isMobile ? (isPrintAreaOpen ? -0.12 : drawerOpen ? -0.2 : -0.1) : isPrintAreaOpen ? -0.05 : -0.1;
           return (
