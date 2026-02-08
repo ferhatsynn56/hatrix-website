@@ -2524,10 +2524,28 @@ function TasarimClientContent({ isMobile }) {
     if (!glRef.current || !sceneRef.current || !cameraRef.current) return null;
     setCaptureId(designId);
     setCaptureView(sideView);
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r))));
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     const gl = glRef.current;
     const scene = sceneRef.current;
     const camera = cameraRef.current;
+
+    // Capture sırasında kamerayı hedef yöne direkt koy; ön/arka mockup karışmasın.
+    const extra = Math.min(1.2, Math.max(0, (designs.length - 1) * 0.3));
+    const dist = 2.05 + extra;
+    const camPos =
+      sideView === "back"
+        ? new THREE.Vector3(0, 0.24, -dist)
+        : new THREE.Vector3(0, 0.24, dist);
+    camera.position.copy(camPos);
+    camera.lookAt(0, -0.08, 0);
+    camera.updateProjectionMatrix();
+
+    if (controlsRef.current) {
+      controlsRef.current.target.set(0, -0.08, 0);
+      controlsRef.current.update();
+    }
+
+    await new Promise((r) => requestAnimationFrame(r));
     gl.render(scene, camera);
     return gl.domElement.toDataURL("image/png");
   };
@@ -2988,6 +3006,8 @@ function TasarimClientContent({ isMobile }) {
                     onClick={() => {
                       setActiveTab("upload");
                       setForceEditorOverlay(false);
+                      setDrawerOpen(true);
+                      setDrawerMenuOpen(false);
                     }}
                     className="px-3 py-1.5 rounded-full bg-zinc-900 text-white text-[10px] font-bold uppercase tracking-wider"
                   >
