@@ -2616,6 +2616,7 @@ function TasarimClientContent({ isMobile }) {
   const lockToastTimerRef = useRef(null);
   const previewRef = useRef(null);
   const [isLogoDragging, setIsLogoDragging] = useState(false);
+  const drawerPressFromClosedRef = useRef(false);
 
   const toggleLockAspect = () => {
     setLockAspect((prev) => {
@@ -2650,6 +2651,7 @@ function TasarimClientContent({ isMobile }) {
   const logos = sideData?.logos || [];
   const customText = sideData?.customText || {};
   const activeLogo = logos.find(l => l.id === (sideData?.activeLogoId || logos[0]?.id));
+  const logoControlsLocked = lockAspect;
   const isPrintAreaOpen = activeTab === "editor";
   const activeLogoBox = activeLogo?.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
   const activeLogoFx = getLogoStyle(activeLogo);
@@ -3155,6 +3157,11 @@ function TasarimClientContent({ isMobile }) {
       openDrawer();
     } else {
       closeDrawer();
+    }
+    if (drawerPressFromClosedRef.current) {
+      setTimeout(() => {
+        drawerPressFromClosedRef.current = false;
+      }, 0);
     }
   };
 
@@ -3760,10 +3767,15 @@ function TasarimClientContent({ isMobile }) {
                           min="0"
                           step="0.1"
                           value={cmInputW}
+                          disabled={logoControlsLocked}
                           onChange={(e) => {
                             setCmInputW(sanitizeCmInput(e.target.value));
                           }}
-                          className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 px-2 py-1 text-[11px] text-white"
+                          className={`w-full rounded-md border px-2 py-1 text-[11px] ${
+                            logoControlsLocked
+                              ? "border-zinc-700 bg-zinc-800/60 text-zinc-500 cursor-not-allowed"
+                              : "border-zinc-600 bg-zinc-900/60 text-white"
+                          }`}
                           onFocus={() => setIsEditingCmW(true)}
                           onBlur={() => {
                             setIsEditingCmW(false);
@@ -3788,10 +3800,15 @@ function TasarimClientContent({ isMobile }) {
                           min="0"
                           step="0.1"
                           value={cmInputH}
+                          disabled={logoControlsLocked}
                           onChange={(e) => {
                             setCmInputH(sanitizeCmInput(e.target.value));
                           }}
-                          className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 px-2 py-1 text-[11px] text-white"
+                          className={`w-full rounded-md border px-2 py-1 text-[11px] ${
+                            logoControlsLocked
+                              ? "border-zinc-700 bg-zinc-800/60 text-zinc-500 cursor-not-allowed"
+                              : "border-zinc-600 bg-zinc-900/60 text-white"
+                          }`}
                           onFocus={() => setIsEditingCmH(true)}
                           onBlur={() => {
                             setIsEditingCmH(false);
@@ -3822,8 +3839,9 @@ function TasarimClientContent({ isMobile }) {
                       max={1 - activeLogoBox.w / 2}
                       step="0.005"
                       value={activeLogoBox.x}
+                      disabled={logoControlsLocked}
                       onChange={(e) => updateActiveLogoBox({ ...activeLogoBox, x: Number(e.target.value) })}
-                      className="w-full accent-cyan-300"
+                      className={`w-full accent-cyan-300 ${logoControlsLocked ? "opacity-50 cursor-not-allowed" : ""}`}
                     />
                   </div>
 
@@ -3838,8 +3856,9 @@ function TasarimClientContent({ isMobile }) {
                       max={1 - activeLogoBox.h / 2}
                       step="0.005"
                       value={activeLogoBox.y}
+                      disabled={logoControlsLocked}
                       onChange={(e) => updateActiveLogoBox({ ...activeLogoBox, y: Number(e.target.value) })}
-                      className="w-full accent-cyan-300"
+                      className={`w-full accent-cyan-300 ${logoControlsLocked ? "opacity-50 cursor-not-allowed" : ""}`}
                     />
                   </div>
 
@@ -3854,8 +3873,9 @@ function TasarimClientContent({ isMobile }) {
                       max="0.95"
                       step="0.005"
                       value={activeLogoBox.w}
+                      disabled={logoControlsLocked}
                       onChange={(e) => updateActiveLogoBox({ ...activeLogoBox, w: Number(e.target.value) })}
-                      className="w-full accent-cyan-300"
+                      className={`w-full accent-cyan-300 ${logoControlsLocked ? "opacity-50 cursor-not-allowed" : ""}`}
                     />
                   </div>
 
@@ -3870,8 +3890,9 @@ function TasarimClientContent({ isMobile }) {
                       max="0.95"
                       step="0.005"
                       value={activeLogoBox.h}
+                      disabled={logoControlsLocked}
                       onChange={(e) => updateActiveLogoBox({ ...activeLogoBox, h: Number(e.target.value) })}
-                      className="w-full accent-cyan-300"
+                      className={`w-full accent-cyan-300 ${logoControlsLocked ? "opacity-50 cursor-not-allowed" : ""}`}
                     />
                   </div>
 
@@ -3886,25 +3907,36 @@ function TasarimClientContent({ isMobile }) {
                       max="180"
                       step="5"
                       value={activeLogo?.rotation || 0}
+                      disabled={logoControlsLocked}
                       onChange={(e) => {
                         const raw = Number(e.target.value);
                         const snapped = Math.round(raw / 5) * 5;
                         updateActiveLogo({ rotation: snapped });
                       }}
-                      className="w-full accent-cyan-300"
+                      className={`w-full accent-cyan-300 ${logoControlsLocked ? "opacity-50 cursor-not-allowed" : ""}`}
                     />
                   </div>
 
                   <div className="flex gap-2">
                     <button
+                      disabled={logoControlsLocked}
                       onClick={() => setActiveLogoLayer("front")}
-                      className="flex-1 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-[10px] font-bold uppercase"
+                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${
+                        logoControlsLocked
+                          ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                          : "bg-zinc-700 hover:bg-zinc-600"
+                      }`}
                     >
                       Öne Al
                     </button>
                     <button
+                      disabled={logoControlsLocked}
                       onClick={() => setActiveLogoLayer("back")}
-                      className="flex-1 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-[10px] font-bold uppercase"
+                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${
+                        logoControlsLocked
+                          ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                          : "bg-zinc-700 hover:bg-zinc-600"
+                      }`}
                     >
                       Arkaya Al
                     </button>
@@ -3912,14 +3944,24 @@ function TasarimClientContent({ isMobile }) {
 
                   <div className="flex gap-2">
                     <button
+                      disabled={logoControlsLocked}
                       onClick={() => updateActiveLogoBox({ ...activeLogoBox, x: 0.5, y: 0.5 })}
-                      className="flex-1 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-[10px] font-bold uppercase"
+                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${
+                        logoControlsLocked
+                          ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                          : "bg-zinc-700 hover:bg-zinc-600"
+                      }`}
                     >
                       Ortala
                     </button>
                     <button
+                      disabled={logoControlsLocked}
                       onClick={() => updateActiveLogoBox({ x: 0.5, y: 0.6, w: 0.7, h: 0.45 })}
-                      className="flex-1 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-[10px] font-bold uppercase"
+                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${
+                        logoControlsLocked
+                          ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                          : "bg-zinc-700 hover:bg-zinc-600"
+                      }`}
                     >
                       Sıfırla
                     </button>
@@ -4332,20 +4374,30 @@ function TasarimClientContent({ isMobile }) {
                 className={`relative px-3 border-b border-gray-300/80 bg-[#eceff3] ${
                   drawerOpen ? "pt-12 pb-2" : "pt-7 pb-3"
                 }`}
+                onPointerDown={(e) => {
+                  if (!isMobile || drawerOpen) return;
+                  onDrawerPointerDown(e);
+                }}
               >
                 <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-gray-400/80" />
-                {isMobile && !drawerOpen && (
-                  <div
-                    onPointerDown={onDrawerPointerDown}
-                    className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 w-24 h-10 z-30 cursor-ns-resize touch-none"
-                    aria-hidden
-                  />
-                )}
                 <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 w-20 h-1.5 rounded-full bg-gray-500/75" />
                 <button
-                  onPointerDown={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => {
+                    if (isMobile && !drawerOpen) {
+                      drawerPressFromClosedRef.current = true;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onDrawerPointerDown(e);
+                      return;
+                    }
+                    e.stopPropagation();
+                  }}
                   onClick={(e) => {
                     e.stopPropagation();
+                    if (drawerPressFromClosedRef.current) {
+                      drawerPressFromClosedRef.current = false;
+                      return;
+                    }
                     toggleDrawer();
                   }}
                   className="absolute left-1/2 top-1 -translate-x-1/2 w-11 h-11 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center z-40 shadow-[0_10px_30px_rgba(0,0,0,0.22)]"
