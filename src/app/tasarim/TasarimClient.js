@@ -3006,7 +3006,7 @@ function TasarimClientContent({ isMobile }) {
                     onClick={() => {
                       setActiveTab("upload");
                       setForceEditorOverlay(false);
-                      setDrawerOpen(true);
+                      setDrawerOpen(false);
                       setDrawerMenuOpen(false);
                     }}
                     className="px-3 py-1.5 rounded-full bg-zinc-900 text-white text-[10px] font-bold uppercase tracking-wider"
