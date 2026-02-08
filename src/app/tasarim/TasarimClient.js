@@ -2870,9 +2870,9 @@ function TasarimClientContent({ isMobile }) {
               maxWidth: isMobile ? "calc(100vw - 20px)" : undefined,
               top: isMobile ? "auto" : "72px",
               bottom: isMobile
-                ? `${Math.round(visibleDrawerHeight) + 24}px`
+                ? `${Math.round(visibleDrawerHeight) + 32}px`
                 : `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
-              maxHeight: isMobile ? "36vh" : undefined,
+              maxHeight: isMobile ? "42vh" : undefined,
             }}
           >
             <div className={`${isMobile ? "p-3" : "p-4"} border-b border-gray-200 bg-white/85`}>
@@ -2883,7 +2883,7 @@ function TasarimClientContent({ isMobile }) {
             <div className={`flex-1 overflow-y-auto overflow-x-visible ${isMobile ? "p-3" : "p-4"}`}>
               <div
                 ref={previewRef}
-                className={`w-full rounded-xl border border-gray-300 relative overflow-hidden shadow-xl touch-none ${isMobile ? "h-[20vh] min-h-[165px]" : "h-[56vh]"}`}
+                className={`w-full rounded-xl border border-gray-300 relative overflow-hidden shadow-xl touch-none ${isMobile ? "h-[26vh] min-h-[220px]" : "h-[56vh]"}`}
                 style={{ touchAction: "none", backgroundColor: "#eef1f5" }}
               >
                 {/* hafif grid */}
@@ -3331,8 +3331,8 @@ function TasarimClientContent({ isMobile }) {
           const desktopTop = "50%";
           const desktopShiftY = drawerOpen ? (isPrintAreaOpen ? "-18%" : "-12%") : "0%";
           const mobileScale = isPrintAreaOpen ? (drawerOpen ? 0.72 : 0.86) : drawerOpen ? 0.8 : 0.96;
-          const mobileLeft = "50%";
-          const mobileShiftY = isPrintAreaOpen ? "-7%" : "-5%";
+          const mobileLeft = "52%";
+          const mobileShiftY = isPrintAreaOpen ? "-8%" : "-6%";
           const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.35 : drawerOpen ? 2.2 : 1.95) : isPrintAreaOpen ? 2.35 : 2.2;
           const controlsTargetY = !isMobile ? (isPrintAreaOpen ? -0.12 : drawerOpen ? -0.2 : -0.1) : isPrintAreaOpen ? -0.05 : -0.1;
           return (
