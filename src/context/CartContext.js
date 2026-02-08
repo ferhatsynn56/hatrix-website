@@ -168,20 +168,15 @@ export function CartProvider({ children }) {
     return cart.reduce((sum, it) => sum + Number(it.price || 0) * Number(it.quantity || 1), 0);
   }, [cart]);
 
-  /**
-   * ✅ Siparişi tamamla:
-   * - Cart içindeki görselleri storage'a upload eder (printFiles, mockupFiles, userUploads, item.image)
-   * - Firestore "siparisler" koleksiyonuna yazar
-   */
-  const completeOrder = async (customer) => {
-    if (!cart.length) throw new Error("Cart is empty");
-
+  const completeOrderWithItems = async (sourceItems, customer) => {
+    const itemsToProcess = Array.isArray(sourceItems) ? sourceItems : [];
+    if (!itemsToProcess.length) throw new Error("Cart is empty");
     const orderIdSeed = `order_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
     // Upload + normalize items
     const normalizedItems = [];
-    for (let idx = 0; idx < cart.length; idx++) {
-      const item = cart[idx];
+    for (let idx = 0; idx < itemsToProcess.length; idx++) {
+      const item = itemsToProcess[idx];
       const dd = item.designDetails || {};
 
       // 1) upload preview image (item.image)
@@ -199,7 +194,12 @@ export function CartProvider({ children }) {
         ? await uploadObjectOfImages(dd.mockupFiles, `orders/${orderIdSeed}/items/${idx}/mockup`)
         : {};
 
-      // 4) upload userUploads (ham görseller)
+      // 4) upload textFiles (sadece yazı çıktıları)
+      const uploadedTextFiles = dd.textFiles
+        ? await uploadObjectOfImages(dd.textFiles, `orders/${orderIdSeed}/items/${idx}/text`)
+        : {};
+
+      // 5) upload userUploads (ham görseller)
       let uploadedUserUploads = [];
       if (Array.isArray(dd.userUploads) && dd.userUploads.length) {
         uploadedUserUploads = [];
@@ -211,7 +211,7 @@ export function CartProvider({ children }) {
         }
       }
 
-      // 5) upload adjustedUploads (kullanıcının son ayarladığı görseller)
+      // 6) upload adjustedUploads (kullanıcının son ayarladığı görseller)
       const uploadedAdjustedUploads = dd.adjustedUploads
         ? await uploadNestedUploads(dd.adjustedUploads, `orders/${orderIdSeed}/items/${idx}/adjusted`)
         : {};
@@ -222,6 +222,7 @@ export function CartProvider({ children }) {
             baseColor: dd.baseColor,
             stringColor: dd.stringColor,
             printFiles: uploadedPrintFiles,
+            textFiles: uploadedTextFiles,
             mockupFiles: uploadedMockupFiles,
             userUploads: uploadedUserUploads,
             adjustedUploads: uploadedAdjustedUploads,
@@ -246,11 +247,18 @@ export function CartProvider({ children }) {
     const safeOrderDoc = sanitizeForFirestore(orderDoc);
     const docRef = await addDoc(collection(db, "siparisler"), safeOrderDoc);
 
-    // sipariş tamam
+    return { success: true, orderId: docRef.id };
+  };
+
+  /**
+   * ✅ Siparişi tamamla:
+   * - Cart içindeki görselleri storage'a upload eder
+   * - Firestore "siparisler" koleksiyonuna yazar
+   */
+  const completeOrder = async (customer) => {
+    const result = await completeOrderWithItems(cart, customer);
     clearCart();
-    
-    // ✅ DÜZELTME: page.js'in beklediği formatta obje dönüyoruz
-    return { success: true, orderId: docRef.id }; 
+    return result;
   };
 
   return (
@@ -262,6 +270,7 @@ export function CartProvider({ children }) {
         removeFromCart,
         clearCart,
         completeOrder,
+        completeOrderWithItems,
       }}
     >
       {children}

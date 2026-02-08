@@ -40,7 +40,7 @@ import {
 
 import * as THREE from "three";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
-import { useCart } from "@/context/CartContext";
+import { setCheckoutData } from "@/lib/checkoutStore";
 
 /* ================= LOADER (SUSPENSE FALLBACK) ================= */
 function ThreeDotsLoader() {
@@ -493,6 +493,48 @@ async function makePrintDataUrl(sideData, opts = {}) {
   return c.toDataURL("image/png");
 }
 
+/* ================= TEXT-ONLY EXPORT (PER SIDE) ================= */
+async function makeTextDataUrl(sideData, opts = {}) {
+  const t = sideData?.customText || {};
+  const textPos = sideData?.textPos || { x: 0.5, y: 0.85 };
+  if (!(t.text || "").trim()) return null;
+
+  const SIZE = 2048;
+  const c = document.createElement("canvas");
+  c.width = SIZE;
+  c.height = SIZE;
+  const ctx = c.getContext("2d");
+  if (!ctx) return null;
+
+  ctx.clearRect(0, 0, SIZE, SIZE);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+
+  const fontSize = clamp(parseInt(t.size || 150, 10), 30, 420) * (SIZE / 1024);
+  ctx.save();
+  ctx.translate(textPos.x * SIZE, textPos.y * SIZE);
+  ctx.scale(clamp(t.scaleX || 1, 0.3, 3), clamp(t.scaleY || 1, 0.3, 3));
+  ctx.font = `900 ${fontSize}px ${t.font || FONT_OPTIONS[0].value}`;
+  ctx.fillStyle = t.color || "#ffffff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(t.text, 0, 0);
+  ctx.restore();
+
+  const gap01 = opts?.clearCenterStripe01;
+  if (gap01) {
+    const stripeW = Math.round(SIZE * gap01);
+    const x0 = SIZE / 2 - stripeW / 2;
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.fillStyle = "rgba(0,0,0,1)";
+    ctx.fillRect(x0, 0, stripeW, SIZE);
+    ctx.restore();
+  }
+
+  return c.toDataURL("image/png");
+}
+
 /* ================= ADJUSTED LOGO EXPORT (PER LOGO) ================= */
 async function makeAdjustedLogoDataUrls(sideData) {
   const logos = sideData?.logos || [];
@@ -805,14 +847,15 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, v
   const bodyMaterial = useMemo(() => {
     const base = new THREE.Color(color || BRAND_DEFAULT_COLOR);
     const lum = 0.2126 * base.r + 0.7152 * base.g + 0.0722 * base.b;
-    const boost = clamp((0.35 - lum) / 0.35, 0, 1);
+    const darkBoost = clamp((0.42 - lum) / 0.42, 0, 1);
 
     return new THREE.MeshStandardMaterial({
       color: base,
-      roughness: 0.9 - 0.18 * boost,
-      metalness: 0.03 + 0.08 * boost,
+      // Keep a fabric feel: high roughness, very low metalness.
+      roughness: 0.97 - 0.08 * darkBoost,
+      metalness: 0.01 + 0.03 * darkBoost,
       emissive: base,
-      emissiveIntensity: 0.12 * boost,
+      emissiveIntensity: 0.01 + 0.025 * darkBoost,
       side: THREE.FrontSide,
     });
   }, [color]);
@@ -2134,7 +2177,6 @@ export default function TasarimClient() {
 
 /* ================= CONTENT ================= */
 function TasarimClientContent({ isMobile }) {
-  const { addToCart } = useCart();
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -2187,6 +2229,20 @@ function TasarimClientContent({ isMobile }) {
   const sideLabel = currentSide === "front" ? "ÖN" : "ARKA";
   const sideData = currentActiveDesign?.sides?.[currentSide] || {};
   const printCm = CM_LABELS[currentActiveDesign?.modelType]?.[currentSide] || { w: 0, h: 0 };
+  const printBounds = useMemo(() => {
+    const modelType = currentActiveDesign?.modelType || "tshirt";
+    const side = currentSide === "back" ? "back" : "front";
+    return MODEL_PRINT_BOUNDS[modelType]?.[side] || MODEL_PRINT_BOUNDS.tshirt[side];
+  }, [currentActiveDesign?.modelType, currentSide]);
+  const previewAspect = useMemo(() => {
+    if (printBounds) {
+      const w = printBounds.xMax - printBounds.xMin;
+      const h = printBounds.yTop - printBounds.yBot;
+      if (w > 0 && h > 0) return clamp(w / h, 0.55, 0.9);
+    }
+    if (printCm?.w && printCm?.h) return clamp(printCm.w / printCm.h, 0.55, 0.9);
+    return 0.8;
+  }, [printBounds, printCm?.w, printCm?.h]);
   const logos = sideData?.logos || [];
   const customText = sideData?.customText || {};
   const activeLogo = logos.find(l => l.id === (sideData?.activeLogoId || logos[0]?.id));
@@ -2476,7 +2532,7 @@ function TasarimClientContent({ isMobile }) {
     return gl.domElement.toDataURL("image/png");
   };
 
-  const handleAddToCartAll = async () => {
+  const handleFinishCheckout = async () => {
     const hasAnyContent = designs.some((d) => Object.values(d.sides).some((sd) => hasSideContent(sd)));
     if (!hasAnyContent) {
       alert("Lütfen en az bir üründe (ÖN/ARKA) logo/yazı ekleyin.");
@@ -2485,27 +2541,42 @@ function TasarimClientContent({ isMobile }) {
 
     setLoading(true);
     try {
+      const checkoutDesigns = [];
+
       for (const d of designs) {
         const activeSides = getActiveSides(d);
         if (activeSides.length === 0) continue;
 
-        const printFiles = {};
-        const adjustedUploads = {};
-        for (const [sideKey, sideData] of activeSides) {
-          if (d.modelType === "fermuarli" && sideKey === "front") {
-            const g = MODEL_PRINT_BOUNDS.fermuarli.front.zipGap01 ?? 0.08;
-            // eslint-disable-next-line no-await-in-loop
-            printFiles[sideKey] = await makePrintDataUrl(sideData, { clearCenterStripe01: g });
-          } else {
-            // eslint-disable-next-line no-await-in-loop
-            printFiles[sideKey] = await makePrintDataUrl(sideData);
-          }
-          // eslint-disable-next-line no-await-in-loop
-          adjustedUploads[sideKey] = await makeAdjustedLogoDataUrls(sideData);
-        }
-
         const mockupFiles = {};
+        const printFiles = {};
+        const textFiles = {};
+        const adjustedUploads = {};
+        const userUploadsSet = new Set();
+
         for (const [sideKey] of activeSides) {
+          const sd = d.sides?.[sideKey] || EMPTY_SIDE;
+          const zipperGap =
+            d.modelType === "fermuarli" && sideKey === "front"
+              ? MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0
+              : 0;
+          const exportOpts = zipperGap ? { clearCenterStripe01: zipperGap } : {};
+
+          // eslint-disable-next-line no-await-in-loop
+          const printData = await makePrintDataUrl(sd, exportOpts);
+          if (printData) printFiles[sideKey] = printData;
+
+          // eslint-disable-next-line no-await-in-loop
+          const textData = await makeTextDataUrl(sd, exportOpts);
+          if (textData) textFiles[sideKey] = textData;
+
+          // eslint-disable-next-line no-await-in-loop
+          const adjustedList = await makeAdjustedLogoDataUrls(sd);
+          if (adjustedList.length) adjustedUploads[sideKey] = adjustedList;
+
+          for (const l of sd.logos || []) {
+            if (l?.url) userUploadsSet.add(l.url);
+          }
+
           // eslint-disable-next-line no-await-in-loop
           mockupFiles[sideKey] = await captureMockupForSide(d.id, sideKey);
         }
@@ -2515,30 +2586,55 @@ function TasarimClientContent({ isMobile }) {
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
         const previewMockup = mockupFiles.front || mockupFiles[activeSides[0][0]] || null;
-        const cartItemId = `cart_${d.id}_${Date.now()}`;
-
-        addToCart({
-          id: cartItemId,
-          name: `Özel Tasarım — ${(MODEL_LABELS[d.modelType] || d.modelType).toUpperCase()}`,
+        const orderItem = {
+          id: `${d.id}-${Date.now()}`,
+          name: MODEL_LABELS[d.modelType] || d.modelType,
           price: getPrice(d),
           size: d.size,
-          image: previewMockup,
           color: d.color,
+          quantity: 1,
+          image: previewMockup,
           designDetails: {
             model: d.modelType,
             baseColor: d.color,
             stringColor: d.stringColor,
             printFiles,
+            textFiles,
             mockupFiles,
+            userUploads: Array.from(userUploadsSet),
             adjustedUploads,
             sides: d.sides,
           },
+        };
+
+        checkoutDesigns.push({
+          id: orderItem.id,
+          modelType: d.modelType,
+          name: orderItem.name,
+          color: d.color,
+          size: d.size,
+          price: orderItem.price,
+          preview: previewMockup,
+          image: previewMockup,
+          printFiles,
+          textFiles,
+          mockupFiles,
+          userUploads: Array.from(userUploadsSet),
+          adjustedUploads,
+          designDetails: orderItem.designDetails,
         });
       }
 
-      router.push("/");
+      const totalPrice = checkoutDesigns.reduce((sum, item) => sum + (item.price || 0), 0);
+      setCheckoutData({
+        createdAt: Date.now(),
+        designs: checkoutDesigns,
+        totalPrice,
+      });
+
+      router.push("/siparis");
     } catch (err) {
-      console.error("Sepete ekle hata:", err);
+      console.error("Siparis sayfasi hazirlanamadi:", err);
       alert("Bir hata oluştu. Lütfen tekrar deneyin.");
     } finally {
       setLoading(false);
@@ -2553,8 +2649,9 @@ function TasarimClientContent({ isMobile }) {
     const calc = () => {
       const zoomButtonTop = activeTab === "editor" ? 182 : 238;
       const zoomButtonApproxHeight = 86;
+      const extraOffset = isPrintAreaOpen ? 30 : 10;
       const drawerTopLimit = zoomButtonTop + zoomButtonApproxHeight + 8;
-      const maxByZoomReference = Math.max(280, window.innerHeight - drawerTopLimit);
+      const maxByZoomReference = Math.max(280, window.innerHeight - drawerTopLimit - extraOffset);
       const h = clamp(Math.min(window.innerHeight * 0.72, 560), 280, maxByZoomReference);
       const maxClosed = Math.max(0, h - DRAWER_PEEK);
       setDrawerHeight(h);
@@ -2674,13 +2771,13 @@ function TasarimClientContent({ isMobile }) {
 
         <div className="flex items-center gap-2 pointer-events-auto">
           <button
-            onClick={handleAddToCartAll}
+            onClick={handleFinishCheckout}
             disabled={loading}
             className={`px-4 py-2 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${
               loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
             }`}
           >
-            {loading ? "HAZIRLANIYOR..." : "SEPETE EKLE"}
+            {loading ? "HAZIRLANIYOR..." : "BİTTİ"}
           </button>
         </div>
       </div>
@@ -2870,21 +2967,41 @@ function TasarimClientContent({ isMobile }) {
               maxWidth: isMobile ? "calc(100vw - 20px)" : undefined,
               top: isMobile ? "auto" : "72px",
               bottom: isMobile
-                ? `${Math.round(visibleDrawerHeight) + 32}px`
+                ? `${Math.round(visibleDrawerHeight) + 48}px`
                 : `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
-              maxHeight: isMobile ? "42vh" : undefined,
+              maxHeight: isMobile ? "50vh" : undefined,
             }}
           >
             <div className={`${isMobile ? "p-3" : "p-4"} border-b border-gray-200 bg-white/85`}>
-              <h3 className="text-xs font-black uppercase tracking-widest text-gray-900">Yerleşim Ayarı</h3>
-              <p className="text-[10px] text-gray-500 mt-1">{sideLabel}</p>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-gray-900">Yerleşim Ayarı</h3>
+                  <p className="text-[10px] text-gray-500 mt-1">{sideLabel}</p>
+                </div>
+                {isMobile && (
+                  <button
+                    onClick={() => {
+                      setActiveTab("upload");
+                      setForceEditorOverlay(false);
+                    }}
+                    className="px-3 py-1.5 rounded-full bg-zinc-900 text-white text-[10px] font-bold uppercase tracking-wider"
+                  >
+                    Tamam
+                  </button>
+                )}
+              </div>
             </div>
             
             <div className={`flex-1 overflow-y-auto overflow-x-visible ${isMobile ? "p-3" : "p-4"}`}>
               <div
                 ref={previewRef}
-                className={`w-full rounded-xl border border-gray-300 relative overflow-hidden shadow-xl touch-none ${isMobile ? "h-[26vh] min-h-[220px]" : "h-[56vh]"}`}
-                style={{ touchAction: "none", backgroundColor: "#eef1f5" }}
+                className={`w-full rounded-xl border border-gray-300 relative overflow-hidden shadow-xl touch-none ${isMobile ? "min-h-[220px]" : "h-[56vh]"}`}
+                style={{
+                  touchAction: "none",
+                  backgroundColor: "#eef1f5",
+                  aspectRatio: isMobile ? previewAspect : undefined,
+                  height: isMobile ? "auto" : undefined,
+                }}
               >
                 {/* hafif grid */}
                 <div
@@ -3331,8 +3448,8 @@ function TasarimClientContent({ isMobile }) {
           const desktopTop = "50%";
           const desktopShiftY = drawerOpen ? (isPrintAreaOpen ? "-18%" : "-12%") : "0%";
           const mobileScale = isPrintAreaOpen ? (drawerOpen ? 0.72 : 0.86) : drawerOpen ? 0.8 : 0.96;
-          const mobileLeft = "52%";
-          const mobileShiftY = isPrintAreaOpen ? "-8%" : "-6%";
+          const mobileLeft = isPrintAreaOpen ? "58%" : drawerOpen ? "55%" : "57%";
+          const mobileShiftY = isPrintAreaOpen ? (drawerOpen ? "-18%" : "-14%") : drawerOpen ? "-12%" : "-6%";
           const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.35 : drawerOpen ? 2.2 : 1.95) : isPrintAreaOpen ? 2.35 : 2.2;
           const controlsTargetY = !isMobile ? (isPrintAreaOpen ? -0.12 : drawerOpen ? -0.2 : -0.1) : isPrintAreaOpen ? -0.05 : -0.1;
           return (
@@ -3367,7 +3484,7 @@ function TasarimClientContent({ isMobile }) {
             gl.setClearColor(bgColor, 1);
             gl.outputColorSpace = THREE.SRGBColorSpace;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
-            gl.toneMappingExposure = 0.9;
+            gl.toneMappingExposure = 0.95;
           }}
           camera={{ position: [0, 0.36, 2.34], fov: isMobile ? (isPrintAreaOpen ? 38 : 34) : 30 }}
           shadows={!isMobile}
@@ -3375,15 +3492,15 @@ function TasarimClientContent({ isMobile }) {
           <SceneBackgroundLock />
 
           <ambientLight intensity={0.9} />
-          <hemisphereLight intensity={0.35} groundColor={"#1a1a1a"} />
+          <hemisphereLight intensity={0.4} groundColor={"#1f1f1f"} />
           <directionalLight
             position={[6, 10, 8]}
-            intensity={0.9}
+            intensity={0.92}
             castShadow={!isMobile}
             shadow-mapSize-width={perf.shadowMap}
             shadow-mapSize-height={perf.shadowMap}
           />
-          <directionalLight position={[-6, 6, -6]} intensity={0.35} />
+          <directionalLight position={[-6, 6, -6]} intensity={0.38} />
           <pointLight position={[0, 2.6, 2.2]} intensity={0.3} />
           {!isMobile && <ContactShadows position={[0, -1.4, 0]} opacity={0.16} scale={7} blur={2.2} far={3.2} />}
 

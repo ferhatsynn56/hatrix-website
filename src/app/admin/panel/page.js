@@ -325,6 +325,7 @@ export default function AdminOrdersPage() {
 
                           const mockupFiles = dd.mockupFiles || {};
                           const printFiles = dd.printFiles || {};
+                          const textFiles = dd.textFiles || {};
                           const adjustedUploads = dd.adjustedUploads || {};
 
                           // ✅ userUploads yoksa sides’tan otomatik çıkar
@@ -422,6 +423,39 @@ export default function AdminOrdersPage() {
                                       <p className="text-xs text-zinc-500 italic">
                                         Baskı dosyası bulunamadı. (Tasarım sayfasında `printFiles` oluşmuyor olabilir.)
                                       </p>
+                                    )}
+                                  </div>
+
+                                  {/* A.3) Text-only */}
+                                  <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
+                                    <div className="flex items-center gap-2 mb-3 text-cyan-300">
+                                      <ImageIcon size={16} />
+                                      <h5 className="text-xs font-black uppercase tracking-wider">
+                                        Yazı Dosyaları (Sadece Metin)
+                                      </h5>
+                                    </div>
+
+                                    {Object.keys(textFiles).length > 0 ? (
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                        {Object.entries(textFiles).map(([side, url]) => (
+                                          <div key={side} className="bg-black border border-zinc-700 rounded-lg p-2 text-center">
+                                            <div className="aspect-square mb-2 rounded overflow-hidden bg-zinc-800 flex items-center justify-center">
+                                              <img src={url} className="max-w-full max-h-full object-contain" alt="" />
+                                            </div>
+                                            <p className="text-[10px] font-bold uppercase text-zinc-400 mb-2">{side}</p>
+                                            <button
+                                              onClick={() =>
+                                                downloadByUrl(url, `YAZI_${orderShort}_${itemName}_${side}.png`)
+                                              }
+                                              className="w-full bg-cyan-900/30 hover:bg-cyan-600 text-cyan-300 hover:text-white border border-cyan-800/50 rounded py-1.5 text-[10px] font-bold transition flex items-center justify-center gap-1"
+                                            >
+                                              <Download size={10} /> İNDİR
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-zinc-500 italic">Yazı dosyası yok.</p>
                                     )}
                                   </div>
 

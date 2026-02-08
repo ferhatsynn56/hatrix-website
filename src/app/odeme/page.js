@@ -6,12 +6,14 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, CreditCard, ShieldCheck, ShoppingBag, MapPin, Phone, User, Lock, AlertCircle, Loader2 } from 'lucide-react';
 // Context Bağlantısı (EN ÖNEMLİ KISIM)
 import { useCart } from '@/context/CartContext';
+import { getCheckoutData, clearCheckoutData } from '@/lib/checkoutStore';
 
 export default function OdemeSayfasi() {
   const router = useRouter();
   
   // Context'ten verileri çekiyoruz
-  const { cart, user, completeOrder } = useCart();
+  const { cart, user, completeOrder, completeOrderWithItems, clearCart } = useCart();
+  const [checkoutItems, setCheckoutItems] = useState([]);
   
   const [yukleniyor, setYukleniyor] = useState(true);
   const [islemSuruyor, setIslemSuruyor] = useState(false);
@@ -30,10 +32,30 @@ export default function OdemeSayfasi() {
 
   // Sayfa Yüklenince
   useEffect(() => {
-    // Sepet boşsa anasayfaya at
-    if (cart.length === 0) {
-       // router.push('/'); // Test ederken zorluk çıkarmaması için kapattım, istersen açabilirsin.
-    }
+    const payload = getCheckoutData();
+    const parsedCheckoutItems = Array.isArray(payload?.designs)
+      ? payload.designs.map((d, idx) => ({
+          id: d.id || `checkout_${idx}`,
+          name: d.name || `Tasarım ${idx + 1}`,
+          price: Number(d.price || 0),
+          size: d.size || "M",
+          color: d.color || "#000000",
+          quantity: 1,
+          image: d.image || d.preview || d.mockupFiles?.front || null,
+          designDetails: d.designDetails || {
+            model: d.modelType || "tshirt",
+            baseColor: d.color || "#000000",
+            stringColor: d.stringColor || "#e6e6e6",
+            printFiles: d.printFiles || {},
+            textFiles: d.textFiles || {},
+            mockupFiles: d.mockupFiles || {},
+            userUploads: Array.isArray(d.userUploads) ? d.userUploads : [],
+            adjustedUploads: d.adjustedUploads || {},
+            sides: d.sides || {},
+          },
+        }))
+      : [];
+    setCheckoutItems(parsedCheckoutItems);
 
     // Kullanıcı varsa ismini doldur
     if (user) {
@@ -43,7 +65,12 @@ export default function OdemeSayfasi() {
     setYukleniyor(false);
   }, [cart, user, router]);
 
-  const sepetToplami = cart.reduce((total, item) => total + Number(item.price), 0);
+  const sourceItems = cart.length > 0 ? cart : checkoutItems;
+
+  const sepetToplami = sourceItems.reduce(
+    (total, item) => total + Number(item.price || 0) * Number(item.quantity || 1),
+    0
+  );
 
   // KART FORMATLAMA (0000 0000 0000 0000)
   const kartNoFormatla = (value) => {
@@ -81,10 +108,18 @@ export default function OdemeSayfasi() {
             odemeYontemi: "Kredi Kartı"
         };
 
-        const sonuc = await completeOrder(musteriBilgileri);
+        const usingCheckoutFlow = cart.length === 0 && checkoutItems.length > 0;
+        const sonuc = usingCheckoutFlow
+          ? await completeOrderWithItems(checkoutItems, musteriBilgileri)
+          : await completeOrder(musteriBilgileri);
+
+        if (usingCheckoutFlow) setCheckoutItems([]);
+        clearCheckoutData();
+        clearCart();
 
         
         console.log("completeOrder sonucu:", sonuc);
+        router.push('/');
 
     } catch (error) {
         console.error("Ödeme hatası:", error);
@@ -208,10 +243,10 @@ export default function OdemeSayfasi() {
                     </h2>
                     
                     <div className="space-y-4 mb-6 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
-                        {cart.length === 0 ? (
+                        {sourceItems.length === 0 ? (
                             <p className="text-sm text-gray-400 text-center py-4">Sepetiniz boş.</p>
                         ) : (
-                            cart.map((urun, index) => (
+                            sourceItems.map((urun, index) => (
                                 <div key={index} className="flex gap-3">
                                     <div className="w-14 h-14 rounded-lg bg-gray-100 overflow-hidden border border-gray-200 flex-shrink-0">
                                         <img src={urun.image || "https://placehold.co/100x100"} className="w-full h-full object-cover" alt=""/>
@@ -251,7 +286,7 @@ export default function OdemeSayfasi() {
 
                     <button 
                         onClick={odemeyiTamamla}
-                        disabled={islemSuruyor || cart.length === 0}
+                        disabled={islemSuruyor || sourceItems.length === 0}
                         className="w-full bg-black text-white py-4 rounded-xl font-bold shadow-lg hover:bg-gray-800 transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                         {islemSuruyor ? (
