@@ -2870,7 +2870,7 @@ function TasarimClientContent({ isMobile }) {
               maxWidth: isMobile ? "calc(100vw - 20px)" : undefined,
               top: isMobile ? "auto" : "72px",
               bottom: isMobile
-                ? `${Math.round(visibleDrawerHeight) + 8}px`
+                ? `${Math.round(visibleDrawerHeight) + 24}px`
                 : `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
               maxHeight: isMobile ? "36vh" : undefined,
             }}
@@ -3331,8 +3331,8 @@ function TasarimClientContent({ isMobile }) {
           const desktopTop = "50%";
           const desktopShiftY = drawerOpen ? (isPrintAreaOpen ? "-18%" : "-12%") : "0%";
           const mobileScale = isPrintAreaOpen ? (drawerOpen ? 0.72 : 0.86) : drawerOpen ? 0.8 : 0.96;
-          const mobileLeft = isPrintAreaOpen ? "52%" : "51.5%";
-          const mobileShiftY = isPrintAreaOpen ? "-5%" : "-3%";
+          const mobileLeft = "50%";
+          const mobileShiftY = isPrintAreaOpen ? "-7%" : "-5%";
           const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.35 : drawerOpen ? 2.2 : 1.95) : isPrintAreaOpen ? 2.35 : 2.2;
           const controlsTargetY = !isMobile ? (isPrintAreaOpen ? -0.12 : drawerOpen ? -0.2 : -0.1) : isPrintAreaOpen ? -0.05 : -0.1;
           return (
