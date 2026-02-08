@@ -2728,6 +2728,7 @@ function TasarimClientContent({ isMobile }) {
     : drawerOpen
       ? DESKTOP_DRAWER_HEIGHT
       : DESKTOP_DRAWER_PEEK;
+  const hideMobileDrawerInEditor = isMobile && isPrintAreaOpen;
   const menuPanelBottom = `calc(${Math.round(visibleDrawerHeight)}px + 12px)`;
 
   const renderPanel = (
@@ -2967,9 +2968,11 @@ function TasarimClientContent({ isMobile }) {
               maxWidth: isMobile ? "calc(100vw - 20px)" : undefined,
               top: isMobile ? "auto" : "72px",
               bottom: isMobile
-                ? `${Math.round(visibleDrawerHeight) + 48}px`
+                ? hideMobileDrawerInEditor
+                  ? "calc(env(safe-area-inset-bottom) + 12px)"
+                  : `${Math.round(visibleDrawerHeight) + 48}px`
                 : `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
-              maxHeight: isMobile ? "50vh" : undefined,
+              maxHeight: isMobile ? "58vh" : undefined,
             }}
           >
             <div className={`${isMobile ? "p-3" : "p-4"} border-b border-gray-200 bg-white/85`}>
@@ -3448,8 +3451,8 @@ function TasarimClientContent({ isMobile }) {
           const desktopTop = "50%";
           const desktopShiftY = drawerOpen ? (isPrintAreaOpen ? "-18%" : "-12%") : "0%";
           const mobileScale = isPrintAreaOpen ? (drawerOpen ? 0.72 : 0.86) : drawerOpen ? 0.8 : 0.96;
-          const mobileLeft = isPrintAreaOpen ? "58%" : drawerOpen ? "55%" : "57%";
-          const mobileShiftY = isPrintAreaOpen ? (drawerOpen ? "-18%" : "-14%") : drawerOpen ? "-12%" : "-6%";
+          const mobileLeft = isPrintAreaOpen ? "60%" : drawerOpen ? "55%" : "57%";
+          const mobileShiftY = isPrintAreaOpen ? (drawerOpen ? "-22%" : "-18%") : drawerOpen ? "-14%" : "-8%";
           const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.35 : drawerOpen ? 2.2 : 1.95) : isPrintAreaOpen ? 2.35 : 2.2;
           const controlsTargetY = !isMobile ? (isPrintAreaOpen ? -0.12 : drawerOpen ? -0.2 : -0.1) : isPrintAreaOpen ? -0.05 : -0.1;
           return (
@@ -3587,7 +3590,7 @@ function TasarimClientContent({ isMobile }) {
         )}
 
         {/* DRAWER (MOBILE + DESKTOP) - Nike Style */}
-        {activeDesign && (
+        {activeDesign && !(isMobile && isPrintAreaOpen) && (
           <div
             className={`fixed left-0 right-0 z-[85] pointer-events-auto transition-all duration-300 ${
               isMobile ? "bottom-0" : "bottom-0"
