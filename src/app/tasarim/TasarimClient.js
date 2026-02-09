@@ -106,11 +106,11 @@ const MODEL_PATHS = {
   "hoodie-v12-canavari": "/models/hoodie v12 canavarı.glb",
   fermuarli: "/models/Fermuarli.glb",
   polar: "/models/polar.glb",
-  "yeni-duz-tshirt": `${NEW_MODELS_DIR}/Du\u0308z Tis\u0327o\u0308rt.glb`,
-  "yeni-oversize-tshirt": `${NEW_MODELS_DIR}/Owersize Tshirt.glb`,
-  "yeni-duz-sweat": `${NEW_MODELS_DIR}/Du\u0308z Sweat.glb`,
-  "yeni-oversize-sweat": `${NEW_MODELS_DIR}/Owersize Sweat.glb`,
-  "yeni-fermuarli": `${NEW_MODELS_DIR}/Fermuarl\u0131.glb`,
+  "yeni-duz-tshirt": `${NEW_MODELS_DIR}/duz-tisort.glb`,
+  "yeni-oversize-tshirt": `${NEW_MODELS_DIR}/oversize-tshirt.glb`,
+  "yeni-duz-sweat": `${NEW_MODELS_DIR}/duz-sweat.glb`,
+  "yeni-oversize-sweat": `${NEW_MODELS_DIR}/oversize-sweat.glb`,
+  "yeni-fermuarli": `${NEW_MODELS_DIR}/fermuarli.glb`,
 };
 
 const AVAILABLE_MODELS = [
