@@ -21,7 +21,13 @@ export default function SiparisPage() {
 
   const totalPrice = useMemo(() => {
     if (!data?.designs?.length) return 0;
-    return data.totalPrice ?? data.designs.reduce((sum, item) => sum + (item.price || 0), 0);
+    return (
+      data.totalPrice ??
+      data.designs.reduce(
+        (sum, item) => sum + Number(item.price || 0) * Math.max(1, Number(item.quantity || 1)),
+        0
+      )
+    );
   }, [data]);
 
   if (!data?.designs?.length) {
@@ -109,9 +115,12 @@ export default function SiparisPage() {
                     <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
                       <span className="inline-flex w-3.5 h-3.5 rounded-full border border-zinc-300" style={{ backgroundColor: item.color }} />
                       <span>{item.color}</span>
+                      <span>Adet: {Math.max(1, Number(item.quantity || 1))}</span>
                     </div>
                   </div>
-                  <div className="text-sm font-black">{item.price} ₺</div>
+                  <div className="text-sm font-black">
+                    {Number(item.price || 0) * Math.max(1, Number(item.quantity || 1))} ₺
+                  </div>
                 </div>
               </div>
             ))}

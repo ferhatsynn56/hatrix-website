@@ -12,7 +12,6 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   OrbitControls,
-  Environment,
   Decal,
   Center,
   ContactShadows,
@@ -42,6 +41,8 @@ import {
 } from "lucide-react";
 
 import * as THREE from "three";
+import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
+import { EXRLoader } from "three/examples/jsm/loaders/EXRLoader.js";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { setCheckoutData } from "@/lib/checkoutStore";
 
@@ -163,6 +164,52 @@ const MODEL_LABELS = {
   "yeni-oversize-sweat": "Yeni Oversize Sweat",
   "yeni-fermuarli": "Yeni Fermuarlı",
 };
+
+const MODEL_SELECTION_GROUPS = [
+  {
+    id: "tshirt",
+    title: "Tisort Modelleri",
+    models: [
+      "tshirt",
+      "oversize-tshirt",
+      "oversize-tshirt-efektli",
+      "yeni-duz-tshirt",
+      "yeni-oversize-tshirt",
+    ],
+  },
+  {
+    id: "sweat",
+    title: "Sweat Modelleri",
+    models: [
+      "sweatshirt",
+      "sweat-yeni",
+      "sweat-deneme",
+      "oversize-sweat",
+      "yeni-duz-sweat",
+      "yeni-oversize-sweat",
+    ],
+  },
+  {
+    id: "hoodie",
+    title: "Hoodie Modelleri",
+    models: [
+      "hoodie",
+      "hoodie-ipli",
+      "hoodie-cepli",
+      "hoodie-ceplipli",
+      "hoodie-oversize",
+      "hoodie-oversize-ipli",
+      "hoodie-oversize-cepli",
+      "hoodie-oversize-ceplipli",
+      "hoodie-v12-canavari",
+    ],
+  },
+  {
+    id: "outer",
+    title: "Dis Giyim",
+    models: ["fermuarli", "yeni-fermuarli", "polar"],
+  },
+];
 
 /* ================= PRINT BOUNDS ================= */
 const MODEL_PRINT_BOUNDS = {
@@ -346,9 +393,104 @@ const TEXT_LAYOUT_OPTIONS = [
   { id: "stair-down", label: "Merdiven Asagi" },
 ];
 
-// HDR environment (Footprint HDR Labs). Drop file to /public/hdr/footprint.hdr to enable.
-const USE_FOOTPRINT_HDR = false;
-const FOOTPRINT_HDR = "/hdr/footprint.hdr";
+// Environment map path (put file under /public/hdr)
+const HDR_ENV_PATH = "/hdr/studio_small_03_2k.exr";
+const SCIENTIFIC_ROUTE = "/bilimsel";
+
+const PRINT_TYPE_OPTIONS = [
+  {
+    id: "dtf",
+    label: "DTF",
+    available: true,
+    info: "Tasarim ozel filme basilir, toz yapistirici uygulanir ve sicak presle kumasa aktarilir.",
+  },
+  {
+    id: "rubber",
+    label: "Rubber",
+    available: true,
+    info: "Plastisol (PVC + plastiklestirici) bazli, isiyla kurlenen opak ve dayanikli baski.",
+  },
+  {
+    id: "flock",
+    label: "Flok",
+    available: true,
+    info: "Kisa lifler yapistirici kapli alana uygulanir, kadifemsi doku verir.",
+  },
+  {
+    id: "emprime",
+    label: "Emprime",
+    available: false,
+    info: "Serigrafi baskida boya kalip/screen uzerinden kumasa aktarilir; her renk icin ayri kalip gerekir.",
+  },
+  {
+    id: "nakis",
+    label: "Nakıs",
+    available: false,
+    info: "Iğne ve iplikle kumas uzerine isleme yapilarak desen olusturulur.",
+  },
+  {
+    id: "tas",
+    label: "Tas",
+    available: false,
+    info: "Kristal gorunumlu taslar isi transferiyle kumasa uygulanir.",
+  },
+  {
+    id: "enjeksiyon",
+    label: "Enjeksiyon",
+    available: false,
+    info: "Kaucuk/silikon benzeri kabartma parca isi ile kumasa sabitlenir; logo etkisi verir.",
+  },
+  {
+    id: "gofre",
+    label: "Gofre",
+    available: false,
+    info: "Isi ve basinc ile kabartmali (embossed) doku olusturma.",
+  },
+];
+
+function PrintTypePickerCards({ selectedIds = [], onSelect, sourceLabel = "Sec", isMobile = false }) {
+  return (
+    <div className="mt-2 rounded-xl border border-gray-200 bg-[#f4f6f8] p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-600">Baski Cesitleri</p>
+        <span className="text-[10px] font-bold uppercase text-gray-500">{sourceLabel}</span>
+      </div>
+
+      <div className={`grid gap-2 ${isMobile ? "grid-cols-2" : "grid-cols-4"}`}>
+        {PRINT_TYPE_OPTIONS.map((opt) => {
+          const selected = selectedIds.includes(opt.id);
+          const disabled = !opt.available;
+          return (
+            <button
+              key={`print-type-${sourceLabel}-${opt.id}`}
+              type="button"
+              onClick={() => {
+                if (!disabled) onSelect?.(opt.id);
+              }}
+              disabled={disabled}
+              className={`rounded-xl border px-2 py-2 text-left transition ${
+                disabled
+                  ? "cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400"
+                  : selected
+                    ? "border-black bg-black text-white"
+                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              <p className="text-[11px] font-black uppercase tracking-wide">{opt.label}</p>
+              <p
+                className={`mt-1 text-[12px] font-bold leading-snug ${
+                  disabled ? "text-zinc-400" : selected ? "text-zinc-200" : "text-gray-700"
+                }`}
+              >
+                {disabled ? "Yakinda" : opt.info}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 const splitLogoLayers = (logos) => {
   const back = [];
@@ -566,6 +708,73 @@ async function optimizeUploadDataUrl(file) {
   }
 }
 
+const decodePdfLiteral = (src) =>
+  String(src || "")
+    .replace(/\\([nrtbf()\\])/g, (_, ch) => {
+      if (ch === "n") return "\n";
+      if (ch === "r") return "\r";
+      if (ch === "t") return "\t";
+      if (ch === "b") return "\b";
+      if (ch === "f") return "\f";
+      return ch;
+    })
+    .replace(/\\([0-7]{1,3})/g, (_, octal) => String.fromCharCode(parseInt(octal, 8)));
+
+const sanitizePdfText = (src) =>
+  String(src || "")
+    .replace(/\s+/g, " ")
+    .replace(/[^\p{L}\p{N}\p{P}\p{Zs}]/gu, "")
+    .trim();
+
+const extractPdfTextBestEffort = (binaryText) => {
+  if (!binaryText) return "";
+  const chunks = [];
+  const textBlocks = binaryText.match(/BT[\s\S]*?ET/g) || [];
+
+  textBlocks.forEach((block) => {
+    const singleMatches = block.match(/\((?:\\.|[^\\)])*\)\s*Tj/g) || [];
+    singleMatches.forEach((entry) => {
+      const literal = entry.match(/\(([\s\S]*)\)\s*Tj/);
+      if (!literal?.[1]) return;
+      chunks.push(decodePdfLiteral(literal[1]));
+    });
+
+    const arrayMatches = block.match(/\[(.*?)\]\s*TJ/g) || [];
+    arrayMatches.forEach((entry) => {
+      const body = entry.match(/\[(.*?)\]\s*TJ/);
+      if (!body?.[1]) return;
+      const literals = body[1].match(/\((?:\\.|[^\\)])*\)/g) || [];
+      literals.forEach((lit) => {
+        const content = lit.slice(1, -1);
+        chunks.push(decodePdfLiteral(content));
+      });
+    });
+  });
+
+  if (!chunks.length) {
+    const fallbackLiterals = binaryText.match(/\((?:\\.|[^\\)]){2,160}\)/g) || [];
+    fallbackLiterals.slice(0, 20).forEach((lit) => chunks.push(decodePdfLiteral(lit.slice(1, -1))));
+  }
+
+  const merged = sanitizePdfText(chunks.join(" "));
+  return merged.slice(0, 180);
+};
+
+async function importTextFromPdfFile(file) {
+  const ext = String(file?.name || "").toLowerCase();
+  if (!ext.endsWith(".pdf")) {
+    throw new Error("Lutfen PDF dosyasi secin.");
+  }
+  const buf = await file.arrayBuffer();
+  const decoder = new TextDecoder("latin1");
+  const raw = decoder.decode(new Uint8Array(buf));
+  const text = extractPdfTextBestEffort(raw);
+  if (!text) {
+    throw new Error("PDF icinden yazi okunamadi. Metin iceren bir PDF deneyin.");
+  }
+  return text;
+}
+
 const createSideData = () => ({
   logos: [],
   activeLogoId: null,
@@ -599,11 +808,13 @@ const createDesign = (type = "tshirt") => ({
   id: makeId(),
   modelType: type,
   color: BRAND_DEFAULT_COLOR,
+  fabricType: "standart",
   stringColor: "#e6e6e6",
   hoodieV12Parts: {
     strings: false,
     pocket: false,
   },
+  printTypes: [],
   size: "M",
   sides: {
     front: createSideData(),
@@ -799,6 +1010,44 @@ function SceneBackgroundLock() {
     scene.background = bg;
     gl.setClearColor(bg, 1);
   }, [bg, gl, scene]);
+
+  return null;
+}
+
+function HdriEnvironment({ url }) {
+  const { scene } = useThree();
+
+  useEffect(() => {
+    if (!url) return undefined;
+
+    const lowerUrl = String(url).toLowerCase();
+    const loader = lowerUrl.endsWith(".exr") ? new EXRLoader() : new RGBELoader();
+    let disposed = false;
+    let envTexture = null;
+
+    loader.load(
+      url,
+      (texture) => {
+        if (disposed) {
+          texture.dispose();
+          return;
+        }
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        scene.environment = texture;
+        envTexture = texture;
+      },
+      undefined,
+      (err) => {
+        console.error("HDR environment yuklenemedi:", err);
+      }
+    );
+
+    return () => {
+      disposed = true;
+      if (scene.environment === envTexture) scene.environment = null;
+      if (envTexture) envTexture.dispose();
+    };
+  }, [scene, url]);
 
   return null;
 }
@@ -1029,7 +1278,7 @@ function makeCanvasTexture(canvas) {
   return tex;
 }
 
-function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, hoodieV12Parts, view, isMobile }) {
+function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, hoodieV12Parts, fabricType, view, isMobile }) {
   const modelPathRaw = MODEL_PATHS[modelType] || MODEL_PATHS.tshirt;
   const gltf = useGLTF(toSafeUrl(modelPathRaw));
 
@@ -1050,26 +1299,34 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, h
     const base = new THREE.Color(color || BRAND_DEFAULT_COLOR);
     const lum = 0.2126 * base.r + 0.7152 * base.g + 0.0722 * base.b;
     const darkBoost = clamp((0.42 - lum) / 0.42, 0, 1);
+    const lightBoost = clamp((lum - 0.72) / 0.28, 0, 1);
+    const fabric = fabricType || "standart";
+    const fabricMap = {
+      standart: { rough: 0, metal: 0, env: 0, emit: 0 },
+      pamuk: { rough: 0.025, metal: -0.002, env: -0.06, emit: -0.002 },
+      soft: { rough: -0.035, metal: 0.004, env: 0.08, emit: 0.003 },
+    };
+    const fabricFx = fabricMap[fabric] || fabricMap.standart;
 
     return new THREE.MeshStandardMaterial({
       color: base,
-      // Keep a fabric feel: high roughness, very low metalness.
-      roughness: 0.97 - 0.08 * darkBoost,
-      metalness: 0.01 + 0.03 * darkBoost,
-      envMapIntensity: 0.85,
+      // Fabric feel: high roughness, very low metalness, controlled reflections.
+      roughness: clamp(0.968 - 0.04 * darkBoost + 0.09 * lightBoost + fabricFx.rough, 0.9, 0.995),
+      metalness: clamp(0.006 + 0.014 * darkBoost + fabricFx.metal, 0.002, 0.03),
+      envMapIntensity: 1.0,
       emissive: base,
-      emissiveIntensity: 0.01 + 0.025 * darkBoost,
+      emissiveIntensity: 0,
       side: THREE.FrontSide,
     });
-  }, [color]);
+  }, [color, fabricType]);
 
   const laceMaterial = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
         color: new THREE.Color(stringColor || "#e6e6e6"),
-        roughness: 0.85,
+        roughness: 0.9,
         metalness: 0.02,
-        envMapIntensity: 0.6,
+        envMapIntensity: 1.0,
         side: THREE.FrontSide,
       }),
     [stringColor]
@@ -1591,6 +1848,7 @@ function DesignModelItem({
         backCanvas={backCanvas}
         modelType={design.modelType}
         hoodieV12Parts={design.hoodieV12Parts}
+        fabricType={design.fabricType}
         view={view}
         isMobile={isMobile}
       />
@@ -1662,6 +1920,148 @@ function StyledTextPreview({ textState, className = "" }) {
   );
 }
 
+let modelSelectionSpinStart = 0;
+
+function ModelSelectionPreview3D({ modelType }) {
+  const modelPathRaw = MODEL_PATHS[modelType] || MODEL_PATHS.tshirt;
+  const gltf = useGLTF(toSafeUrl(modelPathRaw));
+  const groupRef = useRef(null);
+  const hasSkinned = useMemo(() => {
+    let found = false;
+    gltf.scene.traverse((o) => {
+      if (o?.isSkinnedMesh) found = true;
+    });
+    return found;
+  }, [gltf.scene]);
+
+  const root = useMemo(() => {
+    return hasSkinned ? SkeletonUtils.clone(gltf.scene) : gltf.scene.clone(true);
+  }, [gltf.scene, hasSkinned]);
+
+  useFrame(() => {
+    if (!groupRef.current) return;
+    if (!modelSelectionSpinStart) modelSelectionSpinStart = performance.now();
+    const elapsedSec = (performance.now() - modelSelectionSpinStart) / 1000;
+    groupRef.current.rotation.y = elapsedSec * 0.75;
+  });
+
+  return (
+    <group ref={groupRef} position={[0, -0.08, 0]}>
+      <Center>
+        <primitive object={root} />
+      </Center>
+    </group>
+  );
+}
+
+function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
+  const groupedModels = useMemo(() => {
+    return MODEL_SELECTION_GROUPS.map((group) => ({
+      ...group,
+      models: group.models.filter((modelType) => AVAILABLE_MODELS.includes(modelType)),
+    })).filter((group) => group.models.length > 0);
+  }, []);
+
+  return (
+    <div className="h-screen overflow-y-auto bg-[#f3f5f7] text-zinc-900 px-4 py-6 md:px-8 md:py-10">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-between gap-3 mb-6 md:mb-8">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500">Adım 1</p>
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight">Model Seçim</h1>
+            <p className="text-sm text-zinc-500 mt-1">Model seçmeden tasarım ekranına geçilemez.</p>
+          </div>
+          <Link
+            href="/"
+            className="px-4 py-2 rounded-full border border-zinc-300 bg-white text-xs font-black uppercase tracking-widest hover:bg-zinc-100"
+          >
+            Geri
+          </Link>
+        </div>
+
+        <div className="space-y-6 md:space-y-7">
+          {groupedModels.map((group) => (
+            <section key={`model-group-${group.id}`} className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-[13px] md:text-sm font-black uppercase tracking-[0.14em] text-zinc-600">
+                  {group.title}
+                </h2>
+                <span className="text-[11px] font-bold text-zinc-500">{group.models.length} model</span>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+                {group.models.map((modelType) => {
+                  const active = selectedModel === modelType;
+                  return (
+                    <button
+                      key={`select-model-${modelType}`}
+                      type="button"
+                      onClick={() => onSelectModel(modelType)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onSelectModel(modelType);
+                        }
+                      }}
+                      className={`w-full rounded-2xl border bg-white p-2.5 shadow-sm text-left transition ${
+                        active
+                          ? "border-black ring-2 ring-black/70"
+                          : "border-zinc-200 hover:border-zinc-400 hover:shadow-md"
+                      }`}
+                      aria-pressed={active}
+                    >
+                      <div className="aspect-square rounded-xl overflow-hidden border border-zinc-200 bg-[#eef1f4]">
+                        <Canvas
+                          dpr={[1, 1.2]}
+                          camera={{ position: [0, 0.28, 2.12], fov: 30 }}
+                          gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+                        >
+                          <color attach="background" args={["#eef1f4"]} />
+                          <ambientLight intensity={0.95} />
+                          <hemisphereLight intensity={0.35} groundColor="#2a2a2a" />
+                          <directionalLight position={[4, 7, 5]} intensity={0.85} />
+                          <directionalLight position={[-4, 5, -4]} intensity={0.26} />
+                          <Suspense fallback={null}>
+                            <ModelSelectionPreview3D modelType={modelType} />
+                          </Suspense>
+                        </Canvas>
+                      </div>
+                      <p className="mt-2 text-[12px] font-black uppercase tracking-wide text-zinc-900 leading-tight">
+                        {MODEL_LABELS[modelType] || modelType}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+
+        <div className="mt-7 flex items-center justify-between gap-3">
+          <p className="text-sm text-zinc-600">
+            Seçili model:{" "}
+            <span className="font-black text-zinc-900">
+              {selectedModel ? MODEL_LABELS[selectedModel] || selectedModel : "Henüz seçilmedi"}
+            </span>
+          </p>
+          <button
+            type="button"
+            disabled={!selectedModel}
+            onClick={onContinue}
+            className={`px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest transition ${
+              selectedModel
+                ? "bg-black text-white hover:bg-zinc-800"
+                : "bg-zinc-300 text-zinc-500 cursor-not-allowed"
+            }`}
+          >
+            Tasarıma Geç
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ================= EDITOR PANEL ================= */
 function EditorPanel({
   design,
@@ -1681,6 +2081,8 @@ function EditorPanel({
   onSelectModel,
   onRemoveModel,
   onOpenModelPicker,
+  onOpenCategoryMenu,
+  printTypePickerSignal = 0,
 }) {
   const isZipperFront = design.modelType === "fermuarli" && view === "front";
   const gap01 = MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
@@ -1704,6 +2106,9 @@ function EditorPanel({
 
   const previewRef = useRef(null);
   const uploadSlotRefs = useRef([]);
+  const textPdfInputRef = useRef(null);
+  const [isImportingPdfText, setIsImportingPdfText] = useState(false);
+  const [showPrintTypePicker, setShowPrintTypePicker] = useState(false);
 
   const sizes = ["S", "M", "L", "XL"];
   const colorPresets = BRAND_COLORS;
@@ -1716,6 +2121,8 @@ function EditorPanel({
 
   const t = sideData?.customText || {};
   const hoodieV12Parts = design.hoodieV12Parts || { strings: false, pocket: false };
+  const fabricType = design.fabricType || "standart";
+  const printTypes = Array.isArray(design.printTypes) ? design.printTypes : [];
 
   const updateSide = (patch) => {
     updateDesign({
@@ -1768,6 +2175,61 @@ function EditorPanel({
 
   const isFocusMode = isMobile && activeTab === "editor";
   const drawerHeadingClass = "text-[13px] font-black tracking-[0.14em] text-gray-500 uppercase";
+
+  const togglePrintType = (id) => {
+    const alreadySelected = printTypes.includes(id);
+    const next = alreadySelected ? printTypes.filter((t) => t !== id) : [...printTypes, id];
+    updateDesign({ printTypes: next });
+    if (!alreadySelected && (id === "rubber" || id === "flock")) {
+      setActiveTab("text");
+    }
+  };
+
+  const removePrintType = (id) => {
+    const next = printTypes.filter((typeId) => typeId !== id);
+    updateDesign({ printTypes: next });
+  };
+
+  useEffect(() => {
+    if (activeTab !== "upload") return;
+    if (printTypes.length === 0) setShowPrintTypePicker(true);
+  }, [activeTab, printTypes.length, design.id, currentSide]);
+
+  useEffect(() => {
+    if (activeTab !== "upload") return;
+    setShowPrintTypePicker(true);
+  }, [printTypePickerSignal, activeTab]);
+
+  const handleSelectPrintTypeFromPanel = (id) => {
+    const opt = PRINT_TYPE_OPTIONS.find((entry) => entry.id === id);
+    if (!opt?.available) return;
+    togglePrintType(id);
+    setShowPrintTypePicker(false);
+  };
+
+  const handlePdfTextUpload = async (file) => {
+    if (!file) return;
+    try {
+      setIsImportingPdfText(true);
+      const ext = String(file.name || "").toLowerCase();
+      if (ext.endsWith(".pdf")) {
+        throw new Error("PDF icinden temiz metin alma kapali. Lutfen metni .txt olarak yukleyin veya elle yapistirin.");
+      }
+      const parsed = await file.text();
+      const cleaned = sanitizePdfText(parsed).slice(0, 180);
+      if (!cleaned) {
+        throw new Error("Dosya icinde kullanilabilir metin bulunamadi.");
+      }
+      bumpText({ text: cleaned });
+      if (activeTab !== "text") setActiveTab("text");
+      onRequestDrawerExpand?.();
+    } catch (err) {
+      console.error("Metin dosyasi aktarim hatasi:", err);
+      alert(err?.message || "Metin dosyasi okunamadi.");
+    } finally {
+      setIsImportingPdfText(false);
+    }
+  };
 
   if (isFocusMode) {
     return (
@@ -1998,7 +2460,7 @@ function EditorPanel({
         }`}
         style={{ touchAction: "pan-y", minHeight: 0, backgroundColor: contentBackground }}
       >
-        {isDrawerLayout && (
+        {isDrawerLayout && activeTab !== "upload" && (
           <div className={`${isMobileDrawer ? "w-full shrink-0" : "shrink-0 flex-[1.2] min-w-[300px] max-w-[440px] 2xl:min-w-[380px] 2xl:max-w-[620px] h-full min-h-[188px]"} rounded-xl border border-gray-200 bg-white p-2 shadow-sm flex flex-col overflow-hidden`}>
             <div className="flex items-center justify-between gap-2">
               <p className={drawerHeadingClass}>Model Yönetimi</p>
@@ -2050,81 +2512,188 @@ function EditorPanel({
         {/* UPLOAD */}
         {activeTab === "upload" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-stretch justify-start gap-2.5") : "space-y-2.5"}`}>
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[220px] max-w-[320px] 2xl:min-w-[260px] 2xl:max-w-[420px] h-full max-h-full min-h-[188px] flex flex-col overflow-y-auto overflow-x-hidden") : ""}`}>
-              <div className="flex items-center justify-between">
-                <p className={drawerHeadingClass}>Dosya</p>
-                <p className="text-[10px] text-gray-500">{logoCount}/{MAX_LOGOS_PER_SIDE} katman</p>
+            {showPrintTypePicker && (
+              <div className={isDrawerLayout ? "w-full" : ""}>
+                <PrintTypePickerCards
+                  selectedIds={printTypes}
+                  onSelect={handleSelectPrintTypeFromPanel}
+                  sourceLabel="Panelden sec"
+                  isMobile={isMobile}
+                />
               </div>
+            )}
 
-              <div className="grid grid-cols-3 gap-2">
-                {Array.from({ length: MAX_LOGOS_PER_SIDE }).map((_, slotIdx) => {
-                  const layer = sideData.logos?.[slotIdx] || null;
-                  const selected = layer && (sideData.activeLogoId || sideData.logos?.[0]?.id) === layer.id;
-
-                  if (layer) {
+            {!showPrintTypePicker && (
+              <>
+            <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full grid grid-cols-1 gap-2" : "w-full grid grid-cols-[minmax(320px,1.05fr)_minmax(460px,1.35fr)] gap-2") : "grid grid-cols-1 lg:grid-cols-[1.1fr_1.3fr] gap-2"}`}>
+              <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm min-h-[206px]">
+                <div className="flex items-center justify-between gap-2">
+                  <p className={drawerHeadingClass}>Model Yönetimi</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{(designs || []).length} model</p>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {(designs || []).map((item) => {
+                    const selected = item.id === activeId;
                     return (
-                      <div
-                        key={`slot-layer-${layer.id}`}
-                        onClick={() => updateSide({ activeLogoId: layer.id })}
-                        role="button"
-                        className={`relative h-24 rounded-lg border overflow-hidden transition cursor-pointer ${
-                          selected ? "border-black ring-1 ring-black/20" : "border-gray-300 hover:border-gray-400"
+                      <button
+                        key={`upload-model-${item.id}`}
+                        onClick={() => onSelectModel?.(item.id)}
+                        className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wide border transition ${
+                          selected
+                            ? "bg-black text-white border-black"
+                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
                         }`}
                       >
-                        <div className="absolute left-1.5 top-1.5 z-10 px-1.5 py-0.5 rounded bg-white/90 border border-gray-200 text-[9px] text-gray-700 font-black uppercase tracking-wide flex items-center gap-1">
-                          <ImageIcon size={10} />
-                          Dosya {slotIdx + 1}
-                        </div>
-                        <img src={layer.url} alt="" className="w-full h-full object-cover" />
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const next = (sideData.logos || []).filter((l) => l.id !== layer.id);
-                            updateSide({ logos: next, activeLogoId: next[0]?.id || null });
-                          }}
-                          className="absolute right-1.5 top-1.5 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center"
-                          aria-label="Katmanı sil"
+                        {MODEL_LABELS[item.modelType] || item.modelType}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {design.modelType === "hoodie-v12-canavari" && (
+                  <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-2 space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-600">Hoodie Detaylari</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateDesign({
+                            hoodieV12Parts: {
+                              ...hoodieV12Parts,
+                              strings: !hoodieV12Parts.strings,
+                            },
+                          })
+                        }
+                        className={`py-1.5 rounded-lg text-[10px] font-black uppercase border transition ${
+                          hoodieV12Parts.strings
+                            ? "bg-black text-white border-black"
+                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                        }`}
+                      >
+                        Ip
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateDesign({
+                            hoodieV12Parts: {
+                              ...hoodieV12Parts,
+                              pocket: !hoodieV12Parts.pocket,
+                            },
+                          })
+                        }
+                        className={`py-1.5 rounded-lg text-[10px] font-black uppercase border transition ${
+                          hoodieV12Parts.pocket
+                            ? "bg-black text-white border-black"
+                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                        }`}
+                      >
+                        Cep
+                      </button>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-600">Kumas</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { id: "standart", label: "Standart" },
+                          { id: "pamuk", label: "Pamuk" },
+                          { id: "soft", label: "Soft" },
+                        ].map((opt) => (
+                          <button
+                            key={`fabric-${opt.id}`}
+                            type="button"
+                            onClick={() => updateDesign({ fabricType: opt.id })}
+                            className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase border transition ${
+                              fabricType === opt.id
+                                ? "bg-black text-white border-black"
+                                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "h-full min-h-[206px]") : ""}`}>
+                <div className="flex items-center justify-between">
+                  <p className={drawerHeadingClass}>Dosya</p>
+                  <p className="text-[10px] text-gray-500">{logoCount}/{MAX_LOGOS_PER_SIDE} katman</p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {Array.from({ length: MAX_LOGOS_PER_SIDE }).map((_, slotIdx) => {
+                    const layer = sideData.logos?.[slotIdx] || null;
+                    const selected = layer && (sideData.activeLogoId || sideData.logos?.[0]?.id) === layer.id;
+
+                    if (layer) {
+                      return (
+                        <div
+                          key={`slot-layer-${layer.id}`}
+                          onClick={() => updateSide({ activeLogoId: layer.id })}
+                          role="button"
+                          className={`relative h-28 rounded-lg border overflow-hidden transition cursor-pointer ${
+                            selected ? "border-black ring-1 ring-black/20" : "border-gray-300 hover:border-gray-400"
+                          }`}
                         >
-                          <X size={11} />
+                          <div className="absolute left-1.5 top-1.5 z-10 px-1.5 py-0.5 rounded bg-white/90 border border-gray-200 text-[9px] text-gray-700 font-black uppercase tracking-wide flex items-center gap-1">
+                            <ImageIcon size={10} />
+                            Dosya {slotIdx + 1}
+                          </div>
+                          <img src={layer.url} alt="" className="w-full h-full object-cover" />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const next = (sideData.logos || []).filter((l) => l.id !== layer.id);
+                              updateSide({ logos: next, activeLogoId: next[0]?.id || null });
+                            }}
+                            className="absolute right-1.5 top-1.5 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center"
+                            aria-label="Katmanı sil"
+                          >
+                            <X size={11} />
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={`slot-empty-${slotIdx}`} className="relative h-28 rounded-lg border border-dashed border-gray-300 bg-gray-50">
+                        <button
+                          onClick={() => uploadSlotRefs.current?.[slotIdx]?.click()}
+                          disabled={!canUploadMoreLogos}
+                          className={`w-full h-full flex flex-col items-start justify-center pl-4 gap-1 ${
+                            canUploadMoreLogos ? "text-gray-600 hover:bg-gray-100" : "text-gray-400 cursor-not-allowed"
+                          }`}
+                        >
+                          <Plus size={26} strokeWidth={2.8} />
+                          <span className="text-[11px] font-bold uppercase">Dosya Ekle</span>
                         </button>
+                        <input
+                          ref={(el) => {
+                            uploadSlotRefs.current[slotIdx] = el;
+                          }}
+                          type="file"
+                          className="hidden"
+                          accept="image/*"
+                          disabled={!canUploadMoreLogos}
+                          onChange={async (e) => {
+                            const inputEl = e.currentTarget;
+                            const file = inputEl.files?.[0];
+                            await handleUploadFile(file);
+                            inputEl.value = "";
+                          }}
+                        />
                       </div>
                     );
-                  }
-
-                  return (
-                    <div key={`slot-empty-${slotIdx}`} className="relative h-24 rounded-lg border border-dashed border-gray-300 bg-gray-50">
-                      <button
-                        onClick={() => uploadSlotRefs.current?.[slotIdx]?.click()}
-                        disabled={!canUploadMoreLogos}
-                        className={`w-full h-full flex flex-col items-center justify-center gap-1 ${
-                          canUploadMoreLogos ? "text-gray-600 hover:bg-gray-100" : "text-gray-400 cursor-not-allowed"
-                        }`}
-                      >
-                        <Upload size={16} />
-                        <span className="text-[10px] font-bold uppercase">Dosya Ekle</span>
-                      </button>
-                      <input
-                        ref={(el) => {
-                          uploadSlotRefs.current[slotIdx] = el;
-                        }}
-                        type="file"
-                        className="hidden"
-                        accept="image/*"
-                        disabled={!canUploadMoreLogos}
-                        onChange={async (e) => {
-                          const inputEl = e.currentTarget;
-                          const file = inputEl.files?.[0];
-                          await handleUploadFile(file);
-                          inputEl.value = "";
-                        }}
-                      />
-                    </div>
-                  );
-                })}
+                  })}
+                </div>
+                {!canUploadMoreLogos && (
+                  <p className="text-[10px] text-gray-500 font-semibold">Maksimum 3 görsel yüklendi.</p>
+                )}
               </div>
-              {!canUploadMoreLogos && (
-                <p className="text-[10px] text-gray-500 font-semibold">Maksimum 3 görsel yüklendi.</p>
-              )}
             </div>
 
             {(sideData?.logos || []).length > 0 && (
@@ -2204,6 +2773,8 @@ function EditorPanel({
                   </button>
                 </div>
               </div>
+            )}
+              </>
             )}
           </div>
         )}
@@ -2369,6 +2940,30 @@ function EditorPanel({
                 onChange={(e) => bumpText({ text: e.target.value })}
                 placeholder="Metni yaz..."
                 className="w-full bg-white border border-gray-300 p-2 rounded-lg text-sm text-gray-900 focus:border-black outline-none"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => textPdfInputRef.current?.click()}
+                  className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800 hover:bg-gray-100"
+                >
+                  Dosyadan Yazi Al
+                </button>
+                {isImportingPdfText && (
+                  <span className="text-[10px] font-bold uppercase text-gray-500">Dosya okunuyor...</span>
+                )}
+              </div>
+              <input
+                ref={textPdfInputRef}
+                type="file"
+                accept=".txt,.md,.csv,.pdf"
+                className="hidden"
+                onChange={async (e) => {
+                  const inputEl = e.currentTarget;
+                  const file = inputEl.files?.[0];
+                  await handlePdfTextUpload(file);
+                  inputEl.value = "";
+                }}
               />
             </div>
 
@@ -2662,22 +3257,27 @@ function TasarimClientContent({ isMobile }) {
   const [forceEditorOverlay, setForceEditorOverlay] = useState(false);
   const [drawerMenuOpen, setDrawerMenuOpen] = useState(false);
   const [drawerMenuMounted, setDrawerMenuMounted] = useState(false);
+  const [printTypePickerSignal, setPrintTypePickerSignal] = useState(0);
 
   // ✅ designs/activeId init bug fix
   const initialDesignRef = useRef(null);
   if (!initialDesignRef.current) initialDesignRef.current = createDesign("tshirt");
 
-  const safeInitial = useMemo(() => {
-    if (!searchParams) return "tshirt";
-    const initialModel = (searchParams.get("model") || searchParams.get("product") || "tshirt").toLowerCase();
-    return AVAILABLE_MODELS.includes(initialModel) ? initialModel : "tshirt";
+  const presetModelFromQuery = useMemo(() => {
+    if (!searchParams) return null;
+    const raw = (searchParams.get("model") || searchParams.get("product") || "").toLowerCase();
+    return AVAILABLE_MODELS.includes(raw) ? raw : null;
   }, [searchParams]);
+
+  const safeInitial = presetModelFromQuery || "tshirt";
 
   const [view, setView] = useState("front");
   const [designs, setDesigns] = useState(() => [
     { ...initialDesignRef.current, modelType: safeInitial },
   ]);
   const [activeId, setActiveId] = useState(() => initialDesignRef.current.id);
+  const [flowStep, setFlowStep] = useState("select");
+  const [selectedModelType, setSelectedModelType] = useState(() => presetModelFromQuery);
 
   const [hoveredId, setHoveredId] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -2875,14 +3475,22 @@ function TasarimClientContent({ isMobile }) {
   useEffect(() => {
     document.documentElement.style.backgroundColor = SCENE_BG_COLOR;
     document.body.style.backgroundColor = SCENE_BG_COLOR;
-    document.body.style.overflow = "hidden";
     return () => {
       document.documentElement.style.backgroundColor = "";
       document.body.style.backgroundColor = "";
-      document.body.style.overflow = "";
       if (lockToastTimerRef.current) clearTimeout(lockToastTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    const shouldLockScroll = flowStep !== "select";
+    document.body.style.overflow = shouldLockScroll ? "hidden" : "";
+    document.documentElement.style.overflow = shouldLockScroll ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    };
+  }, [flowStep]);
 
   useEffect(() => {
     setDesigns((prev) => {
@@ -2895,6 +3503,11 @@ function TasarimClientContent({ isMobile }) {
       return prev;
     });
   }, [safeInitial]);
+
+  useEffect(() => {
+    if (!presetModelFromQuery) return;
+    setSelectedModelType((prev) => prev || presetModelFromQuery);
+  }, [presetModelFromQuery]);
 
   useEffect(() => {
     if (!activeId && designs[0]) setActiveId(designs[0].id);
@@ -2925,11 +3538,45 @@ function TasarimClientContent({ isMobile }) {
     }
     setActiveTab(DRAWER_TABS[(tabIndex + 1) % DRAWER_TABS.length]);
   };
+  const openPrintTypePickerFromHeader = () => {
+    setActiveTab("upload");
+    setDrawerMenuOpen(false);
+    setDrawerOpen(true);
+    setPrintTypePickerSignal((prev) => prev + 1);
+  };
   const menuTabs = [
     { id: "upload", label: "Baskı", icon: ImageIcon },
     { id: "text", label: "Yazı", icon: Type },
     { id: "color", label: "Renk", icon: Palette },
   ];
+  const activePrintTypes = Array.isArray(activeDesign?.printTypes) ? activeDesign.printTypes : [];
+  const selectedPrintTypeNames = activePrintTypes
+    .map((typeId) => PRINT_TYPE_OPTIONS.find((opt) => opt.id === typeId)?.label || typeId)
+    .join(" • ");
+  const togglePrintTypeFromMenu = (typeId) => {
+    const opt = PRINT_TYPE_OPTIONS.find((entry) => entry.id === typeId);
+    if (!opt?.available) return;
+
+    let becameSelected = false;
+    setDesigns((prev) =>
+      prev.map((d) => {
+        if (d.id !== activeId) return d;
+        const current = Array.isArray(d.printTypes) ? d.printTypes : [];
+        const has = current.includes(typeId);
+        const next = has ? current.filter((id) => id !== typeId) : [...current, typeId];
+        becameSelected = !has;
+        return { ...d, printTypes: next };
+      })
+    );
+
+    if (becameSelected && (typeId === "rubber" || typeId === "flock")) {
+      setActiveTab("text");
+    } else {
+      setActiveTab("upload");
+    }
+    setDrawerMenuOpen(false);
+  };
+
   const selectMenuTab = (id) => {
     setActiveTab(id);
     setDrawerMenuOpen(false);
@@ -2994,6 +3641,21 @@ function TasarimClientContent({ isMobile }) {
     setDesigns((prev) => [...prev, nd]);
     setActiveId(nd.id);
     setPickerOpen(false);
+  };
+
+  const startDesignFlow = () => {
+    if (!selectedModelType || !AVAILABLE_MODELS.includes(selectedModelType)) return;
+    const next = createDesign(selectedModelType);
+    setDesigns([next]);
+    setActiveId(next.id);
+    setView("front");
+    setActiveTab("upload");
+    setForceEditorOverlay(false);
+    setPickerOpen(false);
+    setDrawerMenuOpen(false);
+    setDrawerOpen(true);
+    setFlowStep("design");
+    router.replace(`/tasarim?model=${selectedModelType}`, { scroll: false });
   };
 
   const removeModel = (id) => {
@@ -3128,8 +3790,10 @@ function TasarimClientContent({ isMobile }) {
           designDetails: {
             model: d.modelType,
             baseColor: d.color,
+            fabricType: d.fabricType || "standart",
             stringColor: d.stringColor,
             hoodieV12Parts: d.hoodieV12Parts || { strings: false, pocket: false },
+            printTypes: Array.isArray(d.printTypes) ? d.printTypes : [],
             printFiles,
             textFiles,
             mockupFiles,
@@ -3144,9 +3808,12 @@ function TasarimClientContent({ isMobile }) {
           modelType: d.modelType,
           name: orderItem.name,
           color: d.color,
+          fabricType: d.fabricType || "standart",
           size: d.size,
           price: orderItem.price,
+          quantity: 1,
           hoodieV12Parts: d.hoodieV12Parts || { strings: false, pocket: false },
+          printTypes: Array.isArray(d.printTypes) ? d.printTypes : [],
           preview: previewMockup,
           image: previewMockup,
           printFiles,
@@ -3165,7 +3832,7 @@ function TasarimClientContent({ isMobile }) {
         totalPrice,
       });
 
-      router.push("/siparis");
+      router.push("/tasarim/adet");
     } catch (err) {
       console.error("Siparis sayfasi hazirlanamadi:", err);
       alert("Bir hata oluştu. Lütfen tekrar deneyin.");
@@ -3316,8 +3983,20 @@ function TasarimClientContent({ isMobile }) {
         setPickerStep("root");
         setPickerOpen(true);
       }}
+      onOpenCategoryMenu={openDrawerMenu}
+      printTypePickerSignal={printTypePickerSignal}
     />
   );
+
+  if (flowStep === "select") {
+    return (
+      <ModelSelectionPanel
+        selectedModel={selectedModelType}
+        onSelectModel={setSelectedModelType}
+        onContinue={startDesignFlow}
+      />
+    );
+  }
 
   return (
     <div className="fixed inset-0 h-screen w-full text-white overflow-hidden font-sans" style={{ background: SCENE_BG_COLOR, overscrollBehavior: "none", touchAction: isMobile ? "pan-y" : "none" }}>
@@ -4288,32 +4967,26 @@ function TasarimClientContent({ isMobile }) {
             gl.setClearColor(bgColor, 1);
             gl.outputColorSpace = THREE.SRGBColorSpace;
             gl.toneMapping = THREE.ACESFilmicToneMapping;
-            gl.toneMappingExposure = 0.95;
+            gl.toneMappingExposure = 1.1;
           }}
           camera={{ position: [0, 0.36, 2.34], fov: isMobile ? (isPrintAreaOpen ? 38 : 34) : 30 }}
           shadows={!isMobile}
         >
           <SceneBackgroundLock />
 
-          <Suspense fallback={null}>
-            {USE_FOOTPRINT_HDR ? (
-              <Environment files={FOOTPRINT_HDR} background={false} />
-            ) : (
-              <Environment preset="studio" background={false} />
-            )}
-          </Suspense>
+          <HdriEnvironment url={HDR_ENV_PATH} />
 
-          <ambientLight intensity={0.9} />
-          <hemisphereLight intensity={0.4} groundColor={"#1f1f1f"} />
+          <ambientLight intensity={0.5} />
+          <hemisphereLight intensity={0.18} groundColor={"#1f1f1f"} />
           <directionalLight
             position={[6, 10, 8]}
-            intensity={0.92}
+            intensity={0.58}
             castShadow={!isMobile}
             shadow-mapSize-width={perf.shadowMap}
             shadow-mapSize-height={perf.shadowMap}
           />
-          <directionalLight position={[-6, 6, -6]} intensity={0.38} />
-          <pointLight position={[0, 2.6, 2.2]} intensity={0.3} />
+          <directionalLight position={[-6, 6, -6]} intensity={0.2} />
+          <pointLight position={[0, 2.6, 2.2]} intensity={0.08} />
           {!isMobile && <ContactShadows position={[0, -1.4, 0]} opacity={0.16} scale={7} blur={2.2} far={3.2} />}
 
           <CameraController view={effectiveView} count={designs.length} onAnimatingChange={setCamAnimating} />
@@ -4383,6 +5056,7 @@ function TasarimClientContent({ isMobile }) {
                 setActiveTab={setActiveTab}
                 layout="standard"
                 onRequestDrawerCollapse={() => setDrawerOpen(false)}
+                printTypePickerSignal={printTypePickerSignal}
               />
             </div>
           </div>
@@ -4445,79 +5119,59 @@ function TasarimClientContent({ isMobile }) {
                 </button>
 
                 {drawerOpen && (
-                  <div className={`relative flex items-center justify-center min-h-[46px] ${isMobile ? "" : "w-full max-w-[900px] mx-auto"}`}>
+                  <div className="relative flex items-center justify-center min-h-[46px] w-full">
                     {!isMobile ? (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            setPickerStep("root");
-                            setPickerOpen(true);
-                          }}
-                          className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[11px] font-black uppercase tracking-wide shadow-sm"
-                          aria-label="Model ekle"
-                        >
-                          + Model
-                        </button>
-                        <div className="flex items-center gap-1 min-w-0 max-w-[380px]">
-                          <button
-                            onClick={goPrevTab}
-                            className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
-                            aria-label="Önceki adım"
-                          >
-                            <ChevronLeft size={18} strokeWidth={2.6} />
-                          </button>
-                          <div className="text-center min-w-0 px-1">
-                            <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
-                              {tabLabelMap[activeTab] || "Baskı"}
-                            </p>
-                            <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-                              {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
-                            </p>
-                          </div>
-                          <button
-                            onClick={goNextTab}
-                            className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
-                            aria-label="Sonraki adım"
-                          >
-                            <ChevronRight size={18} strokeWidth={2.6} />
-                          </button>
-                        </div>
-                        <button
-                          onClick={openDrawerMenu}
-                          className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-wide shadow-sm"
-                          aria-label="Kategori menüsünü aç"
-                        >
-                          <Menu size={14} />
-                          Menü
-                        </button>
-                      </div>
-                    ) : (
                       <>
-                        <div className="flex items-center gap-1 min-w-0">
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
                           <button
-                            onClick={goPrevTab}
-                            className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
-                            aria-label="Önceki adım"
+                            onClick={openPrintTypePickerFromHeader}
+                            className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[11px] font-black uppercase tracking-wide shadow-sm"
+                            aria-label="Baski tipi secimine don"
                           >
-                            <ChevronLeft size={18} strokeWidth={2.6} />
+                            Geri
                           </button>
-                          <div className="text-center min-w-0 px-1">
-                            <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
-                              {tabLabelMap[activeTab] || "Baskı"}
-                            </p>
-                            <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-                              {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
-                            </p>
+                          <div
+                            className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm max-w-[250px] truncate"
+                            title={selectedPrintTypeNames || "Baski secilmedi"}
+                          >
+                            {selectedPrintTypeNames || "Baski secilmedi"}
                           </div>
-                          <button
-                            onClick={goNextTab}
-                            className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
-                            aria-label="Sonraki adım"
-                          >
-                            <ChevronRight size={18} strokeWidth={2.6} />
-                          </button>
                         </div>
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setPickerStep("root");
+                              setPickerOpen(true);
+                            }}
+                            className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[11px] font-black uppercase tracking-wide shadow-sm"
+                            aria-label="Model ekle"
+                          >
+                            + Model
+                          </button>
+                          <div className="flex items-center gap-1 min-w-0 max-w-[380px]">
+                            <button
+                              onClick={goPrevTab}
+                              className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
+                              aria-label="Önceki adım"
+                            >
+                              <ChevronLeft size={18} strokeWidth={2.6} />
+                            </button>
+                            <div className="text-center min-w-0 px-1">
+                              <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
+                                {tabLabelMap[activeTab] || "Baskı"}
+                              </p>
+                              <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                                {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
+                              </p>
+                            </div>
+                            <button
+                              onClick={goNextTab}
+                              className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
+                              aria-label="Sonraki adım"
+                            >
+                              <ChevronRight size={18} strokeWidth={2.6} />
+                            </button>
+                          </div>
                           <button
                             onClick={openDrawerMenu}
                             className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-wide shadow-sm"
@@ -4525,6 +5179,66 @@ function TasarimClientContent({ isMobile }) {
                           >
                             <Menu size={14} />
                             Menü
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                          <button
+                            onClick={openPrintTypePickerFromHeader}
+                            className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm text-[10px] font-black uppercase tracking-wide"
+                            aria-label="Baski tipi secimine don"
+                          >
+                            Geri
+                          </button>
+                          <div
+                            className="hidden sm:flex h-9 px-2 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 items-center justify-center text-[9px] font-black uppercase tracking-wide shadow-sm max-w-[118px] truncate"
+                            title={selectedPrintTypeNames || "Baski secilmedi"}
+                          >
+                            {selectedPrintTypeNames || "Baski secilmedi"}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <button
+                            onClick={() => {
+                              setPickerStep("root");
+                              setPickerOpen(true);
+                            }}
+                            className="h-8 px-2 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
+                            aria-label="Model ekle"
+                          >
+                            + Model
+                          </button>
+                          <button
+                            onClick={goPrevTab}
+                            className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
+                            aria-label="Önceki adım"
+                          >
+                            <ChevronLeft size={18} strokeWidth={2.6} />
+                          </button>
+                          <div className="text-center min-w-0 px-1">
+                            <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
+                              {tabLabelMap[activeTab] || "Baskı"}
+                            </p>
+                            <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                              {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
+                            </p>
+                          </div>
+                          <button
+                            onClick={openDrawerMenu}
+                            className="h-8 px-2 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wide shadow-sm"
+                            aria-label="Kategori menüsünü aç"
+                          >
+                            <Menu size={12} />
+                            Menü
+                          </button>
+                          <button
+                            onClick={goNextTab}
+                            className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
+                            aria-label="Sonraki adım"
+                          >
+                            <ChevronRight size={18} strokeWidth={2.6} />
                           </button>
                         </div>
                       </>
@@ -4548,7 +5262,7 @@ function TasarimClientContent({ isMobile }) {
             onClick={closeDrawerMenu}
           >
             <div
-              className={`absolute left-1/2 -translate-x-1/2 w-[min(96vw,720px)] rounded-2xl border border-gray-200 bg-white/95 shadow-2xl p-4 transform-gpu will-change-transform transition-all duration-200 ease-out ${
+              className={`absolute left-1/2 -translate-x-1/2 w-[min(97vw,980px)] rounded-2xl border border-gray-200 bg-white/95 shadow-2xl p-4 md:p-5 transform-gpu will-change-transform transition-all duration-200 ease-out ${
                 drawerMenuOpen ? "translate-y-0 opacity-100 scale-100" : "translate-y-3 opacity-0 scale-[0.985]"
               }`}
               style={{
@@ -4567,7 +5281,7 @@ function TasarimClientContent({ isMobile }) {
                 </button>
               </div>
 
-              <div className={`grid gap-2 ${isMobile ? "grid-cols-2" : "grid-cols-4"}`}>
+              <div className={`grid gap-2 ${isMobile ? "grid-cols-2" : "grid-cols-3"}`}>
                 {menuTabs.map((tab) => (
                   <button
                     key={tab.id}
@@ -4583,6 +5297,13 @@ function TasarimClientContent({ isMobile }) {
                   </button>
                 ))}
               </div>
+
+              <PrintTypePickerCards
+                selectedIds={activePrintTypes}
+                onSelect={togglePrintTypeFromMenu}
+                sourceLabel="Menuden sec"
+                isMobile={isMobile}
+              />
             </div>
           </div>
         )}
