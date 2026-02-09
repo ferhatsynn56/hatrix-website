@@ -101,6 +101,7 @@ const MODEL_PATHS = {
   "hoodie-oversize-ipli": "/models/HoodieOversizeIpli.glb",
   "hoodie-oversize-cepli": "/models/HoodieOversizeCepli.glb",
   "hoodie-oversize-ceplipli": "/models/HoodieOversizeCepliIpli.glb",
+  "hoodie-v12-canavari": "/models/hoodie v12 canavarı.glb",
   fermuarli: "/models/Fermuarli.glb",
   polar: "/models/polar.glb",
   "yeni-duz-tshirt": `${NEW_MODELS_DIR}/Du\u0308z Tis\u0327o\u0308rt.glb`,
@@ -126,6 +127,7 @@ const AVAILABLE_MODELS = [
   "hoodie-oversize-ipli",
   "hoodie-oversize-cepli",
   "hoodie-oversize-ceplipli",
+  "hoodie-v12-canavari",
   "fermuarli",
   "polar",
   "yeni-duz-tshirt",
@@ -151,6 +153,7 @@ const MODEL_LABELS = {
   "hoodie-oversize-ipli": "Oversize Hoodie İpli",
   "hoodie-oversize-cepli": "Oversize Hoodie Cepli",
   "hoodie-oversize-ceplipli": "Oversize Hoodie Cepli İpli",
+  "hoodie-v12-canavari": "Yeni Hoodie V12",
   fermuarli: "Fermuarlı",
   polar: "Polar",
   "yeni-duz-tshirt": "Yeni Düz Tişört",
@@ -226,6 +229,10 @@ const MODEL_PRINT_BOUNDS = {
     front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
     back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
   },
+  "hoodie-v12-canavari": {
+    front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
+    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
+  },
 
   // İstisnalar (sonraki isteğinde özel değerler gelecek)
   polar: {
@@ -274,6 +281,7 @@ const CM_LABELS = {
   hoodie: { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
   "hoodie-cepli": { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
   "hoodie-ceplipli": { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
+  "hoodie-v12-canavari": { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
   "oversize-tshirt": { front: { w: 45, h: 60 }, back: { w: 45, h: 60 } },
   "oversize-tshirt-efektli": { front: { w: 45, h: 60 }, back: { w: 45, h: 60 } },
   "oversize-sweat": { front: { w: 58, h: 58 }, back: { w: 58, h: 58 } },
@@ -587,6 +595,10 @@ const createDesign = (type = "tshirt") => ({
   modelType: type,
   color: BRAND_DEFAULT_COLOR,
   stringColor: "#e6e6e6",
+  hoodieV12Parts: {
+    strings: false,
+    pocket: false,
+  },
   size: "M",
   sides: {
     front: createSideData(),
@@ -1012,7 +1024,7 @@ function makeCanvasTexture(canvas) {
   return tex;
 }
 
-function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, view, isMobile }) {
+function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, hoodieV12Parts, view, isMobile }) {
   const modelPathRaw = MODEL_PATHS[modelType] || MODEL_PATHS.tshirt;
   const gltf = useGLTF(toSafeUrl(modelPathRaw));
 
@@ -1058,6 +1070,9 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, v
 
   useEffect(() => {
     if (!root) return;
+    const isHoodieV12 = modelType === "hoodie-v12-canavari";
+    const showStrings = !!hoodieV12Parts?.strings;
+    const showPocket = !!hoodieV12Parts?.pocket;
 
     const looksLikeLace = (o) => {
       const n = (o?.name || "").toLowerCase();
@@ -1079,9 +1094,26 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, v
     root.traverse((o) => {
       if (!(o && (o.isMesh || o.isSkinnedMesh) && o.geometry)) return;
       if (o.geometry.getAttribute?.("color")) o.geometry.deleteAttribute("color");
+      if (isHoodieV12) {
+        const meshName = (o?.name || "").toLowerCase();
+        if (meshName.includes("hoodie_ipler")) {
+          o.visible = showStrings;
+          o.material = laceMaterial;
+          return;
+        }
+        if (meshName.includes("hoodie_cep")) {
+          o.visible = showPocket;
+          o.material = bodyMaterial;
+          return;
+        }
+        o.visible = true;
+        o.material = bodyMaterial;
+        return;
+      }
+      o.visible = true;
       o.material = looksLikeLace(o) ? laceMaterial : bodyMaterial;
     });
-  }, [root, bodyMaterial, laceMaterial]);
+  }, [root, bodyMaterial, laceMaterial, modelType, hoodieV12Parts?.strings, hoodieV12Parts?.pocket]);
 
   // Texture disposal
   const [frontTex, setFrontTex] = useState(null);
@@ -1551,6 +1583,7 @@ function DesignModelItem({
         frontCanvas={frontCanvas}
         backCanvas={backCanvas}
         modelType={design.modelType}
+        hoodieV12Parts={design.hoodieV12Parts}
         view={view}
         isMobile={isMobile}
       />
@@ -1675,6 +1708,7 @@ function EditorPanel({
   const cm = CM_LABELS[design.modelType]?.[currentSide] || { w: 0, h: 0 };
 
   const t = sideData?.customText || {};
+  const hoodieV12Parts = design.hoodieV12Parts || { strings: false, pocket: false };
 
   const updateSide = (patch) => {
     updateDesign({
@@ -2501,6 +2535,50 @@ function EditorPanel({
                 </div>
               </div>
             )}
+
+            {design.modelType === "hoodie-v12-canavari" && (
+              <div className={`rounded-xl border border-gray-200 bg-white p-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[220px] max-w-[320px] 2xl:min-w-[260px] 2xl:max-w-[420px] h-full max-h-full min-h-[188px] flex flex-col overflow-y-auto overflow-x-hidden") : ""}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <p className={drawerHeadingClass}>Hoodie Parçaları</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() =>
+                      updateDesign({
+                        hoodieV12Parts: {
+                          ...hoodieV12Parts,
+                          strings: !hoodieV12Parts.strings,
+                        },
+                      })
+                    }
+                    className={`py-2 rounded-lg text-[11px] font-bold uppercase border transition ${
+                      hoodieV12Parts.strings
+                        ? "bg-black text-white border-black"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    İp
+                  </button>
+                  <button
+                    onClick={() =>
+                      updateDesign({
+                        hoodieV12Parts: {
+                          ...hoodieV12Parts,
+                          pocket: !hoodieV12Parts.pocket,
+                        },
+                      })
+                    }
+                    className={`py-2 rounded-lg text-[11px] font-bold uppercase border transition ${
+                      hoodieV12Parts.pocket
+                        ? "bg-black text-white border-black"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    Cep
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -3044,6 +3122,7 @@ function TasarimClientContent({ isMobile }) {
             model: d.modelType,
             baseColor: d.color,
             stringColor: d.stringColor,
+            hoodieV12Parts: d.hoodieV12Parts || { strings: false, pocket: false },
             printFiles,
             textFiles,
             mockupFiles,
@@ -3060,6 +3139,7 @@ function TasarimClientContent({ isMobile }) {
           color: d.color,
           size: d.size,
           price: orderItem.price,
+          hoodieV12Parts: d.hoodieV12Parts || { strings: false, pocket: false },
           preview: previewMockup,
           image: previewMockup,
           printFiles,
@@ -3416,6 +3496,9 @@ function TasarimClientContent({ isMobile }) {
                     </button>
                     <button onClick={() => addModel("hoodie-oversize-ceplipli")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
                       Oversize Hoodie Cepli İpli
+                    </button>
+                    <button onClick={() => addModel("hoodie-v12-canavari")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
+                      Yeni Hoodie V12
                     </button>
                   </>
                 )}
@@ -4164,7 +4247,7 @@ function TasarimClientContent({ isMobile }) {
           const mobileScale = isPrintAreaOpen ? (drawerOpen ? 0.72 : 0.86) : drawerOpen ? 0.8 : 0.96;
           const mobileLeft = isPrintAreaOpen ? "60%" : drawerOpen ? "55%" : "57%";
           const mobileShiftY = isPrintAreaOpen ? (drawerOpen ? "-25%" : "-21%") : drawerOpen ? "-14%" : "-8%";
-          const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.35 : drawerOpen ? 2.2 : 1.95) : isPrintAreaOpen ? 2.35 : 2.2;
+          const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.1 : drawerOpen ? 1.95 : 1.72) : isPrintAreaOpen ? 2.1 : 1.9;
           const controlsTargetY = !isMobile ? (isPrintAreaOpen ? -0.12 : drawerOpen ? -0.2 : -0.1) : isPrintAreaOpen ? -0.05 : -0.1;
           return (
         <Canvas
@@ -4319,7 +4402,7 @@ function TasarimClientContent({ isMobile }) {
               {/* Drawer Tab Navigation */}
               <div
                 className={`relative px-3 border-b border-gray-300/80 bg-[#eceff3] ${
-                  drawerOpen ? "pt-10 pb-2" : "pt-7 pb-3"
+                  drawerOpen ? "pt-9 pb-2" : "pt-7 pb-3"
                 }`}
                 onPointerDown={(e) => {
                   if (!isMobile || drawerOpen) return;
@@ -4332,17 +4415,18 @@ function TasarimClientContent({ isMobile }) {
                 }}
               >
                 <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-gray-400/80" />
-                <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 w-20 h-1.5 rounded-full bg-gray-500/75" />
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleDrawer();
                   }}
-                  className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center z-40 shadow-[0_10px_30px_rgba(0,0,0,0.22)]"
+                  className="absolute left-1/2 top-0 -translate-x-1/2 w-10 h-5 rounded-b-full border-2 border-zinc-700 border-t-0 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center z-40 shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
                   aria-label="Paneli aç/kapa"
                 >
-                  {drawerOpen ? <ChevronDown size={20} strokeWidth={2.4} /> : <ChevronUp size={20} strokeWidth={2.4} />}
+                  <span className="translate-y-[3px]">
+                    {drawerOpen ? <ChevronDown size={14} strokeWidth={2.5} /> : <ChevronUp size={14} strokeWidth={2.5} />}
+                  </span>
                 </button>
 
                 {drawerOpen && (
@@ -4510,6 +4594,7 @@ useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-oversize"]));
 useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-oversize-ipli"]));
 useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-oversize-cepli"]));
 useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-oversize-ceplipli"]));
+useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-v12-canavari"]));
 useGLTF.preload(toSafeUrl(MODEL_PATHS["yeni-duz-tshirt"]));
 useGLTF.preload(toSafeUrl(MODEL_PATHS["yeni-oversize-tshirt"]));
 useGLTF.preload(toSafeUrl(MODEL_PATHS["yeni-duz-sweat"]));
