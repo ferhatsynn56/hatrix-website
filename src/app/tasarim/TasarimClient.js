@@ -12,6 +12,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   OrbitControls,
+  Environment,
   Decal,
   Center,
   ContactShadows,
@@ -344,6 +345,10 @@ const TEXT_LAYOUT_OPTIONS = [
   { id: "stair-up", label: "Merdiven Yukari" },
   { id: "stair-down", label: "Merdiven Asagi" },
 ];
+
+// HDR environment (Footprint HDR Labs). Drop file to /public/hdr/footprint.hdr to enable.
+const USE_FOOTPRINT_HDR = false;
+const FOOTPRINT_HDR = "/hdr/footprint.hdr";
 
 const splitLogoLayers = (logos) => {
   const back = [];
@@ -1051,6 +1056,7 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, h
       // Keep a fabric feel: high roughness, very low metalness.
       roughness: 0.97 - 0.08 * darkBoost,
       metalness: 0.01 + 0.03 * darkBoost,
+      envMapIntensity: 0.85,
       emissive: base,
       emissiveIntensity: 0.01 + 0.025 * darkBoost,
       side: THREE.FrontSide,
@@ -1063,6 +1069,7 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, h
         color: new THREE.Color(stringColor || "#e6e6e6"),
         roughness: 0.85,
         metalness: 0.02,
+        envMapIntensity: 0.6,
         side: THREE.FrontSide,
       }),
     [stringColor]
@@ -4287,6 +4294,14 @@ function TasarimClientContent({ isMobile }) {
           shadows={!isMobile}
         >
           <SceneBackgroundLock />
+
+          <Suspense fallback={null}>
+            {USE_FOOTPRINT_HDR ? (
+              <Environment files={FOOTPRINT_HDR} background={false} />
+            ) : (
+              <Environment preset="studio" background={false} />
+            )}
+          </Suspense>
 
           <ambientLight intensity={0.9} />
           <hemisphereLight intensity={0.4} groundColor={"#1f1f1f"} />
