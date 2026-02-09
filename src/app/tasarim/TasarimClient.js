@@ -2616,7 +2616,6 @@ function TasarimClientContent({ isMobile }) {
   const lockToastTimerRef = useRef(null);
   const previewRef = useRef(null);
   const [isLogoDragging, setIsLogoDragging] = useState(false);
-  const drawerPressFromClosedRef = useRef(false);
 
   const toggleLockAspect = () => {
     setLockAspect((prev) => {
@@ -3158,18 +3157,10 @@ function TasarimClientContent({ isMobile }) {
     } else {
       closeDrawer();
     }
-    if (drawerPressFromClosedRef.current) {
-      setTimeout(() => {
-        drawerPressFromClosedRef.current = false;
-      }, 0);
-    }
   };
 
   const openDrawer = () => {
-    if (activeTab === "editor") {
-      setActiveTab("upload");
-      setForceEditorOverlay(false);
-    }
+    // Editor modunda drawer'ı açarken tab'ı değiştirme
     if (isMobile) {
       drawerYRef.current = MAX_OPEN;
       setDrawerY(MAX_OPEN);
@@ -3194,28 +3185,6 @@ function TasarimClientContent({ isMobile }) {
       return;
     }
     openDrawer();
-  };
-
-  useEffect(() => {
-    if (!isMobile) return;
-    if (drawerOpen && activeTab === "editor") {
-      setActiveTab("upload");
-      setForceEditorOverlay(false);
-    }
-  }, [drawerOpen, activeTab, isMobile]);
-
-  const handleZoom = (dir) => {
-    const controls = controlsRef.current;
-    if (!controls) return;
-    const factor = isMobile ? 1.16 : 1.12;
-    if (isMobile) {
-      if (dir === "in") controls.dollyOut(factor);
-      else controls.dollyIn(factor);
-    } else {
-      if (dir === "in") controls.dollyIn(factor);
-      else controls.dollyOut(factor);
-    }
-    controls.update();
   };
 
   const effectiveView = captureView || view;
@@ -3303,16 +3272,18 @@ function TasarimClientContent({ isMobile }) {
           >
             <div className="flex justify-center pointer-events-auto">
               <div
-                className={`flex flex-col bg-zinc-900/90 backdrop-blur rounded-full border border-zinc-700 shadow-lg ${
-                  isMobile ? "p-[3px]" : "p-1"
+                className={`flex flex-col rounded-full border-2 border-zinc-700 bg-white/95 backdrop-blur shadow-[0_10px_26px_rgba(0,0,0,0.22)] ${
+                  isMobile ? "p-[3px]" : "p-1.5"
                 }`}
               >
                 {UI_VIEWS.map((v) => (
                   <button
                     key={v}
                     onClick={() => setView(v)}
-                    className={`${isMobile ? "px-3 py-1 text-[9px]" : "px-5 py-2 text-[10px]"} rounded-full font-bold uppercase tracking-widest transition-all ${
-                      view === v ? "bg-white text-black shadow-md" : "text-zinc-400"
+                    className={`${isMobile ? "px-3 py-1.5 text-[10px]" : "px-5 py-2.5 text-[11px]"} rounded-full font-bold uppercase tracking-widest transition-all ${
+                      view === v
+                        ? "bg-zinc-900 text-white shadow-md"
+                        : "bg-white text-zinc-600 hover:bg-zinc-100"
                     }`}
                   >
                     {v === "front" ? "ÖN" : "ARKA"}
@@ -3329,31 +3300,7 @@ function TasarimClientContent({ isMobile }) {
             style={{ top: activeTab === "editor" ? "182px" : "238px", right: "10px" }}
           >
             <div className="flex flex-col gap-2 rounded-2xl border border-zinc-300 bg-white/90 backdrop-blur px-2 py-2 shadow-lg">
-              <button
-                onClick={() => handleZoom("in")}
-                className="w-8 h-8 rounded-full border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 flex items-center justify-center"
-                aria-label="Yakınlaştır"
-              >
-                <Plus size={15} />
-              </button>
-              <button
-                onClick={() => handleZoom("out")}
-                className="w-8 h-8 rounded-full border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 flex items-center justify-center"
-                aria-label="Uzaklaştır"
-              >
-                <Minus size={15} />
-              </button>
-              <button
-                onClick={() => {
-                  setPickerStep("root");
-                  setPickerOpen(true);
-                }}
-                className="w-8 h-8 rounded-full border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 flex items-center justify-center"
-                aria-label="Model ekle"
-              >
-                <Plus size={15} />
-              </button>
-            </div>
+              </div>
           </div>
         )}
 
@@ -4372,92 +4319,117 @@ function TasarimClientContent({ isMobile }) {
               {/* Drawer Tab Navigation */}
               <div
                 className={`relative px-3 border-b border-gray-300/80 bg-[#eceff3] ${
-                  drawerOpen ? "pt-12 pb-2" : "pt-7 pb-3"
+                  drawerOpen ? "pt-10 pb-2" : "pt-7 pb-3"
                 }`}
                 onPointerDown={(e) => {
                   if (!isMobile || drawerOpen) return;
                   onDrawerPointerDown(e);
                 }}
+                onClick={(e) => {
+                  if (!isMobile || drawerOpen) return;
+                  if (e.target?.closest?.("button")) return;
+                  openDrawer();
+                }}
               >
                 <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-gray-400/80" />
                 <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 w-20 h-1.5 rounded-full bg-gray-500/75" />
                 <button
-                  onPointerDown={(e) => {
-                    if (isMobile && !drawerOpen) {
-                      drawerPressFromClosedRef.current = true;
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onDrawerPointerDown(e);
-                      return;
-                    }
-                    e.stopPropagation();
-                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (drawerPressFromClosedRef.current) {
-                      drawerPressFromClosedRef.current = false;
-                      return;
-                    }
                     toggleDrawer();
                   }}
-                  className="absolute left-1/2 top-1 -translate-x-1/2 w-11 h-11 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center z-40 shadow-[0_10px_30px_rgba(0,0,0,0.22)]"
+                  className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 w-11 h-11 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center z-40 shadow-[0_10px_30px_rgba(0,0,0,0.22)]"
                   aria-label="Paneli aç/kapa"
                 >
                   {drawerOpen ? <ChevronDown size={20} strokeWidth={2.4} /> : <ChevronUp size={20} strokeWidth={2.4} />}
                 </button>
 
                 {drawerOpen && (
-                  <div className="relative flex items-center justify-center min-h-[46px]">
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 min-w-[92px]">
-                      {!isMobile && (
+                  <div className={`relative flex items-center justify-center min-h-[46px] ${isMobile ? "" : "w-full max-w-[900px] mx-auto"}`}>
+                    {!isMobile ? (
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() => {
                             setPickerStep("root");
                             setPickerOpen(true);
                           }}
-                          className="h-8 px-3 rounded-full bg-black text-white border border-black text-[11px] font-black uppercase tracking-wide"
+                          className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[11px] font-black uppercase tracking-wide shadow-sm"
                           aria-label="Model ekle"
                         >
                           + Model
                         </button>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-1 min-w-0">
-                      <button
-                        onClick={goPrevTab}
-                        className="w-8 h-8 shrink-0 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 flex items-center justify-center"
-                        aria-label="Önceki adım"
-                      >
-                        <ChevronLeft size={16} />
-                      </button>
-                      <div className="text-center min-w-0 px-1">
-                        <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
-                          {tabLabelMap[activeTab] || "Baskı"}
-                        </p>
-                        <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-                          {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
-                        </p>
+                        <div className="flex items-center gap-1 min-w-0 max-w-[380px]">
+                          <button
+                            onClick={goPrevTab}
+                            className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
+                            aria-label="Önceki adım"
+                          >
+                            <ChevronLeft size={18} strokeWidth={2.6} />
+                          </button>
+                          <div className="text-center min-w-0 px-1">
+                            <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
+                              {tabLabelMap[activeTab] || "Baskı"}
+                            </p>
+                            <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                              {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
+                            </p>
+                          </div>
+                          <button
+                            onClick={goNextTab}
+                            className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
+                            aria-label="Sonraki adım"
+                          >
+                            <ChevronRight size={18} strokeWidth={2.6} />
+                          </button>
+                        </div>
+                        <button
+                          onClick={openDrawerMenu}
+                          className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-wide shadow-sm"
+                          aria-label="Kategori menüsünü aç"
+                        >
+                          <Menu size={14} />
+                          Menü
+                        </button>
                       </div>
-                      <button
-                        onClick={goNextTab}
-                        className="w-8 h-8 shrink-0 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 flex items-center justify-center"
-                        aria-label="Sonraki adım"
-                      >
-                        <ChevronRight size={16} />
-                      </button>
-                    </div>
-
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                      <button
-                        onClick={openDrawerMenu}
-                        className="h-8 px-3 rounded-full border border-black bg-black text-white hover:bg-zinc-800 flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-wide"
-                        aria-label="Kategori menüsünü aç"
-                      >
-                        <Menu size={14} />
-                        Menü
-                      </button>
-                    </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <button
+                            onClick={goPrevTab}
+                            className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
+                            aria-label="Önceki adım"
+                          >
+                            <ChevronLeft size={18} strokeWidth={2.6} />
+                          </button>
+                          <div className="text-center min-w-0 px-1">
+                            <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
+                              {tabLabelMap[activeTab] || "Baskı"}
+                            </p>
+                            <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                              {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
+                            </p>
+                          </div>
+                          <button
+                            onClick={goNextTab}
+                            className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
+                            aria-label="Sonraki adım"
+                          >
+                            <ChevronRight size={18} strokeWidth={2.6} />
+                          </button>
+                        </div>
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                          <button
+                            onClick={openDrawerMenu}
+                            className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-wide shadow-sm"
+                            aria-label="Kategori menüsünü aç"
+                          >
+                            <Menu size={14} />
+                            Menü
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
