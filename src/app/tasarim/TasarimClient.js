@@ -114,29 +114,12 @@ const MODEL_PATHS = {
 };
 
 const AVAILABLE_MODELS = [
-  "tshirt",
-  "sweatshirt",
-  "sweat-yeni",
-  "sweat-deneme",
-  "oversize-tshirt",
-  "oversize-tshirt-efektli",
-  "oversize-sweat",
-  "hoodie",
-  "hoodie-ipli",
-  "hoodie-cepli",
-  "hoodie-ceplipli",
-  "hoodie-oversize",
-  "hoodie-oversize-ipli",
-  "hoodie-oversize-cepli",
-  "hoodie-oversize-ceplipli",
-  "hoodie-v12-canavari",
-  "fermuarli",
-  "polar",
   "yeni-duz-tshirt",
   "yeni-oversize-tshirt",
   "yeni-duz-sweat",
   "yeni-oversize-sweat",
   "yeni-fermuarli",
+  "hoodie-v12-canavari",
 ];
 
 const MODEL_LABELS = {
@@ -167,47 +150,14 @@ const MODEL_LABELS = {
 
 const MODEL_SELECTION_GROUPS = [
   {
-    id: "tshirt",
-    title: "Tisort Modelleri",
-    models: [
-      "tshirt",
-      "oversize-tshirt",
-      "oversize-tshirt-efektli",
-      "yeni-duz-tshirt",
-      "yeni-oversize-tshirt",
-    ],
-  },
-  {
-    id: "sweat",
-    title: "Sweat Modelleri",
-    models: [
-      "sweatshirt",
-      "sweat-yeni",
-      "sweat-deneme",
-      "oversize-sweat",
-      "yeni-duz-sweat",
-      "yeni-oversize-sweat",
-    ],
+    id: "yeni",
+    title: "Klasor Modelleri",
+    models: ["yeni-duz-tshirt", "yeni-oversize-tshirt", "yeni-duz-sweat", "yeni-oversize-sweat", "yeni-fermuarli"],
   },
   {
     id: "hoodie",
-    title: "Hoodie Modelleri",
-    models: [
-      "hoodie",
-      "hoodie-ipli",
-      "hoodie-cepli",
-      "hoodie-ceplipli",
-      "hoodie-oversize",
-      "hoodie-oversize-ipli",
-      "hoodie-oversize-cepli",
-      "hoodie-oversize-ceplipli",
-      "hoodie-v12-canavari",
-    ],
-  },
-  {
-    id: "outer",
-    title: "Dis Giyim",
-    models: ["fermuarli", "yeni-fermuarli", "polar"],
+    title: "Hoodie",
+    models: ["hoodie-v12-canavari"],
   },
 ];
 
@@ -3269,7 +3219,7 @@ function TasarimClientContent({ isMobile }) {
     return AVAILABLE_MODELS.includes(raw) ? raw : null;
   }, [searchParams]);
 
-  const safeInitial = presetModelFromQuery || "tshirt";
+  const safeInitial = presetModelFromQuery || AVAILABLE_MODELS[0];
 
   const [view, setView] = useState("front");
   const [designs, setDesigns] = useState(() => [
@@ -3636,7 +3586,7 @@ function TasarimClientContent({ isMobile }) {
   };
 
   const addModel = (type) => {
-    const t = AVAILABLE_MODELS.includes(type) ? type : "tshirt";
+    const t = AVAILABLE_MODELS.includes(type) ? type : AVAILABLE_MODELS[0];
     const nd = createDesign(t);
     setDesigns((prev) => [...prev, nd]);
     setActiveId(nd.id);
@@ -4100,111 +4050,28 @@ function TasarimClientContent({ isMobile }) {
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                {pickerStep === "root" && (
+                {pickerStep === "root" &&
+                  MODEL_SELECTION_GROUPS.map((group) => (
+                    <button
+                      key={`picker-group-${group.id}`}
+                      onClick={() => setPickerStep(group.id)}
+                      className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center"
+                    >
+                      {group.title}
+                    </button>
+                  ))}
+
+                {pickerStep !== "root" && (
                   <>
-                    <button onClick={() => setPickerStep("tshirt")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Tişört
-                    </button>
-                    <button onClick={() => setPickerStep("sweat")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Sweatshirt
-                    </button>
-                    <button onClick={() => addModel("sweat-yeni")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Yeni Sweat
-                    </button>
-                    <button onClick={() => addModel("sweat-deneme")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Deneme Sweat
-                    </button>
-                    <button onClick={() => setPickerStep("hoodie")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Hoodie
-                    </button>
-                    <button onClick={() => addModel("fermuarli")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Fermuarlı
-                    </button>
-                    <button onClick={() => addModel("polar")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Polar
-                    </button>
-                    <button onClick={() => setPickerStep("yeni")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Yeni Modeller
-                    </button>
-                  </>
-                )}
-                {pickerStep === "tshirt" && (
-                  <>
-                    <button onClick={() => addModel("tshirt")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Düz Tişört
-                    </button>
-                    <button onClick={() => addModel("oversize-tshirt")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Oversize Tişört
-                    </button>
-                    <button onClick={() => addModel("oversize-tshirt-efektli")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Oversize Tişört Efektli
-                    </button>
-                  </>
-                )}
-                {pickerStep === "sweat" && (
-                  <>
-                    <button onClick={() => addModel("sweatshirt")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Normal Sweat
-                    </button>
-                    <button onClick={() => addModel("sweat-yeni")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Yeni Sweat
-                    </button>
-                    <button onClick={() => addModel("sweat-deneme")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Deneme Sweat
-                    </button>
-                    <button onClick={() => addModel("oversize-sweat")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Oversize Sweat
-                    </button>
-                  </>
-                )}
-                {pickerStep === "hoodie" && (
-                  <>
-                    <button onClick={() => addModel("hoodie")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Hoodie
-                    </button>
-                    <button onClick={() => addModel("hoodie-ipli")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Hoodie İpli
-                    </button>
-                    <button onClick={() => addModel("hoodie-cepli")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Hoodie Cepli
-                    </button>
-                    <button onClick={() => addModel("hoodie-ceplipli")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Hoodie Cepli İpli
-                    </button>
-                    <button onClick={() => addModel("hoodie-oversize")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Oversize Hoodie
-                    </button>
-                    <button onClick={() => addModel("hoodie-oversize-ipli")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Oversize Hoodie İpli
-                    </button>
-                    <button onClick={() => addModel("hoodie-oversize-cepli")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Oversize Hoodie Cepli
-                    </button>
-                    <button onClick={() => addModel("hoodie-oversize-ceplipli")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Oversize Hoodie Cepli İpli
-                    </button>
-                    <button onClick={() => addModel("hoodie-v12-canavari")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Yeni Hoodie V12
-                    </button>
-                  </>
-                )}
-                {pickerStep === "yeni" && (
-                  <>
-                    <button onClick={() => addModel("yeni-duz-tshirt")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Yeni Düz Tişört
-                    </button>
-                    <button onClick={() => addModel("yeni-oversize-tshirt")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Yeni Oversize Tişört
-                    </button>
-                    <button onClick={() => addModel("yeni-duz-sweat")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Yeni Düz Sweat
-                    </button>
-                    <button onClick={() => addModel("yeni-oversize-sweat")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Yeni Oversize Sweat
-                    </button>
-                    <button onClick={() => addModel("yeni-fermuarli")} className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center">
-                      Yeni Fermuarlı
-                    </button>
+                    {(MODEL_SELECTION_GROUPS.find((group) => group.id === pickerStep)?.models || []).map((modelType) => (
+                      <button
+                        key={`picker-model-${modelType}`}
+                        onClick={() => addModel(modelType)}
+                        className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center"
+                      >
+                        {MODEL_LABELS[modelType] || modelType}
+                      </button>
+                    ))}
                   </>
                 )}
               </div>
@@ -5312,27 +5179,8 @@ function TasarimClientContent({ isMobile }) {
   );
 }
 
-/* preload */
-useGLTF.preload(toSafeUrl(MODEL_PATHS.tshirt));
-useGLTF.preload(toSafeUrl(MODEL_PATHS.hoodie));
-useGLTF.preload(toSafeUrl(MODEL_PATHS.sweatshirt));
-useGLTF.preload(toSafeUrl(MODEL_PATHS["sweat-yeni"]));
-useGLTF.preload(toSafeUrl(MODEL_PATHS["sweat-deneme"]));
-useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-cepli"]));
-useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-ceplipli"]));
-useGLTF.preload(toSafeUrl(MODEL_PATHS["oversize-sweat"]));
-useGLTF.preload(toSafeUrl(MODEL_PATHS["oversize-tshirt"]));
-useGLTF.preload(toSafeUrl(MODEL_PATHS["oversize-tshirt-efektli"]));
-useGLTF.preload(toSafeUrl(MODEL_PATHS.fermuarli));
-useGLTF.preload(toSafeUrl(MODEL_PATHS.polar));
-useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-ipli"]));
-useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-oversize"]));
-useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-oversize-ipli"]));
-useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-oversize-cepli"]));
-useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-oversize-ceplipli"]));
-useGLTF.preload(toSafeUrl(MODEL_PATHS["hoodie-v12-canavari"]));
-useGLTF.preload(toSafeUrl(MODEL_PATHS["yeni-duz-tshirt"]));
-useGLTF.preload(toSafeUrl(MODEL_PATHS["yeni-oversize-tshirt"]));
-useGLTF.preload(toSafeUrl(MODEL_PATHS["yeni-duz-sweat"]));
-useGLTF.preload(toSafeUrl(MODEL_PATHS["yeni-oversize-sweat"]));
-useGLTF.preload(toSafeUrl(MODEL_PATHS["yeni-fermuarli"]));
+/* preload (lightweight set) */
+AVAILABLE_MODELS.forEach((modelType) => {
+  const modelPath = MODEL_PATHS[modelType];
+  if (modelPath) useGLTF.preload(toSafeUrl(modelPath));
+});
