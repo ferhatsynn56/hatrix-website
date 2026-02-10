@@ -552,7 +552,7 @@ const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const clamp01 = (v) => clamp(v, 0, 1);
 const pct = (v01) => `${Math.round(v01 * 100)}%`;
 const MAX_UPLOAD_FILE_MB = 16;
-const MAX_UPLOAD_RENDER_SIDE = 2048;
+const MAX_UPLOAD_RENDER_SIDE = 2304;
 const getTextCurveValue = (t) => clamp(Number(t?.curve ?? 30), 6, 88);
 
 const drawStyledText = (ctx, t, centerX, centerY, fontSize) => {
@@ -723,8 +723,8 @@ async function optimizeUploadDataUrl(file) {
     const wantTransparent = /png|webp/i.test(file.type);
     try {
       return wantTransparent
-        ? c.toDataURL("image/webp", 0.9)
-        : c.toDataURL("image/jpeg", 0.88);
+        ? c.toDataURL("image/webp", 0.95)
+        : c.toDataURL("image/jpeg", 0.93);
     } catch {
       return c.toDataURL("image/png");
     }
@@ -3012,18 +3012,120 @@ function EditorPanel({
         {/* TEXT / PDF */}
         {activeTab === "text" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-start justify-start gap-2.5") : "space-y-2.5"}`}>
-            <div className={`rounded-xl border border-gray-200 bg-white p-3 space-y-3 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[320px] max-w-[520px] h-full max-h-full min-h-[188px] flex flex-col overflow-y-auto overflow-x-hidden") : ""}`}>
-              <div className="flex items-center justify-between gap-2">
-                <p className={drawerHeadingClass}>Yazı / PDF</p>
-                {hasPdf ? (
-                  <span className="text-[10px] font-black uppercase text-emerald-600">Hazır</span>
-                ) : (
-                  <span className="text-[10px] font-black uppercase text-gray-500">Dosya Yok</span>
-                )}
-              </div>
+	            <div className={`rounded-xl border border-gray-200 bg-white p-3 space-y-3 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[320px] max-w-[520px] h-full max-h-full min-h-[188px] flex flex-col overflow-y-auto overflow-x-hidden") : ""}`}>
+	              <div className="flex items-center justify-between gap-2">
+	                <p className={drawerHeadingClass}>Yazı / PDF</p>
+	                {hasPdf ? (
+	                  <span className="text-[10px] font-black uppercase text-emerald-600">Hazır</span>
+	                ) : (
+	                  <span className="text-[10px] font-black uppercase text-gray-500">Dosya Yok</span>
+	                )}
+	              </div>
 
-              <button
-                type="button"
+	              <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 space-y-2">
+	                <div className="flex items-center justify-between gap-2">
+	                  <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Metin</p>
+	                  <button
+	                    type="button"
+	                    onClick={() =>
+	                      bumpText({
+	                        text: "",
+	                        color: "#ffffff",
+	                        size: 150,
+	                        font: FONT_OPTIONS[0].value,
+	                        layout: "straight",
+	                        curve: 30,
+	                      })
+	                    }
+	                    className="text-[10px] font-black uppercase text-gray-600 underline"
+	                  >
+	                    Temizle
+	                  </button>
+	                </div>
+	                <input
+	                  type="text"
+	                  value={t.text || ""}
+	                  maxLength={56}
+	                  onChange={(e) => bumpText({ text: e.target.value })}
+	                  placeholder="Yazını gir"
+	                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-[12px] font-semibold text-gray-800"
+	                />
+	                <div className="grid grid-cols-2 gap-2">
+	                  <label className="space-y-1">
+	                    <span className="block text-[10px] font-black uppercase tracking-wide text-gray-500">Font</span>
+	                    <select
+	                      value={t.font || FONT_OPTIONS[0].value}
+	                      onChange={(e) => bumpText({ font: e.target.value })}
+	                      className="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-[11px] font-semibold text-gray-800"
+	                    >
+	                      {FONT_OPTIONS.map((opt) => (
+	                        <option key={`font-opt-${opt.value}`} value={opt.value}>
+	                          {opt.label}
+	                        </option>
+	                      ))}
+	                    </select>
+	                  </label>
+	                  <label className="space-y-1">
+	                    <span className="block text-[10px] font-black uppercase tracking-wide text-gray-500">Renk</span>
+	                    <input
+	                      type="color"
+	                      value={t.color || "#ffffff"}
+	                      onChange={(e) => bumpText({ color: e.target.value })}
+	                      className="h-10 w-full rounded-lg border border-gray-300 bg-white p-1"
+	                    />
+	                  </label>
+	                </div>
+	                <div className="space-y-1">
+	                  <div className="flex items-center justify-between text-[10px] text-gray-500">
+	                    <span className="font-black uppercase tracking-wide">Boyut</span>
+	                    <span>{Math.round(Number(t.size || 150))} px</span>
+	                  </div>
+	                  <input
+	                    type="range"
+	                    min="30"
+	                    max="320"
+	                    step="1"
+	                    value={Number(t.size || 150)}
+	                    onChange={(e) => bumpText({ size: Number(e.target.value) })}
+	                    className="w-full accent-black"
+	                  />
+	                </div>
+	                <div className="space-y-1">
+	                  <span className="block text-[10px] font-black uppercase tracking-wide text-gray-500">Yazı Duruşu</span>
+	                  <select
+	                    value={t.layout || "straight"}
+	                    onChange={(e) => bumpText({ layout: e.target.value })}
+	                    className="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-[11px] font-semibold text-gray-800"
+	                  >
+	                    {TEXT_LAYOUT_OPTIONS.map((opt) => (
+	                      <option key={`layout-opt-${opt.id}`} value={opt.id}>
+	                        {opt.label}
+	                      </option>
+	                    ))}
+	                  </select>
+	                </div>
+	                <div className="space-y-1">
+	                  <div className="flex items-center justify-between text-[10px] text-gray-500">
+	                    <span className="font-black uppercase tracking-wide">Eğri</span>
+	                    <span>{Math.round(getTextCurveValue(t))}%</span>
+	                  </div>
+	                  <input
+	                    type="range"
+	                    min="6"
+	                    max="88"
+	                    step="1"
+	                    value={Math.round(getTextCurveValue(t))}
+	                    onChange={(e) => bumpText({ curve: Number(e.target.value) })}
+	                    className="w-full accent-black"
+	                  />
+	                </div>
+	                <p className="text-[10px] text-gray-500">
+	                  Not: Yazı konumu sürükleme ve hassas yerleşim ayarı için `Yerleşim` ekranını kullan.
+	                </p>
+	              </div>
+
+	              <button
+	                type="button"
                 onClick={() => pdfInputRef.current?.click()}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={async (e) => {
@@ -3525,9 +3627,9 @@ function TasarimClientContent({ isMobile }) {
   const perf = useMemo(() => {
     const heavy = modelCount > 2;
     return {
-      dpr: isMobile ? (heavy ? 1.1 : 1.25) : heavy ? 1.3 : 1.6,
-      antialias: isMobile ? false : !heavy,
-      shadowMap: isMobile ? 256 : heavy ? 512 : 768,
+      dpr: isMobile ? (heavy ? 1.2 : 1.35) : heavy ? 1.3 : 1.6,
+      antialias: !heavy,
+      shadowMap: isMobile ? 384 : heavy ? 512 : 768,
       powerPreference: "high-performance",
     };
   }, [isMobile, modelCount]);
@@ -3690,6 +3792,12 @@ function TasarimClientContent({ isMobile }) {
   // Desktop'ta baskı alanı açıldığında drawer otomatik aşağı (kapalı) konuma geçer.
   useEffect(() => {
     if (!isMobile && isPrintAreaOpen) setDrawerOpen(false);
+  }, [isMobile, isPrintAreaOpen]);
+
+  useEffect(() => {
+    if (isMobile && isPrintAreaOpen) {
+      setDrawerOpen(false);
+    }
   }, [isMobile, isPrintAreaOpen]);
 
   const updateActive = (patch) => {
@@ -4046,9 +4154,9 @@ function TasarimClientContent({ isMobile }) {
     if (!controls) return;
     const zoomStep = 1.12;
     if (direction === "in") {
-      controls.dollyIn?.(zoomStep);
-    } else {
       controls.dollyOut?.(zoomStep);
+    } else {
+      controls.dollyIn?.(zoomStep);
     }
     controls.update?.();
   };
@@ -4070,7 +4178,7 @@ function TasarimClientContent({ isMobile }) {
     : drawerOpen
       ? DESKTOP_DRAWER_HEIGHT
       : DESKTOP_DRAWER_PEEK;
-  const hideMobileDrawerInEditor = false;
+  const hideMobileDrawerInEditor = isMobile && isPrintAreaOpen;
   const menuPanelBottom = `calc(${Math.round(visibleDrawerHeight)}px + 12px)`;
 
   const renderPanel = (
@@ -4144,7 +4252,7 @@ function TasarimClientContent({ isMobile }) {
             className="absolute z-[90] pointer-events-none transition-all duration-300"
             style={
               isMobile
-                ? { top: "110px", right: "10px" }
+                ? { top: "110px", right: "4px" }
                 : { bottom: controlsBottom, right: "16px" }
             }
           >
@@ -4168,7 +4276,7 @@ function TasarimClientContent({ isMobile }) {
                   </button>
                 ))}
               </div>
-              {showHoodieVariantButtons && (
+              {showHoodieVariantButtons && !isMobile && (
                 <div className="rounded-2xl border border-zinc-300 bg-white/95 backdrop-blur px-2 py-2 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
                   <div className="grid grid-cols-1 gap-1.5 min-w-[116px]">
                     {HOODIE_DETAIL_OPTIONS.map((opt) => {
@@ -4190,17 +4298,6 @@ function TasarimClientContent({ isMobile }) {
                     })}
                   </div>
                 </div>
-              )}
-              {isMobile && (
-                <button
-                  onClick={() => {
-                    setPickerStep("root");
-                    setPickerOpen(true);
-                  }}
-                  className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white/95 text-zinc-900 hover:bg-zinc-100 text-[10px] font-black uppercase tracking-wide shadow-sm"
-                >
-                  + Model
-                </button>
               )}
             </div>
           </div>
@@ -4306,10 +4403,10 @@ function TasarimClientContent({ isMobile }) {
               top: isMobile ? "auto" : "72px",
               bottom: isMobile
                 ? hideMobileDrawerInEditor
-                  ? "calc(env(safe-area-inset-bottom) + 8px)"
+                  ? "calc(env(safe-area-inset-bottom) + 2px)"
                   : `${Math.round(visibleDrawerHeight) + 48}px`
                 : `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
-              maxHeight: isMobile ? (hideMobileDrawerInEditor ? "54vh" : "58vh") : undefined,
+              maxHeight: isMobile ? (hideMobileDrawerInEditor ? "52vh" : "58vh") : undefined,
             }}
           >
             {isMobile && !!lockToast && (
@@ -5049,7 +5146,7 @@ function TasarimClientContent({ isMobile }) {
         )}
 
         {/* DRAWER (MOBILE + DESKTOP) - Nike Style */}
-        {activeDesign && (
+        {activeDesign && !hideMobileDrawerInEditor && (
           <div
             className={`fixed left-0 right-0 z-[92] pointer-events-auto transition-all duration-300 ${
               isMobile ? "bottom-0" : "bottom-0"
@@ -5212,19 +5309,19 @@ function TasarimClientContent({ isMobile }) {
                             </p>
                           </div>
                           <button
+                            onClick={goNextTab}
+                            className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
+                            aria-label="Sonraki adım"
+                          >
+                            <ChevronRight size={18} strokeWidth={2.6} />
+                          </button>
+                          <button
                             onClick={openDrawerMenu}
                             className="h-8 px-2 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wide shadow-sm"
                             aria-label="Kategori menüsünü aç"
                           >
                             <Menu size={12} />
                             Menü
-                          </button>
-                          <button
-                            onClick={goNextTab}
-                            className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
-                            aria-label="Sonraki adım"
-                          >
-                            <ChevronRight size={18} strokeWidth={2.6} />
                           </button>
                         </div>
                       </>
