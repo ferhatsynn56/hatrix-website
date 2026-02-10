@@ -27,10 +27,10 @@ import {
   Menu,
   Plus,
   Minus,
-  Type,
   Trash2,
   X,
   Image as ImageIcon,
+  FileText,
   ChevronUp,
   ChevronDown,
   ChevronLeft,
@@ -84,33 +84,68 @@ function ThreeDotsLoader() {
 
 /* ================= PATH HELPERS ================= */
 const toSafeUrl = (p) => (typeof window !== "undefined" ? encodeURI(p) : p);
-const NEW_MODELS_DIR = "/models/drive-download-20260208T203457Z-3-001";
+const NEW_MODELS_ROOT = "/models/newModels";
+const NEW_MODELS_DIR_A = `${NEW_MODELS_ROOT}/drive-download-20260208T203457Z-3-001`;
+const NEW_MODELS_DIR_B = `${NEW_MODELS_ROOT}/drive-download-20260210T163425Z-3-001`;
+const MODELS_WITH_HOODIE_PARTS = new Set(["hoodie-v12-canavari", "oversize-hoodie-parcali"]);
+const DEFAULT_MODEL_TYPE = "yeni-duz-tshirt";
 
 /* ================= MODEL PATHS ================= */
+const PRIMARY_MODEL_PATHS = Object.freeze({
+  "yeni-duz-tshirt": `${NEW_MODELS_DIR_A}/duz-tisort.glb`,
+  "yeni-oversize-tshirt": `${NEW_MODELS_DIR_A}/oversize-tshirt.glb`,
+  "yeni-duz-sweat": `${NEW_MODELS_DIR_A}/duz-sweat.glb`,
+  "yeni-oversize-sweat": `${NEW_MODELS_DIR_A}/oversize-sweat.glb`,
+  "yeni-fermuarli": `${NEW_MODELS_DIR_A}/fermuarli.glb`,
+  "polar-son": `${NEW_MODELS_DIR_B}/polar-son.glb`,
+  "hoodie-v12-canavari": `${NEW_MODELS_ROOT}/hoodie-v12-canavari.glb`,
+  "oversize-hoodie-parcali": `${NEW_MODELS_DIR_B}/oversize-hoodie-parcali.glb`,
+});
+
+const MODEL_TYPE_ALIASES = Object.freeze({
+  tshirt: "yeni-duz-tshirt",
+  "normal-tshirt": "yeni-duz-tshirt",
+  "normal-tisort": "yeni-duz-tshirt",
+  "duz-tshirt": "yeni-duz-tshirt",
+  "duz-tisort": "yeni-duz-tshirt",
+  sweatshirt: "yeni-duz-sweat",
+  "sweat-yeni": "yeni-duz-sweat",
+  "sweat-deneme": "yeni-duz-sweat",
+  "oversize-tshirt": "yeni-oversize-tshirt",
+  "oversize-tshirt-efektli": "yeni-oversize-tshirt",
+  "oversize-sweat": "yeni-oversize-sweat",
+  hoodie: "hoodie-v12-canavari",
+  "hoodie-ipli": "hoodie-v12-canavari",
+  "hoodie-cepli": "hoodie-v12-canavari",
+  "hoodie-ceplipli": "hoodie-v12-canavari",
+  "hoodie-oversize": "oversize-hoodie-parcali",
+  "hoodie-oversize-ipli": "oversize-hoodie-parcali",
+  "hoodie-oversize-cepli": "oversize-hoodie-parcali",
+  "hoodie-oversize-ceplipli": "oversize-hoodie-parcali",
+  fermuarli: "yeni-fermuarli",
+  polar: "polar-son",
+  "duz tisort": "yeni-duz-tshirt",
+  "duz tshirt": "yeni-duz-tshirt",
+});
+
+const normalizeModelType = (type) => {
+  const raw = String(type || "")
+    .toLowerCase()
+    .trim();
+  if (!raw) return DEFAULT_MODEL_TYPE;
+  const slug = raw.replace(/\s+/g, "-").replace(/_/g, "-");
+  const resolved = MODEL_TYPE_ALIASES[raw] || MODEL_TYPE_ALIASES[slug] || raw;
+  return PRIMARY_MODEL_PATHS[resolved] ? resolved : DEFAULT_MODEL_TYPE;
+};
+
 const MODEL_PATHS = {
-  tshirt: "/models/NormalTshirt.glb",
-  sweatshirt: "/models/NormalSweat.glb",
-  "sweat-yeni": "/models/yeni sweat 331231.glb",
-  "sweat-deneme": "/models/Deneme 4.glb",
-  "oversize-tshirt": "/models/OversizeTshirt.glb",
-  "oversize-tshirt-efektli": "/models/Owersize Tshirt Efektli.glb",
-  "oversize-sweat": "/models/OversizeSweat.glb",
-  hoodie: "/models/Hoodie.glb",
-  "hoodie-ipli": "/models/HoodieIpli.glb",
-  "hoodie-cepli": "/models/HoodieCepli.glb",
-  "hoodie-ceplipli": "/models/HoodieCepliIpli.glb",
-  "hoodie-oversize": "/models/HoodieOversize.glb",
-  "hoodie-oversize-ipli": "/models/HoodieOversizeIpli.glb",
-  "hoodie-oversize-cepli": "/models/HoodieOversizeCepli.glb",
-  "hoodie-oversize-ceplipli": "/models/HoodieOversizeCepliIpli.glb",
-  "hoodie-v12-canavari": "/models/hoodie v12 canavarı.glb",
-  fermuarli: "/models/Fermuarli.glb",
-  polar: "/models/polar.glb",
-  "yeni-duz-tshirt": `${NEW_MODELS_DIR}/duz-tisort.glb`,
-  "yeni-oversize-tshirt": `${NEW_MODELS_DIR}/oversize-tshirt.glb`,
-  "yeni-duz-sweat": `${NEW_MODELS_DIR}/duz-sweat.glb`,
-  "yeni-oversize-sweat": `${NEW_MODELS_DIR}/oversize-sweat.glb`,
-  "yeni-fermuarli": `${NEW_MODELS_DIR}/fermuarli.glb`,
+  ...PRIMARY_MODEL_PATHS,
+  ...Object.fromEntries(
+    Object.entries(MODEL_TYPE_ALIASES).map(([legacyType, canonicalType]) => [
+      legacyType,
+      PRIMARY_MODEL_PATHS[canonicalType] || PRIMARY_MODEL_PATHS[DEFAULT_MODEL_TYPE],
+    ])
+  ),
 };
 
 const AVAILABLE_MODELS = [
@@ -119,7 +154,9 @@ const AVAILABLE_MODELS = [
   "yeni-duz-sweat",
   "yeni-oversize-sweat",
   "yeni-fermuarli",
+  "polar-son",
   "hoodie-v12-canavari",
+  "oversize-hoodie-parcali",
 ];
 
 const MODEL_LABELS = {
@@ -139,8 +176,10 @@ const MODEL_LABELS = {
   "hoodie-oversize-cepli": "Oversize Hoodie Cepli",
   "hoodie-oversize-ceplipli": "Oversize Hoodie Cepli İpli",
   "hoodie-v12-canavari": "Yeni Hoodie V12",
+  "oversize-hoodie-parcali": "Oversize Hoodie Parçalı",
   fermuarli: "Fermuarlı",
   polar: "Polar",
+  "polar-son": "Polar Son",
   "yeni-duz-tshirt": "Yeni Düz Tişört",
   "yeni-oversize-tshirt": "Yeni Oversize Tişört",
   "yeni-duz-sweat": "Yeni Düz Sweat",
@@ -150,14 +189,24 @@ const MODEL_LABELS = {
 
 const MODEL_SELECTION_GROUPS = [
   {
-    id: "yeni",
-    title: "Klasor Modelleri",
-    models: ["yeni-duz-tshirt", "yeni-oversize-tshirt", "yeni-duz-sweat", "yeni-oversize-sweat", "yeni-fermuarli"],
+    id: "tisort",
+    title: "Tişört",
+    models: ["yeni-duz-tshirt", "yeni-oversize-tshirt"],
+  },
+  {
+    id: "sweat",
+    title: "Sweat",
+    models: ["yeni-duz-sweat", "yeni-oversize-sweat"],
   },
   {
     id: "hoodie",
     title: "Hoodie",
-    models: ["hoodie-v12-canavari"],
+    models: ["hoodie-v12-canavari", "oversize-hoodie-parcali"],
+  },
+  {
+    id: "outer",
+    title: "Dış Giyim",
+    models: ["yeni-fermuarli", "polar-son"],
   },
 ];
 
@@ -231,9 +280,17 @@ const MODEL_PRINT_BOUNDS = {
     front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
     back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
   },
+  "oversize-hoodie-parcali": {
+    front: { xMin: -0.17, xMax: 0.17, yTop: 0.27, yBot: -0.31, z: 0.147, rotY: 0 },
+    back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
+  },
 
   // İstisnalar (sonraki isteğinde özel değerler gelecek)
   polar: {
+    front: { xMin: -0.15, xMax: 0.18, yTop: 0.28, yBot: -0.25, z: 0.139, rotY: 0 },
+    back: { xMin: -0.15, xMax: 0.19, yTop: 0.31, yBot: -0.25, z: -0.14, rotY: Math.PI },
+  },
+  "polar-son": {
     front: { xMin: -0.15, xMax: 0.18, yTop: 0.28, yBot: -0.25, z: 0.139, rotY: 0 },
     back: { xMin: -0.15, xMax: 0.19, yTop: 0.31, yBot: -0.25, z: -0.14, rotY: Math.PI },
   },
@@ -280,11 +337,13 @@ const CM_LABELS = {
   "hoodie-cepli": { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
   "hoodie-ceplipli": { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
   "hoodie-v12-canavari": { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
+  "oversize-hoodie-parcali": { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
   "oversize-tshirt": { front: { w: 45, h: 60 }, back: { w: 45, h: 60 } },
   "oversize-tshirt-efektli": { front: { w: 45, h: 60 }, back: { w: 45, h: 60 } },
   "oversize-sweat": { front: { w: 58, h: 58 }, back: { w: 58, h: 58 } },
   fermuarli: { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
   polar: { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
+  "polar-son": { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
   "yeni-duz-tshirt": { front: { w: 40, h: 54 }, back: { w: 40, h: 54 } },
   "yeni-oversize-tshirt": { front: { w: 45, h: 60 }, back: { w: 45, h: 60 } },
   "yeni-duz-sweat": { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
@@ -329,6 +388,22 @@ const FONT_OPTIONS = [
   { label: "Lucida Console", value: "Lucida Console, Monaco, monospace" },
   { label: "Brush Script", value: "Brush Script MT, Comic Sans MS, cursive" },
 ];
+const HOODIE_DETAIL_OPTIONS = [
+  { id: "strings", label: "İpli" },
+  { id: "pocket", label: "Cepli" },
+];
+const DEFAULT_HOODIE_PARTS = Object.freeze({
+  strings: false,
+  pocket: false,
+});
+const DEFAULT_PDF_PLACEMENT = Object.freeze({
+  x: 0.5,
+  y: 0.56,
+  w: 0.36,
+  h: 0.18,
+  rotation: 0,
+  side: "front",
+});
 const TEXT_LAYOUT_OPTIONS = [
   { id: "straight", label: "Duz" },
   { id: "arc-up", label: "Yukari Yay" },
@@ -754,16 +829,17 @@ const hasSideContent = (sd) => {
 const UI_SIDES = ["front", "back"];
 const UI_VIEWS = ["front", "back"];
 
-const createDesign = (type = "tshirt") => ({
+const createDesign = (type = DEFAULT_MODEL_TYPE) => ({
   id: makeId(),
-  modelType: type,
+  modelType: normalizeModelType(type),
   color: BRAND_DEFAULT_COLOR,
   fabricType: "standart",
   stringColor: "#e6e6e6",
-  hoodieV12Parts: {
-    strings: false,
-    pocket: false,
-  },
+  hoodieV12Parts: { ...DEFAULT_HOODIE_PARTS },
+  hasPdf: false,
+  pdfFileUrl: "",
+  pdfOriginalName: "",
+  pdfPlacement: { ...DEFAULT_PDF_PLACEMENT },
   printTypes: [],
   size: "M",
   sides: {
@@ -773,6 +849,31 @@ const createDesign = (type = "tshirt") => ({
     right: createSideData(),
   },
 });
+
+const normalizeHoodieParts = (parts) => ({
+  ...DEFAULT_HOODIE_PARTS,
+  ...(parts && typeof parts === "object" ? parts : {}),
+});
+
+const normalizePdfPlacement = (placement, side = "front") => {
+  const p = placement && typeof placement === "object" ? placement : {};
+  return {
+    x: clamp(Number.isFinite(Number(p.x)) ? Number(p.x) : DEFAULT_PDF_PLACEMENT.x, 0.06, 0.94),
+    y: clamp(Number.isFinite(Number(p.y)) ? Number(p.y) : DEFAULT_PDF_PLACEMENT.y, 0.06, 0.94),
+    w: clamp(Number.isFinite(Number(p.w)) ? Number(p.w) : DEFAULT_PDF_PLACEMENT.w, 0.12, 0.9),
+    h: clamp(Number.isFinite(Number(p.h)) ? Number(p.h) : DEFAULT_PDF_PLACEMENT.h, 0.08, 0.9),
+    rotation: clamp(Number.isFinite(Number(p.rotation)) ? Number(p.rotation) : 0, -180, 180),
+    side: p.side === "back" ? "back" : side === "back" ? "back" : "front",
+  };
+};
+
+const getHoodieVariantLabel = (parts) => {
+  const p = normalizeHoodieParts(parts);
+  if (p.strings && p.pocket) return "İpli + Cepli";
+  if (p.strings) return "İpli";
+  if (p.pocket) return "Cepli";
+  return "Standart";
+};
 
 const getActiveSides = (design) =>
   Object.entries(design.sides)
@@ -1229,7 +1330,7 @@ function makeCanvasTexture(canvas) {
 }
 
 function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, hoodieV12Parts, fabricType, view, isMobile }) {
-  const modelPathRaw = MODEL_PATHS[modelType] || MODEL_PATHS.tshirt;
+  const modelPathRaw = MODEL_PATHS[normalizeModelType(modelType)] || MODEL_PATHS[DEFAULT_MODEL_TYPE];
   const gltf = useGLTF(toSafeUrl(modelPathRaw));
 
   const hasSkinned = useMemo(() => {
@@ -1284,7 +1385,7 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, h
 
   useEffect(() => {
     if (!root) return;
-    const isHoodieV12 = modelType === "hoodie-v12-canavari";
+    const isHoodieWithParts = MODELS_WITH_HOODIE_PARTS.has(modelType);
     const showStrings = !!hoodieV12Parts?.strings;
     const showPocket = !!hoodieV12Parts?.pocket;
 
@@ -1308,14 +1409,14 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, h
     root.traverse((o) => {
       if (!(o && (o.isMesh || o.isSkinnedMesh) && o.geometry)) return;
       if (o.geometry.getAttribute?.("color")) o.geometry.deleteAttribute("color");
-      if (isHoodieV12) {
+      if (isHoodieWithParts) {
         const meshName = (o?.name || "").toLowerCase();
-        if (meshName.includes("hoodie_ipler")) {
+        if (meshName.includes("hoodie_ipler") || meshName.includes("_ip") || meshName.includes("ipler")) {
           o.visible = showStrings;
           o.material = laceMaterial;
           return;
         }
-        if (meshName.includes("hoodie_cep")) {
+        if (meshName.includes("hoodie_cep") || meshName.includes("_cep") || meshName.includes("cep")) {
           o.visible = showPocket;
           o.material = bodyMaterial;
           return;
@@ -1393,16 +1494,16 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, h
                 rotation={[0, frontProfile.rotY || 0, 0]}
                 scale={[frontW, frontH, TORSO_DEPTH]}
               >
-                <meshStandardMaterial
+                <meshBasicMaterial
                   map={frontTex}
+                  toneMapped={false}
+                  color="#ffffff"
                   transparent
                   alphaTest={0.02}
                   depthWrite={false}
                   polygonOffset
                   polygonOffsetFactor={-10}
                   side={THREE.FrontSide}
-                  roughness={1}
-                  metalness={0}
                 />
               </Decal>
             )}
@@ -1414,16 +1515,16 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, h
                 rotation={[0, backProfile.rotY || Math.PI, 0]}
                 scale={[backW, backH, TORSO_DEPTH]}
               >
-                <meshStandardMaterial
+                <meshBasicMaterial
                   map={backTex}
+                  toneMapped={false}
+                  color="#ffffff"
                   transparent
                   alphaTest={0.02}
                   depthWrite={false}
                   polygonOffset
                   polygonOffsetFactor={-10}
                   side={THREE.FrontSide}
-                  roughness={1}
-                  metalness={0}
                 />
               </Decal>
             )}
@@ -1873,7 +1974,7 @@ function StyledTextPreview({ textState, className = "" }) {
 let modelSelectionSpinStart = 0;
 
 function ModelSelectionPreview3D({ modelType }) {
-  const modelPathRaw = MODEL_PATHS[modelType] || MODEL_PATHS.tshirt;
+  const modelPathRaw = MODEL_PATHS[normalizeModelType(modelType)] || MODEL_PATHS[DEFAULT_MODEL_TYPE];
   const gltf = useGLTF(toSafeUrl(modelPathRaw));
   const groupRef = useRef(null);
   const hasSkinned = useMemo(() => {
@@ -2012,6 +2113,119 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
   );
 }
 
+function ModelManagementCard({
+  designs = [],
+  activeId = null,
+  onSelectModel,
+  onRemoveModel,
+  activeModelType,
+  hoodieParts,
+  onToggleHoodiePart,
+  fabricType = "standart",
+  onChangeFabric,
+  cardClassName = "",
+}) {
+  const parts = normalizeHoodieParts(hoodieParts);
+  const showHoodieOptions = MODELS_WITH_HOODIE_PARTS.has(activeModelType);
+
+  return (
+    <div className={`rounded-xl border border-gray-200 bg-white p-2 shadow-sm min-h-[206px] ${cardClassName}`}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[13px] font-black tracking-[0.14em] text-gray-500 uppercase">Model Yönetimi</p>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{(designs || []).length} model</p>
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {(designs || []).map((item) => {
+          const selected = item.id === activeId;
+          return (
+            <button
+              key={`model-card-${item.id}`}
+              onClick={() => onSelectModel?.(item.id)}
+              className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wide border transition ${
+                selected
+                  ? "bg-black text-white border-black"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+              }`}
+            >
+              {MODEL_LABELS[item.modelType] || item.modelType}
+            </button>
+          );
+        })}
+      </div>
+
+      {showHoodieOptions && (
+        <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-2 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-600">Hoodie Detayları</p>
+            <span className="text-[10px] font-bold text-gray-600">{getHoodieVariantLabel(parts)}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {HOODIE_DETAIL_OPTIONS.map((opt) => {
+              const active = Boolean(parts[opt.id]);
+              return (
+                <button
+                  key={`hoodie-detail-toggle-${opt.id}`}
+                  type="button"
+                  onClick={() => onToggleHoodiePart?.(opt.id, !active)}
+                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase border transition flex items-center justify-center gap-1 ${
+                    active
+                      ? "bg-black text-white border-black"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                  }`}
+                >
+                  {active && <Check size={12} />}
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-600">Kumaş</p>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { id: "standart", label: "Standart" },
+                { id: "pamuk", label: "Pamuk" },
+                { id: "soft", label: "Soft" },
+              ].map((opt) => (
+                <button
+                  key={`fabric-${opt.id}`}
+                  type="button"
+                  onClick={() => onChangeFabric?.(opt.id)}
+                  className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase border transition ${
+                    fabricType === opt.id
+                      ? "bg-black text-white border-black"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(designs || []).length > 1 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {(designs || []).map((item) => {
+            if (item.id === activeId) return null;
+            return (
+              <button
+                key={`remove-model-${item.id}`}
+                onClick={() => onRemoveModel?.(item.id)}
+                className="px-2 py-1 rounded-md text-[10px] font-bold uppercase border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+              >
+                Kaldır: {MODEL_LABELS[item.modelType] || item.modelType}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ================= EDITOR PANEL ================= */
 function EditorPanel({
   design,
@@ -2034,7 +2248,7 @@ function EditorPanel({
   onOpenCategoryMenu,
   printTypePickerSignal = 0,
 }) {
-  const isZipperFront = design.modelType === "fermuarli" && view === "front";
+  const isZipperFront = (design.modelType === "fermuarli" || design.modelType === "yeni-fermuarli") && view === "front";
   const gap01 = MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
   const isDrawerLayout = layout === "drawer";
   const isMobileDrawer = isDrawerLayout && isMobile;
@@ -2042,22 +2256,10 @@ function EditorPanel({
   const currentSide = view === "back" ? "back" : "front";
   const sideData = useMemo(() => design?.sides?.[currentSide] || createSideData(), [design, currentSide]);
 
-  // içerik varsa editor'e geç, yoksa upload
-  useEffect(() => {
-    const sideHasAny =
-      (sideData?.logos?.length ?? 0) > 0 || ((sideData?.customText?.text ?? "").trim().length > 0);
-
-    // setActiveTab yoksa patlamasın
-    if (typeof setActiveTab === "function") {
-      setActiveTab(sideHasAny ? "editor" : "upload");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [design?.id, currentSide]);
-
   const previewRef = useRef(null);
   const uploadSlotRefs = useRef([]);
-  const textPdfInputRef = useRef(null);
-  const [isImportingPdfText, setIsImportingPdfText] = useState(false);
+  const pdfInputRef = useRef(null);
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
   const [showPrintTypePicker, setShowPrintTypePicker] = useState(false);
 
   const sizes = ["S", "M", "L", "XL"];
@@ -2070,7 +2272,24 @@ function EditorPanel({
   const cm = CM_LABELS[design.modelType]?.[currentSide] || { w: 0, h: 0 };
 
   const t = sideData?.customText || {};
-  const hoodieV12Parts = design.hoodieV12Parts || { strings: false, pocket: false };
+  const hoodieV12Parts = normalizeHoodieParts(design.hoodieV12Parts);
+  const hasPdf = Boolean(design?.hasPdf && design?.pdfFileUrl);
+  const pdfPlacement = normalizePdfPlacement(design?.pdfPlacement, currentSide);
+  const setHoodiePartEnabled = (partKey, enabled) => {
+    if (!["strings", "pocket"].includes(partKey)) return;
+    updateDesign({
+      hoodieV12Parts: {
+        ...hoodieV12Parts,
+        [partKey]: Boolean(enabled),
+      },
+    });
+  };
+  const updatePdfPlacement = (patch) => {
+    updateDesign({
+      hasPdf: true,
+      pdfPlacement: normalizePdfPlacement({ ...pdfPlacement, ...patch }, patch?.side || pdfPlacement.side || currentSide),
+    });
+  };
   const fabricType = design.fabricType || "standart";
   const printTypes = Array.isArray(design.printTypes) ? design.printTypes : [];
 
@@ -2123,15 +2342,19 @@ function EditorPanel({
     }
   };
 
-  const isFocusMode = isMobile && activeTab === "editor";
+  const isFocusMode = isMobile && activeTab === "editor" && !isDrawerLayout;
   const drawerHeadingClass = "text-[13px] font-black tracking-[0.14em] text-gray-500 uppercase";
 
   const togglePrintType = (id) => {
     const alreadySelected = printTypes.includes(id);
     const next = alreadySelected ? printTypes.filter((t) => t !== id) : [...printTypes, id];
     updateDesign({ printTypes: next });
-    if (!alreadySelected && (id === "rubber" || id === "flock")) {
-      setActiveTab("text");
+    if (!alreadySelected) {
+      if (id === "rubber" || id === "flock") {
+        setActiveTab("text");
+      } else if (id === "dtf") {
+        setActiveTab("upload");
+      }
     }
   };
 
@@ -2157,28 +2380,40 @@ function EditorPanel({
     setShowPrintTypePicker(false);
   };
 
-  const handlePdfTextUpload = async (file) => {
+  const handlePdfUpload = async (file) => {
     if (!file) return;
     try {
-      setIsImportingPdfText(true);
+      setIsUploadingPdf(true);
       const ext = String(file.name || "").toLowerCase();
-      if (ext.endsWith(".pdf")) {
-        throw new Error("PDF icinden temiz metin alma kapali. Lutfen metni .txt olarak yukleyin veya elle yapistirin.");
+      if (!ext.endsWith(".pdf")) {
+        throw new Error("Lütfen PDF dosyası seçin.");
       }
-      const parsed = await file.text();
-      const cleaned = sanitizePdfText(parsed).slice(0, 180);
-      if (!cleaned) {
-        throw new Error("Dosya icinde kullanilabilir metin bulunamadi.");
-      }
-      bumpText({ text: cleaned });
-      if (activeTab !== "text") setActiveTab("text");
+      const dataUrl = await fileToDataUrl(file);
+      const fallbackPlacement = normalizePdfPlacement(design.pdfPlacement, currentSide);
+      updateDesign({
+        hasPdf: true,
+        pdfFileUrl: dataUrl,
+        pdfOriginalName: file.name || "dosya.pdf",
+        pdfPlacement: {
+          ...fallbackPlacement,
+          side: currentSide,
+        },
+      });
+      setActiveTab("text");
       onRequestDrawerExpand?.();
     } catch (err) {
-      console.error("Metin dosyasi aktarim hatasi:", err);
-      alert(err?.message || "Metin dosyasi okunamadi.");
+      console.error("PDF yukleme hatasi:", err);
+      alert(err?.message || "PDF yuklenemedi.");
     } finally {
-      setIsImportingPdfText(false);
+      setIsUploadingPdf(false);
     }
+  };
+
+  const handleDeleteActiveImage = () => {
+    const currentId = sideData.activeLogoId || sideData.logos?.[0]?.id;
+    if (!currentId) return;
+    const next = (sideData.logos || []).filter((l) => l.id !== currentId);
+    updateSide({ logos: next, activeLogoId: next[0]?.id || null });
   };
 
   if (isFocusMode) {
@@ -2379,7 +2614,7 @@ function EditorPanel({
           <div className="flex border-b border-zinc-800 bg-[#111111] flex-shrink-0">
             {[
               { id: "upload", icon: ImageIcon, label: "Baskı" },
-              { id: "text", icon: Type, label: "Yazı" },
+              { id: "text", icon: FileText, label: "Yazı" },
               { id: "color", icon: Palette, label: "Renk" },
             ].map((tab) => (
               <button
@@ -2411,52 +2646,18 @@ function EditorPanel({
         style={{ touchAction: "pan-y", minHeight: 0, backgroundColor: contentBackground }}
       >
         {isDrawerLayout && activeTab !== "upload" && (
-          <div className={`${isMobileDrawer ? "w-full shrink-0" : "shrink-0 flex-[1.2] min-w-[300px] max-w-[440px] 2xl:min-w-[380px] 2xl:max-w-[620px] h-full min-h-[188px]"} rounded-xl border border-gray-200 bg-white p-2 shadow-sm flex flex-col overflow-hidden`}>
-            <div className="flex items-center justify-between gap-2">
-              <p className={drawerHeadingClass}>Model Yönetimi</p>
-              <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{(designs || []).length} model</p>
-            </div>
-
-            <div
-              className={`mt-3 ${isMobileDrawer
-                ? "grid grid-cols-1 gap-2"
-                : "flex-1 flex items-stretch gap-2 overflow-x-auto overflow-y-hidden pb-1 scroll-smooth snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-              }`}
-            >
-              {(designs || []).map((item) => {
-                const selected = item.id === activeId;
-                return (
-                  <div
-                    key={item.id}
-                    className={`${isMobileDrawer ? "w-full" : "shrink-0 snap-start self-stretch min-w-[220px] 2xl:min-w-[280px]"} flex items-center justify-between gap-2 rounded-lg border px-2.5 py-2 ${
-                      selected ? "border-black bg-gray-50" : "border-gray-200 bg-white"
-                    }`}
-                    onClick={() => onSelectModel?.(item.id)}
-                    role="button"
-                  >
-                    <div className="flex-1 text-left min-w-0 cursor-pointer">
-                      <p className={`truncate text-[10px] font-black uppercase tracking-wide ${selected ? "text-black" : "text-gray-700"}`}>
-                        {MODEL_LABELS[item.modelType] || item.modelType}
-                      </p>
-                    </div>
-
-                    {(designs || []).length > 1 && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRemoveModel?.(item.id);
-                        }}
-                        className="w-6 h-6 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 flex items-center justify-center"
-                        title="Modeli kaldır"
-                      >
-                        <X size={12} />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <ModelManagementCard
+            designs={designs}
+            activeId={activeId}
+            onSelectModel={onSelectModel}
+            onRemoveModel={onRemoveModel}
+            activeModelType={design.modelType}
+            hoodieParts={hoodieV12Parts}
+            onToggleHoodiePart={setHoodiePartEnabled}
+            fabricType={fabricType}
+            onChangeFabric={(id) => updateDesign({ fabricType: id })}
+            cardClassName={isMobileDrawer ? "w-full shrink-0" : "shrink-0 flex-[1.2] min-w-[300px] max-w-[440px] 2xl:min-w-[380px] 2xl:max-w-[620px] h-full min-h-[188px] overflow-hidden"}
+          />
         )}
 
         {/* UPLOAD */}
@@ -2476,97 +2677,17 @@ function EditorPanel({
             {!showPrintTypePicker && (
               <>
             <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full grid grid-cols-1 gap-2" : "w-full grid grid-cols-[minmax(320px,1.05fr)_minmax(460px,1.35fr)] gap-2") : "grid grid-cols-1 lg:grid-cols-[1.1fr_1.3fr] gap-2"}`}>
-              <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm min-h-[206px]">
-                <div className="flex items-center justify-between gap-2">
-                  <p className={drawerHeadingClass}>Model Yönetimi</p>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{(designs || []).length} model</p>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {(designs || []).map((item) => {
-                    const selected = item.id === activeId;
-                    return (
-                      <button
-                        key={`upload-model-${item.id}`}
-                        onClick={() => onSelectModel?.(item.id)}
-                        className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wide border transition ${
-                          selected
-                            ? "bg-black text-white border-black"
-                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                        }`}
-                      >
-                        {MODEL_LABELS[item.modelType] || item.modelType}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {design.modelType === "hoodie-v12-canavari" && (
-                  <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-2 space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-600">Hoodie Detaylari</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateDesign({
-                            hoodieV12Parts: {
-                              ...hoodieV12Parts,
-                              strings: !hoodieV12Parts.strings,
-                            },
-                          })
-                        }
-                        className={`py-1.5 rounded-lg text-[10px] font-black uppercase border transition ${
-                          hoodieV12Parts.strings
-                            ? "bg-black text-white border-black"
-                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                        }`}
-                      >
-                        Ip
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateDesign({
-                            hoodieV12Parts: {
-                              ...hoodieV12Parts,
-                              pocket: !hoodieV12Parts.pocket,
-                            },
-                          })
-                        }
-                        className={`py-1.5 rounded-lg text-[10px] font-black uppercase border transition ${
-                          hoodieV12Parts.pocket
-                            ? "bg-black text-white border-black"
-                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                        }`}
-                      >
-                        Cep
-                      </button>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-600">Kumas</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {[
-                          { id: "standart", label: "Standart" },
-                          { id: "pamuk", label: "Pamuk" },
-                          { id: "soft", label: "Soft" },
-                        ].map((opt) => (
-                          <button
-                            key={`fabric-${opt.id}`}
-                            type="button"
-                            onClick={() => updateDesign({ fabricType: opt.id })}
-                            className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase border transition ${
-                              fabricType === opt.id
-                                ? "bg-black text-white border-black"
-                                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                            }`}
-                          >
-                            {opt.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <ModelManagementCard
+                designs={designs}
+                activeId={activeId}
+                onSelectModel={onSelectModel}
+                onRemoveModel={onRemoveModel}
+                activeModelType={design.modelType}
+                hoodieParts={hoodieV12Parts}
+                onToggleHoodiePart={setHoodiePartEnabled}
+                fabricType={fabricType}
+                onChangeFabric={(id) => updateDesign({ fabricType: id })}
+              />
 
               <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "h-full min-h-[206px]") : ""}`}>
                 <div className="flex items-center justify-between">
@@ -2640,6 +2761,15 @@ function EditorPanel({
                     );
                   })}
                 </div>
+                <button
+                  onClick={() => {
+                    setActiveTab("editor");
+                    if (isMobileDrawer) onRequestDrawerCollapse?.();
+                  }}
+                  className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2"
+                >
+                  <Move size={14} /> Yerleşim Paneli
+                </button>
                 {!canUploadMoreLogos && (
                   <p className="text-[10px] text-gray-500 font-semibold">Maksimum 3 görsel yüklendi.</p>
                 )}
@@ -2879,157 +3009,177 @@ function EditorPanel({
         })()}
 
 
-        {/* TEXT */}
+        {/* TEXT / PDF */}
         {activeTab === "text" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-start justify-start gap-2.5") : "space-y-2.5"}`}>
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[220px] max-w-[320px] 2xl:min-w-[260px] 2xl:max-w-[420px] h-full max-h-full min-h-[188px] flex flex-col overflow-y-auto overflow-x-hidden") : ""}`}>
-              <p className={drawerHeadingClass}>Metin İçeriği</p>
-              <input
-                type="text"
-                value={t.text || ""}
-                onChange={(e) => bumpText({ text: e.target.value })}
-                placeholder="Metni yaz..."
-                className="w-full bg-white border border-gray-300 p-2 rounded-lg text-sm text-gray-900 focus:border-black outline-none"
-              />
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => textPdfInputRef.current?.click()}
-                  className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800 hover:bg-gray-100"
-                >
-                  Dosyadan Yazi Al
-                </button>
-                {isImportingPdfText && (
-                  <span className="text-[10px] font-bold uppercase text-gray-500">Dosya okunuyor...</span>
+            <div className={`rounded-xl border border-gray-200 bg-white p-3 space-y-3 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[320px] max-w-[520px] h-full max-h-full min-h-[188px] flex flex-col overflow-y-auto overflow-x-hidden") : ""}`}>
+              <div className="flex items-center justify-between gap-2">
+                <p className={drawerHeadingClass}>Yazı / PDF</p>
+                {hasPdf ? (
+                  <span className="text-[10px] font-black uppercase text-emerald-600">Hazır</span>
+                ) : (
+                  <span className="text-[10px] font-black uppercase text-gray-500">Dosya Yok</span>
                 )}
               </div>
+
+              <button
+                type="button"
+                onClick={() => pdfInputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  const file = e.dataTransfer?.files?.[0];
+                  await handlePdfUpload(file);
+                }}
+                className="w-full h-28 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 flex flex-col items-center justify-center gap-2"
+              >
+                <FileText size={20} />
+                <span className="text-[11px] font-black uppercase tracking-wide">PDF Dosyası Ekle</span>
+                <span className="text-[10px] text-gray-500">Sürükle-bırak veya tıkla</span>
+              </button>
               <input
-                ref={textPdfInputRef}
+                ref={pdfInputRef}
                 type="file"
-                accept=".txt,.md,.csv,.pdf"
+                accept=".pdf,application/pdf"
                 className="hidden"
                 onChange={async (e) => {
                   const inputEl = e.currentTarget;
                   const file = inputEl.files?.[0];
-                  await handlePdfTextUpload(file);
+                  await handlePdfUpload(file);
                   inputEl.value = "";
                 }}
               />
-            </div>
 
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[220px] max-w-[320px] 2xl:min-w-[260px] 2xl:max-w-[420px] h-full max-h-full min-h-[188px] flex flex-col overflow-y-auto overflow-x-hidden") : ""}`}>
-              <p className={drawerHeadingClass}>Tipografi</p>
-              <div>
-                <label className="text-[10px] text-gray-500 font-bold uppercase block mb-1">Font</label>
-                <select
-                  value={t.font || FONT_OPTIONS[0].value}
-                  onChange={(e) => bumpText({ font: e.target.value })}
-                  className="w-full bg-white border border-gray-300 p-2 rounded-lg text-xs text-gray-900 focus:border-black outline-none"
-                >
-                  {FONT_OPTIONS.map((f) => (
-                    <option key={f.value} value={f.value}>
-                      {f.label}
-                    </option>
-                  ))}
-                </select>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Dosya</p>
+                <p className="text-xs font-semibold text-gray-700 break-all">
+                  {design.pdfOriginalName || "Henüz PDF seçilmedi"}
+                </p>
               </div>
 
-              <div>
-                <label className="text-[10px] text-gray-500 font-bold uppercase block mb-1">Renk</label>
-                <div className="flex gap-1.5 flex-wrap">
-                  {["#ffffff", "#000000", "#ff0000", "#00ff00", "#0000ff"].map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => bumpText({ color: c })}
-                      className={`w-6 h-6 rounded-full border-2 ${t.color === c ? "border-black scale-110" : "border-gray-300"}`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: "front", label: "Ön Yüz" },
+                  { id: "back", label: "Arka Yüz" },
+                ].map((opt) => (
+                  <button
+                    key={`pdf-side-${opt.id}`}
+                    type="button"
+                    disabled={!hasPdf}
+                    onClick={() => updatePdfPlacement({ side: opt.id })}
+                    className={`py-2 rounded-lg text-[10px] font-black uppercase border ${
+                      (design.pdfPlacement?.side || "front") === opt.id
+                        ? "bg-black text-white border-black"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                    } ${!hasPdf ? "opacity-40 cursor-not-allowed" : ""}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">PDF Konumu</p>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[10px] text-gray-500">
+                    <span>X</span>
+                    <span>{Math.round(pdfPlacement.x * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={pdfPlacement.w / 2}
+                    max={1 - pdfPlacement.w / 2}
+                    step="0.005"
+                    value={pdfPlacement.x}
+                    disabled={!hasPdf}
+                    onChange={(e) => updatePdfPlacement({ x: Number(e.target.value) })}
+                    className={`w-full accent-black ${!hasPdf ? "opacity-50 cursor-not-allowed" : ""}`}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[10px] text-gray-500">
+                    <span>Y</span>
+                    <span>{Math.round(pdfPlacement.y * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={pdfPlacement.h / 2}
+                    max={1 - pdfPlacement.h / 2}
+                    step="0.005"
+                    value={pdfPlacement.y}
+                    disabled={!hasPdf}
+                    onChange={(e) => updatePdfPlacement({ y: Number(e.target.value) })}
+                    className={`w-full accent-black ${!hasPdf ? "opacity-50 cursor-not-allowed" : ""}`}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[10px] text-gray-500">
+                    <span>Ölçek</span>
+                    <span>{Math.round(pdfPlacement.w * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.12"
+                    max="0.9"
+                    step="0.005"
+                    value={pdfPlacement.w}
+                    disabled={!hasPdf}
+                    onChange={(e) => {
+                      const nextW = Number(e.target.value);
+                      const ratio = Math.max(0.01, pdfPlacement.h / Math.max(0.001, pdfPlacement.w));
+                      updatePdfPlacement({ w: nextW, h: clamp(nextW * ratio, 0.08, 0.9) });
+                    }}
+                    className={`w-full accent-black ${!hasPdf ? "opacity-50 cursor-not-allowed" : ""}`}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[10px] text-gray-500">
+                    <span>Döndürme</span>
+                    <span>{Math.round(pdfPlacement.rotation || 0)}°</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-180"
+                    max="180"
+                    step="5"
+                    value={pdfPlacement.rotation || 0}
+                    disabled={!hasPdf}
+                    onChange={(e) => updatePdfPlacement({ rotation: Number(e.target.value) })}
+                    className={`w-full accent-black ${!hasPdf ? "opacity-50 cursor-not-allowed" : ""}`}
+                  />
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] text-gray-500 font-bold uppercase">Boyut</p>
-                  <p className="text-gray-900 text-[10px] font-mono">{t.size || 150}px</p>
-                </div>
-                <input
-                  type="range"
-                  min="30"
-                  max="420"
-                  step="2"
-                  value={t.size || 150}
-                  onChange={(e) => bumpText({ size: Number(e.target.value) })}
-                  className="w-full accent-black h-2"
-                />
-              </div>
-            </div>
-
-            <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[220px] max-w-[320px] 2xl:min-w-[260px] 2xl:max-w-[420px] h-full max-h-full min-h-[188px] flex flex-col overflow-y-auto overflow-x-hidden") : ""}`}>
-              <p className={drawerHeadingClass}>Dönüşüm</p>
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] text-gray-600 font-bold uppercase">Yatay Ölçek</p>
-                <p className="text-[10px] text-gray-900 font-mono">x{(t.scaleX || 1).toFixed(2)}</p>
-              </div>
-              <input
-                type="range"
-                min="0.3"
-                max="3"
-                step="0.05"
-                value={t.scaleX || 1}
-                onChange={(e) => bumpText({ scaleX: Number(e.target.value) })}
-                className="w-full accent-black h-2"
-              />
-
-              <div className="flex items-center justify-between pt-1">
-                <p className="text-[10px] text-gray-600 font-bold uppercase">Dikey Ölçek</p>
-                <p className="text-[10px] text-gray-900 font-mono">y{(t.scaleY || 1).toFixed(2)}</p>
-              </div>
-              <input
-                type="range"
-                min="0.3"
-                max="3"
-                step="0.05"
-                value={t.scaleY || 1}
-                onChange={(e) => bumpText({ scaleY: Number(e.target.value) })}
-                className="w-full accent-black h-2"
-              />
-
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={() => bumpText({ scaleX: 1, scaleY: 1 })}
-                  className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 text-[10px] font-black uppercase"
-                >
-                  Ölçeği Sıfırla
-                </button>
-                <button
-                  onClick={() => updateSide({ textPos: { x: 0.5, y: 0.85 } })}
-                  className="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 text-[10px] font-black uppercase"
-                >
-                  Konumu Ortala
-                </button>
-              </div>
-            </div>
-
-            {t.text && (
               <button
+                type="button"
+                disabled={!hasPdf}
                 onClick={() =>
-                  bumpText({
-                    text: "",
-                    color: "#ffffff",
-                    size: 150,
-                    scaleX: 1,
-                    scaleY: 1,
-                    layout: "straight",
-                    curve: 30,
-                    z: 0,
+                  updateDesign({
+                    hasPdf: false,
+                    pdfFileUrl: "",
+                    pdfOriginalName: "",
+                    pdfPlacement: { ...DEFAULT_PDF_PLACEMENT, side: currentSide },
                   })
                 }
-                className={`${isDrawerLayout ? (isMobileDrawer ? "w-full" : "shrink-0 min-w-[220px] max-w-[320px] 2xl:min-w-[260px] 2xl:max-w-[420px]") : "w-full"} py-2 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold flex items-center justify-center gap-2 border border-red-200 hover:bg-red-100`}
+                className={`w-full py-2 rounded-lg text-[10px] font-black uppercase border ${
+                  hasPdf
+                    ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
+                    : "border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed"
+                }`}
               >
-                <Trash2 size={14} /> Yazıyı Sil
+                PDF’yi Kaldır
               </button>
-            )}
+
+              <a
+                href={SCIENTIFIC_ROUTE}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center text-[10px] font-black uppercase tracking-wide text-gray-600 underline"
+              >
+                Daha fazlası için Bilimsel Sayfası
+              </a>
+              {isUploadingPdf && <p className="text-[10px] font-bold uppercase text-gray-500">PDF yükleniyor...</p>}
+            </div>
           </div>
         )}
 
@@ -3088,49 +3238,6 @@ function EditorPanel({
               </div>
             )}
 
-            {design.modelType === "hoodie-v12-canavari" && (
-              <div className={`rounded-xl border border-gray-200 bg-white p-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[220px] max-w-[320px] 2xl:min-w-[260px] 2xl:max-w-[420px] h-full max-h-full min-h-[188px] flex flex-col overflow-y-auto overflow-x-hidden") : ""}`}>
-                <div className="flex items-center justify-between mb-3">
-                  <p className={drawerHeadingClass}>Hoodie Parçaları</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() =>
-                      updateDesign({
-                        hoodieV12Parts: {
-                          ...hoodieV12Parts,
-                          strings: !hoodieV12Parts.strings,
-                        },
-                      })
-                    }
-                    className={`py-2 rounded-lg text-[11px] font-bold uppercase border transition ${
-                      hoodieV12Parts.strings
-                        ? "bg-black text-white border-black"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                    }`}
-                  >
-                    İp
-                  </button>
-                  <button
-                    onClick={() =>
-                      updateDesign({
-                        hoodieV12Parts: {
-                          ...hoodieV12Parts,
-                          pocket: !hoodieV12Parts.pocket,
-                        },
-                      })
-                    }
-                    className={`py-2 rounded-lg text-[11px] font-bold uppercase border transition ${
-                      hoodieV12Parts.pocket
-                        ? "bg-black text-white border-black"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                    }`}
-                  >
-                    Cep
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -3211,12 +3318,14 @@ function TasarimClientContent({ isMobile }) {
 
   // ✅ designs/activeId init bug fix
   const initialDesignRef = useRef(null);
-  if (!initialDesignRef.current) initialDesignRef.current = createDesign("tshirt");
+  if (!initialDesignRef.current) initialDesignRef.current = createDesign(DEFAULT_MODEL_TYPE);
 
   const presetModelFromQuery = useMemo(() => {
     if (!searchParams) return null;
-    const raw = (searchParams.get("model") || searchParams.get("product") || "").toLowerCase();
-    return AVAILABLE_MODELS.includes(raw) ? raw : null;
+    const raw = searchParams.get("model") || searchParams.get("product") || "";
+    if (!raw) return null;
+    const normalized = normalizeModelType(raw);
+    return AVAILABLE_MODELS.includes(normalized) ? normalized : null;
   }, [searchParams]);
 
   const safeInitial = presetModelFromQuery || AVAILABLE_MODELS[0];
@@ -3286,9 +3395,12 @@ function TasarimClientContent({ isMobile }) {
   const customText = sideData?.customText || {};
   const activeLogo = logos.find(l => l.id === (sideData?.activeLogoId || logos[0]?.id));
   const logoControlsLocked = lockAspect;
+  const imageControlDisabled = logoControlsLocked || !activeLogo;
   const isPrintAreaOpen = activeTab === "editor";
   const activeLogoBox = activeLogo?.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
   const activeLogoFx = getLogoStyle(activeLogo);
+  const activePdfPlacement = normalizePdfPlacement(currentActiveDesign?.pdfPlacement, currentSide);
+  const pdfVisibleOnCurrentSide = Boolean(currentActiveDesign?.hasPdf && activePdfPlacement.side === currentSide);
   const snapThreshold = 0.02;
   const guideStops = [0.25, 0.5, 0.75];
   const activeVGuides = isLogoDragging
@@ -3297,7 +3409,9 @@ function TasarimClientContent({ isMobile }) {
   const activeHGuides = isLogoDragging
     ? guideStops.filter((p) => Math.abs((activeLogoBox?.y ?? 0.5) - p) <= snapThreshold)
     : [];
-  const isZipperFront = currentActiveDesign?.modelType === "fermuarli" && currentSide === "front";
+  const isZipperFront =
+    (currentActiveDesign?.modelType === "fermuarli" || currentActiveDesign?.modelType === "yeni-fermuarli") &&
+    currentSide === "front";
   const gap01 = MODEL_PRINT_BOUNDS[currentActiveDesign?.modelType]?.front?.zipGap01 || 0;
 
   // Editor overlay için updateSide fonksiyonu
@@ -3336,6 +3450,13 @@ function TasarimClientContent({ isMobile }) {
     if (!activeLogo) return;
     const nextLogos = (logos || []).map((l) => (l.id === activeLogo.id ? { ...l, ...patch } : l));
     updateSide({ logos: nextLogos });
+  };
+
+  const handleDeleteActiveImage = () => {
+    const currentId = sideData.activeLogoId || sideData.logos?.[0]?.id;
+    if (!currentId) return;
+    const next = (sideData.logos || []).filter((l) => l.id !== currentId);
+    updateSide({ logos: next, activeLogoId: next[0]?.id || null });
   };
 
   const setActiveLogoLayer = (layer) => {
@@ -3496,7 +3617,7 @@ function TasarimClientContent({ isMobile }) {
   };
   const menuTabs = [
     { id: "upload", label: "Baskı", icon: ImageIcon },
-    { id: "text", label: "Yazı", icon: Type },
+    { id: "text", label: "Yazı", icon: FileText },
     { id: "color", label: "Renk", icon: Palette },
   ];
   const activePrintTypes = Array.isArray(activeDesign?.printTypes) ? activeDesign.printTypes : [];
@@ -3561,15 +3682,10 @@ function TasarimClientContent({ isMobile }) {
   useEffect(() => {
     if (activeTab !== "editor") return;
     const hasLogo = (sideData?.logos || []).length > 0;
-    const hasText = ((sideData?.customText?.text || "").trim().length > 0);
-    if (!hasLogo && hasText) {
-      setEditorControlTab("text");
-      return;
-    }
-    if (!hasLogo && editorControlTab === "effects") {
+    if (!hasLogo && editorControlTab !== "logo") {
       setEditorControlTab("logo");
     }
-  }, [activeTab, activeId, currentSide, sideData?.logos?.length, sideData?.customText?.text, editorControlTab]);
+  }, [activeTab, activeId, currentSide, sideData?.logos?.length, editorControlTab]);
 
   // Desktop'ta baskı alanı açıldığında drawer otomatik aşağı (kapalı) konuma geçer.
   useEffect(() => {
@@ -3582,7 +3698,33 @@ function TasarimClientContent({ isMobile }) {
       const { __setView, ...rest } = patch;
       patch = rest;
     }
-    setDesigns((prev) => prev.map((d) => (d.id === activeId ? { ...d, ...patch } : d)));
+    const nextPatch = { ...(patch || {}) };
+    if (nextPatch.hoodieV12Parts) {
+      nextPatch.hoodieV12Parts = normalizeHoodieParts(nextPatch.hoodieV12Parts);
+    }
+    if (Object.prototype.hasOwnProperty.call(nextPatch, "pdfPlacement")) {
+      nextPatch.pdfPlacement = normalizePdfPlacement(
+        nextPatch.pdfPlacement,
+        nextPatch.pdfPlacement?.side || activeDesign?.pdfPlacement?.side || view
+      );
+    }
+    if (nextPatch.hasPdf === false) {
+      nextPatch.pdfFileUrl = nextPatch.pdfFileUrl || "";
+      nextPatch.pdfOriginalName = nextPatch.pdfOriginalName || "";
+    }
+    setDesigns((prev) => prev.map((d) => (d.id === activeId ? { ...d, ...nextPatch } : d)));
+  };
+
+  const activeHoodieParts = normalizeHoodieParts(activeDesign?.hoodieV12Parts);
+  const showHoodieVariantButtons = MODELS_WITH_HOODIE_PARTS.has(activeDesign?.modelType);
+  const setActiveHoodiePartEnabled = (partKey, enabled) => {
+    if (!["strings", "pocket"].includes(partKey)) return;
+    updateActive({
+      hoodieV12Parts: {
+        ...activeHoodieParts,
+        [partKey]: Boolean(enabled),
+      },
+    });
   };
 
   const addModel = (type) => {
@@ -3742,7 +3884,11 @@ function TasarimClientContent({ isMobile }) {
             baseColor: d.color,
             fabricType: d.fabricType || "standart",
             stringColor: d.stringColor,
-            hoodieV12Parts: d.hoodieV12Parts || { strings: false, pocket: false },
+            hoodieV12Parts: normalizeHoodieParts(d.hoodieV12Parts),
+            hasPdf: Boolean(d.hasPdf && d.pdfFileUrl),
+            pdfFileUrl: d.pdfFileUrl || null,
+            pdfOriginalName: d.pdfOriginalName || "",
+            pdfPlacement: normalizePdfPlacement(d.pdfPlacement, d.pdfPlacement?.side || "front"),
             printTypes: Array.isArray(d.printTypes) ? d.printTypes : [],
             printFiles,
             textFiles,
@@ -3762,7 +3908,11 @@ function TasarimClientContent({ isMobile }) {
           size: d.size,
           price: orderItem.price,
           quantity: 1,
-          hoodieV12Parts: d.hoodieV12Parts || { strings: false, pocket: false },
+          hoodieV12Parts: normalizeHoodieParts(d.hoodieV12Parts),
+          hasPdf: Boolean(d.hasPdf && d.pdfFileUrl),
+          pdfFileUrl: d.pdfFileUrl || null,
+          pdfOriginalName: d.pdfOriginalName || "",
+          pdfPlacement: normalizePdfPlacement(d.pdfPlacement, d.pdfPlacement?.side || "front"),
           printTypes: Array.isArray(d.printTypes) ? d.printTypes : [],
           preview: previewMockup,
           image: previewMockup,
@@ -3891,6 +4041,18 @@ function TasarimClientContent({ isMobile }) {
     openDrawer();
   };
 
+  const zoomModel = (direction) => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    const zoomStep = 1.12;
+    if (direction === "in") {
+      controls.dollyIn?.(zoomStep);
+    } else {
+      controls.dollyOut?.(zoomStep);
+    }
+    controls.update?.();
+  };
+
   const effectiveView = captureView || view;
   const drawerHeightStyle = isMobile
     ? drawerHeight
@@ -3958,7 +4120,7 @@ function TasarimClientContent({ isMobile }) {
           </Link>
           <div>
             <p className="text-sm font-bold text-black">{MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}</p>
-            <p className="text-xs text-zinc-600">{getPrice(activeDesign || createDesign("tshirt"))} ₺</p>
+            <p className="text-xs text-zinc-600">{getPrice(activeDesign || createDesign(DEFAULT_MODEL_TYPE))} ₺</p>
           </div>
         </div>
 
@@ -3986,7 +4148,7 @@ function TasarimClientContent({ isMobile }) {
                 : { bottom: controlsBottom, right: "16px" }
             }
           >
-            <div className="flex justify-center pointer-events-auto">
+            <div className="flex flex-col items-center pointer-events-auto gap-2">
               <div
                 className={`flex flex-col rounded-full border-2 border-zinc-700 bg-white/95 backdrop-blur shadow-[0_10px_26px_rgba(0,0,0,0.22)] ${
                   isMobile ? "p-[3px]" : "p-1.5"
@@ -4006,6 +4168,40 @@ function TasarimClientContent({ isMobile }) {
                   </button>
                 ))}
               </div>
+              {showHoodieVariantButtons && (
+                <div className="rounded-2xl border border-zinc-300 bg-white/95 backdrop-blur px-2 py-2 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
+                  <div className="grid grid-cols-1 gap-1.5 min-w-[116px]">
+                    {HOODIE_DETAIL_OPTIONS.map((opt) => {
+                      const isEnabled = Boolean(activeHoodieParts[opt.id]);
+                      return (
+                      <button
+                        key={`floating-hoodie-${opt.id}`}
+                        onClick={() => setActiveHoodiePartEnabled(opt.id, !isEnabled)}
+                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide border transition ${
+                          isEnabled
+                            ? "bg-zinc-900 text-white border-zinc-900"
+                            : "bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-100"
+                        }`}
+                      >
+                        {isEnabled ? "✓ " : ""}
+                        {opt.label}
+                      </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {isMobile && (
+                <button
+                  onClick={() => {
+                    setPickerStep("root");
+                    setPickerOpen(true);
+                  }}
+                  className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white/95 text-zinc-900 hover:bg-zinc-100 text-[10px] font-black uppercase tracking-wide shadow-sm"
+                >
+                  + Model
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -4016,26 +4212,40 @@ function TasarimClientContent({ isMobile }) {
             style={{ top: activeTab === "editor" ? "182px" : "238px", right: "10px" }}
           >
             <div className="flex flex-col gap-2 rounded-2xl border border-zinc-300 bg-white/90 backdrop-blur px-2 py-2 shadow-lg">
-              </div>
+              <button
+                onClick={() => zoomModel("in")}
+                className="w-9 h-9 rounded-full border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center"
+                aria-label="Yakınlaştır"
+              >
+                <Plus size={16} strokeWidth={2.8} />
+              </button>
+              <button
+                onClick={() => zoomModel("out")}
+                className="w-9 h-9 rounded-full border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center"
+                aria-label="Uzaklaştır"
+              >
+                <Minus size={16} strokeWidth={2.8} />
+              </button>
+            </div>
           </div>
         )}
 
         {/* Model picker modal */}
         {pickerOpen && (
-          <div className="absolute inset-0 z-[95] bg-black/60 flex items-center justify-center p-4">
-            <div className="w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-2xl p-4 max-h-[80vh] overflow-y-auto">
+          <div className="absolute inset-0 z-[95] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
+            <div className="w-full max-w-md bg-[#eef1f4] border border-gray-300 rounded-2xl p-4 max-h-[80vh] overflow-y-auto shadow-2xl">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   {pickerStep !== "root" && (
                     <button
                       onClick={() => setPickerStep("root")}
-                      className="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center"
+                      className="w-8 h-8 rounded-full border border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-800 flex items-center justify-center"
                       title="Geri"
                     >
                       <span className="text-sm">←</span>
                     </button>
                   )}
-                  <h3 className="text-sm font-black tracking-widest uppercase">Model Seç</h3>
+                  <h3 className="text-sm font-black tracking-widest uppercase text-zinc-800">Model Seç</h3>
                 </div>
 
                 <button
@@ -4043,7 +4253,7 @@ function TasarimClientContent({ isMobile }) {
                     setPickerStep("root");
                     setPickerOpen(false);
                   }}
-                  className="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center"
+                  className="w-8 h-8 rounded-full border border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-800 flex items-center justify-center"
                 >
                   <X size={16} />
                 </button>
@@ -4055,7 +4265,7 @@ function TasarimClientContent({ isMobile }) {
                     <button
                       key={`picker-group-${group.id}`}
                       onClick={() => setPickerStep(group.id)}
-                      className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center"
+                      className="py-3 px-2 rounded-xl bg-white hover:bg-zinc-100 border border-zinc-300 text-xs font-bold uppercase tracking-wide text-center text-zinc-800"
                     >
                       {group.title}
                     </button>
@@ -4067,7 +4277,7 @@ function TasarimClientContent({ isMobile }) {
                       <button
                         key={`picker-model-${modelType}`}
                         onClick={() => addModel(modelType)}
-                        className="py-3 px-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold uppercase tracking-wide text-center"
+                        className="py-3 px-2 rounded-xl bg-white hover:bg-zinc-100 border border-zinc-300 text-xs font-bold uppercase tracking-wide text-center text-zinc-800"
                       >
                         {MODEL_LABELS[modelType] || modelType}
                       </button>
@@ -4277,6 +4487,27 @@ function TasarimClientContent({ isMobile }) {
                   });
                 })()}
 
+                {pdfVisibleOnCurrentSide && (
+                  <div
+                    className="absolute border-2 border-cyan-400/90 rounded-md bg-cyan-200/15 backdrop-blur-[1px] pointer-events-none"
+                    style={{
+                      left: `${(activePdfPlacement.x - activePdfPlacement.w / 2) * 100}%`,
+                      top: `${(activePdfPlacement.y - activePdfPlacement.h / 2) * 100}%`,
+                      width: `${activePdfPlacement.w * 100}%`,
+                      height: `${activePdfPlacement.h * 100}%`,
+                      transform: `rotate(${activePdfPlacement.rotation || 0}deg)`,
+                      transformOrigin: "center center",
+                      zIndex: 18,
+                    }}
+                  >
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <span className="px-2 py-1 rounded-full bg-cyan-500/85 text-[9px] font-black uppercase tracking-wider text-white">
+                        PDF Konumu
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 {/* seçili logo resize/drag çerçevesi */}
                 {activeLogo && (
                   <ResizeFrame
@@ -4290,7 +4521,7 @@ function TasarimClientContent({ isMobile }) {
 
               </div>
 
-              <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setEditorControlTab("logo")}
                   className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${
@@ -4300,16 +4531,6 @@ function TasarimClientContent({ isMobile }) {
                   }`}
                 >
                   Gorsel Ayari
-                </button>
-                <button
-                  onClick={() => setEditorControlTab("text")}
-                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${
-                    editorControlTab === "text"
-                      ? "bg-white text-black border-white"
-                      : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
-                  }`}
-                >
-                  Yazi Ayari
                 </button>
                 <button
                   onClick={() => setEditorControlTab("effects")}
@@ -4323,7 +4544,7 @@ function TasarimClientContent({ isMobile }) {
                 </button>
               </div>
 
-              {activeLogo && editorControlTab === "logo" && (
+              {editorControlTab === "logo" && (
                   <div className={`mt-3 rounded-xl border border-zinc-700 bg-zinc-800/60 space-y-3 relative ${isMobile ? "p-2.5" : "p-3"}`}>
                   <p className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">Gorsel Ayarlari</p>
 
@@ -4350,12 +4571,12 @@ function TasarimClientContent({ isMobile }) {
                           min="0"
                           step="0.1"
                           value={cmInputW}
-                          disabled={logoControlsLocked}
+                          disabled={imageControlDisabled}
                           onChange={(e) => {
                             setCmInputW(sanitizeCmInput(e.target.value));
                           }}
                           className={`w-full rounded-md border px-2 py-1 text-[11px] ${
-                            logoControlsLocked
+                            imageControlDisabled
                               ? "border-zinc-700 bg-zinc-800/60 text-zinc-500 cursor-not-allowed"
                               : "border-zinc-600 bg-zinc-900/60 text-white"
                           }`}
@@ -4383,12 +4604,12 @@ function TasarimClientContent({ isMobile }) {
                           min="0"
                           step="0.1"
                           value={cmInputH}
-                          disabled={logoControlsLocked}
+                          disabled={imageControlDisabled}
                           onChange={(e) => {
                             setCmInputH(sanitizeCmInput(e.target.value));
                           }}
                           className={`w-full rounded-md border px-2 py-1 text-[11px] ${
-                            logoControlsLocked
+                            imageControlDisabled
                               ? "border-zinc-700 bg-zinc-800/60 text-zinc-500 cursor-not-allowed"
                               : "border-zinc-600 bg-zinc-900/60 text-white"
                           }`}
@@ -4422,9 +4643,9 @@ function TasarimClientContent({ isMobile }) {
                       max={1 - activeLogoBox.w / 2}
                       step="0.005"
                       value={activeLogoBox.x}
-                      disabled={logoControlsLocked}
+                      disabled={imageControlDisabled}
                       onChange={(e) => updateActiveLogoBox({ ...activeLogoBox, x: Number(e.target.value) })}
-                      className={`w-full accent-cyan-300 ${logoControlsLocked ? "opacity-50 cursor-not-allowed" : ""}`}
+                      className={`w-full accent-cyan-300 ${imageControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                     />
                   </div>
 
@@ -4439,9 +4660,9 @@ function TasarimClientContent({ isMobile }) {
                       max={1 - activeLogoBox.h / 2}
                       step="0.005"
                       value={activeLogoBox.y}
-                      disabled={logoControlsLocked}
+                      disabled={imageControlDisabled}
                       onChange={(e) => updateActiveLogoBox({ ...activeLogoBox, y: Number(e.target.value) })}
-                      className={`w-full accent-cyan-300 ${logoControlsLocked ? "opacity-50 cursor-not-allowed" : ""}`}
+                      className={`w-full accent-cyan-300 ${imageControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                     />
                   </div>
 
@@ -4456,9 +4677,9 @@ function TasarimClientContent({ isMobile }) {
                       max="0.95"
                       step="0.005"
                       value={activeLogoBox.w}
-                      disabled={logoControlsLocked}
+                      disabled={imageControlDisabled}
                       onChange={(e) => updateActiveLogoBox({ ...activeLogoBox, w: Number(e.target.value) })}
-                      className={`w-full accent-cyan-300 ${logoControlsLocked ? "opacity-50 cursor-not-allowed" : ""}`}
+                      className={`w-full accent-cyan-300 ${imageControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                     />
                   </div>
 
@@ -4473,9 +4694,9 @@ function TasarimClientContent({ isMobile }) {
                       max="0.95"
                       step="0.005"
                       value={activeLogoBox.h}
-                      disabled={logoControlsLocked}
+                      disabled={imageControlDisabled}
                       onChange={(e) => updateActiveLogoBox({ ...activeLogoBox, h: Number(e.target.value) })}
-                      className={`w-full accent-cyan-300 ${logoControlsLocked ? "opacity-50 cursor-not-allowed" : ""}`}
+                      className={`w-full accent-cyan-300 ${imageControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                     />
                   </div>
 
@@ -4490,22 +4711,22 @@ function TasarimClientContent({ isMobile }) {
                       max="180"
                       step="5"
                       value={activeLogo?.rotation || 0}
-                      disabled={logoControlsLocked}
+                      disabled={imageControlDisabled}
                       onChange={(e) => {
                         const raw = Number(e.target.value);
                         const snapped = Math.round(raw / 5) * 5;
                         updateActiveLogo({ rotation: snapped });
                       }}
-                      className={`w-full accent-cyan-300 ${logoControlsLocked ? "opacity-50 cursor-not-allowed" : ""}`}
+                      className={`w-full accent-cyan-300 ${imageControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                     />
                   </div>
 
                   <div className="flex gap-2">
                     <button
-                      disabled={logoControlsLocked}
+                      disabled={imageControlDisabled}
                       onClick={() => setActiveLogoLayer("front")}
                       className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${
-                        logoControlsLocked
+                        imageControlDisabled
                           ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                           : "bg-zinc-700 hover:bg-zinc-600"
                       }`}
@@ -4513,10 +4734,10 @@ function TasarimClientContent({ isMobile }) {
                       Öne Al
                     </button>
                     <button
-                      disabled={logoControlsLocked}
+                      disabled={imageControlDisabled}
                       onClick={() => setActiveLogoLayer("back")}
                       className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${
-                        logoControlsLocked
+                        imageControlDisabled
                           ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                           : "bg-zinc-700 hover:bg-zinc-600"
                       }`}
@@ -4527,10 +4748,10 @@ function TasarimClientContent({ isMobile }) {
 
                   <div className="flex gap-2">
                     <button
-                      disabled={logoControlsLocked}
+                      disabled={imageControlDisabled}
                       onClick={() => updateActiveLogoBox({ ...activeLogoBox, x: 0.5, y: 0.5 })}
                       className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${
-                        logoControlsLocked
+                        imageControlDisabled
                           ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                           : "bg-zinc-700 hover:bg-zinc-600"
                       }`}
@@ -4538,10 +4759,10 @@ function TasarimClientContent({ isMobile }) {
                       Ortala
                     </button>
                     <button
-                      disabled={logoControlsLocked}
+                      disabled={imageControlDisabled}
                       onClick={() => updateActiveLogoBox({ x: 0.5, y: 0.6, w: 0.7, h: 0.45 })}
                       className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${
-                        logoControlsLocked
+                        imageControlDisabled
                           ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                           : "bg-zinc-700 hover:bg-zinc-600"
                       }`}
@@ -4549,6 +4770,18 @@ function TasarimClientContent({ isMobile }) {
                       Sıfırla
                     </button>
                   </div>
+                  <button
+                    type="button"
+                    onClick={handleDeleteActiveImage}
+                    disabled={!activeLogo}
+                    className={`w-full py-1.5 rounded-lg text-[10px] font-bold uppercase border ${
+                      activeLogo
+                        ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
+                        : "border-zinc-600 bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                    }`}
+                  >
+                    Görseli Sil
+                  </button>
                   </div>
               )}
 
@@ -4666,120 +4899,6 @@ function TasarimClientContent({ isMobile }) {
                 </div>
               )}
 
-              {(sideData?.customText?.text || "").trim() && editorControlTab === "text" && (
-                <div className={`mt-3 rounded-xl border border-zinc-700 bg-zinc-800/60 space-y-2 ${isMobile ? "p-2.5" : "p-3"}`}>
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">Yazi Durusu</p>
-                    <p className="text-[10px] text-zinc-400 font-semibold">
-                      {TEXT_LAYOUT_OPTIONS.find((opt) => opt.id === (customText.layout || "straight"))?.label || "Duz"}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {TEXT_LAYOUT_OPTIONS.map((opt) => (
-                      <button
-                        key={`overlay-text-layout-${opt.id}`}
-                        onClick={() =>
-                          updateSide({
-                            customText: { ...customText, layout: opt.id },
-                          })
-                        }
-                        className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${
-                          (customText.layout || "straight") === opt.id
-                            ? "bg-white text-black border-white"
-                            : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                      <span>Egrilik</span>
-                      <span>{Math.round(getTextCurveValue(customText))}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="6"
-                      max="88"
-                      step="1"
-                      value={getTextCurveValue(customText)}
-                      onChange={(e) =>
-                        updateSide({
-                          customText: { ...customText, curve: Number(e.target.value) },
-                        })
-                      }
-                      className="w-full accent-cyan-300"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                      <span>Yazi X Konum</span>
-                      <span>{Math.round((sideData?.textPos?.x ?? 0.5) * 100)}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.005"
-                      value={sideData?.textPos?.x ?? 0.5}
-                      onChange={(e) =>
-                        updateSide({
-                          textPos: {
-                            x: Number(e.target.value),
-                            y: sideData?.textPos?.y ?? 0.85,
-                          },
-                        })
-                      }
-                      className="w-full accent-cyan-300"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                      <span>Yazi Y Konum</span>
-                      <span>{Math.round((sideData?.textPos?.y ?? 0.85) * 100)}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.005"
-                      value={sideData?.textPos?.y ?? 0.85}
-                      onChange={(e) =>
-                        updateSide({
-                          textPos: {
-                            x: sideData?.textPos?.x ?? 0.5,
-                            y: Number(e.target.value),
-                          },
-                        })
-                      }
-                      className="w-full accent-cyan-300"
-                    />
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => updateSide({ customText: { ...customText, z: 1 } })}
-                      className="flex-1 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-[10px] font-bold uppercase"
-                    >
-                      Yaziyi One Al
-                    </button>
-                    <button
-                      onClick={() => updateSide({ customText: { ...customText, z: -1 } })}
-                      className="flex-1 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-[10px] font-bold uppercase"
-                    >
-                      Yaziyi Arkaya Al
-                    </button>
-                  </div>
-                  <div className="rounded-lg border border-zinc-600 bg-zinc-900/60 px-2 py-2 flex justify-center min-h-[54px] items-center">
-                    <StyledTextPreview textState={customText} />
-                  </div>
-                </div>
-              )}
-
               <p className="text-[10px] text-zinc-500 mt-3">
                 İpucu: Görseli ortadan sürükle, köşelerden büyüt/küçült.
               </p>
@@ -4800,7 +4919,7 @@ function TasarimClientContent({ isMobile }) {
           const mobileScale = isPrintAreaOpen ? (drawerOpen ? 0.72 : 0.86) : drawerOpen ? 0.8 : 0.96;
           const mobileLeft = isPrintAreaOpen ? "60%" : drawerOpen ? "55%" : "57%";
           const mobileShiftY = isPrintAreaOpen ? (drawerOpen ? "-25%" : "-21%") : drawerOpen ? "-14%" : "-8%";
-          const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 2.1 : drawerOpen ? 1.95 : 1.72) : isPrintAreaOpen ? 2.1 : 1.9;
+          const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 1.86 : drawerOpen ? 1.72 : 1.56) : isPrintAreaOpen ? 1.9 : 1.72;
           const controlsTargetY = !isMobile ? (isPrintAreaOpen ? -0.12 : drawerOpen ? -0.2 : -0.1) : isPrintAreaOpen ? -0.05 : -0.1;
           return (
         <Canvas

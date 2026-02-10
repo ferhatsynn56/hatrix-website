@@ -23,6 +23,7 @@ import {
   ExternalLink,
   Image as ImageIcon,
   Printer,
+  FileText,
 } from "lucide-react";
 
 const statusOptions = ["Hazırlanıyor", "Kargolandı", "Teslim Edildi", "İptal"];
@@ -327,6 +328,11 @@ export default function AdminOrdersPage() {
                           const printFiles = dd.printFiles || {};
                           const textFiles = dd.textFiles || {};
                           const adjustedUploads = dd.adjustedUploads || {};
+                          const hasPdf = Boolean(dd.hasPdf && dd.pdfFileUrl);
+                          const pdfPlacement =
+                            dd.pdfPlacement && typeof dd.pdfPlacement === "object"
+                              ? dd.pdfPlacement
+                              : null;
 
                           // ✅ userUploads yoksa sides’tan otomatik çıkar
                           const userUploads =
@@ -423,6 +429,64 @@ export default function AdminOrdersPage() {
                                       <p className="text-xs text-zinc-500 italic">
                                         Baskı dosyası bulunamadı. (Tasarım sayfasında `printFiles` oluşmuyor olabilir.)
                                       </p>
+                                    )}
+                                  </div>
+
+                                  {/* A.3) Text-only */}
+                                  <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
+                                    <div className="flex items-center gap-2 mb-3 text-amber-300">
+                                      <FileText size={16} />
+                                      <h5 className="text-xs font-black uppercase tracking-wider">
+                                        PDF Yerleşim Dosyası
+                                      </h5>
+                                    </div>
+
+                                    {hasPdf ? (
+                                      <div className="space-y-3">
+                                        <div className="rounded-lg border border-zinc-700 bg-black/40 p-3">
+                                          <p className="text-[10px] font-bold uppercase text-zinc-400">Dosya</p>
+                                          <p className="text-xs text-zinc-200 break-all">
+                                            {dd.pdfOriginalName || "pdf-dosya.pdf"}
+                                          </p>
+                                        </div>
+
+                                        <button
+                                          onClick={() =>
+                                            downloadByUrl(
+                                              dd.pdfFileUrl,
+                                              `PDF_${orderShort}_${itemName}.pdf`
+                                            )
+                                          }
+                                          className="w-full bg-amber-900/30 hover:bg-amber-600 text-amber-300 hover:text-white border border-amber-800/50 rounded py-2 text-[10px] font-bold transition flex items-center justify-center gap-1"
+                                        >
+                                          <Download size={10} /> PDF İNDİR
+                                        </button>
+
+                                        <div className="rounded-lg border border-zinc-700 bg-black/40 p-3 text-[11px] text-zinc-300 space-y-1">
+                                          <p>
+                                            <span className="text-zinc-500 uppercase text-[10px]">Yüzey:</span>{" "}
+                                            {pdfPlacement?.side === "back" ? "Arka" : "Ön"}
+                                          </p>
+                                          <p>
+                                            <span className="text-zinc-500 uppercase text-[10px]">X:</span>{" "}
+                                            {Number(pdfPlacement?.x || 0).toFixed(3)}
+                                          </p>
+                                          <p>
+                                            <span className="text-zinc-500 uppercase text-[10px]">Y:</span>{" "}
+                                            {Number(pdfPlacement?.y || 0).toFixed(3)}
+                                          </p>
+                                          <p>
+                                            <span className="text-zinc-500 uppercase text-[10px]">Scale:</span>{" "}
+                                            {Number(pdfPlacement?.scale || pdfPlacement?.w || 0).toFixed(3)}
+                                          </p>
+                                          <p>
+                                            <span className="text-zinc-500 uppercase text-[10px]">Rotation:</span>{" "}
+                                            {Math.round(Number(pdfPlacement?.rotation || 0))}°
+                                          </p>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-zinc-500 italic">PDF dosyası yok.</p>
                                     )}
                                   </div>
 

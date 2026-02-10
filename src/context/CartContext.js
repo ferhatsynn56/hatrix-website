@@ -16,12 +16,18 @@ const safeParse = (s, fallback) => {
   }
 };
 
-const isDataUrl = (v) => typeof v === "string" && v.startsWith("data:image");
-const extFromDataUrl = (dataUrl) => {
-  const m = (dataUrl || "").match(/^data:image\/(png|jpeg|jpg|webp);/i);
-  if (!m) return "png";
-  const t = m[1].toLowerCase();
-  return t === "jpg" ? "jpeg" : t;
+const isDataUrl = (v) => typeof v === "string" && v.startsWith("data:");
+const mimeInfoFromDataUrl = (dataUrl) => {
+  const m = (dataUrl || "").match(/^data:([^;,]+)[;,]/i);
+  const mime = (m?.[1] || "application/octet-stream").toLowerCase();
+  if (mime.startsWith("image/")) {
+    const extRaw = mime.split("/")[1] || "png";
+    const ext = extRaw === "jpg" ? "jpeg" : extRaw;
+    return { mime, ext };
+  }
+  if (mime === "application/pdf") return { mime, ext: "pdf" };
+  if (mime === "text/plain") return { mime, ext: "txt" };
+  return { mime, ext: "bin" };
 };
 
 const blobFromDataUrl = async (dataUrl) => {
@@ -34,10 +40,10 @@ const uploadDataUrl = async (dataUrl, pathNoExt) => {
   if (!dataUrl) return null;
   if (!isDataUrl(dataUrl)) return dataUrl; // zaten url ise dokunma
 
-  const ext = extFromDataUrl(dataUrl);
+  const { ext, mime } = mimeInfoFromDataUrl(dataUrl);
   const blob = await blobFromDataUrl(dataUrl);
   const storageRef = ref(storage, `${pathNoExt}.${ext}`);
-  await uploadBytes(storageRef, blob, { contentType: blob.type || `image/${ext}` });
+  await uploadBytes(storageRef, blob, { contentType: blob.type || mime || `application/octet-stream` });
   return await getDownloadURL(storageRef);
 };
 
@@ -127,6 +133,10 @@ const stripHeavyItemForStorage = (item) => {
       model: dd.model,
       baseColor: dd.baseColor,
       stringColor: dd.stringColor,
+      hasPdf: Boolean(dd.hasPdf),
+      pdfFileUrl: isDataUrl(dd.pdfFileUrl) ? null : dd.pdfFileUrl || null,
+      pdfOriginalName: dd.pdfOriginalName || "",
+      pdfPlacement: dd.pdfPlacement || null,
       // ağır alanları localStorage'dan çıkar
     };
   }
@@ -215,12 +225,31 @@ export function CartProvider({ children }) {
       const uploadedAdjustedUploads = dd.adjustedUploads
         ? await uploadNestedUploads(dd.adjustedUploads, `orders/${orderIdSeed}/items/${idx}/adjusted`)
         : {};
+      const uploadedPdfFileUrl = dd.pdfFileUrl
+        ? await uploadDataUrl(dd.pdfFileUrl, `orders/${orderIdSeed}/items/${idx}/pdf/source_${Date.now()}`)
+        : null;
+      const normalizedPdfPlacement =
+        dd.pdfPlacement && typeof dd.pdfPlacement === "object"
+          ? {
+              x: Number(dd.pdfPlacement.x || 0),
+              y: Number(dd.pdfPlacement.y || 0),
+              w: Number(dd.pdfPlacement.w || 0),
+              h: Number(dd.pdfPlacement.h || 0),
+              scale: Number(dd.pdfPlacement.scale || dd.pdfPlacement.w || 0),
+              rotation: Number(dd.pdfPlacement.rotation || 0),
+              side: dd.pdfPlacement.side === "back" ? "back" : "front",
+            }
+          : null;
 
       const compactDesignDetails = dd
         ? {
             model: dd.model,
             baseColor: dd.baseColor,
             stringColor: dd.stringColor,
+            hasPdf: Boolean(dd.hasPdf && uploadedPdfFileUrl),
+            pdfFileUrl: uploadedPdfFileUrl,
+            pdfOriginalName: dd.pdfOriginalName || "",
+            pdfPlacement: normalizedPdfPlacement,
             printFiles: uploadedPrintFiles,
             textFiles: uploadedTextFiles,
             mockupFiles: uploadedMockupFiles,
