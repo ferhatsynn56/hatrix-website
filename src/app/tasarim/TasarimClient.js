@@ -287,12 +287,12 @@ const MODEL_PRINT_BOUNDS = {
 
   // İstisnalar (sonraki isteğinde özel değerler gelecek)
   polar: {
-    front: { xMin: -0.145, xMax: 0.145, yTop: 0.245, yBot: -0.205, z: 0.139, rotY: 0, zipGap01: 0.03 },
-    back: { xMin: -0.145, xMax: 0.145, yTop: 0.29, yBot: -0.225, z: -0.14, rotY: Math.PI },
+    front: { xMin: -0.162, xMax: 0.162, yTop: 0.275, yBot: -0.242, z: 0.139, rotY: 0, zipGap01: 0.03 },
+    back: { xMin: -0.162, xMax: 0.162, yTop: 0.305, yBot: -0.248, z: -0.14, rotY: Math.PI },
   },
   "polar-son": {
-    front: { xMin: -0.145, xMax: 0.145, yTop: 0.245, yBot: -0.205, z: 0.139, rotY: 0, zipGap01: 0.03 },
-    back: { xMin: -0.145, xMax: 0.145, yTop: 0.29, yBot: -0.225, z: -0.14, rotY: Math.PI },
+    front: { xMin: -0.162, xMax: 0.162, yTop: 0.275, yBot: -0.242, z: 0.139, rotY: 0, zipGap01: 0.10 },
+    back: { xMin: -0.162, xMax: 0.162, yTop: 0.305, yBot: -0.248, z: -0.14, rotY: Math.PI },
   },
   "hoodie-cepli": {
     front: { xMin: -0.13, xMax: 0.13, yTop: 0.13, yBot: -0.135, z: 0.112, rotY: 0 },
@@ -322,7 +322,7 @@ const MODEL_PRINT_BOUNDS = {
       yBot: -0.205,
       z: 0.131,
       rotY: 0.1,
-      zipGap01: 0.035,
+      zipGap01: 0.110,
     },
     back: { xMin: -0.153, xMax: 0.153, yTop: 0.27, yBot: -0.238, z: -0.132, rotY: Math.PI },
   },
@@ -334,6 +334,8 @@ const HOODIE_POCKET_FRONT_YBOT = Object.freeze({
 });
 
 const CENTER_ZIP_MODEL_TYPES = new Set(["fermuarli", "yeni-fermuarli", "polar", "polar-son"]);
+const ZIP_STRIPE_TOP01 = 0.0;
+const ZIP_STRIPE_BOTTOM01 = 0.25; // 1'e yaklastikca asagiya uzar
 const hasCenterZip = (modelType) => {
   const raw = String(modelType || "").toLowerCase().trim();
   if (!raw) return false;
@@ -995,10 +997,12 @@ async function makePrintDataUrl(sideData, opts = {}) {
   if (gap01) {
     const stripeW = Math.round(SIZE * gap01);
     const x0 = SIZE / 2 - stripeW / 2;
+    const y0 = Math.round(SIZE * ZIP_STRIPE_TOP01);
+    const h = Math.max(1, Math.round(SIZE * (ZIP_STRIPE_BOTTOM01 - ZIP_STRIPE_TOP01)));
     ctx.save();
     ctx.globalCompositeOperation = "destination-out";
     ctx.fillStyle = "rgba(0,0,0,1)";
-    ctx.fillRect(x0, 0, stripeW, SIZE);
+    ctx.fillRect(x0, y0, stripeW, h);
     ctx.restore();
   }
 
@@ -1029,10 +1033,12 @@ async function makeTextDataUrl(sideData, opts = {}) {
   if (gap01) {
     const stripeW = Math.round(SIZE * gap01);
     const x0 = SIZE / 2 - stripeW / 2;
+    const y0 = Math.round(SIZE * ZIP_STRIPE_TOP01);
+    const h = Math.max(1, Math.round(SIZE * (ZIP_STRIPE_BOTTOM01 - ZIP_STRIPE_TOP01)));
     ctx.save();
     ctx.globalCompositeOperation = "destination-out";
     ctx.fillStyle = "rgba(0,0,0,1)";
-    ctx.fillRect(x0, 0, stripeW, SIZE);
+    ctx.fillRect(x0, y0, stripeW, h);
     ctx.restore();
   }
 
@@ -1243,10 +1249,12 @@ function useDesignCanvas(sideData, opts = {}) {
         if (!gap01) return;
         const stripeW = Math.round(CANVAS_SIZE * gap01);
         const x0 = CANVAS_SIZE / 2 - stripeW / 2;
+        const y0 = Math.round(CANVAS_SIZE * ZIP_STRIPE_TOP01);
+        const h = Math.max(1, Math.round(CANVAS_SIZE * (ZIP_STRIPE_BOTTOM01 - ZIP_STRIPE_TOP01)));
         ctx.save();
         ctx.globalCompositeOperation = "destination-out";
         ctx.fillStyle = "rgba(0,0,0,1)";
-        ctx.fillRect(x0, 0, stripeW, CANVAS_SIZE);
+        ctx.fillRect(x0, y0, stripeW, h);
         ctx.restore();
       };
 
@@ -2512,11 +2520,13 @@ function EditorPanel({
 
             {isZipperFront && (
               <div
-                className="absolute top-0 bottom-0 pointer-events-none"
+                className="absolute pointer-events-none"
                 style={{
                   left: "50%",
                   width: `${Math.round(gap01 * 100)}%`,
                   transform: "translateX(-50%)",
+                  top: `${ZIP_STRIPE_TOP01 * 100}%`,
+                  bottom: `${(1 - ZIP_STRIPE_BOTTOM01) * 100}%`,
                   background: "rgba(255,255,255,0.07)",
                   borderLeft: "1px dashed rgba(255,255,255,0.20)",
                   borderRight: "1px dashed rgba(255,255,255,0.20)",
@@ -2949,11 +2959,13 @@ function EditorPanel({
               {/* fermuar boşluğu görünsün */}
               {isZipperFront && (
                 <div
-                  className="absolute top-0 bottom-0 pointer-events-none"
+                  className="absolute pointer-events-none"
                   style={{
                     left: "50%",
                     width: `${Math.round(gap01 * 100)}%`,
                     transform: "translateX(-50%)",
+                    top: `${ZIP_STRIPE_TOP01 * 100}%`,
+                    bottom: `${(1 - ZIP_STRIPE_BOTTOM01) * 100}%`,
                     background: "rgba(255,255,255,0.07)",
                     borderLeft: "1px dashed rgba(255,255,255,0.20)",
                     borderRight: "1px dashed rgba(255,255,255,0.20)",
@@ -3569,6 +3581,7 @@ function TasarimClientContent({ isMobile }) {
   }, [printBounds, printCm?.w, printCm?.h]);
   const logos = sideData?.logos || [];
   const customText = sideData?.customText || {};
+  const safeTextPos = clampTextPos(sideData?.textPos, customText);
   const activeLogo = logos.find(l => l.id === (sideData?.activeLogoId || logos[0]?.id));
   const logoControlsLocked = lockAspect;
   const imageControlDisabled = logoControlsLocked || !activeLogo;
@@ -3599,6 +3612,20 @@ function TasarimClientContent({ isMobile }) {
         }
       } : d
     ));
+  };
+
+  const updateTextPos = (patch) => {
+    const next = clampTextPos({ ...safeTextPos, ...patch }, customText);
+    updateSide({ textPos: next });
+  };
+
+  const bumpCustomText = (patch) => {
+    updateSide({ customText: { ...customText, ...patch } });
+  };
+
+  const setTextLayer = (layer) => {
+    const z = layer === "front" ? 1 : layer === "back" ? -1 : 0;
+    bumpCustomText({ z });
   };
 
   const sanitizeLogoBox = (nextBox) => {
@@ -4550,11 +4577,13 @@ function TasarimClientContent({ isMobile }) {
                 {/* fermuar boşluğu görünsün */}
                 {isZipperFront && (
                   <div
-                    className="absolute top-0 bottom-0 pointer-events-none"
+                    className="absolute pointer-events-none"
                     style={{
                       left: "50%",
                       width: `${Math.round(gap01 * 100)}%`,
                       transform: "translateX(-50%)",
+                      top: `${ZIP_STRIPE_TOP01 * 100}%`,
+                      bottom: `${(1 - ZIP_STRIPE_BOTTOM01) * 100}%`,
                       background: "rgba(255,255,255,0.07)",
                       borderLeft: "1px dashed rgba(255,255,255,0.20)",
                       borderRight: "1px dashed rgba(255,255,255,0.20)",
@@ -4688,7 +4717,7 @@ function TasarimClientContent({ isMobile }) {
 
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="mt-3 grid grid-cols-3 gap-2">
                 <button
                   onClick={() => setEditorControlTab("logo")}
                   className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${
@@ -4698,6 +4727,16 @@ function TasarimClientContent({ isMobile }) {
                   }`}
                 >
                   Gorsel Ayari
+                </button>
+                <button
+                  onClick={() => setEditorControlTab("text")}
+                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${
+                    editorControlTab === "text"
+                      ? "bg-white text-black border-white"
+                      : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
+                  }`}
+                >
+                  Yazi Ayari
                 </button>
                 <button
                   onClick={() => setEditorControlTab("effects")}
@@ -4950,6 +4989,125 @@ function TasarimClientContent({ isMobile }) {
                     Görseli Sil
                   </button>
                   </div>
+              )}
+
+              {editorControlTab === "text" && (
+                <div className={`mt-3 rounded-xl border border-zinc-700 bg-zinc-800/60 space-y-3 ${isMobile ? "p-2.5" : "p-3"}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">Yazi Ayari</p>
+                    {!(customText?.text || "").trim() && (
+                      <button
+                        type="button"
+                        onClick={() => bumpCustomText({ text: "YAZI" })}
+                        className="px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase"
+                      >
+                        Yazi Ekle
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-zinc-400">Metin</label>
+                    <input
+                      type="text"
+                      value={customText?.text || ""}
+                      onChange={(e) => bumpCustomText({ text: e.target.value })}
+                      className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 text-white px-2 py-1 text-[11px]"
+                      placeholder="Yazinizi girin"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-zinc-400">Font</label>
+                      <select
+                        value={customText?.font || FONT_OPTIONS[0].value}
+                        onChange={(e) => bumpCustomText({ font: e.target.value })}
+                        className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 text-white px-2 py-1 text-[11px]"
+                      >
+                        {FONT_OPTIONS.map((opt) => (
+                          <option key={`editor-text-font-${opt.value}`} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-zinc-400">Renk</label>
+                      <input
+                        type="color"
+                        value={customText?.color || "#ffffff"}
+                        onChange={(e) => bumpCustomText({ color: e.target.value })}
+                        className="w-full h-[30px] rounded-md border border-zinc-600 bg-zinc-900/60 p-1"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                      <span>Boyut</span>
+                      <span>{Math.round(Number(customText?.size) || 150)}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="40"
+                      max="280"
+                      step="1"
+                      value={Number(customText?.size) || 150}
+                      onChange={(e) => bumpCustomText({ size: Number(e.target.value) })}
+                      className="w-full accent-cyan-300"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                      <span>X Konum</span>
+                      <span>{Math.round(safeTextPos.x * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.005"
+                      value={safeTextPos.x}
+                      onChange={(e) => updateTextPos({ x: Number(e.target.value) })}
+                      className="w-full accent-cyan-300"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                      <span>Y Konum</span>
+                      <span>{Math.round(safeTextPos.y * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.005"
+                      value={safeTextPos.y}
+                      onChange={(e) => updateTextPos({ y: Number(e.target.value) })}
+                      className="w-full accent-cyan-300"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTextLayer("front")}
+                      className="flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-zinc-700 hover:bg-zinc-600"
+                    >
+                      Öne Al
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTextLayer("back")}
+                      className="flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-zinc-700 hover:bg-zinc-600"
+                    >
+                      Arkaya Al
+                    </button>
+                  </div>
+                </div>
               )}
 
               {activeLogo && editorControlTab === "effects" && (
