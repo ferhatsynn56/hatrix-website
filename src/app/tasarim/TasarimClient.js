@@ -883,6 +883,10 @@ const createDesign = (type = DEFAULT_MODEL_TYPE) => ({
   pdfOriginalName: "",
   pdfPlacement: { ...DEFAULT_PDF_PLACEMENT },
   printTypes: [],
+  printTypesBySide: {
+    front: [],
+    back: [],
+  },
   size: "M",
   sides: {
     front: createSideData(),
@@ -891,6 +895,28 @@ const createDesign = (type = DEFAULT_MODEL_TYPE) => ({
     right: createSideData(),
   },
 });
+
+const normalizePrintTypesBySide = (bySide, legacy = []) => {
+  const base = {
+    front: [],
+    back: [],
+  };
+  const legacyList = Array.isArray(legacy) ? legacy : [];
+  const raw = bySide && typeof bySide === "object" ? bySide : {};
+  const next = {
+    ...base,
+    ...raw,
+  };
+  const front = Array.from(new Set([...(Array.isArray(next.front) ? next.front : []), ...legacyList]));
+  const back = Array.from(new Set(Array.isArray(next.back) ? next.back : []));
+  return { front, back };
+};
+
+const getPrintTypesForSide = (design, side = "front") => {
+  const safeSide = side === "back" ? "back" : "front";
+  const bySide = normalizePrintTypesBySide(design?.printTypesBySide, design?.printTypes);
+  return bySide[safeSide];
+};
 
 const normalizeHoodieParts = (parts) => ({
   ...DEFAULT_HOODIE_PARTS,
@@ -2364,7 +2390,18 @@ function EditorPanel({
     });
   };
   const fabricType = design.fabricType || "standart";
-  const printTypes = Array.isArray(design.printTypes) ? design.printTypes : [];
+  const printTypes = getPrintTypesForSide(design, currentSide);
+  const setCurrentSidePrintTypes = (nextTypes) => {
+    const bySide = normalizePrintTypesBySide(design.printTypesBySide, design.printTypes);
+    const safeSide = currentSide === "back" ? "back" : "front";
+    const normalizedNext = Array.isArray(nextTypes) ? Array.from(new Set(nextTypes)) : [];
+    const nextBySide = { ...bySide, [safeSide]: normalizedNext };
+    const mergedLegacy = Array.from(new Set([...(nextBySide.front || []), ...(nextBySide.back || [])]));
+    updateDesign({
+      printTypesBySide: nextBySide,
+      printTypes: mergedLegacy,
+    });
+  };
 
   const updateSide = (patch) => {
     updateDesign({
@@ -2421,7 +2458,7 @@ function EditorPanel({
   const togglePrintType = (id) => {
     const alreadySelected = printTypes.includes(id);
     const next = alreadySelected ? printTypes.filter((t) => t !== id) : [...printTypes, id];
-    updateDesign({ printTypes: next });
+    setCurrentSidePrintTypes(next);
     if (!alreadySelected) {
       if (id === "rubber" || id === "flock") {
         setActiveTab("text");
@@ -2433,7 +2470,7 @@ function EditorPanel({
 
   const removePrintType = (id) => {
     const next = printTypes.filter((typeId) => typeId !== id);
-    updateDesign({ printTypes: next });
+    setCurrentSidePrintTypes(next);
   };
 
   useEffect(() => {
@@ -2442,9 +2479,9 @@ function EditorPanel({
   }, [activeTab, printTypes.length, design.id, currentSide]);
 
   useEffect(() => {
-    if (activeTab !== "upload") return;
+    if (printTypePickerSignal <= 0) return;
     setShowPrintTypePicker(true);
-  }, [printTypePickerSignal, activeTab]);
+  }, [printTypePickerSignal]);
 
   const handleSelectPrintTypeFromPanel = (id) => {
     const opt = PRINT_TYPE_OPTIONS.find((entry) => entry.id === id);
@@ -2843,90 +2880,22 @@ function EditorPanel({
                 >
                   <Move size={14} /> Yerleşim Paneli
                 </button>
+                <button
+                  onClick={handleDeleteActiveImage}
+                  disabled={!activeLogo}
+                  className={`w-full py-1.5 rounded-lg text-[10px] font-bold uppercase border flex items-center justify-center gap-2 ${
+                    activeLogo
+                      ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                      : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                  }`}
+                >
+                  <Trash2 size={13} /> Seçili Dosyayı Sil
+                </button>
                 {!canUploadMoreLogos && (
                   <p className="text-[10px] text-gray-500 font-semibold">Maksimum 3 görsel yüklendi.</p>
                 )}
               </div>
             </div>
-
-            {(sideData?.logos || []).length > 0 && (
-              <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[220px] max-w-[320px] 2xl:min-w-[260px] 2xl:max-w-[420px] h-full max-h-full min-h-[188px] flex flex-col overflow-y-auto overflow-x-hidden") : ""}`}>
-                <p className={drawerHeadingClass}>Katmanlar</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {(sideData.logos || []).map((l, idx) => {
-                    const selected = (sideData.activeLogoId || sideData.logos?.[0]?.id) === l.id;
-                    return (
-                      <button
-                        key={l.id}
-                        onClick={() => updateSide({ activeLogoId: l.id })}
-                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${
-                          selected ? "bg-black text-white border-black" : "bg-white text-gray-700 border-gray-300"
-                        }`}
-                      >
-                        Katman {idx + 1}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {activeLogo && (
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button
-                      onClick={() => {
-                        const next = (sideData.logos || []).map((l) =>
-                          l.id === activeLogo.id ? { ...l, z: 1 } : l
-                        );
-                        updateSide({ logos: next });
-                      }}
-                      className="w-full py-1.5 bg-zinc-100 text-zinc-800 rounded-lg text-[10px] font-bold uppercase border border-zinc-200 hover:bg-zinc-200"
-                    >
-                      Öne Al
-                    </button>
-                    <button
-                      onClick={() => {
-                        const next = (sideData.logos || []).map((l) =>
-                          l.id === activeLogo.id ? { ...l, z: -1 } : l
-                        );
-                        updateSide({ logos: next });
-                      }}
-                      className="w-full py-1.5 bg-zinc-100 text-zinc-800 rounded-lg text-[10px] font-bold uppercase border border-zinc-200 hover:bg-zinc-200"
-                    >
-                      Arkaya Al
-                    </button>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 gap-1.5">
-                  <button
-                    onClick={() => {
-                      setActiveTab("editor");
-                      if (isMobileDrawer) onRequestDrawerCollapse?.();
-                    }}
-                    className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2"
-                  >
-                    <Move size={14} /> Konum / Boyut
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      const currentId = sideData.activeLogoId || sideData.logos?.[0]?.id;
-                      const next = (sideData.logos || []).filter((l) => l.id !== currentId);
-                      updateSide({ logos: next, activeLogoId: next[0]?.id || null });
-                    }}
-                    className="w-full py-1.5 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold flex items-center justify-center gap-2 border border-red-200 hover:bg-red-100"
-                  >
-                    <Trash2 size={14} /> Seçili Katmanı Sil
-                  </button>
-
-                  <button
-                    onClick={() => updateSide({ logos: [], activeLogoId: null })}
-                    className="w-full py-1.5 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold flex items-center justify-center gap-2 border border-red-200 hover:bg-red-100"
-                  >
-                    <Trash2 size={14} /> Tüm Katmanları Temizle
-                  </button>
-                </div>
-              </div>
-            )}
               </>
             )}
           </div>
@@ -3085,7 +3054,7 @@ function EditorPanel({
         {/* TEXT / PDF */}
         {activeTab === "text" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-start justify-start gap-2.5") : "space-y-2.5"}`}>
-	            <div className={`rounded-xl border border-gray-200 bg-white p-3 space-y-3 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[320px] max-w-[520px] h-full max-h-full min-h-[188px] flex flex-col overflow-y-auto overflow-x-hidden") : ""}`}>
+	            <div className={`rounded-xl border border-gray-200 bg-white p-3 space-y-3 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "w-full min-h-[188px] overflow-hidden") : ""}`}>
 	              <div className="flex items-center justify-between gap-2">
 	                <p className={drawerHeadingClass}>Yazı / PDF</p>
 	                {hasPdf ? (
@@ -3095,7 +3064,8 @@ function EditorPanel({
 	                )}
 	              </div>
 
-	              <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 space-y-2">
+	              <div className={`${isDrawerLayout && !isMobileDrawer ? "grid grid-cols-2 gap-3 items-start" : "space-y-3"}`}>
+	                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 space-y-2">
 	                <div className="flex items-center justify-between gap-2">
 	                  <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Metin</p>
 	                  <button
@@ -3210,163 +3180,166 @@ function EditorPanel({
 	                </button>
 	              </div>
 
-	              <button
-	                type="button"
-                onClick={() => pdfInputRef.current?.click()}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={async (e) => {
-                  e.preventDefault();
-                  const file = e.dataTransfer?.files?.[0];
-                  await handlePdfUpload(file);
-                }}
-                className="w-full h-28 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 flex flex-col items-center justify-center gap-2"
-              >
-                <FileText size={20} />
-                <span className="text-[11px] font-black uppercase tracking-wide">PDF Dosyası Ekle</span>
-                <span className="text-[10px] text-gray-500">Sürükle-bırak veya tıkla</span>
-              </button>
-              <input
-                ref={pdfInputRef}
-                type="file"
-                accept=".pdf,application/pdf"
-                className="hidden"
-                onChange={async (e) => {
-                  const inputEl = e.currentTarget;
-                  const file = inputEl.files?.[0];
-                  await handlePdfUpload(file);
-                  inputEl.value = "";
-                }}
-              />
+	                <div className="space-y-3">
+	                  <button
+	                    type="button"
+                    onClick={() => pdfInputRef.current?.click()}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={async (e) => {
+                      e.preventDefault();
+                      const file = e.dataTransfer?.files?.[0];
+                      await handlePdfUpload(file);
+                    }}
+                    className="w-full h-28 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 flex flex-col items-center justify-center gap-2"
+                  >
+                    <FileText size={20} />
+                    <span className="text-[11px] font-black uppercase tracking-wide">PDF Dosyası Ekle</span>
+                    <span className="text-[10px] text-gray-500">Sürükle-bırak veya tıkla</span>
+                  </button>
+                  <input
+                    ref={pdfInputRef}
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const inputEl = e.currentTarget;
+                      const file = inputEl.files?.[0];
+                      await handlePdfUpload(file);
+                      inputEl.value = "";
+                    }}
+                  />
 
-              <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-                <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Dosya</p>
-                <p className="text-xs font-semibold text-gray-700 break-all">
-                  {design.pdfOriginalName || "Henüz PDF seçilmedi"}
-                </p>
-              </div>
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Dosya</p>
+                    <p className="text-xs font-semibold text-gray-700 break-all">
+                      {design.pdfOriginalName || "Henüz PDF seçilmedi"}
+                    </p>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: "front", label: "Ön Yüz" },
-                  { id: "back", label: "Arka Yüz" },
-                ].map((opt) => (
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: "front", label: "Ön Yüz" },
+                      { id: "back", label: "Arka Yüz" },
+                    ].map((opt) => (
+                      <button
+                        key={`pdf-side-${opt.id}`}
+                        type="button"
+                        disabled={!hasPdf}
+                        onClick={() => updatePdfPlacement({ side: opt.id })}
+                        className={`py-2 rounded-lg text-[10px] font-black uppercase border ${
+                          (design.pdfPlacement?.side || "front") === opt.id
+                            ? "bg-black text-white border-black"
+                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                        } ${!hasPdf ? "opacity-40 cursor-not-allowed" : ""}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">PDF Konumu</p>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-gray-500">
+                        <span>X</span>
+                        <span>{Math.round(pdfPlacement.x * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={pdfPlacement.w / 2}
+                        max={1 - pdfPlacement.w / 2}
+                        step="0.005"
+                        value={pdfPlacement.x}
+                        disabled={!hasPdf}
+                        onChange={(e) => updatePdfPlacement({ x: Number(e.target.value) })}
+                        className={`w-full accent-black ${!hasPdf ? "opacity-50 cursor-not-allowed" : ""}`}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-gray-500">
+                        <span>Y</span>
+                        <span>{Math.round(pdfPlacement.y * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={pdfPlacement.h / 2}
+                        max={1 - pdfPlacement.h / 2}
+                        step="0.005"
+                        value={pdfPlacement.y}
+                        disabled={!hasPdf}
+                        onChange={(e) => updatePdfPlacement({ y: Number(e.target.value) })}
+                        className={`w-full accent-black ${!hasPdf ? "opacity-50 cursor-not-allowed" : ""}`}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-gray-500">
+                        <span>Ölçek</span>
+                        <span>{Math.round(pdfPlacement.w * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.12"
+                        max="0.9"
+                        step="0.005"
+                        value={pdfPlacement.w}
+                        disabled={!hasPdf}
+                        onChange={(e) => {
+                          const nextW = Number(e.target.value);
+                          const ratio = Math.max(0.01, pdfPlacement.h / Math.max(0.001, pdfPlacement.w));
+                          updatePdfPlacement({ w: nextW, h: clamp(nextW * ratio, 0.08, 0.9) });
+                        }}
+                        className={`w-full accent-black ${!hasPdf ? "opacity-50 cursor-not-allowed" : ""}`}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-gray-500">
+                        <span>Döndürme</span>
+                        <span>{Math.round(pdfPlacement.rotation || 0)}°</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-180"
+                        max="180"
+                        step="5"
+                        value={pdfPlacement.rotation || 0}
+                        disabled={!hasPdf}
+                        onChange={(e) => updatePdfPlacement({ rotation: Number(e.target.value) })}
+                        className={`w-full accent-black ${!hasPdf ? "opacity-50 cursor-not-allowed" : ""}`}
+                      />
+                    </div>
+                  </div>
+
                   <button
-                    key={`pdf-side-${opt.id}`}
                     type="button"
                     disabled={!hasPdf}
-                    onClick={() => updatePdfPlacement({ side: opt.id })}
-                    className={`py-2 rounded-lg text-[10px] font-black uppercase border ${
-                      (design.pdfPlacement?.side || "front") === opt.id
-                        ? "bg-black text-white border-black"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                    } ${!hasPdf ? "opacity-40 cursor-not-allowed" : ""}`}
+                    onClick={() =>
+                      updateDesign({
+                        hasPdf: false,
+                        pdfFileUrl: "",
+                        pdfOriginalName: "",
+                        pdfPlacement: { ...DEFAULT_PDF_PLACEMENT, side: currentSide },
+                      })
+                    }
+                    className={`w-full py-2 rounded-lg text-[10px] font-black uppercase border ${
+                      hasPdf
+                        ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
+                        : "border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed"
+                    }`}
                   >
-                    {opt.label}
+                    PDF’yi Kaldır
                   </button>
-                ))}
-              </div>
 
-              <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">PDF Konumu</p>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[10px] text-gray-500">
-                    <span>X</span>
-                    <span>{Math.round(pdfPlacement.x * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={pdfPlacement.w / 2}
-                    max={1 - pdfPlacement.w / 2}
-                    step="0.005"
-                    value={pdfPlacement.x}
-                    disabled={!hasPdf}
-                    onChange={(e) => updatePdfPlacement({ x: Number(e.target.value) })}
-                    className={`w-full accent-black ${!hasPdf ? "opacity-50 cursor-not-allowed" : ""}`}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[10px] text-gray-500">
-                    <span>Y</span>
-                    <span>{Math.round(pdfPlacement.y * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={pdfPlacement.h / 2}
-                    max={1 - pdfPlacement.h / 2}
-                    step="0.005"
-                    value={pdfPlacement.y}
-                    disabled={!hasPdf}
-                    onChange={(e) => updatePdfPlacement({ y: Number(e.target.value) })}
-                    className={`w-full accent-black ${!hasPdf ? "opacity-50 cursor-not-allowed" : ""}`}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[10px] text-gray-500">
-                    <span>Ölçek</span>
-                    <span>{Math.round(pdfPlacement.w * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.12"
-                    max="0.9"
-                    step="0.005"
-                    value={pdfPlacement.w}
-                    disabled={!hasPdf}
-                    onChange={(e) => {
-                      const nextW = Number(e.target.value);
-                      const ratio = Math.max(0.01, pdfPlacement.h / Math.max(0.001, pdfPlacement.w));
-                      updatePdfPlacement({ w: nextW, h: clamp(nextW * ratio, 0.08, 0.9) });
-                    }}
-                    className={`w-full accent-black ${!hasPdf ? "opacity-50 cursor-not-allowed" : ""}`}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[10px] text-gray-500">
-                    <span>Döndürme</span>
-                    <span>{Math.round(pdfPlacement.rotation || 0)}°</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="-180"
-                    max="180"
-                    step="5"
-                    value={pdfPlacement.rotation || 0}
-                    disabled={!hasPdf}
-                    onChange={(e) => updatePdfPlacement({ rotation: Number(e.target.value) })}
-                    className={`w-full accent-black ${!hasPdf ? "opacity-50 cursor-not-allowed" : ""}`}
-                  />
-                </div>
-              </div>
-
-              <button
-                type="button"
-                disabled={!hasPdf}
-                onClick={() =>
-                  updateDesign({
-                    hasPdf: false,
-                    pdfFileUrl: "",
-                    pdfOriginalName: "",
-                    pdfPlacement: { ...DEFAULT_PDF_PLACEMENT, side: currentSide },
-                  })
-                }
-                className={`w-full py-2 rounded-lg text-[10px] font-black uppercase border ${
-                  hasPdf
-                    ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
-                    : "border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed"
-                }`}
-              >
-                PDF’yi Kaldır
-              </button>
-
-              <a
-                href={SCIENTIFIC_ROUTE}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center text-[10px] font-black uppercase tracking-wide text-gray-600 underline"
-              >
-                Daha fazlası için Bilimsel Sayfası
-              </a>
-              {isUploadingPdf && <p className="text-[10px] font-bold uppercase text-gray-500">PDF yükleniyor...</p>}
+                  <a
+                    href={SCIENTIFIC_ROUTE}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center text-[10px] font-black uppercase tracking-wide text-gray-600 underline"
+                  >
+                    Daha fazlası için Bilimsel Sayfası
+                  </a>
+                  {isUploadingPdf && <p className="text-[10px] font-bold uppercase text-gray-500">PDF yükleniyor...</p>}
+	                </div>
+	              </div>
             </div>
           </div>
         )}
@@ -3821,7 +3794,7 @@ function TasarimClientContent({ isMobile }) {
     { id: "text", label: "Yazı", icon: FileText },
     { id: "color", label: "Renk", icon: Palette },
   ];
-  const activePrintTypes = Array.isArray(activeDesign?.printTypes) ? activeDesign.printTypes : [];
+  const activePrintTypes = getPrintTypesForSide(activeDesign, view);
   const selectedPrintTypeNames = activePrintTypes
     .map((typeId) => PRINT_TYPE_OPTIONS.find((opt) => opt.id === typeId)?.label || typeId)
     .join(" • ");
@@ -3830,14 +3803,21 @@ function TasarimClientContent({ isMobile }) {
     if (!opt?.available) return;
 
     let becameSelected = false;
+    const safeSide = view === "back" ? "back" : "front";
     setDesigns((prev) =>
       prev.map((d) => {
         if (d.id !== activeId) return d;
-        const current = Array.isArray(d.printTypes) ? d.printTypes : [];
+        const bySide = normalizePrintTypesBySide(d.printTypesBySide, d.printTypes);
+        const current = bySide[safeSide];
         const has = current.includes(typeId);
-        const next = has ? current.filter((id) => id !== typeId) : [...current, typeId];
+        const nextCurrent = has ? current.filter((id) => id !== typeId) : [...current, typeId];
         becameSelected = !has;
-        return { ...d, printTypes: next };
+        const nextBySide = { ...bySide, [safeSide]: Array.from(new Set(nextCurrent)) };
+        return {
+          ...d,
+          printTypesBySide: nextBySide,
+          printTypes: Array.from(new Set([...(nextBySide.front || []), ...(nextBySide.back || [])])),
+        };
       })
     );
 
@@ -4097,6 +4077,7 @@ function TasarimClientContent({ isMobile }) {
             pdfOriginalName: d.pdfOriginalName || "",
             pdfPlacement: normalizePdfPlacement(d.pdfPlacement, d.pdfPlacement?.side || "front"),
             printTypes: Array.isArray(d.printTypes) ? d.printTypes : [],
+            printTypesBySide: normalizePrintTypesBySide(d.printTypesBySide, d.printTypes),
             printFiles,
             textFiles,
             mockupFiles,
@@ -4121,6 +4102,7 @@ function TasarimClientContent({ isMobile }) {
           pdfOriginalName: d.pdfOriginalName || "",
           pdfPlacement: normalizePdfPlacement(d.pdfPlacement, d.pdfPlacement?.side || "front"),
           printTypes: Array.isArray(d.printTypes) ? d.printTypes : [],
+          printTypesBySide: normalizePrintTypesBySide(d.printTypesBySide, d.printTypes),
           preview: previewMockup,
           image: previewMockup,
           printFiles,
@@ -4260,6 +4242,15 @@ function TasarimClientContent({ isMobile }) {
     controls.update?.();
   };
 
+  const switchSideAndOpenPrintPicker = (nextSide) => {
+    if (nextSide !== "front" && nextSide !== "back") return;
+    setView(nextSide);
+    setActiveTab("upload");
+    setDrawerOpen(true);
+    setDrawerMenuOpen(false);
+    setPrintTypePickerSignal((prev) => prev + 1);
+  };
+
   const effectiveView = captureView || view;
   const drawerHeightStyle = isMobile
     ? drawerHeight
@@ -4322,20 +4313,6 @@ function TasarimClientContent({ isMobile }) {
       {/* Top Header */}
       <div className="absolute top-0 left-0 right-0 z-[90] px-4 pt-4 pb-3 flex items-start justify-between pointer-events-none">
         <div className="flex items-start gap-3 pointer-events-auto">
-          {isMobile ? (
-            <button
-              type="button"
-              onClick={openPrintTypePickerFromHeader}
-              className="px-3 py-2 rounded-full border border-zinc-300 bg-white/90 backdrop-blur-md hover:bg-white transition text-xs font-black uppercase tracking-wide text-black"
-              aria-label="Baski tipi secimine don"
-            >
-              Geri
-            </button>
-          ) : (
-            <Link href="/" className="px-2 py-2 rounded-full border border-zinc-300 bg-white/80 backdrop-blur-md hover:bg-white transition text-xs text-black">
-              ←
-            </Link>
-          )}
           <div>
             <p className="text-sm font-bold text-black">{MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}</p>
             <p className="text-xs text-zinc-600">{getPrice(activeDesign || createDesign(DEFAULT_MODEL_TYPE))} ₺</p>
@@ -4375,7 +4352,7 @@ function TasarimClientContent({ isMobile }) {
                 {UI_VIEWS.map((v) => (
                   <button
                     key={v}
-                    onClick={() => setView(v)}
+                    onClick={() => switchSideAndOpenPrintPicker(v)}
                     className={`${isMobile ? "px-3 py-1.5 text-[10px]" : "px-5 py-2.5 text-[11px]"} rounded-full font-bold uppercase tracking-widest transition-all ${
                       view === v
                         ? "bg-zinc-900 text-white shadow-md"
@@ -5427,14 +5404,14 @@ function TasarimClientContent({ isMobile }) {
               >
                 <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-gray-400/80" />
                 
-                {/* Geri Butonu - Sadece drawer açık iken */}
-                {drawerOpen && (
+                {/* Mobil geri butonu - sadece drawer açıkken */}
+                {isMobile && drawerOpen && (
                   <button
-                    onClick={goPrevTab}
-                    className="absolute left-3 top-2 w-8 h-8 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm z-30"
-                    aria-label="Önceki adım"
+                    onClick={openPrintTypePickerFromHeader}
+                    className="absolute left-3 top-2 h-8 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm z-30"
+                    aria-label="Baski tipi secimine don"
                   >
-                    <ChevronLeft size={16} strokeWidth={2.4} />
+                    Geri
                   </button>
                 )}
                 
@@ -5483,6 +5460,13 @@ function TasarimClientContent({ isMobile }) {
                             + Model
                           </button>
                           <div className="flex items-center gap-1 min-w-0 max-w-[380px]">
+                            <button
+                              onClick={goPrevTab}
+                              className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
+                              aria-label="Önceki adım"
+                            >
+                              <ChevronLeft size={18} strokeWidth={2.6} />
+                            </button>
                             <div className="text-center min-w-0 px-1">
                               <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
                                 {tabLabelMap[activeTab] || "Baskı"}
