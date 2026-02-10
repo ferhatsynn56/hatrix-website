@@ -229,20 +229,20 @@ const MODEL_PRINT_BOUNDS = {
     back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.245, z: -0.148, rotY: Math.PI },
   },
   "yeni-duz-sweat": {
-    front: { xMin: -0.17, xMax: 0.17, yTop: 0.275, yBot: -0.24, z: 0.147, rotY: 0 },
-    back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.245, z: -0.148, rotY: Math.PI },
+    front: { xMin: -0.16, xMax: 0.16, yTop: 0.275, yBot: -0.24, z: 0.147, rotY: 0 },
+    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.245, z: -0.148, rotY: Math.PI },
   },
   "sweat-deneme": {
     front: { xMin: -0.17, xMax: 0.17, yTop: 0.275, yBot: -0.24, z: 0.147, rotY: 0 },
     back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.245, z: -0.148, rotY: Math.PI },
   },
   "oversize-sweat": {
-    front: { xMin: -0.17, xMax: 0.17, yTop: 0.270, yBot: -0.255, z: 0.147, rotY: 0 },
-    back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.26, z: -0.148, rotY: Math.PI },
+    front: { xMin: -0.16, xMax: 0.16, yTop: 0.270, yBot: -0.255, z: 0.147, rotY: 0 },
+    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.26, z: -0.148, rotY: Math.PI },
   },
   "yeni-oversize-sweat": {
-    front: { xMin: -0.17, xMax: 0.17, yTop: 0.270, yBot: -0.255, z: 0.147, rotY: 0 },
-    back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.26, z: -0.148, rotY: Math.PI },
+    front: { xMin: -0.16, xMax: 0.16, yTop: 0.270, yBot: -0.255, z: 0.147, rotY: 0 },
+    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.26, z: -0.148, rotY: Math.PI },
   },
   "yeni-duz-tshirt": {
     front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
@@ -277,12 +277,12 @@ const MODEL_PRINT_BOUNDS = {
     back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
   },
   "hoodie-v12-canavari": {
-    front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
-    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
+    front: { xMin: -0.130, xMax: 0.130, yTop: 0.125, yBot: -0.265, z: 0.147, rotY: 0 },
+    back: { xMin: -0.122, xMax: 0.125, yTop: 0.145, yBot: -0.285, z: -0.148, rotY: Math.PI },
   },
   "oversize-hoodie-parcali": {
-    front: { xMin: -0.17, xMax: 0.17, yTop: 0.27, yBot: -0.31, z: 0.147, rotY: 0 },
-    back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
+    front: { xMin: -0.130, xMax: 0.130, yTop: 0.125, yBot: -0.265, z: 0.147, rotY: 0 },
+    back: { xMin: -0.120, xMax: 0.120, yTop: 0.145, yBot: -0.275, z: -0.148, rotY: Math.PI },
   },
 
   // İstisnalar (sonraki isteğinde özel değerler gelecek)
@@ -307,25 +307,42 @@ const MODEL_PRINT_BOUNDS = {
       xMin: -0.16,
       xMax: 0.165,
       yTop: 0.22,
-      yBot: -0.24,
+      yBot: -0.21,
       z: 0.131,
       rotY: 0.1,
-      zipGap01: 0.02, // Yakadan biraz aşağı kadar
+      zipGap01: 0.035, // Orta fermuar şeridi (daha belirgin)
     },
     back: { xMin: -0.155, xMax: 0.155, yTop: 0.28, yBot: -0.24, z: -0.132, rotY: Math.PI },
   },
   "yeni-fermuarli": {
     front: {
-      xMin: -0.16,
-      xMax: 0.165,
+      xMin: -0.150,
+      xMax: 0.150,
       yTop: 0.22,
-      yBot: -0.24,
+      yBot: -0.205,
       z: 0.131,
       rotY: 0.1,
-      zipGap01: 0.02,
+      zipGap01: 0.035,
     },
-    back: { xMin: -0.155, xMax: 0.155, yTop: 0.28, yBot: -0.24, z: -0.132, rotY: Math.PI },
+    back: { xMin: -0.153, xMax: 0.153, yTop: 0.27, yBot: -0.238, z: -0.132, rotY: Math.PI },
   },
+};
+
+const HOODIE_POCKET_FRONT_YBOT = Object.freeze({
+  "hoodie-v12-canavari": -0.145,
+  "oversize-hoodie-parcali": -0.15,
+});
+
+const getPrintProfile = (modelType, side = "front", hoodieParts = DEFAULT_HOODIE_PARTS) => {
+  const base = MODEL_PRINT_BOUNDS[modelType]?.[side] || MODEL_PRINT_BOUNDS.tshirt[side];
+  if (!base) return MODEL_PRINT_BOUNDS.tshirt.front;
+  if (side !== "front") return base;
+  if (!MODELS_WITH_HOODIE_PARTS.has(modelType)) return base;
+  if (!hoodieParts?.pocket) return base;
+
+  const pocketYBot = HOODIE_POCKET_FRONT_YBOT[modelType];
+  if (!Number.isFinite(pocketYBot)) return base;
+  return { ...base, yBot: Math.max(base.yBot, pocketYBot) };
 };
 
 const CM_LABELS = {
@@ -1285,6 +1302,7 @@ function useDesignCanvas(sideData, opts = {}) {
 /* ================= 3D MODEL HELPERS ================= */
 function pickDecalHostMesh(root, modelType) {
   const candidates = [];
+  const fallbackCandidates = [];
 
   root.traverse((o) => {
     if (!(o && (o.isMesh || o.isSkinnedMesh) && o.geometry?.attributes?.position)) return;
@@ -1295,6 +1313,20 @@ function pickDecalHostMesh(root, modelType) {
 
     const size = new THREE.Vector3();
     bb.getSize(size);
+    const volume = size.x * size.y * size.z;
+    if (!Number.isFinite(volume) || volume <= 0) return;
+
+    const meshName = String(o?.name || "").toLowerCase();
+    const isAccessoryLike =
+      meshName.includes("hood") ||
+      meshName.includes("kapuson") ||
+      meshName.includes("sleeve") ||
+      meshName.includes("kol") ||
+      meshName.includes("draw") ||
+      meshName.includes("cord") ||
+      meshName.includes("ip") ||
+      meshName.includes("pocket") ||
+      meshName.includes("cep");
 
     const hoodYMaxLimit =
       modelType.includes("hoodie") || modelType.includes("fermuarli") ? 0.52 : 0.65;
@@ -1306,12 +1338,21 @@ function pickDecalHostMesh(root, modelType) {
       bb.min.y < -0.15;
 
     if (isTorsoLike) {
-      candidates.push({ o, score: size.x * size.y * size.z });
+      candidates.push({ o, score: volume });
+    }
+
+    if (!isAccessoryLike && size.y > 0.35 && size.x > 0.15) {
+      fallbackCandidates.push({ o, score: volume });
     }
   });
 
   candidates.sort((a, b) => b.score - a.score);
-  return candidates[0]?.o || null;
+  if (candidates[0]?.o) return candidates[0].o;
+
+  fallbackCandidates.sort((a, b) => b.score - a.score);
+  if (fallbackCandidates[0]?.o) return fallbackCandidates[0].o;
+
+  return null;
 }
 
 function makeCanvasTexture(canvas) {
@@ -1463,8 +1504,8 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, h
 
   const TORSO_DEPTH = 0.3;
 
-  const frontProfile = MODEL_PRINT_BOUNDS[modelType]?.front || MODEL_PRINT_BOUNDS.tshirt.front;
-  const backProfile = MODEL_PRINT_BOUNDS[modelType]?.back || MODEL_PRINT_BOUNDS.tshirt.back;
+  const frontProfile = getPrintProfile(modelType, "front", hoodieV12Parts);
+  const backProfile = getPrintProfile(modelType, "back", hoodieV12Parts);
 
   const frontW = frontProfile.xMax - frontProfile.xMin;
   const frontH = frontProfile.yTop - frontProfile.yBot;
@@ -1835,8 +1876,8 @@ function DesignModelItem({
     g.scale.setScalar(lerped);
   });
 
-  const isZipper = design.modelType === "fermuarli";
-  const gap01 = MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
+  const isZipper = design.modelType === "fermuarli" || design.modelType === "yeni-fermuarli";
+  const gap01 = MODEL_PRINT_BOUNDS?.[design.modelType]?.front?.zipGap01 ?? MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
 
   const frontCanvas = useDesignCanvas(design.sides.front || EMPTY_SIDE, isZipper ? { clearCenterStripe01: gap01 } : {});
   const backCanvas = useDesignCanvas(design.sides.back || EMPTY_SIDE, {});
@@ -2249,7 +2290,7 @@ function EditorPanel({
   printTypePickerSignal = 0,
 }) {
   const isZipperFront = (design.modelType === "fermuarli" || design.modelType === "yeni-fermuarli") && view === "front";
-  const gap01 = MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
+  const gap01 = MODEL_PRINT_BOUNDS?.[design.modelType]?.front?.zipGap01 ?? MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
   const isDrawerLayout = layout === "drawer";
   const isMobileDrawer = isDrawerLayout && isMobile;
 
@@ -3495,8 +3536,8 @@ function TasarimClientContent({ isMobile }) {
   const printBounds = useMemo(() => {
     const modelType = currentActiveDesign?.modelType || "tshirt";
     const side = currentSide === "back" ? "back" : "front";
-    return MODEL_PRINT_BOUNDS[modelType]?.[side] || MODEL_PRINT_BOUNDS.tshirt[side];
-  }, [currentActiveDesign?.modelType, currentSide]);
+    return getPrintProfile(modelType, side, currentActiveDesign?.hoodieV12Parts);
+  }, [currentActiveDesign?.modelType, currentActiveDesign?.hoodieV12Parts, currentSide]);
   const previewAspect = useMemo(() => {
     if (printBounds) {
       const w = printBounds.xMax - printBounds.xMin;
@@ -3962,8 +4003,8 @@ function TasarimClientContent({ isMobile }) {
         for (const [sideKey] of activeSides) {
           const sd = d.sides?.[sideKey] || EMPTY_SIDE;
           const zipperGap =
-            d.modelType === "fermuarli" && sideKey === "front"
-              ? MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0
+            (d.modelType === "fermuarli" || d.modelType === "yeni-fermuarli") && sideKey === "front"
+              ? MODEL_PRINT_BOUNDS?.[d.modelType]?.front?.zipGap01 ?? MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0
               : 0;
           const exportOpts = zipperGap ? { clearCenterStripe01: zipperGap } : {};
 
@@ -5214,10 +5255,19 @@ function TasarimClientContent({ isMobile }) {
                   </span>
                 </button>
 
-	                {drawerOpen && (
-	                  <div className="relative flex items-center justify-center min-h-[46px] w-full">
-	                    {!isMobile ? (
-                      <>
+		                {drawerOpen && (
+		                  <div className="relative flex items-center justify-center min-h-[46px] w-full">
+                        {isMobile && (
+                          <button
+                            onClick={openPrintTypePickerFromHeader}
+                            className="absolute left-2 top-1 h-8 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm text-[10px] font-black uppercase tracking-wide z-20"
+                            aria-label="Baski tipi secimine don"
+                          >
+                            Geri
+                          </button>
+                        )}
+		                    {!isMobile ? (
+	                      <>
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
                           <button
                             onClick={openPrintTypePickerFromHeader}
@@ -5278,16 +5328,9 @@ function TasarimClientContent({ isMobile }) {
                           </button>
                         </div>
 	                      </>
-	                    ) : (
-	                      <>
-	                        <button
-	                          onClick={openPrintTypePickerFromHeader}
-	                          className="absolute left-0 top-0 h-8 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm text-[10px] font-black uppercase tracking-wide"
-	                          aria-label="Baski tipi secimine don"
-	                        >
-	                          Geri
-	                        </button>
-	                        <div className="flex items-center gap-1 min-w-0">
+		                    ) : (
+		                      <>
+		                        <div className="flex items-center gap-1 min-w-0">
 	                          <button
 	                            onClick={() => {
                               setPickerStep("root");
