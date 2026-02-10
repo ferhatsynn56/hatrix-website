@@ -5518,13 +5518,6 @@ function TasarimClientContent({ isMobile }) {
                           >
                             + Model
                           </button>
-                          <button
-                            onClick={goPrevTab}
-                            className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
-                            aria-label="Önceki adım"
-                          >
-                            <ChevronLeft size={18} strokeWidth={2.6} />
-                          </button>
                           <div className="text-center min-w-0 px-1">
                             <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
                               {tabLabelMap[activeTab] || "Baskı"}
