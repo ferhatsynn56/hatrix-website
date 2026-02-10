@@ -5415,6 +5415,18 @@ function TasarimClientContent({ isMobile }) {
                 }}
               >
                 <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-gray-400/80" />
+                
+                {/* Geri Butonu - Sadece drawer açık iken */}
+                {drawerOpen && (
+                  <button
+                    onClick={goPrevTab}
+                    className="absolute left-3 top-2 w-8 h-8 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm z-30"
+                    aria-label="Önceki adım"
+                  >
+                    <ChevronLeft size={16} strokeWidth={2.4} />
+                  </button>
+                )}
+                
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
@@ -5469,13 +5481,6 @@ function TasarimClientContent({ isMobile }) {
                             + Model
                           </button>
                           <div className="flex items-center gap-1 min-w-0 max-w-[380px]">
-                            <button
-                              onClick={goPrevTab}
-                              className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
-                              aria-label="Önceki adım"
-                            >
-                              <ChevronLeft size={18} strokeWidth={2.6} />
-                            </button>
                             <div className="text-center min-w-0 px-1">
                               <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
                                 {tabLabelMap[activeTab] || "Baskı"}
