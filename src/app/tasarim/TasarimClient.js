@@ -4322,9 +4322,20 @@ function TasarimClientContent({ isMobile }) {
       {/* Top Header */}
       <div className="absolute top-0 left-0 right-0 z-[90] px-4 pt-4 pb-3 flex items-start justify-between pointer-events-none">
         <div className="flex items-start gap-3 pointer-events-auto">
-          <Link href="/" className="px-2 py-2 rounded-full border border-zinc-300 bg-white/80 backdrop-blur-md hover:bg-white transition text-xs text-black">
-            ←
-          </Link>
+          {isMobile ? (
+            <button
+              type="button"
+              onClick={openPrintTypePickerFromHeader}
+              className="px-3 py-2 rounded-full border border-zinc-300 bg-white/90 backdrop-blur-md hover:bg-white transition text-xs font-black uppercase tracking-wide text-black"
+              aria-label="Baski tipi secimine don"
+            >
+              Geri
+            </button>
+          ) : (
+            <Link href="/" className="px-2 py-2 rounded-full border border-zinc-300 bg-white/80 backdrop-blur-md hover:bg-white transition text-xs text-black">
+              ←
+            </Link>
+          )}
           <div>
             <p className="text-sm font-bold text-black">{MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}</p>
             <p className="text-xs text-zinc-600">{getPrice(activeDesign || createDesign(DEFAULT_MODEL_TYPE))} ₺</p>
@@ -5498,29 +5509,29 @@ function TasarimClientContent({ isMobile }) {
                           </button>
                         </div>
 	                      </>
-			                    ) : (
-			                      <>
-			                        <div className="flex items-center gap-1 min-w-0">
-		                          <button
-                                onClick={openPrintTypePickerFromHeader}
-                                className="h-8 px-2.5 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
-                                aria-label="Baski tipi secimine don"
-                              >
-                                Geri
-                              </button>
-		                          <button
-		                            onClick={() => {
-		                              setPickerStep("root");
-		                              setPickerOpen(true);
-		                            }}
+				                    ) : (
+				                      <>
+				                        <div className="flex items-center gap-1 min-w-0">
+			                          <button
+			                            onClick={() => {
+			                              setPickerStep("root");
+			                              setPickerOpen(true);
+			                            }}
                             className="h-8 px-2 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
                             aria-label="Model ekle"
+	                          >
+	                            + Model
+	                          </button>
+                          <button
+                            onClick={goPrevTab}
+                            className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
+                            aria-label="Önceki adım"
                           >
-                            + Model
+                            <ChevronLeft size={18} strokeWidth={2.6} />
                           </button>
-                          <div className="text-center min-w-0 px-1">
-                            <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
-                              {tabLabelMap[activeTab] || "Baskı"}
+	                          <div className="text-center min-w-0 px-1">
+	                            <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
+	                              {tabLabelMap[activeTab] || "Baskı"}
                             </p>
                             <p className="text-[11px] text-gray-500 mt-0.5 truncate">
                               {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
