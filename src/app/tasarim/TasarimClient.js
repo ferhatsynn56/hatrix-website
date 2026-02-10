@@ -5443,15 +5443,6 @@ function TasarimClientContent({ isMobile }) {
 
 		                {drawerOpen && (
 		                  <div className="relative flex items-center justify-center min-h-[46px] w-full">
-                        {isMobile && (
-                          <button
-                            onClick={openPrintTypePickerFromHeader}
-                            className="absolute left-2 top-1 h-8 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm text-[10px] font-black uppercase tracking-wide z-20"
-                            aria-label="Baski tipi secimine don"
-                          >
-                            Geri
-                          </button>
-                        )}
 		                    {!isMobile ? (
 	                      <>
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -5507,14 +5498,21 @@ function TasarimClientContent({ isMobile }) {
                           </button>
                         </div>
 	                      </>
-		                    ) : (
-		                      <>
-		                        <div className="flex items-center gap-1 min-w-0">
-	                          <button
-	                            onClick={() => {
-                              setPickerStep("root");
-                              setPickerOpen(true);
-                            }}
+			                    ) : (
+			                      <>
+			                        <div className="flex items-center gap-1 min-w-0">
+		                          <button
+                                onClick={openPrintTypePickerFromHeader}
+                                className="h-8 px-2.5 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
+                                aria-label="Baski tipi secimine don"
+                              >
+                                Geri
+                              </button>
+		                          <button
+		                            onClick={() => {
+		                              setPickerStep("root");
+		                              setPickerOpen(true);
+		                            }}
                             className="h-8 px-2 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
                             aria-label="Model ekle"
                           >
