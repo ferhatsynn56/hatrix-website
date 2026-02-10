@@ -287,12 +287,12 @@ const MODEL_PRINT_BOUNDS = {
 
   // İstisnalar (sonraki isteğinde özel değerler gelecek)
   polar: {
-    front: { xMin: -0.15, xMax: 0.18, yTop: 0.28, yBot: -0.25, z: 0.139, rotY: 0 },
-    back: { xMin: -0.15, xMax: 0.19, yTop: 0.31, yBot: -0.25, z: -0.14, rotY: Math.PI },
+    front: { xMin: -0.145, xMax: 0.145, yTop: 0.245, yBot: -0.205, z: 0.139, rotY: 0, zipGap01: 0.03 },
+    back: { xMin: -0.145, xMax: 0.145, yTop: 0.29, yBot: -0.225, z: -0.14, rotY: Math.PI },
   },
   "polar-son": {
-    front: { xMin: -0.15, xMax: 0.18, yTop: 0.28, yBot: -0.25, z: 0.139, rotY: 0 },
-    back: { xMin: -0.15, xMax: 0.19, yTop: 0.31, yBot: -0.25, z: -0.14, rotY: Math.PI },
+    front: { xMin: -0.145, xMax: 0.145, yTop: 0.245, yBot: -0.205, z: 0.139, rotY: 0, zipGap01: 0.03 },
+    back: { xMin: -0.145, xMax: 0.145, yTop: 0.29, yBot: -0.225, z: -0.14, rotY: Math.PI },
   },
   "hoodie-cepli": {
     front: { xMin: -0.13, xMax: 0.13, yTop: 0.13, yBot: -0.135, z: 0.112, rotY: 0 },
@@ -333,6 +333,14 @@ const HOODIE_POCKET_FRONT_YBOT = Object.freeze({
   "oversize-hoodie-parcali": -0.15,
 });
 
+const CENTER_ZIP_MODEL_TYPES = new Set(["fermuarli", "yeni-fermuarli", "polar", "polar-son"]);
+const hasCenterZip = (modelType) => {
+  const raw = String(modelType || "").toLowerCase().trim();
+  if (!raw) return false;
+  const normalized = normalizeModelType(raw);
+  return CENTER_ZIP_MODEL_TYPES.has(raw) || CENTER_ZIP_MODEL_TYPES.has(normalized);
+};
+
 const getPrintProfile = (modelType, side = "front", hoodieParts = DEFAULT_HOODIE_PARTS) => {
   const base = MODEL_PRINT_BOUNDS[modelType]?.[side] || MODEL_PRINT_BOUNDS.tshirt[side];
   if (!base) return MODEL_PRINT_BOUNDS.tshirt.front;
@@ -343,6 +351,21 @@ const getPrintProfile = (modelType, side = "front", hoodieParts = DEFAULT_HOODIE
   const pocketYBot = HOODIE_POCKET_FRONT_YBOT[modelType];
   if (!Number.isFinite(pocketYBot)) return base;
   return { ...base, yBot: Math.max(base.yBot, pocketYBot) };
+};
+
+const clampTextPos = (textPos, textState = {}) => {
+  const size = clamp(Number(textState?.size) || 150, 30, 420);
+  const scaleX = clamp(Number(textState?.scaleX) || 1, 0.3, 3);
+  const scaleY = clamp(Number(textState?.scaleY) || 1, 0.3, 3);
+
+  // Text kutusunu baskı alanında tutacak güvenli kenar payı.
+  const baseMargin = clamp((size / 1024) * 0.62, 0.035, 0.22);
+  const marginX = clamp(baseMargin * Math.sqrt(scaleX), 0.035, 0.25);
+  const marginY = clamp(baseMargin * Math.sqrt(scaleY), 0.035, 0.25);
+
+  const x = clamp(Number.isFinite(Number(textPos?.x)) ? Number(textPos.x) : 0.5, marginX, 1 - marginX);
+  const y = clamp(Number.isFinite(Number(textPos?.y)) ? Number(textPos.y) : 0.85, marginY, 1 - marginY);
+  return { x, y };
 };
 
 const CM_LABELS = {
@@ -907,7 +930,7 @@ const getPrice = (design) => {
 async function makePrintDataUrl(sideData, opts = {}) {
   const logos = sideData?.logos || [];
   const t = sideData?.customText || {};
-  const textPos = sideData?.textPos || { x: 0.5, y: 0.85 };
+  const textPos = clampTextPos(sideData?.textPos || { x: 0.5, y: 0.85 }, t);
   const hasContent = logos.length > 0 || (t.text || "").trim();
   if (!hasContent) return null;
 
@@ -985,7 +1008,7 @@ async function makePrintDataUrl(sideData, opts = {}) {
 /* ================= TEXT-ONLY EXPORT (PER SIDE) ================= */
 async function makeTextDataUrl(sideData, opts = {}) {
   const t = sideData?.customText || {};
-  const textPos = sideData?.textPos || { x: 0.5, y: 0.85 };
+  const textPos = clampTextPos(sideData?.textPos || { x: 0.5, y: 0.85 }, t);
   if (!(t.text || "").trim()) return null;
 
   const SIZE = 2048;
@@ -1202,14 +1225,15 @@ function useDesignCanvas(sideData, opts = {}) {
       const drawText = () => {
         const t = customText || {};
         if (!t.text) return;
+        const safeTextPos = clampTextPos(sideData?.textPos, t);
 
         const scaleFactor = CANVAS_SIZE / 1024;
         const fontSize = clamp(parseInt(t.size || 150, 10), 30, 420) * scaleFactor;
         drawStyledText(
           ctx,
           t,
-          (sideData?.textPos?.x ?? 0.5) * CANVAS_SIZE,
-          (sideData?.textPos?.y ?? 0.85) * CANVAS_SIZE,
+          safeTextPos.x * CANVAS_SIZE,
+          safeTextPos.y * CANVAS_SIZE,
           fontSize
         );
       };
@@ -1876,7 +1900,7 @@ function DesignModelItem({
     g.scale.setScalar(lerped);
   });
 
-  const isZipper = design.modelType === "fermuarli" || design.modelType === "yeni-fermuarli";
+  const isZipper = hasCenterZip(design.modelType);
   const gap01 = MODEL_PRINT_BOUNDS?.[design.modelType]?.front?.zipGap01 ?? MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
 
   const frontCanvas = useDesignCanvas(design.sides.front || EMPTY_SIDE, isZipper ? { clearCenterStripe01: gap01 } : {});
@@ -2289,7 +2313,7 @@ function EditorPanel({
   onOpenCategoryMenu,
   printTypePickerSignal = 0,
 }) {
-  const isZipperFront = (design.modelType === "fermuarli" || design.modelType === "yeni-fermuarli") && view === "front";
+  const isZipperFront = hasCenterZip(design.modelType) && view === "front";
   const gap01 = MODEL_PRINT_BOUNDS?.[design.modelType]?.front?.zipGap01 ?? MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
   const isDrawerLayout = layout === "drawer";
   const isMobileDrawer = isDrawerLayout && isMobile;
@@ -2541,8 +2565,8 @@ function EditorPanel({
                 <div
                   className="absolute"
                   style={{
-                    left: `${(sideData?.textPos?.x ?? 0.5) * 100}%`,
-                    top: `${(sideData?.textPos?.y ?? 0.85) * 100}%`,
+                    left: `${clampTextPos(sideData?.textPos, sideData?.customText).x * 100}%`,
+                    top: `${clampTextPos(sideData?.textPos, sideData?.customText).y * 100}%`,
                     transform: "translate(-50%, -50%)",
                     touchAction: "none",
                   }}
@@ -2551,12 +2575,10 @@ function EditorPanel({
                     e.stopPropagation();
                     const rect = previewRef.current.getBoundingClientRect();
                     const move = (ev) =>
-                      updateSide({
-                        textPos: {
-                          x: clamp01((ev.clientX - rect.left) / rect.width),
-                          y: clamp01((ev.clientY - rect.top) / rect.height),
-                        },
-                      });
+                      updateSide({ textPos: clampTextPos({
+                        x: clamp01((ev.clientX - rect.left) / rect.width),
+                        y: clamp01((ev.clientY - rect.top) / rect.height),
+                      }, sideData?.customText) });
                     const up = () => {
                       window.removeEventListener("pointermove", move);
                       window.removeEventListener("pointerup", up);
@@ -2997,8 +3019,8 @@ function EditorPanel({
                 <div
                   className="absolute -translate-x-1/2 -translate-y-1/2 px-2 py-1 rounded bg-black/30 border border-white/20"
                   style={{
-                    left: pct(sideData.textPos.x),
-                    top: pct(sideData.textPos.y),
+                    left: pct(clampTextPos(sideData?.textPos, sideData?.customText).x),
+                    top: pct(clampTextPos(sideData?.textPos, sideData?.customText).y),
                     touchAction: "none",
                     cursor: "grab",
                   }}
@@ -3013,12 +3035,10 @@ function EditorPanel({
                     const base = sideData?.textPos || { x: 0.5, y: 0.85 };
                     const offset = { dx: base.x - start.x, dy: base.y - start.y };
                     const move = (ev) =>
-                      updateSide({
-                        textPos: {
-                          x: clamp01((ev.clientX - rect.left) / rect.width + offset.dx),
-                          y: clamp01((ev.clientY - rect.top) / rect.height + offset.dy),
-                        },
-                      });
+                      updateSide({ textPos: clampTextPos({
+                        x: clamp01((ev.clientX - rect.left) / rect.width + offset.dx),
+                        y: clamp01((ev.clientY - rect.top) / rect.height + offset.dy),
+                      }, sideData?.customText) });
                     const up = () => {
                       window.removeEventListener("pointermove", move);
                       window.removeEventListener("pointerup", up);
@@ -3565,9 +3585,7 @@ function TasarimClientContent({ isMobile }) {
   const activeHGuides = isLogoDragging
     ? guideStops.filter((p) => Math.abs((activeLogoBox?.y ?? 0.5) - p) <= snapThreshold)
     : [];
-  const isZipperFront =
-    (currentActiveDesign?.modelType === "fermuarli" || currentActiveDesign?.modelType === "yeni-fermuarli") &&
-    currentSide === "front";
+  const isZipperFront = hasCenterZip(currentActiveDesign?.modelType) && currentSide === "front";
   const gap01 = MODEL_PRINT_BOUNDS[currentActiveDesign?.modelType]?.front?.zipGap01 || 0;
 
   // Editor overlay için updateSide fonksiyonu
@@ -4003,7 +4021,7 @@ function TasarimClientContent({ isMobile }) {
         for (const [sideKey] of activeSides) {
           const sd = d.sides?.[sideKey] || EMPTY_SIDE;
           const zipperGap =
-            (d.modelType === "fermuarli" || d.modelType === "yeni-fermuarli") && sideKey === "front"
+            hasCenterZip(d.modelType) && sideKey === "front"
               ? MODEL_PRINT_BOUNDS?.[d.modelType]?.front?.zipGap01 ?? MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0
               : 0;
           const exportOpts = zipperGap ? { clearCenterStripe01: zipperGap } : {};
@@ -4560,8 +4578,8 @@ function TasarimClientContent({ isMobile }) {
                           key={`text-layer-${currentSide}`}
                           className="absolute -translate-x-1/2 -translate-y-1/2 px-2 py-1 rounded bg-black/20 border border-white/20"
                           style={{
-                            left: `${(sideData?.textPos?.x ?? 0.5) * 100}%`,
-                            top: `${(sideData?.textPos?.y ?? 0.85) * 100}%`,
+                            left: `${clampTextPos(sideData?.textPos, sideData?.customText).x * 100}%`,
+                            top: `${clampTextPos(sideData?.textPos, sideData?.customText).y * 100}%`,
                             touchAction: "none",
                             cursor: "grab",
                             zIndex: 10 + renderIdx,
@@ -4578,12 +4596,10 @@ function TasarimClientContent({ isMobile }) {
                             const base = sideData?.textPos || { x: 0.5, y: 0.85 };
                             const offset = { dx: base.x - start.x, dy: base.y - start.y };
                             const move = (ev) =>
-                              updateSide({
-                                textPos: {
-                                  x: clamp01((ev.clientX - rect.left) / rect.width + offset.dx),
-                                  y: clamp01((ev.clientY - rect.top) / rect.height + offset.dy),
-                                },
-                              });
+                              updateSide({ textPos: clampTextPos({
+                                x: clamp01((ev.clientX - rect.left) / rect.width + offset.dx),
+                                y: clamp01((ev.clientY - rect.top) / rect.height + offset.dy),
+                              }, sideData?.customText) });
                             const up = () => {
                               window.removeEventListener("pointermove", move);
                               window.removeEventListener("pointerup", up);
