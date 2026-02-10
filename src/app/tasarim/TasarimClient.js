@@ -3122,6 +3122,19 @@ function EditorPanel({
 	                <p className="text-[10px] text-gray-500">
 	                  Not: Yazı konumu sürükleme ve hassas yerleşim ayarı için `Yerleşim` ekranını kullan.
 	                </p>
+	                <button
+	                  type="button"
+	                  onClick={() => {
+	                    if (!String(t.text || "").trim()) {
+	                      bumpText({ text: "YAZI" });
+	                    }
+	                    setActiveTab("editor");
+	                    if (isMobileDrawer) onRequestDrawerCollapse?.();
+	                  }}
+	                  className="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase flex items-center justify-center gap-2"
+	                >
+	                  <Move size={14} /> Yazıyı Yerleşimde Konumlandır
+	                </button>
 	              </div>
 
 	              <button
@@ -5201,9 +5214,9 @@ function TasarimClientContent({ isMobile }) {
                   </span>
                 </button>
 
-                {drawerOpen && (
-                  <div className="relative flex items-center justify-center min-h-[46px] w-full">
-                    {!isMobile ? (
+	                {drawerOpen && (
+	                  <div className="relative flex items-center justify-center min-h-[46px] w-full">
+	                    {!isMobile ? (
                       <>
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
                           <button
@@ -5264,27 +5277,19 @@ function TasarimClientContent({ isMobile }) {
                             Menü
                           </button>
                         </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                          <button
-                            onClick={openPrintTypePickerFromHeader}
-                            className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm text-[10px] font-black uppercase tracking-wide"
-                            aria-label="Baski tipi secimine don"
-                          >
-                            Geri
-                          </button>
-                          <div
-                            className="hidden sm:flex h-9 px-2 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 items-center justify-center text-[9px] font-black uppercase tracking-wide shadow-sm max-w-[118px] truncate"
-                            title={selectedPrintTypeNames || "Baski secilmedi"}
-                          >
-                            {selectedPrintTypeNames || "Baski secilmedi"}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 min-w-0">
-                          <button
-                            onClick={() => {
+	                      </>
+	                    ) : (
+	                      <>
+	                        <button
+	                          onClick={openPrintTypePickerFromHeader}
+	                          className="absolute left-0 top-0 h-8 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm text-[10px] font-black uppercase tracking-wide"
+	                          aria-label="Baski tipi secimine don"
+	                        >
+	                          Geri
+	                        </button>
+	                        <div className="flex items-center gap-1 min-w-0">
+	                          <button
+	                            onClick={() => {
                               setPickerStep("root");
                               setPickerOpen(true);
                             }}
