@@ -1,149 +1,190 @@
 "use client";
 
-import React from 'react';
-import { ArrowLeft, Printer, Layers, Scissors, Zap, Microscope, Feather, ShieldCheck, Droplets } from 'lucide-react';
-import Link from 'next/link';
+import React from "react";
+import Link from "next/link";
+import { ArrowLeft, PlayCircle, Beaker } from "lucide-react";
+
+const BASKI_TEKNOLOJILERI = [
+  {
+    id: "dtf",
+    title: "1. DTF (Direct to Film) Baskı",
+    nediR: "Özel bir filme dijital olarak basılan tasarımın, tozlama ve ısı işlemiyle kumaşa aktarılmasıdır.",
+    hissiyat: "İnce, esnek ve pürüzsüz bir dokusu vardır. Renkler çok canlı ve fotoğraf kalitesindedir.",
+    referans: "Çok renkli tasarımlar ve detaylı grafikler için en ideal yöntemdir.",
+    videoUrl: "",
+    accent: "#2563eb",
+  },
+  {
+    id: "emprime",
+    title: "2. Emprime (Serigrafi) Baskı",
+    nediR: "Kalıplar aracılığıyla boyanın doğrudan kumaş liflerine nüfuz ettirildiği geleneksel ve en kalıcı yöntemdir.",
+    hissiyat: "Kumaşla bütünleşen, nefes alan ve yıkamaya en dayanıklı dokudur.",
+    referans: "Büyük adetli siparişlerde ve klasikleşmiş bir dokunuş arandığında tercih edilir.",
+    videoUrl: "",
+    accent: "#16a34a",
+  },
+  {
+    id: "nakis",
+    title: "3. Nakış (Embroidery)",
+    nediR: "Tasarımın yüksek devirli makinelerle, farklı renklerdeki ipliklerin kumaş üzerine işlenmesiyle oluşturulmasıdır.",
+    hissiyat: "Kabarık, premium ve oldukça dayanıklı bir dokuya sahiptir.",
+    referans: "Hoodie ve polo yaka ürünlerde üst segment bir hava yaratmak için kullanılır.",
+    videoUrl: "",
+    accent: "#a855f7",
+  },
+  {
+    id: "enjeksiyon",
+    title: "4. Enjeksiyon Baskı",
+    nediR: "PVC veya silikon malzemenin bir kalıp içerisine enjekte edilerek kumaş üzerine sabitlenmesidir.",
+    hissiyat: "Sert plastikimsi ama esnek, çok net kenar hatlarına sahip 3 boyutlu bir görünümdür.",
+    referans: "Logo vurgusunda kesinlik ve derinlik isteyen tasarımlar içindir.",
+    videoUrl: "",
+    accent: "#f97316",
+  },
+  {
+    id: "gofre",
+    title: "5. Gofre (Kabartma) Baskı",
+    nediR: "Yüksek ısı ve basınçlı kalıplar kullanılarak kumaşın kendi dokusunun yukarı doğru kabartılması işlemidir.",
+    hissiyat: "Kumaşın kendi renginde, mürekkepsiz ama belirgin bir kabartma dokusu.",
+    referans: "Minimalist ve sofistike tasarımlar için gizli şıklık sunar.",
+    videoUrl: "",
+    accent: "#0d9488",
+  },
+  {
+    id: "tas",
+    title: "6. Taş Baskı (Rhinestone)",
+    nediR: "Küçük kristal veya metalik taşların, bir şablon yardımıyla ısı uygulanarak kumaş üzerine dizilmesidir.",
+    hissiyat: "Işıltılı, pürüzlü ve dikkat çekici bir yüzey.",
+    referans: "Işığı yansıtan, parlaması istenen özel tasarımlar için idealdir.",
+    videoUrl: "",
+    accent: "#e11d48",
+  },
+  {
+    id: "flok",
+    title: "7. Lazer Kesim Flok Baskı",
+    nediR: "Kadifemsi flok yüzeylerin lazer teknolojisi ile milimetrik hassasiyette kesilip, yüksek ısıyla kumaşa transfer edilmesidir.",
+    hissiyat: "Yumuşak, kadifemsi ve hafif yüksek bir dokunuş. Lazer kesim sayesinde ince detaylarda bile kusursuz kenar hatları.",
+    referans: "Dokunsal zenginlik ve yüksek detay hassasiyeti isteyen tasarımlar için mükemmeldir.",
+    videoUrl: "",
+    accent: "#7c3aed",
+  },
+  {
+    id: "flexi-rubber",
+    title: "8. Flexi & Rubber Baskı",
+    nediR: "Özel folyo plakaların lazerle kesilip yüksek ısıyla kumaşa preslenmesidir (Flexi daha ince, Rubber daha kauçuksu/kalındır).",
+    hissiyat: "Pürüzsüz, keskin hatlı ve endüstriyel bir görünüm.",
+    referans: "Tek renkli yazılar, numaralar ve net logolar için mükemmeldir.",
+    videoUrl: "",
+    accent: "#1d4ed8",
+  },
+  {
+    id: "frekans",
+    title: "9. Frekans Baskı (High Frequency)",
+    nediR: "Yüksek frekanslı enerji dalgalarıyla malzemenin moleküler düzeyde ısıtılarak kumaşa kaynatılması ve şekil verilmesidir.",
+    hissiyat: "Derinlemesine 3 boyutlu, dikişsiz ve pürüzsüz bir kabartma.",
+    referans: "Teknik ve fütüristik görünümlü detaylar yaratmak için en ileri teknolojidir.",
+    videoUrl: "",
+    accent: "#0891b2",
+  },
+];
+
+function VideoCard({ title, videoUrl, accent }) {
+  return (
+    <div className="rounded-2xl border bg-zinc-950/80 p-3 shadow-[0_14px_35px_rgba(0,0,0,0.4)]" style={{ borderColor: `${accent}66` }}>
+      <p className="text-[11px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: accent }}>
+        Uygulama Videosu
+      </p>
+      {videoUrl ? (
+        <video
+          className="w-full aspect-video rounded-xl bg-black border"
+          style={{ borderColor: `${accent}55` }}
+          controls
+          preload="metadata"
+          playsInline
+        >
+          <source src={videoUrl} />
+        </video>
+      ) : (
+        <div
+          className="w-full aspect-video rounded-xl border border-dashed bg-gradient-to-br from-zinc-900 to-zinc-950 flex flex-col items-center justify-center text-center px-3"
+          style={{ borderColor: `${accent}66` }}
+        >
+          <PlayCircle size={28} className="mb-2" style={{ color: accent }} />
+          <p className="text-xs font-semibold text-zinc-100">{title}</p>
+          <p className="text-[11px] text-zinc-400 mt-1">Video dosyasını eklediğinde burada oynatılır.</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function BilimselSayfa() {
-  
-  // Baskı Teknolojileri Verisi
-  const teknolojiler = [
-    {
-      id: "DTF",
-      kod: "TECH-01",
-      baslik: "DTF (Direct to Film)",
-      ozet: "Yeni nesil polimer transfer teknolojisi.",
-      aciklama: "Tasarım önce özel bir filme basılır, ardından polimer tozu ile fırınlanıp kumaşa preslenir. Renkler çok canlıdır ve her türlü kumaşa uygulanabilir.",
-      ikon: <Layers size={40} className="text-blue-500"/>,
-      ozellikler: ["Yüksek Renk Canlılığı", "Her Kumaşa Uygun", "Uzun Ömürlü"],
-      gorsel: "https://placehold.co/600x400/111/3b82f6?text=DTF+Film+Detayi" 
-    },
-    {
-      id: "DTG",
-      kod: "TECH-02",
-      baslik: "DTG (Direct to Garment)",
-      ozet: "Kumaşa doğrudan mikro enjeksiyon.",
-      aciklama: "Modifiye edilmiş inkjet yazıcılar boyayı doğrudan kumaş liflerinin içine işler. Kumaşta 'sıfır doku' hissi bırakır, ancak sadece %100 pamuklu ürünlerde en iyi sonucu verir.",
-      ikon: <Printer size={40} className="text-purple-500"/>,
-      ozellikler: ["Sıfır Doku Hissi", "Fotoğraf Kalitesi", "Nefes Alabilir"],
-      gorsel: "https://placehold.co/600x400/111/a855f7?text=DTG+Baski+Kafasi"
-    },
-    {
-      id: "EMPRIME",
-      kod: "TECH-03",
-      baslik: "Serigrafi (Emprime)",
-      ozet: "Geleneksel endüstriyel şablon baskı.",
-      aciklama: "Her renk için ayrı ipek kalıplar hazırlanır. Boya kalıptan kumaşa geçirilir. Dünyanın en dayanıklı baskı türüdür, genellikle yüksek adetli üretimlerde kullanılır.",
-      ikon: <Droplets size={40} className="text-green-500"/>,
-      ozellikler: ["Maksimum Dayanıklılık", "Endüstriyel Standart", "Tam Örtücülük"],
-      gorsel: "https://placehold.co/600x400/111/22c55e?text=Serigrafi+Kalibi"
-    },
-    {
-      id: "NAKIS",
-      kod: "TECH-04",
-      baslik: "Nakış (Embroidery)",
-      ozet: "İplikle işlenen premium doku.",
-      aciklama: "Tasarım dijital ortamda iğne vuruşlarına dönüştürülür ve otomatik kasnak makineleriyle kumaşa işlenir. Yıkanmaya karşı en dirençli ve en prestijli yöntemdir.",
-      ikon: <Scissors size={40} className="text-yellow-500"/>,
-      ozellikler: ["Premium Görünüm", "Sonsuz Ömür", "3D Doku"],
-      gorsel: "https://placehold.co/600x400/111/eab308?text=Nakis+Detayi"
-    },
-    {
-      id: "FLEX",
-      kod: "TECH-05",
-      baslik: "Flex (Vinyl Transfer)",
-      ozet: "Vektörel kesim ve ısı transferi.",
-      aciklama: "Düz renkli folyolar plotter ile kesilir ve ayıklandıktan sonra kumaşa preslenir. Genellikle forma numaraları ve basit logolar için kullanılır.",
-      ikon: <Zap size={40} className="text-red-500"/>,
-      ozellikler: ["Keskin Hatlar", "Neon/Reflektör Seçeneği", "Basit Logolar"],
-      gorsel: "https://placehold.co/600x400/111/ef4444?text=Flex+Transfer"
-    }
-  ];
-
   return (
-    <div className="min-h-screen bg-black text-white font-sans selection:bg-blue-600 selection:text-white">
-      
-      {/* --- NAVBAR --- */}
-      <nav className="fixed w-full bg-black/90 backdrop-blur-md z-50 border-b border-zinc-900 h-16 md:h-20 flex items-center px-4 md:px-12 justify-between" style={{ paddingTop: "env(safe-area-inset-top)" }}>
-          <Link href="/" className="text-2xl font-black tracking-widest font-mono flex items-center gap-2 cursor-pointer">
-            STENIST<span className="text-blue-600 border border-blue-600 text-[10px] px-1.5 py-0.5 rounded">LAB</span>
+    <div className="min-h-screen bg-[#0a0a0a] text-zinc-100">
+      <header className="sticky top-0 z-30 border-b border-zinc-800 bg-black/70 backdrop-blur-xl">
+        <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
+          <Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-zinc-300 hover:text-white">
+            <ArrowLeft size={16} />
+            Ana sayfaya dön
           </Link>
-          <Link href="/" className="text-xs font-bold text-zinc-500 hover:text-white flex items-center gap-2 transition uppercase tracking-widest">
-            <ArrowLeft size={16}/> Geri Dön
+          <Link href="/hakkimizda" className="text-xs font-black uppercase tracking-widest px-3 py-1.5 rounded-full border border-zinc-700 text-zinc-200 hover:bg-zinc-900">
+            Hakkımızda
           </Link>
-      </nav>
-
-      {/* --- HERO SECTION --- */}
-      <header className="pt-28 sm:pt-32 md:pt-40 pb-16 px-4 md:px-6 container mx-auto text-center">
-         <div className="inline-flex items-center gap-2 text-zinc-500 font-mono text-xs font-bold mb-4 border border-zinc-800 px-3 py-1 rounded-full uppercase tracking-wider">
-            <Microscope size={14}/> Production Technology
-         </div>
-         <h1 className="text-3xl sm:text-4xl md:text-6xl font-black mb-6 tracking-tighter">
-            BİLİM, KUMAŞLA BULUŞUYOR.
-         </h1>
-         <p className="text-zinc-400 max-w-xl mx-auto text-base leading-relaxed">
-            Sentist ürünlerinin arkasındaki üretim teknolojilerini şeffaflıkla paylaşıyoruz. 
-            Hangi yöntemin size uygun olduğunu keşfedin.
-         </p>
+        </div>
       </header>
 
-      {/* --- TEKNOLOJİ KARTLARI (GRID) --- */}
-      <div className="container mx-auto px-6 pb-24">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            
-            {teknolojiler.map((tech) => (
-                <div key={tech.id} className="group bg-zinc-900/50 border border-zinc-800 hover:border-zinc-600 rounded-2xl overflow-hidden transition duration-500 hover:shadow-2xl hover:shadow-blue-900/10 flex flex-col md:flex-row">
-                    
-                    {/* Görsel Alanı */}
-                    <div className="md:w-2/5 h-64 md:h-auto relative overflow-hidden bg-black">
-                        {/* Gerçek resimlerin varsa buradaki src'yi değiştir */}
-                        <img 
-                            src={tech.gorsel} 
-                            alt={tech.baslik} 
-                            className="w-full h-full object-cover transition duration-700 group-hover:scale-110 opacity-80 group-hover:opacity-100"
-                        />
-                        <div className="absolute top-4 left-4 bg-black/80 backdrop-blur text-white text-[10px] font-mono px-2 py-1 rounded border border-zinc-700">
-                            {tech.kod}
-                        </div>
-                    </div>
-
-                    {/* İçerik Alanı */}
-                    <div className="md:w-3/5 p-8 flex flex-col justify-between">
-                        <div>
-                            <div className="mb-4 p-3 bg-black/50 w-fit rounded-lg border border-zinc-800 group-hover:border-zinc-600 transition">
-                                {tech.ikon}
-                            </div>
-                            <h3 className="text-2xl font-black mb-2 text-white group-hover:text-blue-500 transition">{tech.baslik}</h3>
-                            <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4">{tech.ozet}</p>
-                            <p className="text-zinc-400 text-sm leading-relaxed mb-6">
-                                {tech.aciklama}
-                            </p>
-                        </div>
-
-                        {/* Özellik Etiketleri */}
-                        <div className="flex flex-wrap gap-2 mt-auto">
-                            {tech.ozellikler.map((ozellik, i) => (
-                                <span key={i} className="text-[10px] font-bold bg-zinc-950 text-zinc-300 px-3 py-1.5 rounded-full border border-zinc-800 flex items-center gap-1">
-                                    <span className="w-1 h-1 bg-blue-500 rounded-full"></span> {ozellik}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-
-                </div>
-            ))}
-
+      <main className="mx-auto max-w-6xl px-4 py-8 md:py-12">
+        <div className="relative overflow-hidden rounded-3xl bg-zinc-950/75 border border-zinc-800 p-5 md:p-8 mb-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+          <div className="absolute -top-24 -right-16 h-52 w-52 rounded-full blur-3xl bg-indigo-300/45 pointer-events-none" />
+          <div className="absolute -bottom-24 -left-16 h-52 w-52 rounded-full blur-3xl bg-cyan-300/40 pointer-events-none" />
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-indigo-500/35 bg-indigo-500/15 text-[11px] font-black uppercase tracking-[0.16em] text-indigo-200 mb-3">
+            <Beaker size={14} />
+            Steni Baskı Laboratuvarı
+          </div>
+          <h1 className="text-2xl md:text-4xl font-black tracking-tight text-white">Teknik Bilgi Arşivi</h1>
+          <p className="mt-3 text-sm md:text-base text-zinc-300 max-w-3xl">
+            Aşağıda kullandığımız baskı tekniklerinin çalışma prensibi, hissiyatı ve kullanım notları yer alır.
+            Her tekniğin yanında video kartı bulunur; dosyaları eklediğinde doğrudan oynatılabilir.
+          </p>
         </div>
-      </div>
 
-      {/* --- FOOTER --- */}
-      <footer className="border-t border-zinc-900 bg-black pt-12 pb-8 text-center">
-        <p className="text-zinc-600 text-xs font-mono">
-             SENTIST LABORATORY © 2025 <br/> 
-             <span className="opacity-50">Engineering for Apparel</span>
-        </p>
-      </footer>
-
+        <div className="space-y-4">
+          {BASKI_TEKNOLOJILERI.map((item) => (
+            <article
+              key={item.id}
+              className="rounded-2xl border bg-zinc-950/70 p-4 md:p-5 shadow-[0_10px_35px_rgba(0,0,0,0.35)]"
+              style={{ borderColor: `${item.accent}66` }}
+            >
+              <div className="grid gap-4 md:grid-cols-[1.6fr_1fr] md:items-start">
+                <div>
+                  <div className="inline-flex items-center gap-2 mb-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: item.accent }}
+                    />
+                    <span className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: item.accent }}>
+                      Baskı Tipi
+                    </span>
+                  </div>
+                  <h2 className="text-lg md:text-xl font-black mb-3 text-white">{item.title}</h2>
+                  <ul className="space-y-2 text-sm md:text-[15px] leading-relaxed text-zinc-300">
+                    <li>
+                      <span className="font-black text-zinc-100">Nedir:</span> {item.nediR}
+                    </li>
+                    <li>
+                      <span className="font-black text-zinc-100">Hissiyat:</span> {item.hissiyat}
+                    </li>
+                    <li>
+                      <span className="font-black text-zinc-100">Referans Notu:</span> {item.referans}
+                    </li>
+                  </ul>
+                </div>
+                <VideoCard title={item.title} videoUrl={item.videoUrl} accent={item.accent} />
+              </div>
+            </article>
+          ))}
+        </div>
+      </main>
     </div>
   );
 }

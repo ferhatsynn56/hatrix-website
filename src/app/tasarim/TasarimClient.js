@@ -16,6 +16,7 @@ import {
   Center,
   ContactShadows,
   useGLTF,
+  useTexture,
   Html,
   useProgress,
 } from "@react-three/drei";
@@ -44,7 +45,7 @@ import * as THREE from "three";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 import { EXRLoader } from "three/examples/jsm/loaders/EXRLoader.js";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
-import { setCheckoutData } from "@/lib/checkoutStore";
+import { getCheckoutData, setCheckoutData } from "@/lib/checkoutStore";
 
 /* ================= LOADER (SUSPENSE FALLBACK) ================= */
 function ThreeDotsLoader() {
@@ -355,18 +356,45 @@ const getPrintProfile = (modelType, side = "front", hoodieParts = DEFAULT_HOODIE
   return { ...base, yBot: Math.max(base.yBot, pocketYBot) };
 };
 
-const clampTextPos = (textPos, textState = {}) => {
+const estimateTextHalfBounds01 = (textState = {}) => {
+  const rawText = String(textState?.text || "").trim();
+  const text = rawText || "W";
+  const charCount = Math.max(1, text.length);
   const size = clamp(Number(textState?.size) || 150, 30, 420);
   const scaleX = clamp(Number(textState?.scaleX) || 1, 0.3, 3);
   const scaleY = clamp(Number(textState?.scaleY) || 1, 0.3, 3);
+  const layout = String(textState?.layout || "straight");
+  const curve = getTextCurveValue(textState);
 
-  // Text kutusunu baskı alanında tutacak güvenli kenar payı.
-  const baseMargin = clamp((size / 1024) * 0.62, 0.035, 0.22);
-  const marginX = clamp(baseMargin * Math.sqrt(scaleX), 0.035, 0.25);
-  const marginY = clamp(baseMargin * Math.sqrt(scaleY), 0.035, 0.25);
+  const avgGlyphW = size * 0.58 * scaleX;
+  const spacing = size * 0.03 * scaleX;
+  const baseW = Math.max(size * 0.75 * scaleX, charCount * avgGlyphW + (charCount - 1) * spacing);
+  let boxW = baseW;
+  let boxH = size * 1.15 * scaleY;
 
-  const x = clamp(Number.isFinite(Number(textPos?.x)) ? Number(textPos.x) : 0.5, marginX, 1 - marginX);
-  const y = clamp(Number.isFinite(Number(textPos?.y)) ? Number(textPos.y) : 0.85, marginY, 1 - marginY);
+  if (layout === "wave") boxH += size * (curve / 100) * 0.9 * scaleY;
+  if (layout === "zigzag") boxH += size * (curve / 100) * 1.45 * scaleY;
+  if (layout === "stair-up" || layout === "stair-down") boxH += size * (curve / 100) * 1.7 * scaleY;
+  if (layout === "arc-up" || layout === "arc-down") {
+    boxH += size * (curve / 100) * 1.35 * scaleY;
+    boxW += size * 0.2 * scaleX;
+  }
+  if (layout === "arc-up-strong" || layout === "arc-down-strong") {
+    boxH += size * (curve / 100) * 1.8 * scaleY;
+    boxW += size * 0.28 * scaleX;
+  }
+
+  const pad = size * 0.1;
+  const halfW01 = clamp((boxW / 2 + pad) / 1024, 0.035, 0.49);
+  const halfH01 = clamp((boxH / 2 + pad) / 1024, 0.035, 0.49);
+  return { halfW01, halfH01 };
+};
+
+const clampTextPos = (textPos, textState = {}) => {
+  const { halfW01, halfH01 } = estimateTextHalfBounds01(textState);
+  const fallbackY = clamp(1 - halfH01, halfH01, 1 - halfH01);
+  const x = clamp(Number.isFinite(Number(textPos?.x)) ? Number(textPos.x) : 0.5, halfW01, 1 - halfW01);
+  const y = clamp(Number.isFinite(Number(textPos?.y)) ? Number(textPos.y) : fallbackY, halfH01, 1 - halfH01);
   return { x, y };
 };
 
@@ -515,6 +543,8 @@ const PRINT_TYPE_OPTIONS = [
   },
 ];
 
+const STICKER_OPTIONS = [{ id: "sticker-ferhata-att", label: "Ferhata Att", src: "/urungorsel/ferhata%20atttttttt.png" }];
+
 function PrintTypePickerCards({ selectedIds = [], onSelect, sourceLabel = "Sec", isMobile = false }) {
   return (
     <div className="mt-2 rounded-xl border border-gray-200 bg-[#f4f6f8] p-3">
@@ -605,9 +635,13 @@ const drawStyledText = (ctx, t, centerX, centerY, fontSize) => {
   const curve = getTextCurveValue(t);
   const scaleX = clamp(t?.scaleX || 1, 0.3, 3);
   const scaleY = clamp(t?.scaleY || 1, 0.3, 3);
+  const rotationDeg = clamp(Number(t?.rotation) || 0, -180, 180);
 
   ctx.save();
   ctx.translate(centerX, centerY);
+  if (rotationDeg) {
+    ctx.rotate((rotationDeg * Math.PI) / 180);
+  }
   ctx.scale(scaleX, scaleY);
   ctx.font = `900 ${fontSize}px ${t?.font || FONT_OPTIONS[0].value}`;
   ctx.fillStyle = t?.color || "#ffffff";
@@ -715,6 +749,25 @@ const getLogoStyle = (logo) => ({
 const logoFilterCss = (logo) => {
   const fx = getLogoStyle(logo);
   return `brightness(${fx.brightness}%) contrast(${fx.contrast}%) saturate(${fx.saturation}%) grayscale(${fx.grayscale}%)`;
+};
+
+const isEmbossSticker = (logo) => Boolean(logo?.emboss || logo?.kind === "sticker");
+
+const drawEmbossOverlay = (ctx, img, bw, bh) => {
+  const shift = Math.max(1, Math.round(Math.max(bw, bh) * 0.012));
+  ctx.save();
+  ctx.globalCompositeOperation = "source-atop";
+  ctx.globalAlpha = 0.24;
+  ctx.filter = "brightness(150%) contrast(108%)";
+  ctx.drawImage(img, -bw / 2 - shift, -bh / 2 - shift, bw, bh);
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalCompositeOperation = "source-atop";
+  ctx.globalAlpha = 0.2;
+  ctx.filter = "brightness(58%) contrast(120%)";
+  ctx.drawImage(img, -bw / 2 + shift, -bh / 2 + shift, bw, bh);
+  ctx.restore();
 };
 
 const fileToDataUrl = (file) =>
@@ -854,10 +907,32 @@ const createSideData = () => ({
     font: FONT_OPTIONS[0].value,
     layout: "straight",
     curve: 30,
+    rotation: 0,
     z: 0,
   },
   textPos: { x: 0.5, y: 0.85 },
 });
+
+const normalizeSideData = (sideData) => {
+  const base = createSideData();
+  const source = sideData && typeof sideData === "object" ? sideData : {};
+  const logos = Array.isArray(source.logos) ? source.logos.filter(Boolean) : [];
+  const customText = {
+    ...base.customText,
+    ...(source.customText && typeof source.customText === "object" ? source.customText : {}),
+    rotation: clamp(Number(source?.customText?.rotation) || 0, -180, 180),
+  };
+  const textPos = clampTextPos(source.textPos || base.textPos, customText);
+
+  return {
+    ...base,
+    ...source,
+    logos,
+    activeLogoId: source.activeLogoId || logos[0]?.id || null,
+    customText,
+    textPos,
+  };
+};
 
 const EMPTY_SIDE = createSideData();
 
@@ -895,6 +970,36 @@ const createDesign = (type = DEFAULT_MODEL_TYPE) => ({
     right: createSideData(),
   },
 });
+
+const restoreDesignFromCheckoutItem = (item) => {
+  const details = item?.designDetails || {};
+  const modelType = normalizeModelType(item?.modelType || details?.model || DEFAULT_MODEL_TYPE);
+  const base = createDesign(modelType);
+  const srcSides = details?.sides || item?.sides || {};
+  const restored = {
+    ...base,
+    id: item?.id || makeId(),
+    modelType,
+    color: item?.color || details?.baseColor || base.color,
+    fabricType: details?.fabricType || base.fabricType,
+    stringColor: details?.stringColor || base.stringColor,
+    size: item?.size || base.size,
+    hoodieV12Parts: normalizeHoodieParts(details?.hoodieV12Parts || item?.hoodieV12Parts),
+    hasPdf: Boolean(details?.hasPdf ?? item?.hasPdf),
+    pdfFileUrl: details?.pdfFileUrl || item?.pdfFileUrl || "",
+    pdfOriginalName: details?.pdfOriginalName || item?.pdfOriginalName || "",
+    pdfPlacement: normalizePdfPlacement(details?.pdfPlacement || item?.pdfPlacement, (details?.pdfPlacement || item?.pdfPlacement)?.side || "front"),
+    printTypes: Array.isArray(details?.printTypes || item?.printTypes) ? (details?.printTypes || item?.printTypes) : [],
+    printTypesBySide: normalizePrintTypesBySide(details?.printTypesBySide || item?.printTypesBySide, details?.printTypes || item?.printTypes),
+    sides: {
+      front: normalizeSideData(srcSides.front),
+      back: normalizeSideData(srcSides.back),
+      left: normalizeSideData(srcSides.left),
+      right: normalizeSideData(srcSides.right),
+    },
+  };
+  return restored;
+};
 
 const normalizePrintTypesBySide = (bySide, legacy = []) => {
   const base = {
@@ -977,6 +1082,7 @@ async function makePrintDataUrl(sideData, opts = {}) {
     const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
     const rotation = (l.rotation || 0) * (Math.PI / 180);
     const fx = getLogoStyle(l);
+    const emboss = isEmbossSticker(l);
     // eslint-disable-next-line no-await-in-loop
     await new Promise((res) => {
       const img = new Image();
@@ -994,6 +1100,7 @@ async function makePrintDataUrl(sideData, opts = {}) {
         ctx.globalAlpha = fx.opacity;
         ctx.filter = logoFilterCss(fx);
         ctx.drawImage(img, -bw / 2, -bh / 2, bw, bh);
+        if (emboss) drawEmbossOverlay(ctx, img, bw, bh);
         ctx.restore();
         res();
       };
@@ -1085,6 +1192,7 @@ async function makeAdjustedLogoDataUrls(sideData) {
     const bh = Math.max(1, Math.round(box.h * SIZE));
     const rotation = (l.rotation || 0) * (Math.PI / 180);
     const fx = getLogoStyle(l);
+    const emboss = isEmbossSticker(l);
 
     const c = document.createElement("canvas");
     c.width = bw;
@@ -1112,6 +1220,7 @@ async function makeAdjustedLogoDataUrls(sideData) {
         ctx.globalAlpha = fx.opacity;
         ctx.filter = logoFilterCss(fx);
         ctx.drawImage(img, -bw / 2, -bh / 2, bw, bh);
+        if (emboss) drawEmbossOverlay(ctx, img, bw, bh);
         ctx.restore();
         res();
       };
@@ -1223,21 +1332,22 @@ function useDesignCanvas(sideData, opts = {}) {
   const [canvas, setCanvas] = useState(null);
 
   const logos = sideData?.logos || [];
+  const logosForCanvas = useMemo(() => logos.filter((l) => !isEmbossSticker(l)), [logos]);
   const logoSignature = logos
     .map(
       (l) =>
-        `${l.id}_${l.box.x.toFixed(3)}_${l.box.y.toFixed(3)}_${l.box.w.toFixed(3)}_${l.box.h.toFixed(3)}_${l.rotation || 0}_${l.z || 0}_${l.opacity ?? 1}_${l.brightness ?? 100}_${l.contrast ?? 100}_${l.saturation ?? 100}_${l.grayscale ?? 0}_${Number(Boolean(l.flipX))}_${Number(Boolean(l.flipY))}`
+        `${l.id}_${l.box.x.toFixed(3)}_${l.box.y.toFixed(3)}_${l.box.w.toFixed(3)}_${l.box.h.toFixed(3)}_${l.rotation || 0}_${l.z || 0}_${l.opacity ?? 1}_${l.brightness ?? 100}_${l.contrast ?? 100}_${l.saturation ?? 100}_${l.grayscale ?? 0}_${Number(Boolean(l.flipX))}_${Number(Boolean(l.flipY))}_${Number(Boolean(l.emboss))}_${l.kind || "logo"}`
     )
     .join("|");
   const customText = sideData?.customText;
-  const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}_${customText?.font}_${customText?.layout || "straight"}_${customText?.curve ?? 30}_${customText?.z ?? 0}`;
+  const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}_${customText?.font}_${customText?.layout || "straight"}_${customText?.curve ?? 30}_${customText?.rotation ?? 0}_${customText?.z ?? 0}`;
   const posSignature = `${sideData?.textPos?.x}_${sideData?.textPos?.y}`;
 
   const CANVAS_SIZE = 2048;
   const CANVAS_UPDATE_DEBOUNCE_MS = 16;
 
   useEffect(() => {
-    const hasContent = logos.length > 0 || (customText?.text || "").trim();
+    const hasContent = logosForCanvas.length > 0 || (customText?.text || "").trim();
     if (!hasContent) {
       setCanvas(null);
       return;
@@ -1288,6 +1398,7 @@ function useDesignCanvas(sideData, opts = {}) {
         const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
         const rotation = (l.rotation || 0) * (Math.PI / 180);
         const fx = getLogoStyle(l);
+        const emboss = isEmbossSticker(l);
         // eslint-disable-next-line no-await-in-loop
         await new Promise((res) => {
           if (cancelled) {
@@ -1313,6 +1424,7 @@ function useDesignCanvas(sideData, opts = {}) {
             ctx.globalAlpha = fx.opacity;
             ctx.filter = logoFilterCss(fx);
             ctx.drawImage(img, -bw / 2, -bh / 2, bw, bh);
+            if (emboss) drawEmbossOverlay(ctx, img, bw, bh);
             ctx.restore();
             res();
           };
@@ -1325,7 +1437,7 @@ function useDesignCanvas(sideData, opts = {}) {
         ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
         const items = [
-          ...logos.map((l, idx) => ({ kind: "logo", z: l?.z ?? 0, idx, payload: l })),
+          ...logosForCanvas.map((l, idx) => ({ kind: "logo", z: l?.z ?? 0, idx, payload: l })),
           ...(customText?.text || "").trim()
             ? [{ kind: "text", z: customText?.z ?? 0, idx: 9999, payload: customText }]
             : [],
@@ -1352,7 +1464,7 @@ function useDesignCanvas(sideData, opts = {}) {
       clearTimeout(timeoutId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [logoSignature, textSignature, posSignature, opts?.clearCenterStripe01, CANVAS_SIZE]);
+  }, [logoSignature, textSignature, posSignature, opts?.clearCenterStripe01, CANVAS_SIZE, logosForCanvas, customText?.text]);
 
   return canvas;
 }
@@ -1428,7 +1540,19 @@ function makeCanvasTexture(canvas) {
   return tex;
 }
 
-function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, hoodieV12Parts, fabricType, view, isMobile }) {
+function Real3DModel({
+  color,
+  stringColor,
+  frontCanvas,
+  backCanvas,
+  modelType,
+  hoodieV12Parts,
+  fabricType,
+  view,
+  isMobile,
+  frontSideData,
+  backSideData,
+}) {
   const modelPathRaw = MODEL_PATHS[normalizeModelType(modelType)] || MODEL_PATHS[DEFAULT_MODEL_TYPE];
   const gltf = useGLTF(toSafeUrl(modelPathRaw));
 
@@ -1578,6 +1702,30 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, h
 
   const showFront = view === "front";
   const showBack = view === "back";
+  const frontEmbossLogos = useMemo(
+    () => (frontSideData?.logos || []).filter((l) => isEmbossSticker(l)),
+    [frontSideData?.logos]
+  );
+  const backEmbossLogos = useMemo(
+    () => (backSideData?.logos || []).filter((l) => isEmbossSticker(l)),
+    [backSideData?.logos]
+  );
+  const frontEmbossUrls = useMemo(() => frontEmbossLogos.map((l) => l.url), [frontEmbossLogos]);
+  const backEmbossUrls = useMemo(() => backEmbossLogos.map((l) => l.url), [backEmbossLogos]);
+  const frontEmbossTextures = useTexture(frontEmbossUrls);
+  const backEmbossTextures = useTexture(backEmbossUrls);
+
+  useEffect(() => {
+    const all = [...frontEmbossTextures, ...backEmbossTextures];
+    all.forEach((tex) => {
+      if (!tex) return;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 12;
+      tex.wrapS = THREE.ClampToEdgeWrapping;
+      tex.wrapT = THREE.ClampToEdgeWrapping;
+      tex.needsUpdate = true;
+    });
+  }, [frontEmbossTextures, backEmbossTextures]);
 
   return (
     <group dispose={null} position={[0, -0.08, 0]}>
@@ -1607,6 +1755,45 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, h
               </Decal>
             )}
 
+            {showFront &&
+              frontEmbossLogos.map((logo, idx) => {
+                const tex = frontEmbossTextures[idx];
+                if (!tex) return null;
+                const box = logo?.box || { x: 0.5, y: 0.6, w: 0.62, h: 0.42 };
+                const cx = frontProfile.xMin + box.x * frontW;
+                const cy = frontProfile.yTop - box.y * frontH;
+                const decalW = clamp(box.w * frontW, 0.01, frontW);
+                const decalH = clamp(box.h * frontH, 0.01, frontH);
+                const rz = ((logo?.rotation || 0) * Math.PI) / 180;
+                const fx = getLogoStyle(logo);
+                return (
+                  <Decal
+                    key={`emboss-front-${logo.id || idx}`}
+                    mesh={decalHostRef}
+                    position={[cx, cy, frontProfile.z + torsoZOffsetFront + 0.0015]}
+                    rotation={[0, frontProfile.rotY || 0, rz]}
+                    scale={[decalW, decalH, TORSO_DEPTH * 0.6]}
+                  >
+                    <meshStandardMaterial
+                      map={tex}
+                      alphaMap={tex}
+                      transparent
+                      opacity={fx.opacity}
+                      alphaTest={0.06}
+                      roughness={0.88}
+                      metalness={0.015}
+                      envMapIntensity={0.98}
+                      bumpMap={tex}
+                      bumpScale={0.58}
+                      depthWrite={false}
+                      polygonOffset
+                      polygonOffsetFactor={-12}
+                      side={THREE.FrontSide}
+                    />
+                  </Decal>
+                );
+              })}
+
             {showBack && backTex && (
               <Decal
                 mesh={decalHostRef}
@@ -1627,6 +1814,45 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, h
                 />
               </Decal>
             )}
+
+            {showBack &&
+              backEmbossLogos.map((logo, idx) => {
+                const tex = backEmbossTextures[idx];
+                if (!tex) return null;
+                const box = logo?.box || { x: 0.5, y: 0.6, w: 0.62, h: 0.42 };
+                const cx = backProfile.xMin + box.x * backW;
+                const cy = backProfile.yTop - box.y * backH;
+                const decalW = clamp(box.w * backW, 0.01, backW);
+                const decalH = clamp(box.h * backH, 0.01, backH);
+                const rz = ((logo?.rotation || 0) * Math.PI) / 180;
+                const fx = getLogoStyle(logo);
+                return (
+                  <Decal
+                    key={`emboss-back-${logo.id || idx}`}
+                    mesh={decalHostRef}
+                    position={[cx, cy, backProfile.z + torsoZOffsetBack - 0.0015]}
+                    rotation={[0, backProfile.rotY || Math.PI, rz]}
+                    scale={[decalW, decalH, TORSO_DEPTH * 0.6]}
+                  >
+                    <meshStandardMaterial
+                      map={tex}
+                      alphaMap={tex}
+                      transparent
+                      opacity={fx.opacity}
+                      alphaTest={0.06}
+                      roughness={0.88}
+                      metalness={0.015}
+                      envMapIntensity={0.98}
+                      bumpMap={tex}
+                      bumpScale={0.58}
+                      depthWrite={false}
+                      polygonOffset
+                      polygonOffsetFactor={-12}
+                      side={THREE.FrontSide}
+                    />
+                  </Decal>
+                );
+              })}
           </>
         )}
       </Center>
@@ -1635,7 +1861,14 @@ function Real3DModel({ color, stringColor, frontCanvas, backCanvas, modelType, h
 }
 
 /* ================= RESIZE FRAME ================= */
-function ResizeFrame({ box, onChange, containerRef, onDragStateChange, diagonalOnly = false }) {
+function ResizeFrame({
+  box,
+  onChange,
+  containerRef,
+  onDragStateChange,
+  diagonalOnly = false,
+  disableResize = false,
+}) {
   const dragRef = useRef(null);
   const rafRef = useRef(0);
   const pendingBoxRef = useRef(null);
@@ -1661,6 +1894,7 @@ function ResizeFrame({ box, onChange, containerRef, onDragStateChange, diagonalO
   });
 
   const begin = (mode, e) => {
+    if (disableResize && mode !== "move") return;
     if (diagonalOnly && (mode === "t" || mode === "b" || mode === "l" || mode === "r")) return;
     e.preventDefault();
     e.stopPropagation();
@@ -1851,38 +2085,39 @@ function ResizeFrame({ box, onChange, containerRef, onDragStateChange, diagonalO
       }}
       onPointerDown={(e) => begin("move", e)}
     >
-      {[
-        ["lt", 0, 0],
-        ["t", 50, 0],
-        ["rt", 100, 0],
-        ["r", 100, 50],
-        ["rb", 100, 100],
-        ["b", 50, 100],
-        ["lb", 0, 100],
-        ["l", 0, 50],
-      ]
-        .filter(([key]) => !diagonalOnly || ["lt", "rt", "rb", "lb"].includes(key))
-        .map(([key, lx, ty]) => (
-        <div
-          key={key}
-          className="absolute w-6 h-6 bg-white rounded-full border border-zinc-400 shadow-sm opacity-95 transition-transform group-hover:scale-105"
-          style={{
-            left: `${lx}%`,
-            top: `${ty}%`,
-            transform: "translate(-50%, -50%)",
-            touchAction: "none",
-            cursor:
-              key === "t" || key === "b"
-                ? "ns-resize"
-                : key === "l" || key === "r"
-                ? "ew-resize"
-                : key === "lt" || key === "rb"
-                ? "nwse-resize"
-                : "nesw-resize",
-          }}
-          onPointerDown={(e) => begin(key, e)}
-        />
-      ))}
+      {!disableResize &&
+        [
+          ["lt", 0, 0],
+          ["t", 50, 0],
+          ["rt", 100, 0],
+          ["r", 100, 50],
+          ["rb", 100, 100],
+          ["b", 50, 100],
+          ["lb", 0, 100],
+          ["l", 0, 50],
+        ]
+          .filter(([key]) => !diagonalOnly || ["lt", "rt", "rb", "lb"].includes(key))
+          .map(([key, lx, ty]) => (
+            <div
+              key={key}
+              className="absolute w-6 h-6 bg-white rounded-full border border-zinc-400 shadow-sm opacity-95 transition-transform group-hover:scale-105"
+              style={{
+                left: `${lx}%`,
+                top: `${ty}%`,
+                transform: "translate(-50%, -50%)",
+                touchAction: "none",
+                cursor:
+                  key === "t" || key === "b"
+                    ? "ns-resize"
+                    : key === "l" || key === "r"
+                    ? "ew-resize"
+                    : key === "lt" || key === "rb"
+                    ? "nwse-resize"
+                    : "nesw-resize",
+              }}
+              onPointerDown={(e) => begin(key, e)}
+            />
+          ))}
     </div>
   );
 }
@@ -1996,6 +2231,8 @@ function DesignModelItem({
         stringColor={design.stringColor}
         frontCanvas={frontCanvas}
         backCanvas={backCanvas}
+        frontSideData={design.sides.front || EMPTY_SIDE}
+        backSideData={design.sides.back || EMPTY_SIDE}
         modelType={design.modelType}
         hoodieV12Parts={design.hoodieV12Parts}
         fabricType={design.fabricType}
@@ -2023,17 +2260,22 @@ function StyledTextPreview({ textState, className = "" }) {
     lineHeight: 1,
     fontWeight: 900,
   };
+  const rotation = clamp(Number(textState?.rotation) || 0, -180, 180);
+  const rotatedStyle = rotation ? { transform: `rotate(${rotation}deg)` } : null;
 
   if (layout === "straight") {
     return (
-      <span className={`select-none ${className}`} style={commonStyle}>
+      <span className={`select-none ${className}`} style={{ ...commonStyle, ...(rotatedStyle || {}) }}>
         {text}
       </span>
     );
   }
 
   return (
-    <span className={`inline-flex items-center justify-center select-none ${className}`} style={commonStyle}>
+    <span
+      className={`inline-flex items-center justify-center select-none ${className}`}
+      style={{ ...commonStyle, ...(rotatedStyle || {}) }}
+    >
       {chars.map((ch, i) => {
         const norm = (i - center) / center;
         let y = 0;
@@ -2147,10 +2389,15 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                       key={`select-model-${modelType}`}
                       type="button"
                       onClick={() => onSelectModel(modelType)}
+                      onDoubleClick={() => {
+                        onSelectModel(modelType);
+                        onContinue?.(modelType);
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
                           onSelectModel(modelType);
+                          onContinue?.(modelType);
                         }
                       }}
                       className={`w-full rounded-2xl border bg-white p-2.5 shadow-sm text-left transition ${
@@ -2193,11 +2440,12 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
             <span className="font-black text-zinc-900">
               {selectedModel ? MODEL_LABELS[selectedModel] || selectedModel : "Henüz seçilmedi"}
             </span>
+            <span className="ml-2 text-xs text-zinc-500">(Seçmek için karta çift tıkla)</span>
           </p>
           <button
             type="button"
             disabled={!selectedModel}
-            onClick={onContinue}
+            onClick={() => onContinue?.(selectedModel)}
             className={`px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest transition ${
               selectedModel
                 ? "bg-black text-white hover:bg-zinc-800"
@@ -2279,31 +2527,32 @@ function ModelManagementCard({
               );
             })}
           </div>
-          <div className="space-y-1">
-            <p className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-600">Kumaş</p>
-            <div className="flex flex-wrap gap-1.5">
-              {[
-                { id: "standart", label: "Standart" },
-                { id: "pamuk", label: "Pamuk" },
-                { id: "soft", label: "Soft" },
-              ].map((opt) => (
-                <button
-                  key={`fabric-${opt.id}`}
-                  type="button"
-                  onClick={() => onChangeFabric?.(opt.id)}
-                  className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase border transition ${
-                    fabricType === opt.id
-                      ? "bg-black text-white border-black"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       )}
+
+      <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-2 space-y-1">
+        <p className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-600">Kumaş</p>
+        <div className="flex flex-wrap gap-1.5">
+          {[
+            { id: "standart", label: "Standart" },
+            { id: "pamuk", label: "Pamuk" },
+            { id: "soft", label: "Soft" },
+          ].map((opt) => (
+            <button
+              key={`fabric-${opt.id}`}
+              type="button"
+              onClick={() => onChangeFabric?.(opt.id)}
+              className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase border transition ${
+                fabricType === opt.id
+                  ? "bg-black text-white border-black"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {(designs || []).length > 1 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -2450,6 +2699,30 @@ function EditorPanel({
       console.error("Gorsel yukleme hatasi:", err);
       alert(err?.message || "Görsel yüklenemedi. Farklı bir görsel deneyin.");
     }
+  };
+
+  const handleAddSticker = (sticker) => {
+    if (!sticker?.src) return;
+    if ((sideData.logos || []).length >= MAX_LOGOS_PER_SIDE) {
+      alert(`Bu alanda en fazla ${MAX_LOGOS_PER_SIDE} baskı görseli yükleyebilirsin.`);
+      return;
+    }
+    const id = makeId();
+      const nextLogo = {
+        id,
+        url: sticker.src,
+        box: { x: 0.5, y: 0.6, w: 0.62, h: 0.42 },
+        rotation: 0,
+        z: 0,
+        kind: "sticker",
+        emboss: true,
+        ...LOGO_STYLE_DEFAULTS,
+      };
+    const nextLogos = [...(sideData.logos || []), nextLogo];
+    updateSide({ logos: nextLogos, activeLogoId: id });
+    onRequestDrawerCollapse?.();
+    onRequestShowEditorOverlay?.();
+    setActiveTab("editor");
   };
 
   const isFocusMode = isMobile && activeTab === "editor" && !isDrawerLayout;
@@ -2655,6 +2928,7 @@ function EditorPanel({
                   const nextLogos = (logos || []).map((l) => (l.id === activeLogo.id ? { ...l, box: next } : l));
                   updateSide({ logos: nextLogos });
                 }}
+                disableResize={isEmbossSticker(activeLogo)}
               />
             )}
 
@@ -2724,6 +2998,7 @@ function EditorPanel({
           <div className="flex border-b border-zinc-800 bg-[#111111] flex-shrink-0">
             {[
               { id: "upload", icon: ImageIcon, label: "Baskı" },
+              { id: "pattern", icon: ImageIcon, label: "Desen" },
               { id: "text", icon: FileText, label: "Yazı" },
               { id: "color", icon: Palette, label: "Renk" },
             ].map((tab) => (
@@ -2992,6 +3267,7 @@ function EditorPanel({
                     );
                     updateSide({ logos: nextLogos });
                   }}
+                  disableResize={isEmbossSticker(activeLogo)}
                 />
               )}
 
@@ -3050,6 +3326,49 @@ function EditorPanel({
           return <div className="space-y-3">{editorInner}</div>;
         })()}
 
+
+        {/* PATTERN / STICKERS */}
+        {activeTab === "pattern" && (
+          <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-start justify-start gap-2.5") : "space-y-2.5"}`}>
+            <div
+              className={`rounded-xl border border-gray-200 bg-white p-3 space-y-3 shadow-sm ${
+                isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "w-full min-h-[188px] overflow-hidden") : ""
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className={drawerHeadingClass}>Desen Seç</p>
+                <span className="text-[10px] font-black uppercase text-gray-500">
+                  {sideData?.logos?.length || 0}/{MAX_LOGOS_PER_SIDE}
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-600">
+                Hazır sticker seçip modele ekleyebilirsin. Eklenen desenleri `Yerleşim` ekranında düzenleyebilirsin.
+              </p>
+              <div className={`grid gap-2 ${isMobileDrawer ? "grid-cols-2" : "grid-cols-3"}`}>
+                {STICKER_OPTIONS.map((sticker) => (
+                  <button
+                    key={sticker.id}
+                    type="button"
+                    onClick={() => handleAddSticker(sticker)}
+                    className="rounded-xl border border-gray-300 bg-white hover:bg-gray-50 transition text-left overflow-hidden"
+                  >
+                    <div className="aspect-square bg-gray-100 border-b border-gray-200 overflow-hidden">
+                      <img
+                        src={sticker.src}
+                        alt={sticker.label}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                    <div className="px-2.5 py-2">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-gray-800">{sticker.label}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* TEXT / PDF */}
         {activeTab === "text" && (
@@ -3162,6 +3481,21 @@ function EditorPanel({
 	                    className="w-full accent-black"
 	                  />
 	                </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-gray-500">
+                      <span className="font-black uppercase tracking-wide">Döndürme</span>
+                      <span>{Math.round(Number(t.rotation) || 0)}°</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-180"
+                      max="180"
+                      step="1"
+                      value={Number(t.rotation) || 0}
+                      onChange={(e) => bumpText({ rotation: Number(e.target.value) })}
+                      className="w-full accent-black"
+                    />
+                  </div>
 	                <p className="text-[10px] text-gray-500">
 	                  Not: Yazı konumu sürükleme ve hassas yerleşim ayarı için `Yerleşim` ekranını kullan.
 	                </p>
@@ -3488,6 +3822,7 @@ function TasarimClientContent({ isMobile }) {
     const normalized = normalizeModelType(raw);
     return AVAILABLE_MODELS.includes(normalized) ? normalized : null;
   }, [searchParams]);
+  const resumeRequested = useMemo(() => searchParams?.get("resume") === "1", [searchParams]);
 
   const safeInitial = presetModelFromQuery || AVAILABLE_MODELS[0];
 
@@ -3498,6 +3833,7 @@ function TasarimClientContent({ isMobile }) {
   const [activeId, setActiveId] = useState(() => initialDesignRef.current.id);
   const [flowStep, setFlowStep] = useState("select");
   const [selectedModelType, setSelectedModelType] = useState(() => presetModelFromQuery);
+  const resumeAppliedRef = useRef(false);
 
   const [hoveredId, setHoveredId] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -3556,8 +3892,10 @@ function TasarimClientContent({ isMobile }) {
   const customText = sideData?.customText || {};
   const safeTextPos = clampTextPos(sideData?.textPos, customText);
   const activeLogo = logos.find(l => l.id === (sideData?.activeLogoId || logos[0]?.id));
+  const activeLogoIsEmboss = isEmbossSticker(activeLogo);
   const logoControlsLocked = lockAspect;
   const imageControlDisabled = logoControlsLocked || !activeLogo;
+  const sizeControlDisabled = imageControlDisabled || activeLogoIsEmboss;
   const isPrintAreaOpen = activeTab === "editor";
   const activeLogoBox = activeLogo?.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
   const activeLogoFx = getLogoStyle(activeLogo);
@@ -3604,8 +3942,8 @@ function TasarimClientContent({ isMobile }) {
   const sanitizeLogoBox = (nextBox) => {
     const minW = 0.12;
     const minH = 0.12;
-    const rawW = clamp(nextBox.w ?? activeLogoBox.w, minW, 1);
-    const rawH = clamp(nextBox.h ?? activeLogoBox.h, minH, 1);
+    const rawW = activeLogoIsEmboss ? activeLogoBox.w : clamp(nextBox.w ?? activeLogoBox.w, minW, 1);
+    const rawH = activeLogoIsEmboss ? activeLogoBox.h : clamp(nextBox.h ?? activeLogoBox.h, minH, 1);
     const x = clamp(nextBox.x ?? activeLogoBox.x, rawW / 2, 1 - rawW / 2);
     const y = clamp(nextBox.y ?? activeLogoBox.y, rawH / 2, 1 - rawH / 2);
     const snappedX = Math.abs(x - 0.5) <= snapThreshold ? 0.5 : x;
@@ -3648,6 +3986,7 @@ function TasarimClientContent({ isMobile }) {
   const sanitizeCmInput = (raw) => String(raw ?? "").replace(/[^\d.,]/g, "");
 
   const applyWidthCmInput = (raw) => {
+    if (activeLogoIsEmboss) return null;
     if (!activeLogo || !printCm.w || !printCm.h) return null;
     const nextCm = toNumber(raw);
     if (!Number.isFinite(nextCm)) return null;
@@ -3662,6 +4001,7 @@ function TasarimClientContent({ isMobile }) {
   };
 
   const applyHeightCmInput = (raw) => {
+    if (activeLogoIsEmboss) return null;
     if (!activeLogo || !printCm.w || !printCm.h) return null;
     const nextCm = toNumber(raw);
     if (!Number.isFinite(nextCm)) return null;
@@ -3755,14 +4095,36 @@ function TasarimClientContent({ isMobile }) {
   }, [presetModelFromQuery]);
 
   useEffect(() => {
+    if (!resumeRequested || resumeAppliedRef.current) return;
+    resumeAppliedRef.current = true;
+    const cached = getCheckoutData();
+    if (!cached?.designs?.length) return;
+    const restored = cached.designs.map(restoreDesignFromCheckoutItem).filter(Boolean);
+    if (!restored.length) return;
+
+    setDesigns(restored);
+    setActiveId(restored[0].id);
+    setSelectedModelType(restored[0].modelType);
+    setView("front");
+    setFlowStep("design");
+    setActiveTab("upload");
+    setForceEditorOverlay(false);
+    setPickerOpen(false);
+    setDrawerMenuOpen(false);
+    setDrawerOpen(true);
+    router.replace(`/tasarim?model=${restored[0].modelType}`, { scroll: false });
+  }, [resumeRequested, router]);
+
+  useEffect(() => {
     if (!activeId && designs[0]) setActiveId(designs[0].id);
   }, [activeId, designs]);
 
   const activeDesign = useMemo(() => designs.find((d) => d.id === activeId) || designs[0], [designs, activeId]);
-  const DRAWER_TABS = ["upload", "text", "color"];
+  const DRAWER_TABS = ["color", "upload", "pattern", "text"];
   const tabIndex = DRAWER_TABS.indexOf(activeTab);
   const tabLabelMap = {
     upload: "Baskı",
+    pattern: "Desen",
     text: "Yazı",
     editor: "Yerleşim",
     color: "Renk",
@@ -3770,7 +4132,7 @@ function TasarimClientContent({ isMobile }) {
   const goPrevTab = () => {
     setDrawerMenuOpen(false);
     if (tabIndex < 0) {
-      setActiveTab("upload");
+      setActiveTab("color");
       return;
     }
     setActiveTab(DRAWER_TABS[(tabIndex - 1 + DRAWER_TABS.length) % DRAWER_TABS.length]);
@@ -3778,7 +4140,7 @@ function TasarimClientContent({ isMobile }) {
   const goNextTab = () => {
     setDrawerMenuOpen(false);
     if (tabIndex < 0) {
-      setActiveTab("upload");
+      setActiveTab("color");
       return;
     }
     setActiveTab(DRAWER_TABS[(tabIndex + 1) % DRAWER_TABS.length]);
@@ -3790,9 +4152,10 @@ function TasarimClientContent({ isMobile }) {
     setPrintTypePickerSignal((prev) => prev + 1);
   };
   const menuTabs = [
-    { id: "upload", label: "Baskı", icon: ImageIcon },
-    { id: "text", label: "Yazı", icon: FileText },
     { id: "color", label: "Renk", icon: Palette },
+    { id: "upload", label: "Baskı", icon: ImageIcon },
+    { id: "pattern", label: "Desen", icon: ImageIcon },
+    { id: "text", label: "Yazı", icon: FileText },
   ];
   const activePrintTypes = getPrintTypesForSide(activeDesign, view);
   const selectedPrintTypeNames = activePrintTypes
@@ -3922,19 +4285,23 @@ function TasarimClientContent({ isMobile }) {
     setPickerOpen(false);
   };
 
-  const startDesignFlow = () => {
-    if (!selectedModelType || !AVAILABLE_MODELS.includes(selectedModelType)) return;
-    const next = createDesign(selectedModelType);
+  const startDesignFlow = (forcedModelType = null) => {
+    const resolvedType =
+      forcedModelType && AVAILABLE_MODELS.includes(forcedModelType)
+        ? forcedModelType
+        : selectedModelType;
+    if (!resolvedType || !AVAILABLE_MODELS.includes(resolvedType)) return;
+    const next = createDesign(resolvedType);
     setDesigns([next]);
     setActiveId(next.id);
     setView("front");
-    setActiveTab("upload");
+    setActiveTab("color");
     setForceEditorOverlay(false);
     setPickerOpen(false);
     setDrawerMenuOpen(false);
     setDrawerOpen(true);
     setFlowStep("design");
-    router.replace(`/tasarim?model=${selectedModelType}`, { scroll: false });
+    router.replace(`/tasarim?model=${resolvedType}`, { scroll: false });
   };
 
   const removeModel = (id) => {
@@ -4700,6 +5067,7 @@ function TasarimClientContent({ isMobile }) {
                     onChange={updateActiveLogoBox}
                     onDragStateChange={setIsLogoDragging}
                     diagonalOnly={lockAspect}
+                    disableResize={activeLogoIsEmboss}
                   />
                 )}
 
@@ -4765,12 +5133,12 @@ function TasarimClientContent({ isMobile }) {
                           min="0"
                           step="0.1"
                           value={cmInputW}
-                          disabled={imageControlDisabled}
+                          disabled={sizeControlDisabled}
                           onChange={(e) => {
                             setCmInputW(sanitizeCmInput(e.target.value));
                           }}
                           className={`w-full rounded-md border px-2 py-1 text-[11px] ${
-                            imageControlDisabled
+                            sizeControlDisabled
                               ? "border-zinc-700 bg-zinc-800/60 text-zinc-500 cursor-not-allowed"
                               : "border-zinc-600 bg-zinc-900/60 text-white"
                           }`}
@@ -4798,12 +5166,12 @@ function TasarimClientContent({ isMobile }) {
                           min="0"
                           step="0.1"
                           value={cmInputH}
-                          disabled={imageControlDisabled}
+                          disabled={sizeControlDisabled}
                           onChange={(e) => {
                             setCmInputH(sanitizeCmInput(e.target.value));
                           }}
                           className={`w-full rounded-md border px-2 py-1 text-[11px] ${
-                            imageControlDisabled
+                            sizeControlDisabled
                               ? "border-zinc-700 bg-zinc-800/60 text-zinc-500 cursor-not-allowed"
                               : "border-zinc-600 bg-zinc-900/60 text-white"
                           }`}
@@ -4871,9 +5239,9 @@ function TasarimClientContent({ isMobile }) {
                       max="0.95"
                       step="0.005"
                       value={activeLogoBox.w}
-                      disabled={imageControlDisabled}
+                      disabled={sizeControlDisabled}
                       onChange={(e) => updateActiveLogoBox({ ...activeLogoBox, w: Number(e.target.value) })}
-                      className={`w-full accent-cyan-300 ${imageControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                      className={`w-full accent-cyan-300 ${sizeControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                     />
                   </div>
 
@@ -4888,9 +5256,9 @@ function TasarimClientContent({ isMobile }) {
                       max="0.95"
                       step="0.005"
                       value={activeLogoBox.h}
-                      disabled={imageControlDisabled}
+                      disabled={sizeControlDisabled}
                       onChange={(e) => updateActiveLogoBox({ ...activeLogoBox, h: Number(e.target.value) })}
-                      className={`w-full accent-cyan-300 ${imageControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                      className={`w-full accent-cyan-300 ${sizeControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                     />
                   </div>
 
@@ -4954,7 +5322,13 @@ function TasarimClientContent({ isMobile }) {
                     </button>
                     <button
                       disabled={imageControlDisabled}
-                      onClick={() => updateActiveLogoBox({ x: 0.5, y: 0.6, w: 0.7, h: 0.45 })}
+                      onClick={() =>
+                        updateActiveLogoBox(
+                          activeLogoIsEmboss
+                            ? { ...activeLogoBox, x: 0.5, y: 0.6 }
+                            : { x: 0.5, y: 0.6, w: 0.7, h: 0.45 }
+                        )
+                      }
                       className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${
                         imageControlDisabled
                           ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
@@ -5043,6 +5417,21 @@ function TasarimClientContent({ isMobile }) {
                       step="1"
                       value={Number(customText?.size) || 150}
                       onChange={(e) => bumpCustomText({ size: Number(e.target.value) })}
+                      className="w-full accent-cyan-300"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                      <span>Döndürme</span>
+                      <span>{Math.round(Number(customText?.rotation) || 0)}°</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-180"
+                      max="180"
+                      step="1"
+                      value={Number(customText?.rotation) || 0}
+                      onChange={(e) => bumpCustomText({ rotation: Number(e.target.value) })}
                       className="w-full accent-cyan-300"
                     />
                   </div>
@@ -5448,7 +5837,7 @@ function TasarimClientContent({ isMobile }) {
                             {selectedPrintTypeNames || "Baski secilmedi"}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-4">
                           <button
                             onClick={() => {
                               setPickerStep("root");
@@ -5459,7 +5848,7 @@ function TasarimClientContent({ isMobile }) {
                           >
                             + Model
                           </button>
-                          <div className="flex items-center gap-1 min-w-0 max-w-[380px]">
+                          <div className="flex items-center gap-2 min-w-0 max-w-[430px] px-1">
                             <button
                               onClick={goPrevTab}
                               className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
@@ -5485,7 +5874,7 @@ function TasarimClientContent({ isMobile }) {
                           </div>
                           <button
                             onClick={openDrawerMenu}
-                            className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-wide shadow-sm"
+                            className="h-9 px-4 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-wide shadow-sm"
                             aria-label="Kategori menüsünü aç"
                           >
                             <Menu size={14} />

@@ -16,6 +16,10 @@ export default function TasarimAdetPage() {
   const [payload, setPayload] = useState(null);
   const [quantities, setQuantities] = useState({});
   const [error, setError] = useState("");
+  const resumeHref = useMemo(() => {
+    const modelType = payload?.designs?.[0]?.modelType;
+    return modelType ? `/tasarim?resume=1&model=${encodeURIComponent(modelType)}` : "/tasarim?resume=1";
+  }, [payload]);
 
   useEffect(() => {
     const data = getCheckoutData();
@@ -98,7 +102,7 @@ export default function TasarimAdetPage() {
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Link
-              href="/tasarim"
+              href={resumeHref}
               className="px-3 py-2 rounded-full border border-zinc-300 bg-white text-xs font-black uppercase tracking-widest"
             >
               Geri

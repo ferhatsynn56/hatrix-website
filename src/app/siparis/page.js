@@ -1,16 +1,452 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { Center, Decal, useGLTF } from "@react-three/drei";
+import * as THREE from "three";
+import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { getCheckoutData } from "@/lib/checkoutStore";
 
 const SIZE_OPTIONS = ["S", "M", "L", "XL"];
+const toSafeUrl = (p) => (typeof window !== "undefined" ? encodeURI(p) : p);
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+const NEW_MODELS_ROOT = "/models/newModels";
+const NEW_MODELS_DIR_A = `${NEW_MODELS_ROOT}/drive-download-20260208T203457Z-3-001`;
+const NEW_MODELS_DIR_B = `${NEW_MODELS_ROOT}/drive-download-20260210T163425Z-3-001`;
+const DEFAULT_MODEL_TYPE = "yeni-duz-tshirt";
+const MODEL_PATHS = {
+  "yeni-duz-tshirt": `${NEW_MODELS_DIR_A}/duz-tisort.glb`,
+  "yeni-oversize-tshirt": `${NEW_MODELS_DIR_A}/oversize-tshirt.glb`,
+  "yeni-duz-sweat": `${NEW_MODELS_DIR_A}/duz-sweat.glb`,
+  "yeni-oversize-sweat": `${NEW_MODELS_DIR_A}/oversize-sweat.glb`,
+  "yeni-fermuarli": `${NEW_MODELS_DIR_A}/fermuarli.glb`,
+  "polar-son": `${NEW_MODELS_DIR_B}/polar-son.glb`,
+  "hoodie-v12-canavari": `${NEW_MODELS_ROOT}/hoodie-v12-canavari.glb`,
+  "oversize-hoodie-parcali": `${NEW_MODELS_DIR_B}/oversize-hoodie-parcali.glb`,
+};
+const MODEL_TYPE_ALIASES = {
+  tshirt: "yeni-duz-tshirt",
+  "normal-tshirt": "yeni-duz-tshirt",
+  "normal-tisort": "yeni-duz-tshirt",
+  "duz-tshirt": "yeni-duz-tshirt",
+  sweatshirt: "yeni-duz-sweat",
+  "oversize-tshirt": "yeni-oversize-tshirt",
+  "oversize-sweat": "yeni-oversize-sweat",
+  hoodie: "hoodie-v12-canavari",
+  "hoodie-v12-canavari": "hoodie-v12-canavari",
+  "oversize-hoodie-parcali": "oversize-hoodie-parcali",
+  fermuarli: "yeni-fermuarli",
+  "yeni-fermuarli": "yeni-fermuarli",
+  polar: "polar-son",
+  "polar-son": "polar-son",
+};
+
+const normalizeModelType = (type) => {
+  const raw = String(type || "")
+    .toLowerCase()
+    .trim();
+  if (!raw) return DEFAULT_MODEL_TYPE;
+  const slug = raw.replace(/\s+/g, "-").replace(/_/g, "-");
+  const resolved = MODEL_TYPE_ALIASES[raw] || MODEL_TYPE_ALIASES[slug] || raw;
+  return MODEL_PATHS[resolved] ? resolved : DEFAULT_MODEL_TYPE;
+};
+
+const DEFAULT_HOODIE_PARTS = Object.freeze({
+  strings: false,
+  pocket: false,
+});
+const MODELS_WITH_HOODIE_PARTS = new Set(["hoodie-v12-canavari", "oversize-hoodie-parcali"]);
+
+const MODEL_PRINT_BOUNDS = {
+  "yeni-duz-tshirt": {
+    front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
+    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
+  },
+  "yeni-oversize-tshirt": {
+    front: { xMin: -0.17, xMax: 0.17, yTop: 0.265, yBot: -0.3, z: 0.147, rotY: 0 },
+    back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
+  },
+  "yeni-duz-sweat": {
+    front: { xMin: -0.16, xMax: 0.16, yTop: 0.275, yBot: -0.24, z: 0.147, rotY: 0 },
+    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.245, z: -0.148, rotY: Math.PI },
+  },
+  "yeni-oversize-sweat": {
+    front: { xMin: -0.16, xMax: 0.16, yTop: 0.27, yBot: -0.255, z: 0.147, rotY: 0 },
+    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.26, z: -0.148, rotY: Math.PI },
+  },
+  "yeni-fermuarli": {
+    front: { xMin: -0.15, xMax: 0.15, yTop: 0.22, yBot: -0.205, z: 0.131, rotY: 0.1 },
+    back: { xMin: -0.153, xMax: 0.153, yTop: 0.27, yBot: -0.238, z: -0.132, rotY: Math.PI },
+  },
+  "polar-son": {
+    front: { xMin: -0.162, xMax: 0.162, yTop: 0.275, yBot: -0.242, z: 0.139, rotY: 0 },
+    back: { xMin: -0.162, xMax: 0.162, yTop: 0.305, yBot: -0.248, z: -0.14, rotY: Math.PI },
+  },
+  "hoodie-v12-canavari": {
+    front: { xMin: -0.13, xMax: 0.13, yTop: 0.125, yBot: -0.265, z: 0.147, rotY: 0 },
+    back: { xMin: -0.122, xMax: 0.125, yTop: 0.145, yBot: -0.285, z: -0.148, rotY: Math.PI },
+  },
+  "oversize-hoodie-parcali": {
+    front: { xMin: -0.13, xMax: 0.13, yTop: 0.125, yBot: -0.265, z: 0.147, rotY: 0 },
+    back: { xMin: -0.12, xMax: 0.12, yTop: 0.145, yBot: -0.275, z: -0.148, rotY: Math.PI },
+  },
+};
+
+const HOODIE_POCKET_FRONT_YBOT = Object.freeze({
+  "hoodie-v12-canavari": -0.145,
+  "oversize-hoodie-parcali": -0.15,
+});
+
+const normalizeHoodieParts = (parts) => ({
+  ...DEFAULT_HOODIE_PARTS,
+  ...(parts && typeof parts === "object" ? parts : {}),
+});
+
+const getPrintProfile = (modelType, side = "front", hoodieParts = DEFAULT_HOODIE_PARTS) => {
+  const fallback = MODEL_PRINT_BOUNDS[DEFAULT_MODEL_TYPE] || MODEL_PRINT_BOUNDS["yeni-duz-tshirt"];
+  const base = MODEL_PRINT_BOUNDS[modelType]?.[side] || fallback?.[side];
+  if (!base || side !== "front") return base || fallback.front;
+  if (!hoodieParts?.pocket) return base;
+  const pocketYBot = HOODIE_POCKET_FRONT_YBOT[modelType];
+  if (!Number.isFinite(pocketYBot)) return base;
+  return { ...base, yBot: Math.max(base.yBot, pocketYBot) };
+};
+
+function pickDecalHostMesh(root) {
+  const candidates = [];
+  root.traverse((o) => {
+    if (!(o && (o.isMesh || o.isSkinnedMesh) && o.geometry?.attributes?.position)) return;
+    o.geometry.computeBoundingBox?.();
+    const bb = o.geometry.boundingBox;
+    if (!bb) return;
+    const size = new THREE.Vector3();
+    bb.getSize(size);
+    const volume = size.x * size.y * size.z;
+    if (!Number.isFinite(volume) || volume <= 0) return;
+    if (size.y > 0.35 && size.x > 0.15) candidates.push({ o, score: volume });
+  });
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0]?.o || null;
+}
+
+function RotatingModelPreviewMesh({
+  modelType,
+  color = "#d6dbe2",
+  stringColor = "#e6e6e6",
+  fabricType = "standart",
+  frontPrintUrl = "",
+  backPrintUrl = "",
+  hoodieV12Parts = DEFAULT_HOODIE_PARTS,
+}) {
+  const meshRef = useRef(null);
+  const resolvedType = normalizeModelType(modelType);
+  const modelPathRaw = MODEL_PATHS[resolvedType] || MODEL_PATHS[DEFAULT_MODEL_TYPE];
+  const gltf = useGLTF(toSafeUrl(modelPathRaw));
+  const hasSkinned = useMemo(() => {
+    let found = false;
+    gltf.scene.traverse((o) => {
+      if (o?.isSkinnedMesh) found = true;
+    });
+    return found;
+  }, [gltf.scene]);
+  const root = useMemo(() => {
+    return hasSkinned ? SkeletonUtils.clone(gltf.scene) : gltf.scene.clone(true);
+  }, [gltf.scene, hasSkinned]);
+
+  const [frontTex, setFrontTex] = useState(null);
+  const [backTex, setBackTex] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!frontPrintUrl) {
+      setFrontTex((prev) => {
+        if (prev) prev.dispose();
+        return null;
+      });
+      return undefined;
+    }
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      frontPrintUrl,
+      (texture) => {
+        if (cancelled) {
+          texture.dispose();
+          return;
+        }
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = 8;
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.needsUpdate = true;
+        setFrontTex((prev) => {
+          if (prev) prev.dispose();
+          return texture;
+        });
+      },
+      undefined,
+      () => {
+        setFrontTex((prev) => {
+          if (prev) prev.dispose();
+          return null;
+        });
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [frontPrintUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!backPrintUrl) {
+      setBackTex((prev) => {
+        if (prev) prev.dispose();
+        return null;
+      });
+      return undefined;
+    }
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      backPrintUrl,
+      (texture) => {
+        if (cancelled) {
+          texture.dispose();
+          return;
+        }
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = 8;
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.needsUpdate = true;
+        setBackTex((prev) => {
+          if (prev) prev.dispose();
+          return texture;
+        });
+      },
+      undefined,
+      () => {
+        setBackTex((prev) => {
+          if (prev) prev.dispose();
+          return null;
+        });
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [backPrintUrl]);
+
+  useEffect(
+    () => () => {
+      if (frontTex) frontTex.dispose();
+      if (backTex) backTex.dispose();
+    },
+    [frontTex, backTex]
+  );
+
+  const decalHost = useMemo(() => pickDecalHostMesh(root), [root]);
+  const decalHostRef = useMemo(() => ({ current: decalHost }), [decalHost]);
+  const parts = normalizeHoodieParts(hoodieV12Parts);
+  const frontProfile = getPrintProfile(resolvedType, "front", parts);
+  const backProfile = getPrintProfile(resolvedType, "back", parts);
+  const frontW = frontProfile.xMax - frontProfile.xMin;
+  const frontH = frontProfile.yTop - frontProfile.yBot;
+  const frontCY = (frontProfile.yTop + frontProfile.yBot) / 2;
+  const backW = backProfile.xMax - backProfile.xMin;
+  const backH = backProfile.yTop - backProfile.yBot;
+  const backCY = (backProfile.yTop + backProfile.yBot) / 2;
+  const bodyMaterial = useMemo(() => {
+    const base = new THREE.Color(color || "#d6dbe2");
+    const lum = 0.2126 * base.r + 0.7152 * base.g + 0.0722 * base.b;
+    const darkBoost = clamp((0.42 - lum) / 0.42, 0, 1);
+    const lightBoost = clamp((lum - 0.72) / 0.28, 0, 1);
+    const fabricMap = {
+      standart: { rough: 0, metal: 0, env: 0 },
+      pamuk: { rough: 0.025, metal: -0.002, env: -0.06 },
+      soft: { rough: -0.035, metal: 0.004, env: 0.08 },
+    };
+    const fx = fabricMap[fabricType] || fabricMap.standart;
+    return new THREE.MeshStandardMaterial({
+      color: base,
+      roughness: clamp(0.968 - 0.04 * darkBoost + 0.09 * lightBoost + fx.rough, 0.9, 0.995),
+      metalness: clamp(0.006 + 0.014 * darkBoost + fx.metal, 0.002, 0.03),
+      envMapIntensity: clamp(1.0 + fx.env, 0.7, 1.2),
+      side: THREE.FrontSide,
+    });
+  }, [color, fabricType]);
+
+  const laceMaterial = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color(stringColor || "#e6e6e6"),
+        roughness: 0.9,
+        metalness: 0.02,
+        envMapIntensity: 1.0,
+        side: THREE.FrontSide,
+      }),
+    [stringColor]
+  );
+
+  useEffect(
+    () => () => {
+      bodyMaterial.dispose();
+      laceMaterial.dispose();
+    },
+    [bodyMaterial, laceMaterial]
+  );
+
+  useEffect(() => {
+    const isHoodieWithParts = MODELS_WITH_HOODIE_PARTS.has(resolvedType);
+    const showStrings = !!parts.strings;
+    const showPocket = !!parts.pocket;
+
+    const looksLikeLace = (o) => {
+      const n = String(o?.name || "").toLowerCase();
+      const mn = String(o?.material?.name || "").toLowerCase();
+      return (
+        n.includes("string") ||
+        n.includes("lace") ||
+        n.includes("draw") ||
+        n.includes("ip") ||
+        n.includes("cord") ||
+        mn.includes("string") ||
+        mn.includes("lace") ||
+        mn.includes("draw") ||
+        mn.includes("ip") ||
+        mn.includes("cord")
+      );
+    };
+
+    root.traverse((obj) => {
+      if (!(obj?.isMesh || obj?.isSkinnedMesh)) return;
+      obj.castShadow = true;
+      obj.receiveShadow = true;
+      const meshName = String(obj?.name || "").toLowerCase();
+
+      if (isHoodieWithParts) {
+        if (meshName.includes("hoodie_ipler") || meshName.includes("_ip") || meshName.includes("ipler")) {
+          obj.visible = showStrings;
+          obj.material = laceMaterial;
+          return;
+        }
+        if (meshName.includes("hoodie_cep") || meshName.includes("_cep") || meshName.includes("cep")) {
+          obj.visible = showPocket;
+          obj.material = bodyMaterial;
+          return;
+        }
+        obj.visible = true;
+        obj.material = bodyMaterial;
+        return;
+      }
+
+      obj.visible = true;
+      obj.material = looksLikeLace(obj) ? laceMaterial : bodyMaterial;
+    });
+  }, [root, resolvedType, parts.strings, parts.pocket, bodyMaterial, laceMaterial]);
+  useFrame((state, delta) => {
+    if (!meshRef?.current) return;
+    meshRef.current.rotation.y += delta * 0.5;
+  });
+
+  return (
+    <group ref={meshRef} position={[0, -0.08, 0]}>
+      <Center>
+        <primitive object={root} />
+        {decalHost && frontTex && (
+          <Decal
+            mesh={decalHostRef}
+            position={[0, frontCY, frontProfile.z + 0.001]}
+            rotation={[0, frontProfile.rotY || 0, 0]}
+            scale={[frontW, frontH, 0.3]}
+          >
+            <meshBasicMaterial
+              map={frontTex}
+              toneMapped={false}
+              color="#ffffff"
+              transparent
+              alphaTest={0.02}
+              depthWrite={false}
+              polygonOffset
+              polygonOffsetFactor={-10}
+              side={THREE.FrontSide}
+            />
+          </Decal>
+        )}
+        {decalHost && backTex && (
+          <Decal
+            mesh={decalHostRef}
+            position={[0, backCY, backProfile.z - 0.001]}
+            rotation={[0, backProfile.rotY || Math.PI, 0]}
+            scale={[backW, backH, 0.3]}
+          >
+            <meshBasicMaterial
+              map={backTex}
+              toneMapped={false}
+              color="#ffffff"
+              transparent
+              alphaTest={0.02}
+              depthWrite={false}
+              polygonOffset
+              polygonOffsetFactor={-10}
+              side={THREE.FrontSide}
+            />
+          </Decal>
+        )}
+      </Center>
+    </group>
+  );
+}
+
+function OrderTurntablePreview({
+  modelType,
+  color,
+  stringColor,
+  fabricType,
+  label,
+  frontPrintUrl,
+  backPrintUrl,
+  hoodieV12Parts,
+}) {
+  return (
+    <div className="aspect-[4/5] rounded-xl bg-[#eef1f4] overflow-hidden border border-zinc-200">
+      <Canvas
+        dpr={[1, 1.25]}
+        camera={{ position: [0, 0.28, 2.12], fov: 30 }}
+        gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+      >
+        <color attach="background" args={["#eef1f4"]} />
+        <ambientLight intensity={0.95} />
+        <hemisphereLight intensity={0.35} groundColor="#2a2a2a" />
+        <directionalLight position={[4, 7, 5]} intensity={0.85} />
+        <directionalLight position={[-4, 5, -4]} intensity={0.26} />
+        <Suspense fallback={null}>
+          <RotatingModelPreviewMesh
+            modelType={modelType}
+            color={color}
+            stringColor={stringColor}
+            fabricType={fabricType}
+            frontPrintUrl={frontPrintUrl}
+            backPrintUrl={backPrintUrl}
+            hoodieV12Parts={hoodieV12Parts}
+          />
+        </Suspense>
+      </Canvas>
+      <p className="sr-only">{label}</p>
+    </div>
+  );
+}
 
 export default function SiparisPage() {
   const router = useRouter();
   const [data, setData] = useState(null);
   const [selectedSize, setSelectedSize] = useState("M");
+  const resumeHref = useMemo(() => {
+    const modelType = data?.designs?.[0]?.modelType;
+    return modelType ? `/tasarim?resume=1&model=${encodeURIComponent(modelType)}` : "/tasarim?resume=1";
+  }, [data]);
 
   useEffect(() => {
     const payload = getCheckoutData();
@@ -54,7 +490,7 @@ export default function SiparisPage() {
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
-              href="/tasarim"
+              href={resumeHref}
               className="px-3 py-2 rounded-full border border-zinc-300 bg-white text-xs font-black uppercase tracking-widest"
             >
               Geri
@@ -76,38 +512,25 @@ export default function SiparisPage() {
       <main className="max-w-6xl mx-auto px-6 py-8">
         <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
           <section className="space-y-6">
-            {data.designs.map((item) => (
+            {data.designs.map((item) => {
+              const details = item?.designDetails || {};
+              const printFiles = details?.printFiles || {};
+              const resolvedBaseColor = details?.baseColor || item?.color || "#d6dbe2";
+              const resolvedStringColor = details?.stringColor || "#e6e6e6";
+              const resolvedFabric = details?.fabricType || item?.fabricType || "standart";
+              return (
               <div key={item.id} className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-                <div className="flex flex-wrap gap-4">
-                  <div className="w-full sm:w-[calc(50%-0.5rem)]">
-                    <div className="aspect-[4/5] rounded-xl bg-[#efefef] overflow-hidden flex items-center justify-center">
-                      {item.mockupFiles?.front || item.preview ? (
-                        <img
-                          src={item.mockupFiles?.front || item.preview}
-                          alt={`${item.name} on`}
-                          className="w-full h-full object-contain"
-                        />
-                      ) : (
-                        <div className="text-xs text-zinc-400">Ön Görsel Yok</div>
-                      )}
-                    </div>
-                    <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">Ön</p>
-                  </div>
-                  <div className="w-full sm:w-[calc(50%-0.5rem)]">
-                    <div className="aspect-[4/5] rounded-xl bg-[#efefef] overflow-hidden flex items-center justify-center">
-                      {item.mockupFiles?.back ? (
-                        <img
-                          src={item.mockupFiles?.back}
-                          alt={`${item.name} arka`}
-                          className="w-full h-full object-contain"
-                        />
-                      ) : (
-                        <div className="text-xs text-zinc-400">Arka Görsel Yok</div>
-                      )}
-                    </div>
-                    <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">Arka</p>
-                  </div>
-                </div>
+                <OrderTurntablePreview
+                  modelType={item.modelType}
+                  color={resolvedBaseColor}
+                  stringColor={resolvedStringColor}
+                  fabricType={resolvedFabric}
+                  label={`${item.name} 3D onizleme`}
+                  frontPrintUrl={printFiles?.front || ""}
+                  backPrintUrl={printFiles?.back || ""}
+                  hoodieV12Parts={details?.hoodieV12Parts || DEFAULT_HOODIE_PARTS}
+                />
+                <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">Dönen 3D Önizleme</p>
 
                 <div className="mt-5 flex items-center justify-between">
                   <div>
@@ -123,7 +546,8 @@ export default function SiparisPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </section>
 
           <aside className="space-y-4">

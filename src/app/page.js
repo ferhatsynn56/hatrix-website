@@ -154,36 +154,61 @@ export default function HomePage() {
     if (aktifBolum === 'intro') {
         return (
             <div className="h-screen w-full flex flex-col md:flex-row bg-black overflow-hidden relative z-[60]">
-                
-                {/* STENI TARAFI */}
-                <div onClick={() => bolumSec('steni')} className="relative w-full md:w-1/2 h-1/2 md:h-full group cursor-pointer border-b md:border-b-0 md:border-r border-zinc-900">
-                    <div className="absolute inset-0 bg-black">
-                        <img 
-                            src="/urungorsel/girisFoto1.png" 
-                            className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-105 transition-all duration-1000 ease-out" 
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/40"></div>
-                    </div>
-                    <div className="absolute inset-0 flex flex-col justify-center items-center text-center p-6 sm:p-8 z-10">
-                        <h2 className="text-5xl sm:text-6xl md:text-8xl font-black text-white uppercase tracking-tighter leading-none mb-4 group-hover:translate-y-[-10px] transition duration-500 shadow-black drop-shadow-2xl">STENI</h2>
-                        <p className="text-white/80 font-bold tracking-[0.3em] text-xs uppercase group-hover:text-white transition">Ready to Wear</p>
-                    </div>
-                </div>
+                <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_20%_10%,rgba(255,255,255,0.06),transparent_35%),radial-gradient(circle_at_80%_90%,rgba(255,255,255,0.05),transparent_35%)]" />
 
-                {/* ÖZEL TARAFI */}
-                <div onClick={() => bolumSec('ozel')} className="relative w-full md:w-1/2 h-1/2 md:h-full group cursor-pointer">
+                <button
+                    type="button"
+                    onClick={() => bolumSec('steni')}
+                    className="relative w-full md:w-1/2 h-1/2 md:h-full group cursor-pointer border-b md:border-b-0 md:border-r border-zinc-900 text-left"
+                >
                     <div className="absolute inset-0 bg-black">
-                        <img 
-                            src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2000&auto=format&fit=crop" 
-                            className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-105 transition-all duration-1000 ease-out" 
+                        <img
+                            src="/urungorsel/girisFoto1.png"
+                            className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-[1.04] transition-all duration-700 ease-out"
+                            alt="Steni koleksiyon önizleme"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/40"></div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/55" />
                     </div>
-                    <div className="absolute inset-0 flex flex-col justify-center items-center text-center p-6 sm:p-8 z-10">
-                        <h2 className="text-5xl sm:text-6xl md:text-8xl font-black text-white uppercase tracking-tighter leading-none mb-4 group-hover:translate-y-[-10px] transition duration-500 shadow-black drop-shadow-2xl">ÖZEL</h2>
-                        <p className="text-white/80 font-bold tracking-[0.3em] text-xs uppercase group-hover:text-white transition">Design Studio</p>
+                    <div className="absolute inset-0 z-10 p-6 sm:p-8 md:p-10 flex flex-col justify-between">
+                        <div className="inline-flex items-center w-fit px-3 py-1 rounded-full border border-white/30 bg-black/30 backdrop-blur text-[10px] font-black tracking-[0.2em] text-zinc-200 uppercase">
+                            Hazır Giyim
+                        </div>
+                        <div className="text-left">
+                            <h2 className="text-5xl sm:text-6xl md:text-8xl font-black text-white uppercase tracking-tighter leading-none mb-3 group-hover:translate-y-[-4px] transition duration-300">
+                                STENI
+                            </h2>
+                            <p className="text-white/85 font-bold tracking-[0.3em] text-xs uppercase">Ready to Wear</p>
+                            <p className="mt-3 text-zinc-300 text-xs sm:text-sm max-w-sm">Hazır koleksiyonlardan seç, doğrudan satın al.</p>
+                        </div>
                     </div>
-                </div>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => bolumSec('ozel')}
+                    className="relative w-full md:w-1/2 h-1/2 md:h-full group cursor-pointer text-left"
+                >
+                    <div className="absolute inset-0 bg-black">
+                        <img
+                            src="/urungorsel/800x800/conceptttt.jpg"
+                            className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-[1.04] transition-all duration-700 ease-out"
+                            alt="Özel tasarım stüdyo önizleme"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/55" />
+                    </div>
+                    <div className="absolute inset-0 z-10 p-6 sm:p-8 md:p-10 flex flex-col justify-between">
+                        <div className="inline-flex items-center w-fit px-3 py-1 rounded-full border border-white/30 bg-black/30 backdrop-blur text-[10px] font-black tracking-[0.2em] text-zinc-200 uppercase">
+                            Kişiye Özel
+                        </div>
+                        <div className="text-left">
+                            <h2 className="text-5xl sm:text-6xl md:text-8xl font-black text-white uppercase tracking-tighter leading-none mb-3 group-hover:translate-y-[-4px] transition duration-300">
+                                ÖZEL
+                            </h2>
+                            <p className="text-white/85 font-bold tracking-[0.3em] text-xs uppercase">Design Studio</p>
+                            <p className="mt-3 text-zinc-300 text-xs sm:text-sm max-w-sm">Modelini seç, kendi tasarımını üretime hazırla.</p>
+                        </div>
+                    </div>
+                </button>
             </div>
         );
     }
@@ -340,7 +365,7 @@ export default function HomePage() {
                                         Sadece giyinmek değil, sanatı üzerinizde taşımak. Kullandığımız yüksek çözünürlüklü dijital baskı teknikleri ile kumaşın dokusunu bozmadan, canlı ve kalıcı desenler sunuyoruz.
                                     </p>
                                     <div className="flex gap-4">
-                                        <button onClick={() => setBilimselAcik(true)} className="bg-white text-black px-8 py-4 font-black text-xs uppercase tracking-widest hover:bg-zinc-200 transition rounded-full flex items-center gap-2">
+                                        <button onClick={() => router.push('/bilimsel')} className="bg-white text-black px-8 py-4 font-black text-xs uppercase tracking-widest hover:bg-zinc-200 transition rounded-full flex items-center gap-2">
                                             <Beaker size={16} /> Teknolojiyi İncele
                                         </button>
                                     </div>
@@ -512,7 +537,7 @@ export default function HomePage() {
                         <div className="flex flex-col space-y-6">
                             <h4 className="text-xs font-bold uppercase tracking-widest text-zinc-500">Şirket</h4>
                             <ul className="space-y-4 text-sm font-medium text-zinc-300">
-                                <li><a href="#" className="hover:text-white hover:underline transition">Hakkımızda</a></li>
+                                <li><a href="/hakkimizda" className="hover:text-white hover:underline transition">Hakkımızda</a></li>
                                 <li><a href="#" className="hover:text-white hover:underline transition">Kariyer</a></li>
                             </ul>
                         </div>
