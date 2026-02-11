@@ -565,19 +565,17 @@ function PrintTypePickerCards({ selectedIds = [], onSelect, sourceLabel = "Sec",
                 if (!disabled) onSelect?.(opt.id);
               }}
               disabled={disabled}
-              className={`rounded-xl border px-2 py-2 text-left transition ${
-                disabled
+              className={`rounded-xl border px-2 py-2 text-left transition ${disabled
                   ? "cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400"
                   : selected
                     ? "border-black bg-black text-white"
                     : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
-              }`}
+                }`}
             >
               <p className="text-[11px] font-black uppercase tracking-wide">{opt.label}</p>
               <p
-                className={`mt-1 text-[12px] font-bold leading-snug ${
-                  disabled ? "text-zinc-400" : selected ? "text-zinc-200" : "text-gray-700"
-                }`}
+                className={`mt-1 text-[12px] font-bold leading-snug ${disabled ? "text-zinc-400" : selected ? "text-zinc-200" : "text-gray-700"
+                  }`}
               >
                 {disabled ? "Yakinda" : opt.info}
               </p>
@@ -1780,11 +1778,11 @@ function Real3DModel({
                       transparent
                       opacity={fx.opacity}
                       alphaTest={0.06}
-                      roughness={0.88}
-                      metalness={0.015}
-                      envMapIntensity={0.98}
+                      roughness={0.4}
+                      metalness={0.1}
+                      envMapIntensity={1.5}
                       bumpMap={tex}
-                      bumpScale={0.58}
+                      bumpScale={15.0}
                       depthWrite={false}
                       polygonOffset
                       polygonOffsetFactor={-12}
@@ -1840,11 +1838,11 @@ function Real3DModel({
                       transparent
                       opacity={fx.opacity}
                       alphaTest={0.06}
-                      roughness={0.88}
-                      metalness={0.015}
-                      envMapIntensity={0.98}
+                      roughness={0.4}
+                      metalness={0.1}
+                      envMapIntensity={1.5}
                       bumpMap={tex}
-                      bumpScale={0.58}
+                      bumpScale={15.0}
                       depthWrite={false}
                       polygonOffset
                       polygonOffsetFactor={-12}
@@ -1902,7 +1900,7 @@ function ResizeFrame({
     if (e.target?.setPointerCapture) {
       try {
         e.target.setPointerCapture(e.pointerId);
-      } catch {}
+      } catch { }
     }
 
     const rect = containerRef.current.getBoundingClientRect();
@@ -2050,7 +2048,7 @@ function ResizeFrame({
     if (e.target?.releasePointerCapture) {
       try {
         e.target.releasePointerCapture(e.pointerId);
-      } catch {}
+      } catch { }
     }
     dragRef.current = null;
     if (rafRef.current) {
@@ -2110,10 +2108,10 @@ function ResizeFrame({
                   key === "t" || key === "b"
                     ? "ns-resize"
                     : key === "l" || key === "r"
-                    ? "ew-resize"
-                    : key === "lt" || key === "rb"
-                    ? "nwse-resize"
-                    : "nesw-resize",
+                      ? "ew-resize"
+                      : key === "lt" || key === "rb"
+                        ? "nwse-resize"
+                        : "nesw-resize",
               }}
               onPointerDown={(e) => begin(key, e)}
             />
@@ -2400,11 +2398,10 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                           onContinue?.(modelType);
                         }
                       }}
-                      className={`w-full rounded-2xl border bg-white p-2.5 shadow-sm text-left transition ${
-                        active
+                      className={`w-full rounded-2xl border bg-white p-2.5 shadow-sm text-left transition ${active
                           ? "border-black ring-2 ring-black/70"
                           : "border-zinc-200 hover:border-zinc-400 hover:shadow-md"
-                      }`}
+                        }`}
                       aria-pressed={active}
                     >
                       <div className="aspect-square rounded-xl overflow-hidden border border-zinc-200 bg-[#eef1f4]">
@@ -2446,11 +2443,10 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
             type="button"
             disabled={!selectedModel}
             onClick={() => onContinue?.(selectedModel)}
-            className={`px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest transition ${
-              selectedModel
+            className={`px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest transition ${selectedModel
                 ? "bg-black text-white hover:bg-zinc-800"
                 : "bg-zinc-300 text-zinc-500 cursor-not-allowed"
-            }`}
+              }`}
           >
             Tasarıma Geç
           </button>
@@ -2489,11 +2485,10 @@ function ModelManagementCard({
             <button
               key={`model-card-${item.id}`}
               onClick={() => onSelectModel?.(item.id)}
-              className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wide border transition ${
-                selected
+              className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wide border transition ${selected
                   ? "bg-black text-white border-black"
                   : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-              }`}
+                }`}
             >
               {MODEL_LABELS[item.modelType] || item.modelType}
             </button>
@@ -2515,11 +2510,10 @@ function ModelManagementCard({
                   key={`hoodie-detail-toggle-${opt.id}`}
                   type="button"
                   onClick={() => onToggleHoodiePart?.(opt.id, !active)}
-                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase border transition flex items-center justify-center gap-1 ${
-                    active
+                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase border transition flex items-center justify-center gap-1 ${active
                       ? "bg-black text-white border-black"
                       : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                  }`}
+                    }`}
                 >
                   {active && <Check size={12} />}
                   {opt.label}
@@ -2542,11 +2536,10 @@ function ModelManagementCard({
               key={`fabric-${opt.id}`}
               type="button"
               onClick={() => onChangeFabric?.(opt.id)}
-              className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase border transition ${
-                fabricType === opt.id
+              className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase border transition ${fabricType === opt.id
                   ? "bg-black text-white border-black"
                   : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-              }`}
+                }`}
             >
               {opt.label}
             </button>
@@ -2708,16 +2701,16 @@ function EditorPanel({
       return;
     }
     const id = makeId();
-      const nextLogo = {
-        id,
-        url: sticker.src,
-        box: { x: 0.5, y: 0.6, w: 0.62, h: 0.42 },
-        rotation: 0,
-        z: 0,
-        kind: "sticker",
-        emboss: true,
-        ...LOGO_STYLE_DEFAULTS,
-      };
+    const nextLogo = {
+      id,
+      url: sticker.src,
+      box: { x: 0.5, y: 0.6, w: 0.62, h: 0.42 },
+      rotation: 0,
+      z: 0,
+      kind: "sticker",
+      emboss: true,
+      ...LOGO_STYLE_DEFAULTS,
+    };
     const nextLogos = [...(sideData.logos || []), nextLogo];
     updateSide({ logos: nextLogos, activeLogoId: id });
     onRequestDrawerCollapse?.();
@@ -2895,10 +2888,12 @@ function EditorPanel({
                     e.stopPropagation();
                     const rect = previewRef.current.getBoundingClientRect();
                     const move = (ev) =>
-                      updateSide({ textPos: clampTextPos({
-                        x: clamp01((ev.clientX - rect.left) / rect.width),
-                        y: clamp01((ev.clientY - rect.top) / rect.height),
-                      }, sideData?.customText) });
+                      updateSide({
+                        textPos: clampTextPos({
+                          x: clamp01((ev.clientX - rect.left) / rect.width),
+                          y: clamp01((ev.clientY - rect.top) / rect.height),
+                        }, sideData?.customText)
+                      });
                     const up = () => {
                       window.removeEventListener("pointermove", move);
                       window.removeEventListener("pointerup", up);
@@ -2982,9 +2977,8 @@ function EditorPanel({
                     <button
                       key={s}
                       onClick={() => updateDesign({ size: s })}
-                      className={`w-7 h-7 text-[10px] font-bold rounded border transition ${
-                        design.size === s ? "bg-white text-black border-white" : "text-zinc-500 border-zinc-700"
-                      }`}
+                      className={`w-7 h-7 text-[10px] font-bold rounded border transition ${design.size === s ? "bg-white text-black border-white" : "text-zinc-500 border-zinc-700"
+                        }`}
                     >
                       {s}
                     </button>
@@ -3008,9 +3002,8 @@ function EditorPanel({
                   setActiveTab(tab.id);
                   if (tab.id === "upload" && !isMobileDrawer) onRequestDrawerCollapse?.();
                 }}
-                className={`flex-1 py-3 text-[10px] font-bold uppercase flex flex-col items-center gap-1 ${
-                  activeTab === tab.id ? "text-white border-b-2 border-white" : "text-zinc-500"
-                }`}
+                className={`flex-1 py-3 text-[10px] font-bold uppercase flex flex-col items-center gap-1 ${activeTab === tab.id ? "text-white border-b-2 border-white" : "text-zinc-500"
+                  }`}
               >
                 <tab.icon size={14} /> {tab.label}
               </button>
@@ -3021,13 +3014,12 @@ function EditorPanel({
 
       {/* Content */}
       <div
-        className={`flex-1 ${
-          isDrawerLayout
+        className={`flex-1 ${isDrawerLayout
             ? isMobileDrawer
               ? "h-full p-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)] flex flex-col items-stretch gap-2 overflow-y-auto overflow-x-hidden"
               : "h-full py-2.5 px-3 2xl:px-7 flex items-stretch justify-start gap-2 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
             : "p-4 overflow-y-auto"
-        }`}
+          }`}
         style={{ touchAction: "pan-y", minHeight: 0, backgroundColor: contentBackground }}
       >
         {isDrawerLayout && activeTab !== "upload" && (
@@ -3061,116 +3053,113 @@ function EditorPanel({
 
             {!showPrintTypePicker && (
               <>
-            <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full grid grid-cols-1 gap-2" : "w-full grid grid-cols-[minmax(320px,1.05fr)_minmax(460px,1.35fr)] gap-2") : "grid grid-cols-1 lg:grid-cols-[1.1fr_1.3fr] gap-2"}`}>
-              <ModelManagementCard
-                designs={designs}
-                activeId={activeId}
-                onSelectModel={onSelectModel}
-                onRemoveModel={onRemoveModel}
-                activeModelType={design.modelType}
-                hoodieParts={hoodieV12Parts}
-                onToggleHoodiePart={setHoodiePartEnabled}
-                fabricType={fabricType}
-                onChangeFabric={(id) => updateDesign({ fabricType: id })}
-              />
+                <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full grid grid-cols-1 gap-2" : "w-full grid grid-cols-[minmax(320px,1.05fr)_minmax(460px,1.35fr)] gap-2") : "grid grid-cols-1 lg:grid-cols-[1.1fr_1.3fr] gap-2"}`}>
+                  <ModelManagementCard
+                    designs={designs}
+                    activeId={activeId}
+                    onSelectModel={onSelectModel}
+                    onRemoveModel={onRemoveModel}
+                    activeModelType={design.modelType}
+                    hoodieParts={hoodieV12Parts}
+                    onToggleHoodiePart={setHoodiePartEnabled}
+                    fabricType={fabricType}
+                    onChangeFabric={(id) => updateDesign({ fabricType: id })}
+                  />
 
-              <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "h-full min-h-[206px]") : ""}`}>
-                <div className="flex items-center justify-between">
-                  <p className={drawerHeadingClass}>Dosya</p>
-                  <p className="text-[10px] text-gray-500">{logoCount}/{MAX_LOGOS_PER_SIDE} katman</p>
-                </div>
+                  <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "h-full min-h-[206px]") : ""}`}>
+                    <div className="flex items-center justify-between">
+                      <p className={drawerHeadingClass}>Dosya</p>
+                      <p className="text-[10px] text-gray-500">{logoCount}/{MAX_LOGOS_PER_SIDE} katman</p>
+                    </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  {Array.from({ length: MAX_LOGOS_PER_SIDE }).map((_, slotIdx) => {
-                    const layer = sideData.logos?.[slotIdx] || null;
-                    const selected = layer && (sideData.activeLogoId || sideData.logos?.[0]?.id) === layer.id;
+                    <div className="grid grid-cols-3 gap-2">
+                      {Array.from({ length: MAX_LOGOS_PER_SIDE }).map((_, slotIdx) => {
+                        const layer = sideData.logos?.[slotIdx] || null;
+                        const selected = layer && (sideData.activeLogoId || sideData.logos?.[0]?.id) === layer.id;
 
-                    if (layer) {
-                      return (
-                        <div
-                          key={`slot-layer-${layer.id}`}
-                          onClick={() => updateSide({ activeLogoId: layer.id })}
-                          role="button"
-                          className={`relative h-28 rounded-lg border overflow-hidden transition cursor-pointer ${
-                            selected ? "border-black ring-1 ring-black/20" : "border-gray-300 hover:border-gray-400"
-                          }`}
-                        >
-                          <div className="absolute left-1.5 top-1.5 z-10 px-1.5 py-0.5 rounded bg-white/90 border border-gray-200 text-[9px] text-gray-700 font-black uppercase tracking-wide flex items-center gap-1">
-                            <ImageIcon size={10} />
-                            Dosya {slotIdx + 1}
+                        if (layer) {
+                          return (
+                            <div
+                              key={`slot-layer-${layer.id}`}
+                              onClick={() => updateSide({ activeLogoId: layer.id })}
+                              role="button"
+                              className={`relative h-28 rounded-lg border overflow-hidden transition cursor-pointer ${selected ? "border-black ring-1 ring-black/20" : "border-gray-300 hover:border-gray-400"
+                                }`}
+                            >
+                              <div className="absolute left-1.5 top-1.5 z-10 px-1.5 py-0.5 rounded bg-white/90 border border-gray-200 text-[9px] text-gray-700 font-black uppercase tracking-wide flex items-center gap-1">
+                                <ImageIcon size={10} />
+                                Dosya {slotIdx + 1}
+                              </div>
+                              <img src={layer.url} alt="" className="w-full h-full object-cover" />
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const next = (sideData.logos || []).filter((l) => l.id !== layer.id);
+                                  updateSide({ logos: next, activeLogoId: next[0]?.id || null });
+                                }}
+                                className="absolute right-1.5 top-1.5 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center"
+                                aria-label="Katmanı sil"
+                              >
+                                <X size={11} />
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div key={`slot-empty-${slotIdx}`} className="relative h-28 rounded-lg border border-dashed border-gray-300 bg-gray-50">
+                            <button
+                              onClick={() => uploadSlotRefs.current?.[slotIdx]?.click()}
+                              disabled={!canUploadMoreLogos}
+                              className={`w-full h-full flex flex-col items-start justify-center pl-4 gap-1 ${canUploadMoreLogos ? "text-gray-600 hover:bg-gray-100" : "text-gray-400 cursor-not-allowed"
+                                }`}
+                            >
+                              <Plus size={26} strokeWidth={2.8} />
+                              <span className="text-[11px] font-bold uppercase">Dosya Ekle</span>
+                            </button>
+                            <input
+                              ref={(el) => {
+                                uploadSlotRefs.current[slotIdx] = el;
+                              }}
+                              type="file"
+                              className="hidden"
+                              accept="image/*"
+                              disabled={!canUploadMoreLogos}
+                              onChange={async (e) => {
+                                const inputEl = e.currentTarget;
+                                const file = inputEl.files?.[0];
+                                await handleUploadFile(file);
+                                inputEl.value = "";
+                              }}
+                            />
                           </div>
-                          <img src={layer.url} alt="" className="w-full h-full object-cover" />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const next = (sideData.logos || []).filter((l) => l.id !== layer.id);
-                              updateSide({ logos: next, activeLogoId: next[0]?.id || null });
-                            }}
-                            className="absolute right-1.5 top-1.5 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center"
-                            aria-label="Katmanı sil"
-                          >
-                            <X size={11} />
-                          </button>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div key={`slot-empty-${slotIdx}`} className="relative h-28 rounded-lg border border-dashed border-gray-300 bg-gray-50">
-                        <button
-                          onClick={() => uploadSlotRefs.current?.[slotIdx]?.click()}
-                          disabled={!canUploadMoreLogos}
-                          className={`w-full h-full flex flex-col items-start justify-center pl-4 gap-1 ${
-                            canUploadMoreLogos ? "text-gray-600 hover:bg-gray-100" : "text-gray-400 cursor-not-allowed"
-                          }`}
-                        >
-                          <Plus size={26} strokeWidth={2.8} />
-                          <span className="text-[11px] font-bold uppercase">Dosya Ekle</span>
-                        </button>
-                        <input
-                          ref={(el) => {
-                            uploadSlotRefs.current[slotIdx] = el;
-                          }}
-                          type="file"
-                          className="hidden"
-                          accept="image/*"
-                          disabled={!canUploadMoreLogos}
-                          onChange={async (e) => {
-                            const inputEl = e.currentTarget;
-                            const file = inputEl.files?.[0];
-                            await handleUploadFile(file);
-                            inputEl.value = "";
-                          }}
-                        />
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setActiveTab("editor");
+                        if (isMobileDrawer) onRequestDrawerCollapse?.();
+                      }}
+                      className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2"
+                    >
+                      <Move size={14} /> Yerleşim Paneli
+                    </button>
+                    <button
+                      onClick={handleDeleteActiveImage}
+                      disabled={!activeLogo}
+                      className={`w-full py-1.5 rounded-lg text-[10px] font-bold uppercase border flex items-center justify-center gap-2 ${activeLogo
+                          ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                          : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                        }`}
+                    >
+                      <Trash2 size={13} /> Seçili Dosyayı Sil
+                    </button>
+                    {!canUploadMoreLogos && (
+                      <p className="text-[10px] text-gray-500 font-semibold">Maksimum 3 görsel yüklendi.</p>
+                    )}
+                  </div>
                 </div>
-                <button
-                  onClick={() => {
-                    setActiveTab("editor");
-                    if (isMobileDrawer) onRequestDrawerCollapse?.();
-                  }}
-                  className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2"
-                >
-                  <Move size={14} /> Yerleşim Paneli
-                </button>
-                <button
-                  onClick={handleDeleteActiveImage}
-                  disabled={!activeLogo}
-                  className={`w-full py-1.5 rounded-lg text-[10px] font-bold uppercase border flex items-center justify-center gap-2 ${
-                    activeLogo
-                      ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
-                      : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                  }`}
-                >
-                  <Trash2 size={13} /> Seçili Dosyayı Sil
-                </button>
-                {!canUploadMoreLogos && (
-                  <p className="text-[10px] text-gray-500 font-semibold">Maksimum 3 görsel yüklendi.</p>
-                )}
-              </div>
-            </div>
               </>
             )}
           </div>
@@ -3186,127 +3175,127 @@ function EditorPanel({
 
               <div
                 ref={previewRef}
-                className={`w-full max-w-[520px] mr-auto bg-zinc-900 rounded-xl border border-zinc-600 relative overflow-hidden shadow-2xl touch-none ${
-                  isMobile ? "aspect-[4/5] h-64" : "aspect-square"
-                }`}
+                className={`w-full max-w-[520px] mr-auto bg-zinc-900 rounded-xl border border-zinc-600 relative overflow-hidden shadow-2xl touch-none ${isMobile ? "aspect-[4/5] h-64" : "aspect-square"
+                  }`}
                 style={{ touchAction: "none" }}
               >
-              {/* hafif grid */}
-              <div
-                className="absolute inset-0 opacity-20 pointer-events-none"
-                style={{
-                  backgroundImage: "radial-gradient(#fff 1px, transparent 1px)",
-                  backgroundSize: "10px 10px",
-                }}
-              />
-
-              {/* fermuar boşluğu görünsün */}
-              {isZipperFront && (
+                {/* hafif grid */}
                 <div
-                  className="absolute pointer-events-none"
+                  className="absolute inset-0 opacity-20 pointer-events-none"
                   style={{
-                    left: "50%",
-                    width: `${Math.round(gap01 * 100)}%`,
-                    transform: "translateX(-50%)",
-                    top: `${ZIP_STRIPE_TOP01 * 100}%`,
-                    bottom: `${(1 - ZIP_STRIPE_BOTTOM01) * 100}%`,
-                    background: "rgba(255,255,255,0.07)",
-                    borderLeft: "1px dashed rgba(255,255,255,0.20)",
-                    borderRight: "1px dashed rgba(255,255,255,0.20)",
+                    backgroundImage: "radial-gradient(#fff 1px, transparent 1px)",
+                    backgroundSize: "10px 10px",
                   }}
                 />
-              )}
 
-              {/* logolar */}
-              {(logos || []).map((l) => {
-                const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
-                const isSel = (sideData.activeLogoId || logos[0]?.id) === l.id;
-                const fx = getLogoStyle(l);
-
-                return (
+                {/* fermuar boşluğu görünsün */}
+                {isZipperFront && (
                   <div
-                    key={l.id}
-                    className={`absolute rounded-lg overflow-hidden border ${
-                      isSel ? "border-white" : "border-white/10"
-                    }`}
+                    className="absolute pointer-events-none"
                     style={{
-                      left: pct(box.x - box.w / 2),
-                      top: pct(box.y - box.h / 2),
-                      width: pct(box.w),
-                      height: pct(box.h),
+                      left: "50%",
+                      width: `${Math.round(gap01 * 100)}%`,
+                      transform: "translateX(-50%)",
+                      top: `${ZIP_STRIPE_TOP01 * 100}%`,
+                      bottom: `${(1 - ZIP_STRIPE_BOTTOM01) * 100}%`,
+                      background: "rgba(255,255,255,0.07)",
+                      borderLeft: "1px dashed rgba(255,255,255,0.20)",
+                      borderRight: "1px dashed rgba(255,255,255,0.20)",
+                    }}
+                  />
+                )}
+
+                {/* logolar */}
+                {(logos || []).map((l) => {
+                  const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
+                  const isSel = (sideData.activeLogoId || logos[0]?.id) === l.id;
+                  const fx = getLogoStyle(l);
+
+                  return (
+                    <div
+                      key={l.id}
+                      className={`absolute rounded-lg overflow-hidden border ${isSel ? "border-white" : "border-white/10"
+                        }`}
+                      style={{
+                        left: pct(box.x - box.w / 2),
+                        top: pct(box.y - box.h / 2),
+                        width: pct(box.w),
+                        height: pct(box.h),
+                        touchAction: "none",
+                      }}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        updateSide({ activeLogoId: l.id });
+                      }}
+                    >
+                      <img
+                        src={l.url}
+                        alt=""
+                        className="w-full h-full object-fill pointer-events-none"
+                        style={{
+                          transform: `rotate(${l.rotation || 0}deg) scale(${fx.flipX ? -1 : 1}, ${fx.flipY ? -1 : 1})`,
+                          filter: logoFilterCss(fx),
+                          opacity: fx.opacity,
+                          transformOrigin: "center center",
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+
+                {/* seçili logo resize/drag çerçevesi */}
+                {activeLogo && (
+                  <ResizeFrame
+                    box={activeLogo.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 }}
+                    containerRef={previewRef}
+                    onChange={(next) => {
+                      const nextLogos = (logos || []).map((l) =>
+                        l.id === activeLogo.id ? { ...l, box: next } : l
+                      );
+                      updateSide({ logos: nextLogos });
+                    }}
+                    disableResize={isEmbossSticker(activeLogo)}
+                  />
+                )}
+
+                {/* yazı: sürükle */}
+                {sideData?.customText?.text && (
+                  <div
+                    className="absolute -translate-x-1/2 -translate-y-1/2 px-2 py-1 rounded bg-black/30 border border-white/20"
+                    style={{
+                      left: pct(clampTextPos(sideData?.textPos, sideData?.customText).x),
+                      top: pct(clampTextPos(sideData?.textPos, sideData?.customText).y),
                       touchAction: "none",
+                      cursor: "grab",
                     }}
                     onPointerDown={(e) => {
+                      e.preventDefault();
                       e.stopPropagation();
-                      updateSide({ activeLogoId: l.id });
+                      const rect = previewRef.current.getBoundingClientRect();
+                      const start = {
+                        x: clamp01((e.clientX - rect.left) / rect.width),
+                        y: clamp01((e.clientY - rect.top) / rect.height),
+                      };
+                      const base = sideData?.textPos || { x: 0.5, y: 0.85 };
+                      const offset = { dx: base.x - start.x, dy: base.y - start.y };
+                      const move = (ev) =>
+                        updateSide({
+                          textPos: clampTextPos({
+                            x: clamp01((ev.clientX - rect.left) / rect.width + offset.dx),
+                            y: clamp01((ev.clientY - rect.top) / rect.height + offset.dy),
+                          }, sideData?.customText)
+                        });
+                      const up = () => {
+                        window.removeEventListener("pointermove", move);
+                        window.removeEventListener("pointerup", up);
+                      };
+                      window.addEventListener("pointermove", move);
+                      window.addEventListener("pointerup", up);
                     }}
                   >
-                    <img
-                      src={l.url}
-                      alt=""
-                      className="w-full h-full object-fill pointer-events-none"
-                      style={{
-                        transform: `rotate(${l.rotation || 0}deg) scale(${fx.flipX ? -1 : 1}, ${fx.flipY ? -1 : 1})`,
-                        filter: logoFilterCss(fx),
-                        opacity: fx.opacity,
-                        transformOrigin: "center center",
-                      }}
-                    />
+                    <StyledTextPreview textState={sideData.customText} />
                   </div>
-                );
-              })}
-
-              {/* seçili logo resize/drag çerçevesi */}
-              {activeLogo && (
-                <ResizeFrame
-                  box={activeLogo.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 }}
-                  containerRef={previewRef}
-                  onChange={(next) => {
-                    const nextLogos = (logos || []).map((l) =>
-                      l.id === activeLogo.id ? { ...l, box: next } : l
-                    );
-                    updateSide({ logos: nextLogos });
-                  }}
-                  disableResize={isEmbossSticker(activeLogo)}
-                />
-              )}
-
-              {/* yazı: sürükle */}
-              {sideData?.customText?.text && (
-                <div
-                  className="absolute -translate-x-1/2 -translate-y-1/2 px-2 py-1 rounded bg-black/30 border border-white/20"
-                  style={{
-                    left: pct(clampTextPos(sideData?.textPos, sideData?.customText).x),
-                    top: pct(clampTextPos(sideData?.textPos, sideData?.customText).y),
-                    touchAction: "none",
-                    cursor: "grab",
-                  }}
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const rect = previewRef.current.getBoundingClientRect();
-                    const start = {
-                      x: clamp01((e.clientX - rect.left) / rect.width),
-                      y: clamp01((e.clientY - rect.top) / rect.height),
-                    };
-                    const base = sideData?.textPos || { x: 0.5, y: 0.85 };
-                    const offset = { dx: base.x - start.x, dy: base.y - start.y };
-                    const move = (ev) =>
-                      updateSide({ textPos: clampTextPos({
-                        x: clamp01((ev.clientX - rect.left) / rect.width + offset.dx),
-                        y: clamp01((ev.clientY - rect.top) / rect.height + offset.dy),
-                      }, sideData?.customText) });
-                    const up = () => {
-                      window.removeEventListener("pointermove", move);
-                      window.removeEventListener("pointerup", up);
-                    };
-                    window.addEventListener("pointermove", move);
-                    window.addEventListener("pointerup", up);
-                  }}
-                >
-                  <StyledTextPreview textState={sideData.customText} />
-                </div>
-              )}
+                )}
               </div>
 
               <p className="text-[10px] text-zinc-500">
@@ -3331,9 +3320,8 @@ function EditorPanel({
         {activeTab === "pattern" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-start justify-start gap-2.5") : "space-y-2.5"}`}>
             <div
-              className={`rounded-xl border border-gray-200 bg-white p-3 space-y-3 shadow-sm ${
-                isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "w-full min-h-[188px] overflow-hidden") : ""
-              }`}
+              className={`rounded-xl border border-gray-200 bg-white p-3 space-y-3 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "w-full min-h-[188px] overflow-hidden") : ""
+                }`}
             >
               <div className="flex items-center justify-between gap-2">
                 <p className={drawerHeadingClass}>Desen Seç</p>
@@ -3373,114 +3361,114 @@ function EditorPanel({
         {/* TEXT / PDF */}
         {activeTab === "text" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-start justify-start gap-2.5") : "space-y-2.5"}`}>
-	            <div className={`rounded-xl border border-gray-200 bg-white p-3 space-y-3 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "w-full min-h-[188px] overflow-hidden") : ""}`}>
-	              <div className="flex items-center justify-between gap-2">
-	                <p className={drawerHeadingClass}>Yazı / PDF</p>
-	                {hasPdf ? (
-	                  <span className="text-[10px] font-black uppercase text-emerald-600">Hazır</span>
-	                ) : (
-	                  <span className="text-[10px] font-black uppercase text-gray-500">Dosya Yok</span>
-	                )}
-	              </div>
+            <div className={`rounded-xl border border-gray-200 bg-white p-3 space-y-3 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "w-full min-h-[188px] overflow-hidden") : ""}`}>
+              <div className="flex items-center justify-between gap-2">
+                <p className={drawerHeadingClass}>Yazı / PDF</p>
+                {hasPdf ? (
+                  <span className="text-[10px] font-black uppercase text-emerald-600">Hazır</span>
+                ) : (
+                  <span className="text-[10px] font-black uppercase text-gray-500">Dosya Yok</span>
+                )}
+              </div>
 
-	              <div className={`${isDrawerLayout && !isMobileDrawer ? "grid grid-cols-2 gap-3 items-start" : "space-y-3"}`}>
-	                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 space-y-2">
-	                <div className="flex items-center justify-between gap-2">
-	                  <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Metin</p>
-	                  <button
-	                    type="button"
-	                    onClick={() =>
-	                      bumpText({
-	                        text: "",
-	                        color: "#ffffff",
-	                        size: 150,
-	                        font: FONT_OPTIONS[0].value,
-	                        layout: "straight",
-	                        curve: 30,
-	                      })
-	                    }
-	                    className="text-[10px] font-black uppercase text-gray-600 underline"
-	                  >
-	                    Temizle
-	                  </button>
-	                </div>
-	                <input
-	                  type="text"
-	                  value={t.text || ""}
-	                  maxLength={56}
-	                  onChange={(e) => bumpText({ text: e.target.value })}
-	                  placeholder="Yazını gir"
-	                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-[12px] font-semibold text-gray-800"
-	                />
-	                <div className="grid grid-cols-2 gap-2">
-	                  <label className="space-y-1">
-	                    <span className="block text-[10px] font-black uppercase tracking-wide text-gray-500">Font</span>
-	                    <select
-	                      value={t.font || FONT_OPTIONS[0].value}
-	                      onChange={(e) => bumpText({ font: e.target.value })}
-	                      className="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-[11px] font-semibold text-gray-800"
-	                    >
-	                      {FONT_OPTIONS.map((opt) => (
-	                        <option key={`font-opt-${opt.value}`} value={opt.value}>
-	                          {opt.label}
-	                        </option>
-	                      ))}
-	                    </select>
-	                  </label>
-	                  <label className="space-y-1">
-	                    <span className="block text-[10px] font-black uppercase tracking-wide text-gray-500">Renk</span>
-	                    <input
-	                      type="color"
-	                      value={t.color || "#ffffff"}
-	                      onChange={(e) => bumpText({ color: e.target.value })}
-	                      className="h-10 w-full rounded-lg border border-gray-300 bg-white p-1"
-	                    />
-	                  </label>
-	                </div>
-	                <div className="space-y-1">
-	                  <div className="flex items-center justify-between text-[10px] text-gray-500">
-	                    <span className="font-black uppercase tracking-wide">Boyut</span>
-	                    <span>{Math.round(Number(t.size || 150))} px</span>
-	                  </div>
-	                  <input
-	                    type="range"
-	                    min="30"
-	                    max="320"
-	                    step="1"
-	                    value={Number(t.size || 150)}
-	                    onChange={(e) => bumpText({ size: Number(e.target.value) })}
-	                    className="w-full accent-black"
-	                  />
-	                </div>
-	                <div className="space-y-1">
-	                  <span className="block text-[10px] font-black uppercase tracking-wide text-gray-500">Yazı Duruşu</span>
-	                  <select
-	                    value={t.layout || "straight"}
-	                    onChange={(e) => bumpText({ layout: e.target.value })}
-	                    className="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-[11px] font-semibold text-gray-800"
-	                  >
-	                    {TEXT_LAYOUT_OPTIONS.map((opt) => (
-	                      <option key={`layout-opt-${opt.id}`} value={opt.id}>
-	                        {opt.label}
-	                      </option>
-	                    ))}
-	                  </select>
-	                </div>
-	                <div className="space-y-1">
-	                  <div className="flex items-center justify-between text-[10px] text-gray-500">
-	                    <span className="font-black uppercase tracking-wide">Eğri</span>
-	                    <span>{Math.round(getTextCurveValue(t))}%</span>
-	                  </div>
-	                  <input
-	                    type="range"
-	                    min="6"
-	                    max="88"
-	                    step="1"
-	                    value={Math.round(getTextCurveValue(t))}
-	                    onChange={(e) => bumpText({ curve: Number(e.target.value) })}
-	                    className="w-full accent-black"
-	                  />
-	                </div>
+              <div className={`${isDrawerLayout && !isMobileDrawer ? "grid grid-cols-2 gap-3 items-start" : "space-y-3"}`}>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Metin</p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        bumpText({
+                          text: "",
+                          color: "#ffffff",
+                          size: 150,
+                          font: FONT_OPTIONS[0].value,
+                          layout: "straight",
+                          curve: 30,
+                        })
+                      }
+                      className="text-[10px] font-black uppercase text-gray-600 underline"
+                    >
+                      Temizle
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={t.text || ""}
+                    maxLength={56}
+                    onChange={(e) => bumpText({ text: e.target.value })}
+                    placeholder="Yazını gir"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-[12px] font-semibold text-gray-800"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="space-y-1">
+                      <span className="block text-[10px] font-black uppercase tracking-wide text-gray-500">Font</span>
+                      <select
+                        value={t.font || FONT_OPTIONS[0].value}
+                        onChange={(e) => bumpText({ font: e.target.value })}
+                        className="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-[11px] font-semibold text-gray-800"
+                      >
+                        {FONT_OPTIONS.map((opt) => (
+                          <option key={`font-opt-${opt.value}`} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-1">
+                      <span className="block text-[10px] font-black uppercase tracking-wide text-gray-500">Renk</span>
+                      <input
+                        type="color"
+                        value={t.color || "#ffffff"}
+                        onChange={(e) => bumpText({ color: e.target.value })}
+                        className="h-10 w-full rounded-lg border border-gray-300 bg-white p-1"
+                      />
+                    </label>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-gray-500">
+                      <span className="font-black uppercase tracking-wide">Boyut</span>
+                      <span>{Math.round(Number(t.size || 150))} px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="30"
+                      max="320"
+                      step="1"
+                      value={Number(t.size || 150)}
+                      onChange={(e) => bumpText({ size: Number(e.target.value) })}
+                      className="w-full accent-black"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="block text-[10px] font-black uppercase tracking-wide text-gray-500">Yazı Duruşu</span>
+                    <select
+                      value={t.layout || "straight"}
+                      onChange={(e) => bumpText({ layout: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-[11px] font-semibold text-gray-800"
+                    >
+                      {TEXT_LAYOUT_OPTIONS.map((opt) => (
+                        <option key={`layout-opt-${opt.id}`} value={opt.id}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-gray-500">
+                      <span className="font-black uppercase tracking-wide">Eğri</span>
+                      <span>{Math.round(getTextCurveValue(t))}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="6"
+                      max="88"
+                      step="1"
+                      value={Math.round(getTextCurveValue(t))}
+                      onChange={(e) => bumpText({ curve: Number(e.target.value) })}
+                      className="w-full accent-black"
+                    />
+                  </div>
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[10px] text-gray-500">
                       <span className="font-black uppercase tracking-wide">Döndürme</span>
@@ -3496,27 +3484,27 @@ function EditorPanel({
                       className="w-full accent-black"
                     />
                   </div>
-	                <p className="text-[10px] text-gray-500">
-	                  Not: Yazı konumu sürükleme ve hassas yerleşim ayarı için `Yerleşim` ekranını kullan.
-	                </p>
-	                <button
-	                  type="button"
-	                  onClick={() => {
-	                    if (!String(t.text || "").trim()) {
-	                      bumpText({ text: "YAZI" });
-	                    }
-	                    setActiveTab("editor");
-	                    if (isMobileDrawer) onRequestDrawerCollapse?.();
-	                  }}
-	                  className="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase flex items-center justify-center gap-2"
-	                >
-	                  <Move size={14} /> Yazıyı Yerleşimde Konumlandır
-	                </button>
-	              </div>
+                  <p className="text-[10px] text-gray-500">
+                    Not: Yazı konumu sürükleme ve hassas yerleşim ayarı için `Yerleşim` ekranını kullan.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!String(t.text || "").trim()) {
+                        bumpText({ text: "YAZI" });
+                      }
+                      setActiveTab("editor");
+                      if (isMobileDrawer) onRequestDrawerCollapse?.();
+                    }}
+                    className="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase flex items-center justify-center gap-2"
+                  >
+                    <Move size={14} /> Yazıyı Yerleşimde Konumlandır
+                  </button>
+                </div>
 
-	                <div className="space-y-3">
-	                  <button
-	                    type="button"
+                <div className="space-y-3">
+                  <button
+                    type="button"
                     onClick={() => pdfInputRef.current?.click()}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={async (e) => {
@@ -3560,11 +3548,10 @@ function EditorPanel({
                         type="button"
                         disabled={!hasPdf}
                         onClick={() => updatePdfPlacement({ side: opt.id })}
-                        className={`py-2 rounded-lg text-[10px] font-black uppercase border ${
-                          (design.pdfPlacement?.side || "front") === opt.id
+                        className={`py-2 rounded-lg text-[10px] font-black uppercase border ${(design.pdfPlacement?.side || "front") === opt.id
                             ? "bg-black text-white border-black"
                             : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                        } ${!hasPdf ? "opacity-40 cursor-not-allowed" : ""}`}
+                          } ${!hasPdf ? "opacity-40 cursor-not-allowed" : ""}`}
                       >
                         {opt.label}
                       </button>
@@ -3654,11 +3641,10 @@ function EditorPanel({
                         pdfPlacement: { ...DEFAULT_PDF_PLACEMENT, side: currentSide },
                       })
                     }
-                    className={`w-full py-2 rounded-lg text-[10px] font-black uppercase border ${
-                      hasPdf
+                    className={`w-full py-2 rounded-lg text-[10px] font-black uppercase border ${hasPdf
                         ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
                         : "border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed"
-                    }`}
+                      }`}
                   >
                     PDF’yi Kaldır
                   </button>
@@ -3672,8 +3658,8 @@ function EditorPanel({
                     Daha fazlası için Bilimsel Sayfası
                   </a>
                   {isUploadingPdf && <p className="text-[10px] font-bold uppercase text-gray-500">PDF yükleniyor...</p>}
-	                </div>
-	              </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -3698,9 +3684,8 @@ function EditorPanel({
                   <button
                     key={c}
                     onClick={() => updateDesign({ color: c })}
-                    className={`w-10 h-10 rounded-full border-2 transition hover:scale-110 ${
-                      design.color === c ? "border-black scale-110" : "border-gray-200"
-                    }`}
+                    className={`w-10 h-10 rounded-full border-2 transition hover:scale-110 ${design.color === c ? "border-black scale-110" : "border-gray-200"
+                      }`}
                     style={{ backgroundColor: c }}
                   />
                 ))}
@@ -3722,9 +3707,8 @@ function EditorPanel({
                     <button
                       key={c}
                       onClick={() => updateDesign({ stringColor: c })}
-                      className={`w-10 h-10 rounded-full border-2 transition ${
-                        (design.stringColor || "#e6e6e6") === c ? "border-black scale-110" : "border-gray-300"
-                      }`}
+                      className={`w-10 h-10 rounded-full border-2 transition ${(design.stringColor || "#e6e6e6") === c ? "border-black scale-110" : "border-gray-300"
+                        }`}
                       style={{ backgroundColor: c }}
                       title={c}
                     />
@@ -3914,7 +3898,7 @@ function TasarimClientContent({ isMobile }) {
 
   // Editor overlay için updateSide fonksiyonu
   const updateSide = (patch) => {
-    setDesigns(prev => prev.map(d => 
+    setDesigns(prev => prev.map(d =>
       d.id === activeId ? {
         ...d,
         sides: {
@@ -4690,9 +4674,8 @@ function TasarimClientContent({ isMobile }) {
           <button
             onClick={handleFinishCheckout}
             disabled={loading}
-            className={`px-4 py-2 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${
-              loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
-            }`}
+            className={`px-4 py-2 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
+              }`}
           >
             {loading ? "HAZIRLANIYOR..." : "BİTTİ"}
           </button>
@@ -4712,19 +4695,17 @@ function TasarimClientContent({ isMobile }) {
           >
             <div className="flex flex-col items-center pointer-events-auto gap-2">
               <div
-                className={`flex flex-col rounded-full border-2 border-zinc-700 bg-white/95 backdrop-blur shadow-[0_10px_26px_rgba(0,0,0,0.22)] ${
-                  isMobile ? "p-[3px]" : "p-1.5"
-                }`}
+                className={`flex flex-col rounded-full border-2 border-zinc-700 bg-white/95 backdrop-blur shadow-[0_10px_26px_rgba(0,0,0,0.22)] ${isMobile ? "p-[3px]" : "p-1.5"
+                  }`}
               >
                 {UI_VIEWS.map((v) => (
                   <button
                     key={v}
                     onClick={() => switchSideAndOpenPrintPicker(v)}
-                    className={`${isMobile ? "px-3 py-1.5 text-[10px]" : "px-5 py-2.5 text-[11px]"} rounded-full font-bold uppercase tracking-widest transition-all ${
-                      view === v
+                    className={`${isMobile ? "px-3 py-1.5 text-[10px]" : "px-5 py-2.5 text-[11px]"} rounded-full font-bold uppercase tracking-widest transition-all ${view === v
                         ? "bg-zinc-900 text-white shadow-md"
                         : "bg-white text-zinc-600 hover:bg-zinc-100"
-                    }`}
+                      }`}
                   >
                     {v === "front" ? "ÖN" : "ARKA"}
                   </button>
@@ -4736,18 +4717,17 @@ function TasarimClientContent({ isMobile }) {
                     {HOODIE_DETAIL_OPTIONS.map((opt) => {
                       const isEnabled = Boolean(activeHoodieParts[opt.id]);
                       return (
-                      <button
-                        key={`floating-hoodie-${opt.id}`}
-                        onClick={() => setActiveHoodiePartEnabled(opt.id, !isEnabled)}
-                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide border transition ${
-                          isEnabled
-                            ? "bg-zinc-900 text-white border-zinc-900"
-                            : "bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-100"
-                        }`}
-                      >
-                        {isEnabled ? "✓ " : ""}
-                        {opt.label}
-                      </button>
+                        <button
+                          key={`floating-hoodie-${opt.id}`}
+                          onClick={() => setActiveHoodiePartEnabled(opt.id, !isEnabled)}
+                          className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide border transition ${isEnabled
+                              ? "bg-zinc-900 text-white border-zinc-900"
+                              : "bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-100"
+                            }`}
+                        >
+                          {isEnabled ? "✓ " : ""}
+                          {opt.label}
+                        </button>
                       );
                     })}
                   </div>
@@ -4845,9 +4825,8 @@ function TasarimClientContent({ isMobile }) {
         {/* Editor Overlay - Sol Taraf */}
         {isPrintAreaOpen && (
           <div
-            className={`absolute z-[90] backdrop-blur-md border border-gray-200 shadow-2xl overflow-hidden flex flex-col ${
-              isMobile ? "rounded-none border-x-0 rounded-t-2xl" : "rounded-2xl"
-            }`}
+            className={`absolute z-[90] backdrop-blur-md border border-gray-200 shadow-2xl overflow-hidden flex flex-col ${isMobile ? "rounded-none border-x-0 rounded-t-2xl" : "rounded-2xl"
+              }`}
             style={{
               backgroundColor: "#f7f8fa",
               left: isMobile ? "0" : `${LEFT_PRINT_AREA_GAP}px`,
@@ -4889,7 +4868,7 @@ function TasarimClientContent({ isMobile }) {
                 )}
               </div>
             </div>
-            
+
             <div className={`flex-1 ${isMobile ? "overflow-y-auto overflow-x-hidden p-3" : "overflow-y-auto overflow-x-visible p-4"}`}>
               <div
                 ref={previewRef}
@@ -4980,10 +4959,12 @@ function TasarimClientContent({ isMobile }) {
                             const base = sideData?.textPos || { x: 0.5, y: 0.85 };
                             const offset = { dx: base.x - start.x, dy: base.y - start.y };
                             const move = (ev) =>
-                              updateSide({ textPos: clampTextPos({
-                                x: clamp01((ev.clientX - rect.left) / rect.width + offset.dx),
-                                y: clamp01((ev.clientY - rect.top) / rect.height + offset.dy),
-                              }, sideData?.customText) });
+                              updateSide({
+                                textPos: clampTextPos({
+                                  x: clamp01((ev.clientX - rect.left) / rect.width + offset.dx),
+                                  y: clamp01((ev.clientY - rect.top) / rect.height + offset.dy),
+                                }, sideData?.customText)
+                              });
                             const up = () => {
                               window.removeEventListener("pointermove", move);
                               window.removeEventListener("pointerup", up);
@@ -5005,9 +4986,8 @@ function TasarimClientContent({ isMobile }) {
                     return (
                       <div
                         key={l.id}
-                        className={`absolute border-2 transition-all ${
-                          isSelected ? "border-white" : "border-transparent"
-                        }`}
+                        className={`absolute border-2 transition-all ${isSelected ? "border-white" : "border-transparent"
+                          }`}
                         style={{
                           left: pct(box.x - box.w / 2),
                           top: pct(box.y - box.h / 2),
@@ -5076,38 +5056,35 @@ function TasarimClientContent({ isMobile }) {
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <button
                   onClick={() => setEditorControlTab("logo")}
-                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${
-                    editorControlTab === "logo"
+                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${editorControlTab === "logo"
                       ? "bg-white text-black border-white"
                       : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
-                  }`}
+                    }`}
                 >
                   Gorsel Ayari
                 </button>
                 <button
                   onClick={() => setEditorControlTab("text")}
-                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${
-                    editorControlTab === "text"
+                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${editorControlTab === "text"
                       ? "bg-white text-black border-white"
                       : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
-                  }`}
+                    }`}
                 >
                   Yazi Ayari
                 </button>
                 <button
                   onClick={() => setEditorControlTab("effects")}
-                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${
-                    editorControlTab === "effects"
+                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${editorControlTab === "effects"
                       ? "bg-white text-black border-white"
                       : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
-                  }`}
+                    }`}
                 >
                   Efektler
                 </button>
               </div>
 
               {editorControlTab === "logo" && (
-                  <div className={`mt-3 rounded-xl border border-zinc-700 bg-zinc-800/60 space-y-3 relative ${isMobile ? "p-2.5" : "p-3"}`}>
+                <div className={`mt-3 rounded-xl border border-zinc-700 bg-zinc-800/60 space-y-3 relative ${isMobile ? "p-2.5" : "p-3"}`}>
                   <p className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">Gorsel Ayarlari</p>
 
                   <div className="space-y-2">
@@ -5115,9 +5092,8 @@ function TasarimClientContent({ isMobile }) {
                       <p className="text-[10px] text-zinc-400 font-bold uppercase">Ölçü (cm)</p>
                       <button
                         onClick={toggleLockAspect}
-                        className={`w-8 h-8 rounded-full border flex items-center justify-center ${
-                          lockAspect ? "bg-white text-black border-white" : "bg-zinc-700 text-zinc-100 border-zinc-500"
-                        }`}
+                        className={`w-8 h-8 rounded-full border flex items-center justify-center ${lockAspect ? "bg-white text-black border-white" : "bg-zinc-700 text-zinc-100 border-zinc-500"
+                          }`}
                         title={lockAspect ? "Kilit Kapalı" : "Kilit Açık"}
                       >
                         {lockAspect ? <Lock size={14} /> : <LockOpen size={14} />}
@@ -5137,11 +5113,10 @@ function TasarimClientContent({ isMobile }) {
                           onChange={(e) => {
                             setCmInputW(sanitizeCmInput(e.target.value));
                           }}
-                          className={`w-full rounded-md border px-2 py-1 text-[11px] ${
-                            sizeControlDisabled
+                          className={`w-full rounded-md border px-2 py-1 text-[11px] ${sizeControlDisabled
                               ? "border-zinc-700 bg-zinc-800/60 text-zinc-500 cursor-not-allowed"
                               : "border-zinc-600 bg-zinc-900/60 text-white"
-                          }`}
+                            }`}
                           onFocus={() => setIsEditingCmW(true)}
                           onBlur={() => {
                             setIsEditingCmW(false);
@@ -5170,11 +5145,10 @@ function TasarimClientContent({ isMobile }) {
                           onChange={(e) => {
                             setCmInputH(sanitizeCmInput(e.target.value));
                           }}
-                          className={`w-full rounded-md border px-2 py-1 text-[11px] ${
-                            sizeControlDisabled
+                          className={`w-full rounded-md border px-2 py-1 text-[11px] ${sizeControlDisabled
                               ? "border-zinc-700 bg-zinc-800/60 text-zinc-500 cursor-not-allowed"
                               : "border-zinc-600 bg-zinc-900/60 text-white"
-                          }`}
+                            }`}
                           onFocus={() => setIsEditingCmH(true)}
                           onBlur={() => {
                             setIsEditingCmH(false);
@@ -5287,22 +5261,20 @@ function TasarimClientContent({ isMobile }) {
                     <button
                       disabled={imageControlDisabled}
                       onClick={() => setActiveLogoLayer("front")}
-                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${
-                        imageControlDisabled
+                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
                           ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                           : "bg-zinc-700 hover:bg-zinc-600"
-                      }`}
+                        }`}
                     >
                       Öne Al
                     </button>
                     <button
                       disabled={imageControlDisabled}
                       onClick={() => setActiveLogoLayer("back")}
-                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${
-                        imageControlDisabled
+                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
                           ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                           : "bg-zinc-700 hover:bg-zinc-600"
-                      }`}
+                        }`}
                     >
                       Arkaya Al
                     </button>
@@ -5312,11 +5284,10 @@ function TasarimClientContent({ isMobile }) {
                     <button
                       disabled={imageControlDisabled}
                       onClick={() => updateActiveLogoBox({ ...activeLogoBox, x: 0.5, y: 0.5 })}
-                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${
-                        imageControlDisabled
+                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
                           ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                           : "bg-zinc-700 hover:bg-zinc-600"
-                      }`}
+                        }`}
                     >
                       Ortala
                     </button>
@@ -5329,11 +5300,10 @@ function TasarimClientContent({ isMobile }) {
                             : { x: 0.5, y: 0.6, w: 0.7, h: 0.45 }
                         )
                       }
-                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${
-                        imageControlDisabled
+                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
                           ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                           : "bg-zinc-700 hover:bg-zinc-600"
-                      }`}
+                        }`}
                     >
                       Sıfırla
                     </button>
@@ -5342,15 +5312,14 @@ function TasarimClientContent({ isMobile }) {
                     type="button"
                     onClick={handleDeleteActiveImage}
                     disabled={!activeLogo}
-                    className={`w-full py-1.5 rounded-lg text-[10px] font-bold uppercase border ${
-                      activeLogo
+                    className={`w-full py-1.5 rounded-lg text-[10px] font-bold uppercase border ${activeLogo
                         ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
                         : "border-zinc-600 bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                    }`}
+                      }`}
                   >
                     Görseli Sil
                   </button>
-                  </div>
+                </div>
               )}
 
               {editorControlTab === "text" && (
@@ -5572,21 +5541,19 @@ function TasarimClientContent({ isMobile }) {
                   <div className="flex gap-2">
                     <button
                       onClick={() => updateActiveLogo({ flipX: !activeLogoFx.flipX })}
-                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase border ${
-                        activeLogoFx.flipX
+                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase border ${activeLogoFx.flipX
                           ? "bg-cyan-100 text-cyan-900 border-cyan-300"
                           : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
-                      }`}
+                        }`}
                     >
                       Yatay
                     </button>
                     <button
                       onClick={() => updateActiveLogo({ flipY: !activeLogoFx.flipY })}
-                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase border ${
-                        activeLogoFx.flipY
+                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase border ${activeLogoFx.flipY
                           ? "bg-cyan-100 text-cyan-900 border-cyan-300"
                           : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
-                      }`}
+                        }`}
                     >
                       Dikey
                     </button>
@@ -5624,104 +5591,104 @@ function TasarimClientContent({ isMobile }) {
           const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 1.86 : drawerOpen ? 1.72 : 1.56) : isPrintAreaOpen ? 1.9 : 1.72;
           const controlsTargetY = !isMobile ? (isPrintAreaOpen ? -0.12 : drawerOpen ? -0.2 : -0.1) : isPrintAreaOpen ? -0.05 : -0.1;
           return (
-        <Canvas
-          style={{
-            position: "absolute",
-            left: isMobile ? mobileLeft : isPrintAreaOpen ? "63%" : "50%",
-            top: isMobile ? "50%" : desktopTop,
-            transform: `translate(-50%, -50%) translateY(${isMobile ? mobileShiftY : desktopShiftY}) scale(${isMobile ? mobileScale : desktopScale})`,
-            width: isMobile ? "100vw" : desktopWidth,
-            height: isMobile ? "100vh" : desktopHeight,
-            display: "block",
-            backgroundColor: SCENE_BG_COLOR,
-            willChange: "transform",
-            transformOrigin: "center center",
-            transition: isMobile ? "transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1)" : "transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1)",
-            zIndex: 10,
-          }}
-          gl={{
-            preserveDrawingBuffer: true,
-            antialias: perf.antialias,
-            alpha: false,
-            powerPreference: perf.powerPreference,
-          }}
-          dpr={perf.dpr}
-          onCreated={({ gl, scene, camera }) => {
-            glRef.current = gl;
-            sceneRef.current = scene;
-            cameraRef.current = camera;
-            const bgColor = new THREE.Color(SCENE_BG_COLOR);
-            scene.background = bgColor;
-            gl.setClearColor(bgColor, 1);
-            gl.outputColorSpace = THREE.SRGBColorSpace;
-            gl.toneMapping = THREE.ACESFilmicToneMapping;
-            gl.toneMappingExposure = 1.1;
-          }}
-          camera={{ position: [0, 0.36, 2.34], fov: isMobile ? (isPrintAreaOpen ? 38 : 34) : 30 }}
-          shadows={!isMobile}
-        >
-          <SceneBackgroundLock />
+            <Canvas
+              style={{
+                position: "absolute",
+                left: isMobile ? mobileLeft : isPrintAreaOpen ? "63%" : "50%",
+                top: isMobile ? "50%" : desktopTop,
+                transform: `translate(-50%, -50%) translateY(${isMobile ? mobileShiftY : desktopShiftY}) scale(${isMobile ? mobileScale : desktopScale})`,
+                width: isMobile ? "100vw" : desktopWidth,
+                height: isMobile ? "100vh" : desktopHeight,
+                display: "block",
+                backgroundColor: SCENE_BG_COLOR,
+                willChange: "transform",
+                transformOrigin: "center center",
+                transition: isMobile ? "transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1)" : "transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1)",
+                zIndex: 10,
+              }}
+              gl={{
+                preserveDrawingBuffer: true,
+                antialias: perf.antialias,
+                alpha: false,
+                powerPreference: perf.powerPreference,
+              }}
+              dpr={perf.dpr}
+              onCreated={({ gl, scene, camera }) => {
+                glRef.current = gl;
+                sceneRef.current = scene;
+                cameraRef.current = camera;
+                const bgColor = new THREE.Color(SCENE_BG_COLOR);
+                scene.background = bgColor;
+                gl.setClearColor(bgColor, 1);
+                gl.outputColorSpace = THREE.SRGBColorSpace;
+                gl.toneMapping = THREE.ACESFilmicToneMapping;
+                gl.toneMappingExposure = 1.1;
+              }}
+              camera={{ position: [0, 0.36, 2.34], fov: isMobile ? (isPrintAreaOpen ? 38 : 34) : 30 }}
+              shadows={!isMobile}
+            >
+              <SceneBackgroundLock />
 
-          <HdriEnvironment url={HDR_ENV_PATH} />
+              <HdriEnvironment url={HDR_ENV_PATH} />
 
-          <ambientLight intensity={0.5} />
-          <hemisphereLight intensity={0.18} groundColor={"#1f1f1f"} />
-          <directionalLight
-            position={[6, 10, 8]}
-            intensity={0.58}
-            castShadow={!isMobile}
-            shadow-mapSize-width={perf.shadowMap}
-            shadow-mapSize-height={perf.shadowMap}
-          />
-          <directionalLight position={[-6, 6, -6]} intensity={0.2} />
-          <pointLight position={[0, 2.6, 2.2]} intensity={0.08} />
-          {!isMobile && <ContactShadows position={[0, -1.4, 0]} opacity={0.16} scale={7} blur={2.2} far={3.2} />}
+              <ambientLight intensity={0.5} />
+              <hemisphereLight intensity={0.18} groundColor={"#1f1f1f"} />
+              <directionalLight
+                position={[6, 10, 8]}
+                intensity={0.58}
+                castShadow={!isMobile}
+                shadow-mapSize-width={perf.shadowMap}
+                shadow-mapSize-height={perf.shadowMap}
+              />
+              <directionalLight position={[-6, 6, -6]} intensity={0.2} />
+              <pointLight position={[0, 2.6, 2.2]} intensity={0.08} />
+              {!isMobile && <ContactShadows position={[0, -1.4, 0]} opacity={0.16} scale={7} blur={2.2} far={3.2} />}
 
-          <CameraController view={effectiveView} count={designs.length} onAnimatingChange={setCamAnimating} />
+              <CameraController view={effectiveView} count={designs.length} onAnimatingChange={setCamAnimating} />
 
-          <Suspense fallback={<ThreeDotsLoader />}>
-            {designs.map((design) => {
-              const layout = layoutFor(design.id);
-              return (
-                <DesignModelItem
-                  key={design.id}
-                  design={design}
-                  isActive={design.id === activeId}
-                  isHovered={design.id === hoveredId}
-                  onSelect={setActiveId}
-                  onHover={setHoveredId}
-                  onUnhover={() => setHoveredId(null)}
-                  view={effectiveView}
-                  targetX={layout.x}
-                  targetZ={layout.z}
-                  targetRotY={layout.rotY}
-                  targetScale={layout.scale}
-                  hidden={layout.hidden}
-                  disableDrag={false}
-                  isMobile={isMobile}
-                />
-              );
-            })}
-          </Suspense>
+              <Suspense fallback={<ThreeDotsLoader />}>
+                {designs.map((design) => {
+                  const layout = layoutFor(design.id);
+                  return (
+                    <DesignModelItem
+                      key={design.id}
+                      design={design}
+                      isActive={design.id === activeId}
+                      isHovered={design.id === hoveredId}
+                      onSelect={setActiveId}
+                      onHover={setHoveredId}
+                      onUnhover={() => setHoveredId(null)}
+                      view={effectiveView}
+                      targetX={layout.x}
+                      targetZ={layout.z}
+                      targetRotY={layout.rotY}
+                      targetScale={layout.scale}
+                      hidden={layout.hidden}
+                      disableDrag={false}
+                      isMobile={isMobile}
+                    />
+                  );
+                })}
+              </Suspense>
 
-          <OrbitControls
-            ref={controlsRef}
-            makeDefault
-            enableZoom
-            enablePan={false}
-            enableRotate={false}
-            enableDamping
-            dampingFactor={isMobile ? 0.12 : 0.08}
-            zoomSpeed={isMobile ? 0.95 : 0.7}
-            minDistance={minZoomDistance}
-            maxDistance={isMobile ? 4.8 : 4.2}
-            zoomToCursor={false}
-            enabled={!camAnimating}
-            target={[0, controlsTargetY, 0]}
-            mouseButtons={{ LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null }}
-            touches={{ ONE: THREE.TOUCH.NONE, TWO: THREE.TOUCH.DOLLY }}
-          />
-        </Canvas>
+              <OrbitControls
+                ref={controlsRef}
+                makeDefault
+                enableZoom
+                enablePan={false}
+                enableRotate={false}
+                enableDamping
+                dampingFactor={isMobile ? 0.12 : 0.08}
+                zoomSpeed={isMobile ? 0.95 : 0.7}
+                minDistance={minZoomDistance}
+                maxDistance={isMobile ? 4.8 : 4.2}
+                zoomToCursor={false}
+                enabled={!camAnimating}
+                target={[0, controlsTargetY, 0]}
+                mouseButtons={{ LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null }}
+                touches={{ ONE: THREE.TOUCH.NONE, TWO: THREE.TOUCH.DOLLY }}
+              />
+            </Canvas>
           );
         })()}
 
@@ -5753,9 +5720,8 @@ function TasarimClientContent({ isMobile }) {
         {/* DRAWER (MOBILE + DESKTOP) - Nike Style */}
         {activeDesign && !hideMobileDrawerInEditor && (
           <div
-            className={`fixed left-0 right-0 z-[92] pointer-events-auto transition-all duration-300 ${
-              isMobile ? "bottom-0" : "bottom-0"
-            }`}
+            className={`fixed left-0 right-0 z-[92] pointer-events-auto transition-all duration-300 ${isMobile ? "bottom-0" : "bottom-0"
+              }`}
             style={{
               transform: isMobile
                 ? `translateY(${drawerY}px)`
@@ -5778,9 +5744,8 @@ function TasarimClientContent({ isMobile }) {
             >
               {/* Drawer Tab Navigation */}
               <div
-                className={`relative px-3 border-b border-gray-300/80 bg-[#eceff3] ${
-                  drawerOpen ? "pt-9 pb-2" : "pt-7 pb-3"
-                }`}
+                className={`relative px-3 border-b border-gray-300/80 bg-[#eceff3] ${drawerOpen ? "pt-9 pb-2" : "pt-7 pb-3"
+                  }`}
                 onPointerDown={(e) => {
                   if (!isMobile || drawerOpen) return;
                   onDrawerPointerDown(e);
@@ -5792,7 +5757,7 @@ function TasarimClientContent({ isMobile }) {
                 }}
               >
                 <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-gray-400/80" />
-                
+
                 {/* Mobil geri butonu - sadece drawer açıkken */}
                 {isMobile && drawerOpen && (
                   <button
@@ -5803,7 +5768,7 @@ function TasarimClientContent({ isMobile }) {
                     Geri
                   </button>
                 )}
-                
+
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
@@ -5818,10 +5783,10 @@ function TasarimClientContent({ isMobile }) {
                   </span>
                 </button>
 
-		                {drawerOpen && (
-		                  <div className="relative flex items-center justify-center min-h-[46px] w-full">
-		                    {!isMobile ? (
-	                      <>
+                {drawerOpen && (
+                  <div className="relative flex items-center justify-center min-h-[46px] w-full">
+                    {!isMobile ? (
+                      <>
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
                           <button
                             onClick={openPrintTypePickerFromHeader}
@@ -5881,20 +5846,20 @@ function TasarimClientContent({ isMobile }) {
                             Menü
                           </button>
                         </div>
-	                      </>
-				                    ) : (
-				                      <>
-				                        <div className="flex items-center gap-1 min-w-0">
-			                          <button
-			                            onClick={() => {
-			                              setPickerStep("root");
-			                              setPickerOpen(true);
-			                            }}
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <button
+                            onClick={() => {
+                              setPickerStep("root");
+                              setPickerOpen(true);
+                            }}
                             className="h-8 px-2 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
                             aria-label="Model ekle"
-	                          >
-	                            + Model
-	                          </button>
+                          >
+                            + Model
+                          </button>
                           <button
                             onClick={goPrevTab}
                             className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
@@ -5902,9 +5867,9 @@ function TasarimClientContent({ isMobile }) {
                           >
                             <ChevronLeft size={18} strokeWidth={2.6} />
                           </button>
-	                          <div className="text-center min-w-0 px-1">
-	                            <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
-	                              {tabLabelMap[activeTab] || "Baskı"}
+                          <div className="text-center min-w-0 px-1">
+                            <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
+                              {tabLabelMap[activeTab] || "Baskı"}
                             </p>
                             <p className="text-[11px] text-gray-500 mt-0.5 truncate">
                               {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
@@ -5939,17 +5904,15 @@ function TasarimClientContent({ isMobile }) {
 
         {drawerMenuMounted && (
           <div
-            className={`fixed inset-0 z-[96] transition-opacity duration-200 ${
-              drawerMenuOpen
+            className={`fixed inset-0 z-[96] transition-opacity duration-200 ${drawerMenuOpen
                 ? "opacity-100 pointer-events-auto bg-black/16 backdrop-blur-[2px]"
                 : "opacity-0 pointer-events-none bg-black/0 backdrop-blur-0"
-            }`}
+              }`}
             onClick={closeDrawerMenu}
           >
             <div
-              className={`absolute left-1/2 -translate-x-1/2 w-[min(97vw,980px)] rounded-2xl border border-gray-200 bg-white/95 shadow-2xl p-4 md:p-5 transform-gpu will-change-transform transition-all duration-200 ease-out ${
-                drawerMenuOpen ? "translate-y-0 opacity-100 scale-100" : "translate-y-3 opacity-0 scale-[0.985]"
-              }`}
+              className={`absolute left-1/2 -translate-x-1/2 w-[min(97vw,980px)] rounded-2xl border border-gray-200 bg-white/95 shadow-2xl p-4 md:p-5 transform-gpu will-change-transform transition-all duration-200 ease-out ${drawerMenuOpen ? "translate-y-0 opacity-100 scale-100" : "translate-y-3 opacity-0 scale-[0.985]"
+                }`}
               style={{
                 bottom: menuPanelBottom,
               }}
@@ -5971,11 +5934,10 @@ function TasarimClientContent({ isMobile }) {
                   <button
                     key={tab.id}
                     onClick={() => selectMenuTab(tab.id)}
-                    className={`px-3 py-3 rounded-xl border text-[11px] font-black uppercase tracking-wide transition flex items-center justify-center gap-2 ${
-                      activeTab === tab.id
+                    className={`px-3 py-3 rounded-xl border text-[11px] font-black uppercase tracking-wide transition flex items-center justify-center gap-2 ${activeTab === tab.id
                         ? "bg-black text-white border-black"
                         : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                    }`}
+                      }`}
                   >
                     <tab.icon size={14} />
                     {tab.label}
