@@ -44,6 +44,19 @@ const MODEL_TYPE_ALIASES = {
   "polar-son": "polar-son",
 };
 
+const normalizeFabricType = (fabricType, modelType) => {
+  const safeModel = normalizeModelType(modelType);
+  const raw = String(fabricType || "").trim().toLowerCase();
+  const defaultType = safeModel.includes("tshirt") ? "supreme-24x1" : "iplik-3-sardonsuz";
+  if (raw === "standart") return defaultType;
+  if (raw === "pamuk") return "supreme-30x1";
+  if (raw === "soft") return "iplik-3-sardonlu";
+  if (raw === "supreme-24x1" || raw === "supreme-30x1" || raw === "iplik-3-sardonsuz" || raw === "iplik-3-sardonlu") {
+    return raw;
+  }
+  return defaultType;
+};
+
 const normalizeModelType = (type) => {
   const raw = String(type || "")
     .toLowerCase()
@@ -136,7 +149,7 @@ function RotatingModelPreviewMesh({
   modelType,
   color = "#d6dbe2",
   stringColor = "#e6e6e6",
-  fabricType = "standart",
+  fabricType = "supreme-24x1",
   frontPrintUrl = "",
   backPrintUrl = "",
   hoodieV12Parts = DEFAULT_HOODIE_PARTS,
@@ -263,12 +276,14 @@ function RotatingModelPreviewMesh({
     const lum = 0.2126 * base.r + 0.7152 * base.g + 0.0722 * base.b;
     const darkBoost = clamp((0.42 - lum) / 0.42, 0, 1);
     const lightBoost = clamp((lum - 0.72) / 0.28, 0, 1);
+    const resolvedFabric = normalizeFabricType(fabricType, resolvedType);
     const fabricMap = {
-      standart: { rough: 0, metal: 0, env: 0 },
-      pamuk: { rough: 0.025, metal: -0.002, env: -0.06 },
-      soft: { rough: -0.035, metal: 0.004, env: 0.08 },
+      "supreme-24x1": { rough: -0.01, metal: 0.001, env: 0.03 },
+      "supreme-30x1": { rough: 0.018, metal: -0.001, env: -0.02 },
+      "iplik-3-sardonsuz": { rough: 0.012, metal: 0.001, env: -0.015 },
+      "iplik-3-sardonlu": { rough: 0.03, metal: -0.002, env: -0.04 },
     };
-    const fx = fabricMap[fabricType] || fabricMap.standart;
+    const fx = fabricMap[resolvedFabric] || fabricMap["supreme-24x1"];
     return new THREE.MeshStandardMaterial({
       color: base,
       roughness: clamp(0.968 - 0.04 * darkBoost + 0.09 * lightBoost + fx.rough, 0.9, 0.995),
@@ -517,7 +532,7 @@ export default function SiparisPage() {
               const printFiles = details?.printFiles || {};
               const resolvedBaseColor = details?.baseColor || item?.color || "#d6dbe2";
               const resolvedStringColor = details?.stringColor || "#e6e6e6";
-              const resolvedFabric = details?.fabricType || item?.fabricType || "standart";
+              const resolvedFabric = normalizeFabricType(details?.fabricType || item?.fabricType, item.modelType);
               return (
               <div key={item.id} className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
                 <OrderTurntablePreview

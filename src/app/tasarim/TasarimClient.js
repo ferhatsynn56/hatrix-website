@@ -139,6 +139,30 @@ const normalizeModelType = (type) => {
   return PRIMARY_MODEL_PATHS[resolved] ? resolved : DEFAULT_MODEL_TYPE;
 };
 
+const getDefaultFabricType = (modelType) => {
+  const safe = normalizeModelType(modelType);
+  if (safe.includes("tshirt")) return "supreme-24x1";
+  return "iplik-3-sardonsuz";
+};
+
+const normalizeFabricType = (fabricType, modelType) => {
+  const raw = String(fabricType || "").trim().toLowerCase();
+  // backward compatibility
+  if (raw === "standart") return getDefaultFabricType(modelType);
+  if (raw === "pamuk") return "supreme-30x1";
+  if (raw === "soft") return "iplik-3-sardonlu";
+  if (FABRIC_PRESETS[raw]) return raw;
+  return getDefaultFabricType(modelType);
+};
+
+const getFabricOptionsForModel = (modelType) => {
+  const safe = normalizeModelType(modelType);
+  if (safe.includes("tshirt")) {
+    return [FABRIC_PRESETS["supreme-24x1"], FABRIC_PRESETS["supreme-30x1"]];
+  }
+  return [FABRIC_PRESETS["iplik-3-sardonsuz"], FABRIC_PRESETS["iplik-3-sardonlu"]];
+};
+
 const MODEL_PATHS = {
   ...PRIMARY_MODEL_PATHS,
   ...Object.fromEntries(
@@ -422,8 +446,43 @@ const CM_LABELS = {
 };
 
 /* ================= FİYAT SISTEMI ================= */
-const BASE_PRICE = 750;
-const EXTRA_SIDE_PRICE = 150;
+const MODEL_BASE_PRICES = Object.freeze({
+  "yeni-duz-tshirt": 350,
+  "yeni-oversize-tshirt": 400,
+  "yeni-duz-sweat": 600,
+  "yeni-oversize-sweat": 650,
+  "yeni-fermuarli": 650,
+  "hoodie-v12-canavari": 750,
+  "oversize-hoodie-parcali": 800,
+  "polar-son": 800,
+});
+const LAUNCH_DISCOUNT_RATE = 0.2; // Current visible prices are launch-discounted prices.
+const LARGE_PRINT_AREA_THRESHOLD_01 = 0.4; // 5'te 2
+const LARGE_PRINT_EXTRA_PRICE = 50;
+
+/* ================= KUMAŞ ================= */
+const FABRIC_PRESETS = Object.freeze({
+  "supreme-24x1": {
+    id: "supreme-24x1",
+    label: "24x1 Süpreme",
+    desc: "Tok duruşlu, kaliteli ve dayanıklı tişört kumaşı.",
+  },
+  "supreme-30x1": {
+    id: "supreme-30x1",
+    label: "30x1 Süpreme",
+    desc: "İnce, hafif, yumuşak ve ekonomik tişört kumaşı.",
+  },
+  "iplik-3-sardonsuz": {
+    id: "iplik-3-sardonsuz",
+    label: "3 İplik Şardonsuz",
+    desc: "Kalın, tok ve 4 mevsim kullanım için uygun kumaş.",
+  },
+  "iplik-3-sardonlu": {
+    id: "iplik-3-sardonlu",
+    label: "3 İplik Şardonlu",
+    desc: "İçi tüylü, pofuduk ve kışlık kumaş.",
+  },
+});
 
 /* ================= BRAND / UI ================= */
 const SCENE_BG_COLOR = "#f3f3f3";
@@ -752,18 +811,18 @@ const logoFilterCss = (logo) => {
 const isEmbossSticker = (logo) => Boolean(logo?.emboss || logo?.kind === "sticker");
 
 const drawEmbossOverlay = (ctx, img, bw, bh) => {
-  const shift = Math.max(1, Math.round(Math.max(bw, bh) * 0.012));
+  const shift = Math.max(1, Math.round(Math.max(bw, bh) * 0.01));
   ctx.save();
   ctx.globalCompositeOperation = "source-atop";
-  ctx.globalAlpha = 0.24;
-  ctx.filter = "brightness(150%) contrast(108%)";
+  ctx.globalAlpha = 0.18;
+  ctx.filter = "brightness(132%) contrast(106%)";
   ctx.drawImage(img, -bw / 2 - shift, -bh / 2 - shift, bw, bh);
   ctx.restore();
 
   ctx.save();
   ctx.globalCompositeOperation = "source-atop";
-  ctx.globalAlpha = 0.2;
-  ctx.filter = "brightness(58%) contrast(120%)";
+  ctx.globalAlpha = 0.24;
+  ctx.filter = "brightness(68%) contrast(122%)";
   ctx.drawImage(img, -bw / 2 + shift, -bh / 2 + shift, bw, bh);
   ctx.restore();
 };
@@ -944,11 +1003,13 @@ const hasSideContent = (sd) => {
 const UI_SIDES = ["front", "back"];
 const UI_VIEWS = ["front", "back"];
 
-const createDesign = (type = DEFAULT_MODEL_TYPE) => ({
+const createDesign = (type = DEFAULT_MODEL_TYPE) => {
+  const normalizedType = normalizeModelType(type);
+  return {
   id: makeId(),
-  modelType: normalizeModelType(type),
+  modelType: normalizedType,
   color: BRAND_DEFAULT_COLOR,
-  fabricType: "standart",
+  fabricType: getDefaultFabricType(normalizedType),
   stringColor: "#e6e6e6",
   hoodieV12Parts: { ...DEFAULT_HOODIE_PARTS },
   hasPdf: false,
@@ -967,7 +1028,8 @@ const createDesign = (type = DEFAULT_MODEL_TYPE) => ({
     left: createSideData(),
     right: createSideData(),
   },
-});
+};
+};
 
 const restoreDesignFromCheckoutItem = (item) => {
   const details = item?.designDetails || {};
@@ -979,7 +1041,7 @@ const restoreDesignFromCheckoutItem = (item) => {
     id: item?.id || makeId(),
     modelType,
     color: item?.color || details?.baseColor || base.color,
-    fabricType: details?.fabricType || base.fabricType,
+    fabricType: normalizeFabricType(details?.fabricType || item?.fabricType || base.fabricType, modelType),
     stringColor: details?.stringColor || base.stringColor,
     size: item?.size || base.size,
     hoodieV12Parts: normalizeHoodieParts(details?.hoodieV12Parts || item?.hoodieV12Parts),
@@ -1051,10 +1113,50 @@ const getActiveSides = (design) =>
     .filter(([k]) => UI_SIDES.includes(k))
     .filter(([_, sd]) => hasSideContent(sd));
 
+const getModelBasePrice = (modelType) => {
+  const safe = normalizeModelType(modelType);
+  return MODEL_BASE_PRICES[safe] ?? MODEL_BASE_PRICES[DEFAULT_MODEL_TYPE] ?? 350;
+};
+
+const isChargeableLargeLogo = (logo) => {
+  if (!logo || isEmbossSticker(logo)) return false;
+  const box = logo.box || {};
+  const w = Number(box.w);
+  const h = Number(box.h);
+  if (!Number.isFinite(w) || !Number.isFinite(h)) return false;
+  return w * h >= LARGE_PRINT_AREA_THRESHOLD_01;
+};
+
+const getLargePrintChargeSummary = (design) => {
+  const sides = design?.sides || {};
+  let count = 0;
+  UI_SIDES.forEach((sideKey) => {
+    const logos = Array.isArray(sides?.[sideKey]?.logos) ? sides[sideKey].logos : [];
+    count += logos.filter(isChargeableLargeLogo).length;
+  });
+  return {
+    count,
+    amount: count * LARGE_PRINT_EXTRA_PRICE,
+  };
+};
+
 const getPrice = (design) => {
-  const activeSides = getActiveSides(design);
-  if (activeSides.length === 0) return BASE_PRICE;
-  return BASE_PRICE + (activeSides.length - 1) * EXTRA_SIDE_PRICE;
+  const basePrice = getModelBasePrice(design?.modelType);
+  const largePrintCharge = getLargePrintChargeSummary(design).amount;
+  return basePrice + largePrintCharge;
+};
+
+const getListPriceBeforeLaunchDiscount = (discountedPrice) => {
+  const p = Number(discountedPrice || 0);
+  if (!Number.isFinite(p) || p <= 0) return 0;
+  return Math.round((p / (1 - LAUNCH_DISCOUNT_RATE)) * 100) / 100;
+};
+
+const formatMoney = (value) => {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num)) return "0";
+  if (Math.abs(num - Math.round(num)) < 0.0001) return String(Math.round(num));
+  return num.toFixed(2);
 };
 
 /* ================= PRINT CANVAS (FOR CART / EXPORT) ================= */
@@ -1572,13 +1674,14 @@ function Real3DModel({
     const lum = 0.2126 * base.r + 0.7152 * base.g + 0.0722 * base.b;
     const darkBoost = clamp((0.42 - lum) / 0.42, 0, 1);
     const lightBoost = clamp((lum - 0.72) / 0.28, 0, 1);
-    const fabric = fabricType || "standart";
+    const fabric = normalizeFabricType(fabricType, modelType);
     const fabricMap = {
-      standart: { rough: 0, metal: 0, env: 0, emit: 0 },
-      pamuk: { rough: 0.025, metal: -0.002, env: -0.06, emit: -0.002 },
-      soft: { rough: -0.035, metal: 0.004, env: 0.08, emit: 0.003 },
+      "supreme-24x1": { rough: -0.01, metal: 0.001, env: 0.03, emit: 0.001 },
+      "supreme-30x1": { rough: 0.018, metal: -0.001, env: -0.02, emit: 0 },
+      "iplik-3-sardonsuz": { rough: 0.012, metal: 0.001, env: -0.015, emit: 0 },
+      "iplik-3-sardonlu": { rough: 0.03, metal: -0.002, env: -0.04, emit: -0.002 },
     };
-    const fabricFx = fabricMap[fabric] || fabricMap.standart;
+    const fabricFx = fabricMap[fabric] || fabricMap["supreme-24x1"];
 
     return new THREE.MeshStandardMaterial({
       color: base,
@@ -1765,30 +1868,54 @@ function Real3DModel({
                 const rz = ((logo?.rotation || 0) * Math.PI) / 180;
                 const fx = getLogoStyle(logo);
                 return (
-                  <Decal
-                    key={`emboss-front-${logo.id || idx}`}
-                    mesh={decalHostRef}
-                    position={[cx, cy, frontProfile.z + torsoZOffsetFront + 0.0015]}
-                    rotation={[0, frontProfile.rotY || 0, rz]}
-                    scale={[decalW, decalH, TORSO_DEPTH * 0.6]}
-                  >
-                    <meshStandardMaterial
-                      map={tex}
-                      alphaMap={tex}
-                      transparent
-                      opacity={fx.opacity}
-                      alphaTest={0.06}
-                      roughness={0.4}
-                      metalness={0.1}
-                      envMapIntensity={1.5}
-                      bumpMap={tex}
-                      bumpScale={15.0}
-                      depthWrite={false}
-                      polygonOffset
-                      polygonOffsetFactor={-12}
+                  <React.Fragment key={`emboss-front-wrap-${logo.id || idx}`}>
+                    <Decal
+                      mesh={decalHostRef}
+                      position={[cx, cy, frontProfile.z + torsoZOffsetFront + 0.00125]}
+                      rotation={[0, frontProfile.rotY || 0, rz]}
+                      scale={[decalW * 1.045, decalH * 1.045, TORSO_DEPTH * 0.7]}
+                    >
+                      <meshStandardMaterial
+                        color="#2b313a"
+                        alphaMap={tex}
+                        transparent
+                        opacity={clamp(fx.opacity * 0.9, 0, 1)}
+                        alphaTest={0.07}
+                        roughness={0.94}
+                        metalness={0.01}
+                        envMapIntensity={0.46}
+                        bumpMap={tex}
+                        bumpScale={2.5}
+                        depthWrite={false}
+                        polygonOffset
+                        polygonOffsetFactor={-11}
+                        side={THREE.FrontSide}
+                      />
+                    </Decal>
+                    <Decal
+                      mesh={decalHostRef}
+                      position={[cx, cy, frontProfile.z + torsoZOffsetFront + 0.0018]}
+                      rotation={[0, frontProfile.rotY || 0, rz]}
+                      scale={[decalW, decalH, TORSO_DEPTH * 0.6]}
+                    >
+                      <meshStandardMaterial
+                        map={tex}
+                        alphaMap={tex}
+                        transparent
+                        opacity={fx.opacity}
+                        alphaTest={0.06}
+                        roughness={0.72}
+                        metalness={0.02}
+                        envMapIntensity={0.86}
+                        bumpMap={tex}
+                        bumpScale={5.6}
+                        depthWrite={false}
+                        polygonOffset
+                        polygonOffsetFactor={-12}
                       side={THREE.FrontSide}
                     />
                   </Decal>
+                  </React.Fragment>
                 );
               })}
 
@@ -1825,30 +1952,54 @@ function Real3DModel({
                 const rz = ((logo?.rotation || 0) * Math.PI) / 180;
                 const fx = getLogoStyle(logo);
                 return (
-                  <Decal
-                    key={`emboss-back-${logo.id || idx}`}
-                    mesh={decalHostRef}
-                    position={[cx, cy, backProfile.z + torsoZOffsetBack - 0.0015]}
-                    rotation={[0, backProfile.rotY || Math.PI, rz]}
-                    scale={[decalW, decalH, TORSO_DEPTH * 0.6]}
-                  >
-                    <meshStandardMaterial
-                      map={tex}
-                      alphaMap={tex}
-                      transparent
-                      opacity={fx.opacity}
-                      alphaTest={0.06}
-                      roughness={0.4}
-                      metalness={0.1}
-                      envMapIntensity={1.5}
-                      bumpMap={tex}
-                      bumpScale={15.0}
-                      depthWrite={false}
-                      polygonOffset
-                      polygonOffsetFactor={-12}
+                  <React.Fragment key={`emboss-back-wrap-${logo.id || idx}`}>
+                    <Decal
+                      mesh={decalHostRef}
+                      position={[cx, cy, backProfile.z + torsoZOffsetBack - 0.00125]}
+                      rotation={[0, backProfile.rotY || Math.PI, rz]}
+                      scale={[decalW * 1.045, decalH * 1.045, TORSO_DEPTH * 0.7]}
+                    >
+                      <meshStandardMaterial
+                        color="#2b313a"
+                        alphaMap={tex}
+                        transparent
+                        opacity={clamp(fx.opacity * 0.9, 0, 1)}
+                        alphaTest={0.07}
+                        roughness={0.94}
+                        metalness={0.01}
+                        envMapIntensity={0.46}
+                        bumpMap={tex}
+                        bumpScale={2.5}
+                        depthWrite={false}
+                        polygonOffset
+                        polygonOffsetFactor={-11}
+                        side={THREE.FrontSide}
+                      />
+                    </Decal>
+                    <Decal
+                      mesh={decalHostRef}
+                      position={[cx, cy, backProfile.z + torsoZOffsetBack - 0.0018]}
+                      rotation={[0, backProfile.rotY || Math.PI, rz]}
+                      scale={[decalW, decalH, TORSO_DEPTH * 0.6]}
+                    >
+                      <meshStandardMaterial
+                        map={tex}
+                        alphaMap={tex}
+                        transparent
+                        opacity={fx.opacity}
+                        alphaTest={0.06}
+                        roughness={0.72}
+                        metalness={0.02}
+                        envMapIntensity={0.86}
+                        bumpMap={tex}
+                        bumpScale={5.6}
+                        depthWrite={false}
+                        polygonOffset
+                        polygonOffsetFactor={-12}
                       side={THREE.FrontSide}
                     />
                   </Decal>
+                  </React.Fragment>
                 );
               })}
           </>
@@ -2464,12 +2615,15 @@ function ModelManagementCard({
   activeModelType,
   hoodieParts,
   onToggleHoodiePart,
-  fabricType = "standart",
+  fabricType = "supreme-24x1",
   onChangeFabric,
   cardClassName = "",
 }) {
   const parts = normalizeHoodieParts(hoodieParts);
   const showHoodieOptions = MODELS_WITH_HOODIE_PARTS.has(activeModelType);
+  const fabricOptions = getFabricOptionsForModel(activeModelType);
+  const resolvedFabricType = normalizeFabricType(fabricType, activeModelType);
+  const selectedFabric = fabricOptions.find((f) => f.id === resolvedFabricType) || fabricOptions[0];
 
   return (
     <div className={`rounded-xl border border-gray-200 bg-white p-2 shadow-sm min-h-[206px] ${cardClassName}`}>
@@ -2525,18 +2679,19 @@ function ModelManagementCard({
       )}
 
       <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-2 space-y-1">
-        <p className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-600">Kumaş</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-600">Kumaş</p>
+          {selectedFabric?.label && (
+            <span className="text-[10px] font-bold text-gray-600">{selectedFabric.label}</span>
+          )}
+        </div>
         <div className="flex flex-wrap gap-1.5">
-          {[
-            { id: "standart", label: "Standart" },
-            { id: "pamuk", label: "Pamuk" },
-            { id: "soft", label: "Soft" },
-          ].map((opt) => (
+          {fabricOptions.map((opt) => (
             <button
               key={`fabric-${opt.id}`}
               type="button"
               onClick={() => onChangeFabric?.(opt.id)}
-              className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase border transition ${fabricType === opt.id
+              className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase border transition ${resolvedFabricType === opt.id
                   ? "bg-black text-white border-black"
                   : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
                 }`}
@@ -2545,6 +2700,7 @@ function ModelManagementCard({
             </button>
           ))}
         </div>
+        {selectedFabric?.desc && <p className="text-[10px] leading-relaxed text-gray-500">{selectedFabric.desc}</p>}
       </div>
 
       {(designs || []).length > 1 && (
@@ -2631,7 +2787,7 @@ function EditorPanel({
       pdfPlacement: normalizePdfPlacement({ ...pdfPlacement, ...patch }, patch?.side || pdfPlacement.side || currentSide),
     });
   };
-  const fabricType = design.fabricType || "standart";
+  const fabricType = normalizeFabricType(design.fabricType, design.modelType);
   const printTypes = getPrintTypesForSide(design, currentSide);
   const setCurrentSidePrintTypes = (nextTypes) => {
     const bySide = normalizePrintTypesBySide(design.printTypesBySide, design.printTypes);
@@ -2658,6 +2814,10 @@ function EditorPanel({
 
   const activeSides = getActiveSides(design);
   const totalPrice = getPrice(design);
+  const baseModelPrice = getModelBasePrice(design.modelType);
+  const totalListPrice = getListPriceBeforeLaunchDiscount(totalPrice);
+  const baseModelListPrice = getListPriceBeforeLaunchDiscount(baseModelPrice);
+  const largePrintSummary = getLargePrintChargeSummary(design);
 
   const logos = sideData?.logos || [];
   const activeLogo = logos.find((l) => l.id === sideData.activeLogoId) || logos[0] || null;
@@ -2882,6 +3042,8 @@ function EditorPanel({
                     top: `${clampTextPos(sideData?.textPos, sideData?.customText).y * 100}%`,
                     transform: "translate(-50%, -50%)",
                     touchAction: "none",
+                    cursor: "grab",
+                    zIndex: 90,
                   }}
                   onPointerDown={(e) => {
                     e.preventDefault();
@@ -2933,8 +3095,12 @@ function EditorPanel({
         <div className="p-3 border-t border-zinc-800 bg-[#111111]">
           <div className="flex items-center justify-between text-[10px] text-zinc-400 font-bold uppercase mb-2">
             <span>Toplam</span>
-            <span className="text-white font-black">{totalPrice} ₺</span>
+            <div className="flex items-center gap-2">
+              <span className="text-zinc-500 line-through">{formatMoney(totalListPrice)} ₺</span>
+              <span className="text-white font-black">{formatMoney(totalPrice)} ₺</span>
+            </div>
           </div>
+          <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-300">Açılışa Özel %20 İndirim</p>
         </div>
       </div>
     );
@@ -3730,20 +3896,29 @@ function EditorPanel({
         >
           <div className="mb-2 p-2.5 rounded-xl bg-zinc-900/50 border border-zinc-800">
             <div className="flex justify-between items-center">
-              <span className="text-[10px] font-bold uppercase text-zinc-500">Ana Fiyat</span>
-              <span className="text-xs font-mono text-zinc-300">{BASE_PRICE} ₺</span>
+              <span className="text-[10px] font-bold uppercase text-zinc-500">Açılışa Özel</span>
+              <div className="text-right leading-tight">
+                <p className="text-[10px] font-mono text-zinc-500 line-through">{formatMoney(baseModelListPrice)} ₺</p>
+                <p className="text-xs font-mono text-zinc-100">{formatMoney(baseModelPrice)} ₺</p>
+              </div>
             </div>
+            <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-emerald-300">Açılış İndirimi %20</p>
 
-            {activeSides.length > 1 && (
+            {largePrintSummary.count > 0 && (
               <div className="flex justify-between items-center mt-1">
-                <span className="text-[10px] font-bold uppercase text-zinc-500">Ek Taraf ({activeSides.length - 1}×)</span>
-                <span className="text-xs font-mono text-zinc-300">+{(activeSides.length - 1) * EXTRA_SIDE_PRICE} ₺</span>
+                <span className="text-[10px] font-bold uppercase text-zinc-500">
+                  Büyük Baskı ({largePrintSummary.count}×)
+                </span>
+                <span className="text-xs font-mono text-zinc-300">+{formatMoney(largePrintSummary.amount)} ₺</span>
               </div>
             )}
 
             <div className="flex justify-between items-center mt-2 pt-2 border-t border-zinc-800">
               <span className="text-[10px] font-bold uppercase text-white">Toplam</span>
-              <span className="text-sm font-black font-mono text-white">{totalPrice} ₺</span>
+              <div className="text-right leading-tight">
+                <p className="text-[10px] font-mono text-zinc-500 line-through">{formatMoney(totalListPrice)} ₺</p>
+                <p className="text-sm font-black font-mono text-white">{formatMoney(totalPrice)} ₺</p>
+              </div>
             </div>
           </div>
         </div>
@@ -4409,10 +4584,14 @@ function TasarimClientContent({ isMobile }) {
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
         const previewMockup = mockupFiles.front || mockupFiles[activeSides[0][0]] || null;
+        const launchPrice = getPrice(d);
+        const listPrice = getListPriceBeforeLaunchDiscount(launchPrice);
         const orderItem = {
           id: `${d.id}-${Date.now()}`,
           name: MODEL_LABELS[d.modelType] || d.modelType,
-          price: getPrice(d),
+          price: launchPrice,
+          listPrice,
+          launchDiscountRate: LAUNCH_DISCOUNT_RATE,
           size: d.size,
           color: d.color,
           quantity: 1,
@@ -4420,7 +4599,7 @@ function TasarimClientContent({ isMobile }) {
           designDetails: {
             model: d.modelType,
             baseColor: d.color,
-            fabricType: d.fabricType || "standart",
+            fabricType: normalizeFabricType(d.fabricType, d.modelType),
             stringColor: d.stringColor,
             hoodieV12Parts: normalizeHoodieParts(d.hoodieV12Parts),
             hasPdf: Boolean(d.hasPdf && d.pdfFileUrl),
@@ -4443,9 +4622,11 @@ function TasarimClientContent({ isMobile }) {
           modelType: d.modelType,
           name: orderItem.name,
           color: d.color,
-          fabricType: d.fabricType || "standart",
+          fabricType: normalizeFabricType(d.fabricType, d.modelType),
           size: d.size,
           price: orderItem.price,
+          listPrice: orderItem.listPrice,
+          launchDiscountRate: orderItem.launchDiscountRate,
           quantity: 1,
           hoodieV12Parts: normalizeHoodieParts(d.hoodieV12Parts),
           hasPdf: Boolean(d.hasPdf && d.pdfFileUrl),
@@ -4659,14 +4840,22 @@ function TasarimClientContent({ isMobile }) {
     );
   }
 
+  const headerDesign = activeDesign || createDesign(DEFAULT_MODEL_TYPE);
+  const headerLaunchPrice = getPrice(headerDesign);
+  const headerListPrice = getListPriceBeforeLaunchDiscount(headerLaunchPrice);
+
   return (
     <div className="fixed inset-0 h-screen w-full text-white overflow-hidden font-sans" style={{ background: SCENE_BG_COLOR, overscrollBehavior: "none", touchAction: isMobile ? "pan-y" : "none" }}>
       {/* Top Header */}
       <div className="absolute top-0 left-0 right-0 z-[90] px-4 pt-4 pb-3 flex items-start justify-between pointer-events-none">
         <div className="flex items-start gap-3 pointer-events-auto">
           <div>
-            <p className="text-sm font-bold text-black">{MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}</p>
-            <p className="text-xs text-zinc-600">{getPrice(activeDesign || createDesign(DEFAULT_MODEL_TYPE))} ₺</p>
+            <p className="text-sm font-bold text-black">{MODEL_LABELS[headerDesign.modelType] || headerDesign.modelType}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] text-zinc-500 line-through">{formatMoney(headerListPrice)} ₺</p>
+              <p className="text-xs font-black text-zinc-700">{formatMoney(headerLaunchPrice)} ₺</p>
+            </div>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">Açılışa Özel %20 İndirim</p>
           </div>
         </div>
 
@@ -4945,7 +5134,7 @@ function TasarimClientContent({ isMobile }) {
                             top: `${clampTextPos(sideData?.textPos, sideData?.customText).y * 100}%`,
                             touchAction: "none",
                             cursor: "grab",
-                            zIndex: 10 + renderIdx,
+                            zIndex: editorControlTab === "text" ? 120 : 10 + renderIdx,
                           }}
                           onPointerDown={(e) => {
                             e.preventDefault();
@@ -4995,7 +5184,7 @@ function TasarimClientContent({ isMobile }) {
                           height: pct(box.h),
                           touchAction: "none",
                           zIndex: 10 + renderIdx,
-                          pointerEvents: isSelected ? "none" : "auto",
+                          pointerEvents: editorControlTab === "text" ? "none" : isSelected ? "none" : "auto",
                         }}
                         onPointerDown={(e) => {
                           e.stopPropagation();
@@ -5040,7 +5229,7 @@ function TasarimClientContent({ isMobile }) {
                 )}
 
                 {/* seçili logo resize/drag çerçevesi */}
-                {activeLogo && (
+                {activeLogo && editorControlTab !== "text" && (
                   <ResizeFrame
                     box={activeLogo.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 }}
                     containerRef={previewRef}

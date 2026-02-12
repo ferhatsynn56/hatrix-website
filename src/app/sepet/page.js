@@ -5,8 +5,13 @@ import { useCart } from '@/context/CartContext'; // Context'i çekiyoruz
 import { Trash2, ArrowLeft, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 
+const FREE_SHIPPING_THRESHOLD = 1500;
+const SHIPPING_FEE = 70;
+
 export default function SepetSayfasi() {
     const { cart, removeFromCart, totalPrice } = useCart();
+    const shippingPrice = totalPrice >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+    const finalTotal = totalPrice + shippingPrice;
 
     // --- BOŞ SEPET GÖRÜNÜMÜ ---
     if (cart.length === 0) {
@@ -78,12 +83,16 @@ export default function SepetSayfasi() {
                         </div>
                         <div className="flex justify-between items-center mb-6 text-sm text-zinc-400">
                             <span>Kargo</span>
-                            <span className="text-green-400 font-bold uppercase text-xs">Ücretsiz</span>
+                            {shippingPrice === 0 ? (
+                                <span className="text-green-400 font-bold uppercase text-xs">Ücretsiz</span>
+                            ) : (
+                                <span className="text-white font-mono">₺{shippingPrice.toFixed(2)}</span>
+                            )}
                         </div>
 
                         <div className="flex justify-between items-center mb-8 text-xl font-black border-t border-zinc-800 pt-4">
                             <span>TOPLAM</span>
-                            <span className="text-red-500 font-mono">₺{totalPrice.toFixed(2)}</span>
+                            <span className="text-red-500 font-mono">₺{finalTotal.toFixed(2)}</span>
                         </div>
 
                         <button className="w-full bg-white text-black py-4 rounded-xl font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition shadow-[0_0_20px_rgba(255,255,255,0.2)]">

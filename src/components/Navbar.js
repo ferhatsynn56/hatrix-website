@@ -33,6 +33,12 @@ try {
   }
 } catch (e) { console.error(e); }
 
+const TOP_INFO_MESSAGES = [
+  "1500 TL ve üzeri siparişlerde kargo ücretsiz.",
+  "Steni 3D stüdyoda tasarımını canlı gör, sonra siparişe geç.",
+  "Model + baskı + kumaş seçimini tek akışta tamamla.",
+];
+
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
@@ -49,6 +55,7 @@ export default function Navbar() {
   const [aramaMetni, setAramaMetni] = useState("");
   const [tasarimMenuAcik, setTasarimMenuAcik] = useState(false);
   const [bilimselAcik, setBilimselAcik] = useState(false);
+  const [topInfoIndex, setTopInfoIndex] = useState(0);
 
   const aramaInputRef = useRef(null);
   const iletisimMaili = "mailto:info@stenist.com";
@@ -83,6 +90,13 @@ export default function Navbar() {
       setTimeout(() => aramaInputRef.current.focus(), 100);
     }
   }, [aramaAcik]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTopInfoIndex((prev) => (prev + 1) % TOP_INFO_MESSAGES.length);
+    }, 4200);
+    return () => clearInterval(timer);
+  }, []);
 
   const cikisYap = async () => { if (auth) await signOut(auth); };
 
@@ -206,15 +220,19 @@ export default function Navbar() {
   // ✅ NORMAL SAYFALAR: SENİN ORİJİNAL NAVBAR AŞAĞIDA AYNEN DURUYOR
   return (
     <>
-      <style jsx global>{`
-        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-        .animate-marquee { animation: marquee 30s linear infinite; }
-      `}</style>
-
-      {/* MARQUEE */}
-      <div className="fixed top-0 left-0 w-full z-[60] overflow-hidden py-1 whitespace-nowrap bg-white text-black transition-colors duration-500 h-[24px] md:h-[24px]">
-        <div className="inline-block animate-marquee font-black text-[10px] uppercase tracking-[0.2em]">
-          Stenist • Automotive Fashion • Street Culture • Ready to Wear • Stenist • Automotive Fashion • Street Culture • Ready to Wear • Stenist • Automotive Fashion • Street Culture • Ready to Wear • Stenist • Automotive Fashion • Street Culture • Ready to Wear •
+      {/* TOP INFO BAR */}
+      <div className="fixed top-0 left-0 w-full z-[60] h-[24px] bg-white text-black border-b border-zinc-200">
+        <div className="relative h-full overflow-hidden">
+          {TOP_INFO_MESSAGES.map((message, idx) => (
+            <div
+              key={`top-info-${idx}`}
+              className={`absolute inset-0 flex items-center justify-center px-3 text-center text-[10px] font-black uppercase tracking-[0.14em] transition-all duration-500 ${
+                idx === topInfoIndex ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"
+              }`}
+            >
+              {message}
+            </div>
+          ))}
         </div>
       </div>
 

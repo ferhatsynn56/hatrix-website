@@ -8,6 +8,9 @@ import { ArrowLeft, CreditCard, ShieldCheck, ShoppingBag, MapPin, Phone, User, L
 import { useCart } from '@/context/CartContext';
 import { getCheckoutData, clearCheckoutData } from '@/lib/checkoutStore';
 
+const FREE_SHIPPING_THRESHOLD = 1500;
+const SHIPPING_FEE = 70;
+
 export default function OdemeSayfasi() {
   const router = useRouter();
   
@@ -76,6 +79,8 @@ export default function OdemeSayfasi() {
     (total, item) => total + Number(item.price || 0) * Number(item.quantity || 1),
     0
   );
+  const shippingPrice = sepetToplami >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+  const orderTotal = sepetToplami + shippingPrice;
 
   // KART FORMATLAMA (0000 0000 0000 0000)
   const kartNoFormatla = (value) => {
@@ -273,11 +278,15 @@ export default function OdemeSayfasi() {
                         </div>
                         <div className="flex justify-between text-sm text-gray-500">
                             <span>Kargo</span>
-                            <span className="text-green-600 font-bold">Ücretsiz</span>
+                            {shippingPrice === 0 ? (
+                                <span className="text-green-600 font-bold">Ücretsiz</span>
+                            ) : (
+                                <span>₺{shippingPrice}</span>
+                            )}
                         </div>
                         <div className="flex justify-between text-xl font-black text-gray-900 pt-3 border-t border-gray-100 mt-2">
                             <span>Toplam</span>
-                            <span>₺{sepetToplami}</span>
+                            <span>₺{orderTotal}</span>
                         </div>
                     </div>
                     
@@ -301,7 +310,7 @@ export default function OdemeSayfasi() {
                             </>
                         ) : (
                             <>
-                                <ShieldCheck size={20}/> {sepetToplami} TL Öde
+                                <ShieldCheck size={20}/> {orderTotal} TL Öde
                             </>
                         )}
                     </button>
