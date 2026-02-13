@@ -551,7 +551,6 @@ const TEXT_LAYOUT_OPTIONS = [
 
 const HDR_ENV_DESKTOP_PATH = "/hdr/white_studio_06_4k.exr";
 const HDR_ENV_MOBILE_PATH = "/hdr/studio_small_03_2k.exr";
-const SCIENTIFIC_ROUTE = "/bilimsel";
 
 const PRINT_TYPE_OPTIONS = [
   {
@@ -3015,9 +3014,6 @@ function EditorPanel({
   const cm = CM_LABELS[design.modelType]?.[currentSide] || { w: 0, h: 0 };
 
   const t = sideData?.customText || {};
-  const textEmbossEnabled = t?.emboss !== false;
-  const textEmbossDepth = clamp(Number(t?.embossDepth ?? 1.4), 0.6, 2.8);
-  const textEmbossStrength = clamp(Number(t?.embossStrength ?? 1.4), 0.6, 2.4);
   const hoodieV12Parts = normalizeHoodieParts(design.hoodieV12Parts);
   const hasPdf = Boolean(design?.hasPdf && design?.pdfFileUrl);
   const pdfPlacement = normalizePdfPlacement(design?.pdfPlacement, currentSide);
@@ -3407,7 +3403,6 @@ function EditorPanel({
           <div className="flex border-b border-zinc-800 bg-[#111111] flex-shrink-0">
             {[
               { id: "upload", icon: ImageIcon, label: "Baskı" },
-              { id: "pattern", icon: ImageIcon, label: "Desen" },
               { id: "text", icon: FileText, label: "Yazı" },
               { id: "color", icon: Palette, label: "Renk" },
             ].map((tab) => (
@@ -3729,50 +3724,6 @@ function EditorPanel({
 
           return <div className="space-y-3">{editorInner}</div>;
         })()}
-
-
-        {/* PATTERN / STICKERS */}
-        {activeTab === "pattern" && (
-          <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-start justify-start gap-2.5") : "space-y-2.5"}`}>
-            <div
-              className={`rounded-xl border border-gray-200 bg-white p-3 space-y-3 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "w-full min-h-[188px] overflow-hidden") : ""
-                }`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <p className={drawerHeadingClass}>Desen Seç</p>
-                <span className="text-[10px] font-black uppercase text-gray-500">
-                  {sideData?.logos?.length || 0}/{MAX_LOGOS_PER_SIDE}
-                </span>
-              </div>
-              <p className="text-[11px] text-gray-600">
-                Hazır sticker seçip modele ekleyebilirsin. Eklenen desenleri `Yerleşim` ekranında düzenleyebilirsin.
-              </p>
-              <div className={`grid gap-2 ${isMobileDrawer ? "grid-cols-2" : "grid-cols-3"}`}>
-                {STICKER_OPTIONS.map((sticker) => (
-                  <button
-                    key={sticker.id}
-                    type="button"
-                    onClick={() => handleAddSticker(sticker)}
-                    className="rounded-xl border border-gray-300 bg-white hover:bg-gray-50 transition text-left overflow-hidden"
-                  >
-                    <div className="aspect-square bg-gray-100 border-b border-gray-200 overflow-hidden">
-                      <img
-                        src={sticker.src}
-                        alt={sticker.label}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    </div>
-                    <div className="px-2.5 py-2">
-                      <p className="text-[11px] font-black uppercase tracking-wide text-gray-800">{sticker.label}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* TEXT / PDF */}
         {activeTab === "text" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-start justify-start gap-2.5") : "space-y-2.5"}`}>
@@ -3845,111 +3796,6 @@ function EditorPanel({
                   </div>
                   <button
                     type="button"
-                    onClick={() => bumpText({ emboss: !textEmbossEnabled })}
-                    className={`w-full py-2 rounded-lg text-[10px] font-black uppercase border transition ${
-                      textEmbossEnabled
-                        ? "bg-zinc-900 text-white border-zinc-900"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                    }`}
-                  >
-                    Kabartı: {textEmbossEnabled ? "Açık" : "Kapalı"}
-                  </button>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-gray-500">
-                      <span className="font-black uppercase tracking-wide">Kabartı Kalınlığı</span>
-                      <span>{textEmbossDepth.toFixed(2)}x</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.6"
-                      max="2.8"
-                      step="0.05"
-                      value={textEmbossDepth}
-                      disabled={!textEmbossEnabled}
-                      onChange={(e) => bumpText({ embossDepth: Number(e.target.value) })}
-                      className={`w-full accent-black ${!textEmbossEnabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-gray-500">
-                      <span className="font-black uppercase tracking-wide">Kabartı Gücü</span>
-                      <span>{textEmbossStrength.toFixed(2)}x</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.6"
-                      max="2.4"
-                      step="0.05"
-                      value={textEmbossStrength}
-                      disabled={!textEmbossEnabled}
-                      onChange={(e) => bumpText({ embossStrength: Number(e.target.value) })}
-                      className={`w-full accent-black ${!textEmbossEnabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-gray-500">
-                      <span className="font-black uppercase tracking-wide">Boyut</span>
-                      <span>{Math.round(Number(t.size || 150))} px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="30"
-                      max="320"
-                      step="1"
-                      value={Number(t.size || 150)}
-                      onChange={(e) => bumpText({ size: Number(e.target.value) })}
-                      className="w-full accent-black"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <span className="block text-[10px] font-black uppercase tracking-wide text-gray-500">Yazı Duruşu</span>
-                    <select
-                      value={t.layout || "straight"}
-                      onChange={(e) => bumpText({ layout: e.target.value })}
-                      className="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-[11px] font-semibold text-gray-800"
-                    >
-                      {TEXT_LAYOUT_OPTIONS.map((opt) => (
-                        <option key={`layout-opt-${opt.id}`} value={opt.id}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-gray-500">
-                      <span className="font-black uppercase tracking-wide">Eğri</span>
-                      <span>{Math.round(getTextCurveValue(t))}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="6"
-                      max="88"
-                      step="1"
-                      value={Math.round(getTextCurveValue(t))}
-                      onChange={(e) => bumpText({ curve: Number(e.target.value) })}
-                      className="w-full accent-black"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-gray-500">
-                      <span className="font-black uppercase tracking-wide">Döndürme</span>
-                      <span>{Math.round(Number(t.rotation) || 0)}°</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="-180"
-                      max="180"
-                      step="1"
-                      value={Number(t.rotation) || 0}
-                      onChange={(e) => bumpText({ rotation: Number(e.target.value) })}
-                      className="w-full accent-black"
-                    />
-                  </div>
-                  <p className="text-[10px] text-gray-500">
-                    Not: Yazı konumu sürükleme ve hassas yerleşim ayarı için `Yerleşim` ekranını kullan.
-                  </p>
-                  <button
-                    type="button"
                     onClick={() => {
                       if (!String(t.text || "").trim()) {
                         bumpText({ text: "YAZI" });
@@ -3959,11 +3805,12 @@ function EditorPanel({
                     }}
                     className="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase flex items-center justify-center gap-2"
                   >
-                    <Move size={14} /> Yazıyı Yerleşimde Konumlandır
+                    <Move size={14} /> Modelde Düzenle
                   </button>
                 </div>
 
-                <div className="space-y-3">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">PDF</p>
                   <button
                     type="button"
                     onClick={() => pdfInputRef.current?.click()}
@@ -3973,11 +3820,10 @@ function EditorPanel({
                       const file = e.dataTransfer?.files?.[0];
                       await handlePdfUpload(file);
                     }}
-                    className="w-full h-28 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700 flex flex-col items-center justify-center gap-2"
+                    className="w-full h-24 rounded-xl border-2 border-dashed border-gray-300 bg-white hover:bg-gray-100 text-gray-700 flex flex-col items-center justify-center gap-1.5"
                   >
-                    <FileText size={20} />
-                    <span className="text-[11px] font-black uppercase tracking-wide">PDF Dosyası Ekle</span>
-                    <span className="text-[10px] text-gray-500">Sürükle-bırak veya tıkla</span>
+                    <FileText size={18} />
+                    <span className="text-[11px] font-black uppercase tracking-wide">PDF Yükle</span>
                   </button>
                   <input
                     ref={pdfInputRef}
@@ -3992,10 +3838,9 @@ function EditorPanel({
                     }}
                   />
 
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Dosya</p>
+                  <div className="rounded-lg border border-gray-200 bg-white px-3 py-2">
                     <p className="text-xs font-semibold text-gray-700 break-all">
-                      {design.pdfOriginalName || "Henüz PDF seçilmedi"}
+                      {design.pdfOriginalName || "PDF seçilmedi"}
                     </p>
                   </div>
 
@@ -4019,78 +3864,6 @@ function EditorPanel({
                     ))}
                   </div>
 
-                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">PDF Konumu</p>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-[10px] text-gray-500">
-                        <span>X</span>
-                        <span>{Math.round(pdfPlacement.x * 100)}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min={pdfPlacement.w / 2}
-                        max={1 - pdfPlacement.w / 2}
-                        step="0.005"
-                        value={pdfPlacement.x}
-                        disabled={!hasPdf}
-                        onChange={(e) => updatePdfPlacement({ x: Number(e.target.value) })}
-                        className={`w-full accent-black ${!hasPdf ? "opacity-50 cursor-not-allowed" : ""}`}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-[10px] text-gray-500">
-                        <span>Y</span>
-                        <span>{Math.round(pdfPlacement.y * 100)}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min={pdfPlacement.h / 2}
-                        max={1 - pdfPlacement.h / 2}
-                        step="0.005"
-                        value={pdfPlacement.y}
-                        disabled={!hasPdf}
-                        onChange={(e) => updatePdfPlacement({ y: Number(e.target.value) })}
-                        className={`w-full accent-black ${!hasPdf ? "opacity-50 cursor-not-allowed" : ""}`}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-[10px] text-gray-500">
-                        <span>Ölçek</span>
-                        <span>{Math.round(pdfPlacement.w * 100)}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.12"
-                        max="0.9"
-                        step="0.005"
-                        value={pdfPlacement.w}
-                        disabled={!hasPdf}
-                        onChange={(e) => {
-                          const nextW = Number(e.target.value);
-                          const ratio = Math.max(0.01, pdfPlacement.h / Math.max(0.001, pdfPlacement.w));
-                          updatePdfPlacement({ w: nextW, h: clamp(nextW * ratio, 0.08, 0.9) });
-                        }}
-                        className={`w-full accent-black ${!hasPdf ? "opacity-50 cursor-not-allowed" : ""}`}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-[10px] text-gray-500">
-                        <span>Döndürme</span>
-                        <span>{Math.round(pdfPlacement.rotation || 0)}°</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="-180"
-                        max="180"
-                        step="5"
-                        value={pdfPlacement.rotation || 0}
-                        disabled={!hasPdf}
-                        onChange={(e) => updatePdfPlacement({ rotation: Number(e.target.value) })}
-                        className={`w-full accent-black ${!hasPdf ? "opacity-50 cursor-not-allowed" : ""}`}
-                      />
-                    </div>
-                  </div>
-
                   <button
                     type="button"
                     disabled={!hasPdf}
@@ -4109,15 +3882,6 @@ function EditorPanel({
                   >
                     PDF’yi Kaldır
                   </button>
-
-                  <a
-                    href={SCIENTIFIC_ROUTE}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center text-[10px] font-black uppercase tracking-wide text-gray-600 underline"
-                  >
-                    Daha fazlası için Bilimsel Sayfası
-                  </a>
                   {isUploadingPdf && <p className="text-[10px] font-bold uppercase text-gray-500">PDF yükleniyor...</p>}
                 </div>
               </div>
@@ -4376,6 +4140,7 @@ function TasarimClientContent({ isMobile }) {
   const gap01 = MODEL_PRINT_BOUNDS[currentActiveDesign?.modelType]?.front?.zipGap01 || 0;
   const textEditingMode = editorControlTab === "text" && showPlacementPanel;
   const showSceneFrame = Boolean(sceneSelectionVisible && activeLogo && !textEditingMode);
+  const isSceneFrameCompact = (activeLogoBox?.w || 0) < 0.30 || (activeLogoBox?.h || 0) < 0.22;
   const hasSceneText = Boolean((customText?.text || "").trim());
   const textHalfBounds = estimateTextHalfBounds01(customText);
   const sceneTextBox = useMemo(
@@ -4645,11 +4410,10 @@ function TasarimClientContent({ isMobile }) {
   }, [activeId, designs]);
 
   const activeDesign = useMemo(() => designs.find((d) => d.id === activeId) || designs[0], [designs, activeId]);
-  const DRAWER_TABS = ["color", "upload", "pattern", "text"];
+  const DRAWER_TABS = ["color", "upload", "text"];
   const tabIndex = DRAWER_TABS.indexOf(activeTab);
   const tabLabelMap = {
     upload: "Baskı",
-    pattern: "Desen",
     text: "Yazı",
     editor: "Yerleşim",
     color: "Renk",
@@ -4679,7 +4443,6 @@ function TasarimClientContent({ isMobile }) {
   const menuTabs = [
     { id: "color", label: "Renk", icon: Palette },
     { id: "upload", label: "Baskı", icon: ImageIcon },
-    { id: "pattern", label: "Desen", icon: ImageIcon },
     { id: "text", label: "Yazı", icon: FileText },
   ];
   const activePrintTypes = getPrintTypesForSide(activeDesign, view);
@@ -4768,6 +4531,12 @@ function TasarimClientContent({ isMobile }) {
       setEditorControlTab("logo");
     }
   }, [activeTab, activeId, currentSide, sideData?.logos?.length, editorControlTab]);
+
+  useEffect(() => {
+    if (activeTab === "pattern") {
+      setActiveTab("upload");
+    }
+  }, [activeTab]);
 
   // Desktop'ta baskı alanı açıldığında drawer otomatik aşağı (kapalı) konuma geçer.
   useEffect(() => {
@@ -5345,6 +5114,15 @@ function TasarimClientContent({ isMobile }) {
       {/* Top Header */}
       <div className="absolute top-0 left-0 right-0 z-[90] px-4 pt-4 pb-3 flex items-start justify-between pointer-events-none">
         <div className="flex items-start gap-3 pointer-events-auto">
+          {isMobile && drawerOpen && (
+            <button
+              onClick={openPrintTypePickerFromHeader}
+              className="mt-0.5 h-8 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
+              aria-label="Baski tipi secimine don"
+            >
+              Geri
+            </button>
+          )}
           <div>
             <p className="text-sm font-bold text-black">{MODEL_LABELS[headerDesign.modelType] || headerDesign.modelType}</p>
             <div className="flex items-center gap-2">
@@ -6339,7 +6117,7 @@ function TasarimClientContent({ isMobile }) {
                   style={{
                     left: `${(activeLogoBox.x - activeLogoBox.w / 2) * 100}%`,
                     top: `${(activeLogoBox.y - activeLogoBox.h / 2) * 100}%`,
-                    transform: "translate(0%, -120%)",
+                    transform: isSceneFrameCompact ? "translate(-112%, -112%)" : "translate(0%, -120%)",
                   }}
                 >
                   <button
@@ -6365,11 +6143,11 @@ function TasarimClientContent({ isMobile }) {
 
               {showSceneFrame && (
                 <div
-                  className="absolute flex items-center gap-1.5 z-[85] pointer-events-auto"
+                  className={`absolute flex z-[85] pointer-events-auto ${isSceneFrameCompact ? "items-center flex-col gap-1" : "items-center gap-1.5"}`}
                   style={{
                     left: `${(activeLogoBox.x + activeLogoBox.w / 2) * 100}%`,
                     top: `${(activeLogoBox.y - activeLogoBox.h / 2) * 100}%`,
-                    transform: "translate(-100%, -120%)",
+                    transform: isSceneFrameCompact ? "translate(12%, -112%)" : "translate(-100%, -120%)",
                   }}
                 >
                   <button
@@ -6559,17 +6337,6 @@ function TasarimClientContent({ isMobile }) {
                 }}
               >
                 <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-gray-400/80" />
-
-                {/* Mobil geri butonu - sadece drawer açıkken */}
-                {isMobile && drawerOpen && (
-                  <button
-                    onClick={openPrintTypePickerFromHeader}
-                    className="absolute left-3 top-2 h-8 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm z-30"
-                    aria-label="Baski tipi secimine don"
-                  >
-                    Geri
-                  </button>
-                )}
 
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
