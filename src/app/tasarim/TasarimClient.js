@@ -485,7 +485,7 @@ const FABRIC_PRESETS = Object.freeze({
 });
 
 /* ================= BRAND / UI ================= */
-const SCENE_BG_COLOR = "#f3f3f3";
+const SCENE_BG_COLOR = "#d6d9de";
 const PANEL_BG_COLOR = "#e8e8e8";
 const PANEL_BORDER_COLOR = "#d0d0d0";
 const DESKTOP_DRAWER_HEIGHT = 312;
@@ -547,8 +547,7 @@ const TEXT_LAYOUT_OPTIONS = [
   { id: "stair-down", label: "Merdiven Asagi" },
 ];
 
-// Environment map path (put file under /public/hdr)
-const HDR_ENV_PATH = "/hdr/studio_small_03_2k.exr";
+const HDR_ENV_PATH = "/hdr/white_studio_06_4k.exr";
 const SCIENTIFIC_ROUTE = "/bilimsel";
 
 const PRINT_TYPE_OPTIONS = [
@@ -625,10 +624,10 @@ function PrintTypePickerCards({ selectedIds = [], onSelect, sourceLabel = "Sec",
               }}
               disabled={disabled}
               className={`rounded-xl border px-2 py-2 text-left transition ${disabled
-                  ? "cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400"
-                  : selected
-                    ? "border-black bg-black text-white"
-                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+                ? "cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400"
+                : selected
+                  ? "border-black bg-black text-white"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
                 }`}
             >
               <p className="text-[11px] font-black uppercase tracking-wide">{opt.label}</p>
@@ -1006,29 +1005,29 @@ const UI_VIEWS = ["front", "back"];
 const createDesign = (type = DEFAULT_MODEL_TYPE) => {
   const normalizedType = normalizeModelType(type);
   return {
-  id: makeId(),
-  modelType: normalizedType,
-  color: BRAND_DEFAULT_COLOR,
-  fabricType: getDefaultFabricType(normalizedType),
-  stringColor: "#e6e6e6",
-  hoodieV12Parts: { ...DEFAULT_HOODIE_PARTS },
-  hasPdf: false,
-  pdfFileUrl: "",
-  pdfOriginalName: "",
-  pdfPlacement: { ...DEFAULT_PDF_PLACEMENT },
-  printTypes: [],
-  printTypesBySide: {
-    front: [],
-    back: [],
-  },
-  size: "M",
-  sides: {
-    front: createSideData(),
-    back: createSideData(),
-    left: createSideData(),
-    right: createSideData(),
-  },
-};
+    id: makeId(),
+    modelType: normalizedType,
+    color: BRAND_DEFAULT_COLOR,
+    fabricType: getDefaultFabricType(normalizedType),
+    stringColor: "#e6e6e6",
+    hoodieV12Parts: { ...DEFAULT_HOODIE_PARTS },
+    hasPdf: false,
+    pdfFileUrl: "",
+    pdfOriginalName: "",
+    pdfPlacement: { ...DEFAULT_PDF_PLACEMENT },
+    printTypes: [],
+    printTypesBySide: {
+      front: [],
+      back: [],
+    },
+    size: "M",
+    sides: {
+      front: createSideData(),
+      back: createSideData(),
+      left: createSideData(),
+      right: createSideData(),
+    },
+  };
 };
 
 const restoreDesignFromCheckoutItem = (item) => {
@@ -1346,16 +1345,22 @@ function SceneBackgroundLock() {
   return null;
 }
 
-function HdriEnvironment({ url }) {
-  const { scene } = useThree();
+function HdriEnvironment({ url, enabled = true }) {
+  const { scene, gl } = useThree();
 
   useEffect(() => {
-    if (!url) return undefined;
+    if (!url || !enabled) {
+      if (scene.environment) scene.environment = null;
+      return undefined;
+    }
 
     const lowerUrl = String(url).toLowerCase();
     const loader = lowerUrl.endsWith(".exr") ? new EXRLoader() : new RGBELoader();
     let disposed = false;
-    let envTexture = null;
+    let sourceTexture = null;
+    let envRenderTarget = null;
+    const pmrem = new THREE.PMREMGenerator(gl);
+    pmrem.compileEquirectangularShader();
 
     loader.load(
       url,
@@ -1365,8 +1370,9 @@ function HdriEnvironment({ url }) {
           return;
         }
         texture.mapping = THREE.EquirectangularReflectionMapping;
-        scene.environment = texture;
-        envTexture = texture;
+        envRenderTarget = pmrem.fromEquirectangular(texture);
+        scene.environment = envRenderTarget.texture;
+        sourceTexture = texture;
       },
       undefined,
       (err) => {
@@ -1376,10 +1382,12 @@ function HdriEnvironment({ url }) {
 
     return () => {
       disposed = true;
-      if (scene.environment === envTexture) scene.environment = null;
-      if (envTexture) envTexture.dispose();
+      if (scene.environment === envRenderTarget?.texture) scene.environment = null;
+      if (sourceTexture) sourceTexture.dispose();
+      if (envRenderTarget) envRenderTarget.dispose();
+      pmrem.dispose();
     };
-  }, [scene, url]);
+  }, [scene, gl, url, enabled]);
 
   return null;
 }
@@ -1672,23 +1680,35 @@ function Real3DModel({
   const bodyMaterial = useMemo(() => {
     const base = new THREE.Color(color || BRAND_DEFAULT_COLOR);
     const lum = 0.2126 * base.r + 0.7152 * base.g + 0.0722 * base.b;
+    // White/very light tones are gently compressed to avoid blown-out cloth.
+    const whiteTaming = clamp((lum - 0.84) / 0.16, 0, 1);
+    if (whiteTaming > 0) {
+      base.multiplyScalar(1 - whiteTaming * 0.14);
+    }
     const darkBoost = clamp((0.42 - lum) / 0.42, 0, 1);
     const lightBoost = clamp((lum - 0.72) / 0.28, 0, 1);
     const fabric = normalizeFabricType(fabricType, modelType);
     const fabricMap = {
-      "supreme-24x1": { rough: -0.01, metal: 0.001, env: 0.03, emit: 0.001 },
-      "supreme-30x1": { rough: 0.018, metal: -0.001, env: -0.02, emit: 0 },
-      "iplik-3-sardonsuz": { rough: 0.012, metal: 0.001, env: -0.015, emit: 0 },
-      "iplik-3-sardonlu": { rough: 0.03, metal: -0.002, env: -0.04, emit: -0.002 },
+      "supreme-24x1": { rough: 0.01, metal: 0, env: 0.01 },
+      "supreme-30x1": { rough: 0.03, metal: 0, env: -0.01 },
+      "iplik-3-sardonsuz": { rough: 0.02, metal: 0, env: -0.005 },
+      "iplik-3-sardonlu": { rough: 0.045, metal: 0, env: -0.025 },
     };
     const fabricFx = fabricMap[fabric] || fabricMap["supreme-24x1"];
 
-    return new THREE.MeshStandardMaterial({
+    return new THREE.MeshPhysicalMaterial({
       color: base,
-      // Fabric feel: high roughness, very low metalness, controlled reflections.
-      roughness: clamp(0.968 - 0.04 * darkBoost + 0.09 * lightBoost + fabricFx.rough, 0.9, 0.995),
-      metalness: clamp(0.006 + 0.014 * darkBoost + fabricFx.metal, 0.002, 0.03),
-      envMapIntensity: 1.0,
+      // Fabric feel (MeshPhysicalMaterial):
+      // clearcoat: 0 (mat)
+      // sheen: 1.0 (kadifemsi yuzey yansimasi)
+      // sheenRoughness: 0.5 (liflerin daginikligi)
+      clearcoat: 0,
+      sheen: 1.0,
+      sheenRoughness: 0.5,
+      sheenColor: new THREE.Color(0xcccccc), // Hafif gri sheen
+      roughness: clamp(0.92 + 0.02 * lightBoost + fabricFx.rough, 0.85, 0.98),
+      metalness: 0.0,
+      envMapIntensity: clamp(0.20 + 0.08 * darkBoost - 0.22 * lightBoost + fabricFx.env, 0.1, 0.4),
       emissive: base,
       emissiveIntensity: 0,
       side: THREE.FrontSide,
@@ -1699,9 +1719,9 @@ function Real3DModel({
     () =>
       new THREE.MeshStandardMaterial({
         color: new THREE.Color(stringColor || "#e6e6e6"),
-        roughness: 0.9,
-        metalness: 0.02,
-        envMapIntensity: 1.0,
+        roughness: 0.94,
+        metalness: 0.008,
+        envMapIntensity: 0.62,
         side: THREE.FrontSide,
       }),
     [stringColor]
@@ -1871,30 +1891,51 @@ function Real3DModel({
                   <React.Fragment key={`emboss-front-wrap-${logo.id || idx}`}>
                     <Decal
                       mesh={decalHostRef}
-                      position={[cx, cy, frontProfile.z + torsoZOffsetFront + 0.00125]}
+                      position={[cx, cy, frontProfile.z + torsoZOffsetFront + 0.0026]}
                       rotation={[0, frontProfile.rotY || 0, rz]}
-                      scale={[decalW * 1.045, decalH * 1.045, TORSO_DEPTH * 0.7]}
+                      scale={[decalW * 1.12, decalH * 1.12, TORSO_DEPTH * 0.9]}
                     >
                       <meshStandardMaterial
-                        color="#2b313a"
+                        color="#0f1218"
                         alphaMap={tex}
                         transparent
-                        opacity={clamp(fx.opacity * 0.9, 0, 1)}
-                        alphaTest={0.07}
-                        roughness={0.94}
-                        metalness={0.01}
-                        envMapIntensity={0.46}
-                        bumpMap={tex}
-                        bumpScale={2.5}
+                        opacity={clamp(fx.opacity * 0.32, 0, 0.42)}
+                        alphaTest={0.09}
+                        roughness={0.98}
+                        metalness={0.0}
+                        envMapIntensity={0.22}
                         depthWrite={false}
                         polygonOffset
-                        polygonOffsetFactor={-11}
+                        polygonOffsetFactor={-10}
                         side={THREE.FrontSide}
                       />
                     </Decal>
                     <Decal
                       mesh={decalHostRef}
-                      position={[cx, cy, frontProfile.z + torsoZOffsetFront + 0.0018]}
+                      position={[cx, cy, frontProfile.z + torsoZOffsetFront + 0.0036]}
+                      rotation={[0, frontProfile.rotY || 0, rz]}
+                      scale={[decalW * 1.085, decalH * 1.085, TORSO_DEPTH * 0.84]}
+                    >
+                      <meshStandardMaterial
+                        color="#212732"
+                        alphaMap={tex}
+                        transparent
+                        opacity={clamp(fx.opacity * 0.95, 0, 1)}
+                        alphaTest={0.07}
+                        roughness={0.96}
+                        metalness={0.004}
+                        envMapIntensity={0.34}
+                        bumpMap={tex}
+                        bumpScale={7.8}
+                        depthWrite={false}
+                        polygonOffset
+                        polygonOffsetFactor={-12}
+                        side={THREE.FrontSide}
+                      />
+                    </Decal>
+                    <Decal
+                      mesh={decalHostRef}
+                      position={[cx, cy, frontProfile.z + torsoZOffsetFront + 0.0052]}
                       rotation={[0, frontProfile.rotY || 0, rz]}
                       scale={[decalW, decalH, TORSO_DEPTH * 0.6]}
                     >
@@ -1904,17 +1945,17 @@ function Real3DModel({
                         transparent
                         opacity={fx.opacity}
                         alphaTest={0.06}
-                        roughness={0.72}
-                        metalness={0.02}
-                        envMapIntensity={0.86}
+                        roughness={0.84}
+                        metalness={0.004}
+                        envMapIntensity={0.48}
                         bumpMap={tex}
-                        bumpScale={5.6}
+                        bumpScale={11.8}
                         depthWrite={false}
                         polygonOffset
-                        polygonOffsetFactor={-12}
-                      side={THREE.FrontSide}
-                    />
-                  </Decal>
+                        polygonOffsetFactor={-14}
+                        side={THREE.FrontSide}
+                      />
+                    </Decal>
                   </React.Fragment>
                 );
               })}
@@ -1955,30 +1996,51 @@ function Real3DModel({
                   <React.Fragment key={`emboss-back-wrap-${logo.id || idx}`}>
                     <Decal
                       mesh={decalHostRef}
-                      position={[cx, cy, backProfile.z + torsoZOffsetBack - 0.00125]}
+                      position={[cx, cy, backProfile.z + torsoZOffsetBack - 0.0026]}
                       rotation={[0, backProfile.rotY || Math.PI, rz]}
-                      scale={[decalW * 1.045, decalH * 1.045, TORSO_DEPTH * 0.7]}
+                      scale={[decalW * 1.12, decalH * 1.12, TORSO_DEPTH * 0.9]}
                     >
                       <meshStandardMaterial
-                        color="#2b313a"
+                        color="#0f1218"
                         alphaMap={tex}
                         transparent
-                        opacity={clamp(fx.opacity * 0.9, 0, 1)}
-                        alphaTest={0.07}
-                        roughness={0.94}
-                        metalness={0.01}
-                        envMapIntensity={0.46}
-                        bumpMap={tex}
-                        bumpScale={2.5}
+                        opacity={clamp(fx.opacity * 0.32, 0, 0.42)}
+                        alphaTest={0.09}
+                        roughness={0.98}
+                        metalness={0.0}
+                        envMapIntensity={0.22}
                         depthWrite={false}
                         polygonOffset
-                        polygonOffsetFactor={-11}
+                        polygonOffsetFactor={-10}
                         side={THREE.FrontSide}
                       />
                     </Decal>
                     <Decal
                       mesh={decalHostRef}
-                      position={[cx, cy, backProfile.z + torsoZOffsetBack - 0.0018]}
+                      position={[cx, cy, backProfile.z + torsoZOffsetBack - 0.0036]}
+                      rotation={[0, backProfile.rotY || Math.PI, rz]}
+                      scale={[decalW * 1.085, decalH * 1.085, TORSO_DEPTH * 0.84]}
+                    >
+                      <meshStandardMaterial
+                        color="#212732"
+                        alphaMap={tex}
+                        transparent
+                        opacity={clamp(fx.opacity * 0.95, 0, 1)}
+                        alphaTest={0.07}
+                        roughness={0.96}
+                        metalness={0.004}
+                        envMapIntensity={0.34}
+                        bumpMap={tex}
+                        bumpScale={7.8}
+                        depthWrite={false}
+                        polygonOffset
+                        polygonOffsetFactor={-12}
+                        side={THREE.FrontSide}
+                      />
+                    </Decal>
+                    <Decal
+                      mesh={decalHostRef}
+                      position={[cx, cy, backProfile.z + torsoZOffsetBack - 0.0052]}
                       rotation={[0, backProfile.rotY || Math.PI, rz]}
                       scale={[decalW, decalH, TORSO_DEPTH * 0.6]}
                     >
@@ -1988,17 +2050,17 @@ function Real3DModel({
                         transparent
                         opacity={fx.opacity}
                         alphaTest={0.06}
-                        roughness={0.72}
-                        metalness={0.02}
-                        envMapIntensity={0.86}
+                        roughness={0.84}
+                        metalness={0.004}
+                        envMapIntensity={0.48}
                         bumpMap={tex}
-                        bumpScale={5.6}
+                        bumpScale={11.8}
                         depthWrite={false}
                         polygonOffset
-                        polygonOffsetFactor={-12}
-                      side={THREE.FrontSide}
-                    />
-                  </Decal>
+                        polygonOffsetFactor={-14}
+                        side={THREE.FrontSide}
+                      />
+                    </Decal>
                   </React.Fragment>
                 );
               })}
@@ -2486,6 +2548,27 @@ function ModelSelectionPreview3D({ modelType }) {
     groupRef.current.rotation.y = elapsedSec * 0.75;
   });
 
+  // Apply fabric material to review model
+  useMemo(() => {
+    root.traverse((o) => {
+      if (o.isMesh) {
+        o.material = new THREE.MeshPhysicalMaterial({
+          color: new THREE.Color("#ffffff"),
+          side: THREE.FrontSide,
+          clearcoat: 0,
+          sheen: 1.0,
+          sheenRoughness: 0.5,
+          sheenColor: new THREE.Color(0xcccccc),
+          roughness: 0.92,
+          metalness: 0.0,
+          envMapIntensity: 0.2,
+        });
+        o.castShadow = true;
+        o.receiveShadow = true;
+      }
+    });
+  }, [root]);
+
   return (
     <group ref={groupRef} position={[0, -0.08, 0]}>
       <Center>
@@ -2550,8 +2633,8 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                         }
                       }}
                       className={`w-full rounded-2xl border bg-white p-2.5 shadow-sm text-left transition ${active
-                          ? "border-black ring-2 ring-black/70"
-                          : "border-zinc-200 hover:border-zinc-400 hover:shadow-md"
+                        ? "border-black ring-2 ring-black/70"
+                        : "border-zinc-200 hover:border-zinc-400 hover:shadow-md"
                         }`}
                       aria-pressed={active}
                     >
@@ -2560,12 +2643,17 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                           dpr={[1, 1.2]}
                           camera={{ position: [0, 0.28, 2.12], fov: 30 }}
                           gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+                          onCreated={({ gl }) => {
+                            gl.outputColorSpace = THREE.SRGBColorSpace;
+                            gl.toneMapping = THREE.ACESFilmicToneMapping;
+                            gl.toneMappingExposure = 0.60;
+                          }}
                         >
                           <color attach="background" args={["#eef1f4"]} />
-                          <ambientLight intensity={0.95} />
-                          <hemisphereLight intensity={0.35} groundColor="#2a2a2a" />
-                          <directionalLight position={[4, 7, 5]} intensity={0.85} />
-                          <directionalLight position={[-4, 5, -4]} intensity={0.26} />
+                          <ambientLight intensity={0.45} />
+                          <hemisphereLight intensity={0.15} groundColor="#252525" />
+                          <directionalLight position={[4, 7, 5]} intensity={0.45} />
+                          <directionalLight position={[-4, 5, -4]} intensity={0.15} />
                           <Suspense fallback={null}>
                             <ModelSelectionPreview3D modelType={modelType} />
                           </Suspense>
@@ -2595,8 +2683,8 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
             disabled={!selectedModel}
             onClick={() => onContinue?.(selectedModel)}
             className={`px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest transition ${selectedModel
-                ? "bg-black text-white hover:bg-zinc-800"
-                : "bg-zinc-300 text-zinc-500 cursor-not-allowed"
+              ? "bg-black text-white hover:bg-zinc-800"
+              : "bg-zinc-300 text-zinc-500 cursor-not-allowed"
               }`}
           >
             Tasarıma Geç
@@ -2640,8 +2728,8 @@ function ModelManagementCard({
               key={`model-card-${item.id}`}
               onClick={() => onSelectModel?.(item.id)}
               className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wide border transition ${selected
-                  ? "bg-black text-white border-black"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                ? "bg-black text-white border-black"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
                 }`}
             >
               {MODEL_LABELS[item.modelType] || item.modelType}
@@ -2665,8 +2753,8 @@ function ModelManagementCard({
                   type="button"
                   onClick={() => onToggleHoodiePart?.(opt.id, !active)}
                   className={`py-1.5 rounded-lg text-[10px] font-black uppercase border transition flex items-center justify-center gap-1 ${active
-                      ? "bg-black text-white border-black"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                    ? "bg-black text-white border-black"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
                     }`}
                 >
                   {active && <Check size={12} />}
@@ -2692,8 +2780,8 @@ function ModelManagementCard({
               type="button"
               onClick={() => onChangeFabric?.(opt.id)}
               className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase border transition ${resolvedFabricType === opt.id
-                  ? "bg-black text-white border-black"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                ? "bg-black text-white border-black"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
                 }`}
             >
               {opt.label}
@@ -3181,10 +3269,10 @@ function EditorPanel({
       {/* Content */}
       <div
         className={`flex-1 ${isDrawerLayout
-            ? isMobileDrawer
-              ? "h-full p-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)] flex flex-col items-stretch gap-2 overflow-y-auto overflow-x-hidden"
-              : "h-full py-2.5 px-3 2xl:px-7 flex items-stretch justify-start gap-2 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-            : "p-4 overflow-y-auto"
+          ? isMobileDrawer
+            ? "h-full p-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)] flex flex-col items-stretch gap-2 overflow-y-auto overflow-x-hidden"
+            : "h-full py-2.5 px-3 2xl:px-7 flex items-stretch justify-start gap-2 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          : "p-4 overflow-y-auto"
           }`}
         style={{ touchAction: "pan-y", minHeight: 0, backgroundColor: contentBackground }}
       >
@@ -3315,8 +3403,8 @@ function EditorPanel({
                       onClick={handleDeleteActiveImage}
                       disabled={!activeLogo}
                       className={`w-full py-1.5 rounded-lg text-[10px] font-bold uppercase border flex items-center justify-center gap-2 ${activeLogo
-                          ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
-                          : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                        ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                        : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
                         }`}
                     >
                       <Trash2 size={13} /> Seçili Dosyayı Sil
@@ -3715,8 +3803,8 @@ function EditorPanel({
                         disabled={!hasPdf}
                         onClick={() => updatePdfPlacement({ side: opt.id })}
                         className={`py-2 rounded-lg text-[10px] font-black uppercase border ${(design.pdfPlacement?.side || "front") === opt.id
-                            ? "bg-black text-white border-black"
-                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                          ? "bg-black text-white border-black"
+                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
                           } ${!hasPdf ? "opacity-40 cursor-not-allowed" : ""}`}
                       >
                         {opt.label}
@@ -3808,8 +3896,8 @@ function EditorPanel({
                       })
                     }
                     className={`w-full py-2 rounded-lg text-[10px] font-black uppercase border ${hasPdf
-                        ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
-                        : "border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed"
+                      ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
+                      : "border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed"
                       }`}
                   >
                     PDF’yi Kaldır
@@ -4892,8 +4980,8 @@ function TasarimClientContent({ isMobile }) {
                     key={v}
                     onClick={() => switchSideAndOpenPrintPicker(v)}
                     className={`${isMobile ? "px-3 py-1.5 text-[10px]" : "px-5 py-2.5 text-[11px]"} rounded-full font-bold uppercase tracking-widest transition-all ${view === v
-                        ? "bg-zinc-900 text-white shadow-md"
-                        : "bg-white text-zinc-600 hover:bg-zinc-100"
+                      ? "bg-zinc-900 text-white shadow-md"
+                      : "bg-white text-zinc-600 hover:bg-zinc-100"
                       }`}
                   >
                     {v === "front" ? "ÖN" : "ARKA"}
@@ -4910,8 +4998,8 @@ function TasarimClientContent({ isMobile }) {
                           key={`floating-hoodie-${opt.id}`}
                           onClick={() => setActiveHoodiePartEnabled(opt.id, !isEnabled)}
                           className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide border transition ${isEnabled
-                              ? "bg-zinc-900 text-white border-zinc-900"
-                              : "bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-100"
+                            ? "bg-zinc-900 text-white border-zinc-900"
+                            : "bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-100"
                             }`}
                         >
                           {isEnabled ? "✓ " : ""}
@@ -5246,8 +5334,8 @@ function TasarimClientContent({ isMobile }) {
                 <button
                   onClick={() => setEditorControlTab("logo")}
                   className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${editorControlTab === "logo"
-                      ? "bg-white text-black border-white"
-                      : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
+                    ? "bg-white text-black border-white"
+                    : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
                     }`}
                 >
                   Gorsel Ayari
@@ -5255,8 +5343,8 @@ function TasarimClientContent({ isMobile }) {
                 <button
                   onClick={() => setEditorControlTab("text")}
                   className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${editorControlTab === "text"
-                      ? "bg-white text-black border-white"
-                      : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
+                    ? "bg-white text-black border-white"
+                    : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
                     }`}
                 >
                   Yazi Ayari
@@ -5264,8 +5352,8 @@ function TasarimClientContent({ isMobile }) {
                 <button
                   onClick={() => setEditorControlTab("effects")}
                   className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${editorControlTab === "effects"
-                      ? "bg-white text-black border-white"
-                      : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
+                    ? "bg-white text-black border-white"
+                    : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
                     }`}
                 >
                   Efektler
@@ -5303,8 +5391,8 @@ function TasarimClientContent({ isMobile }) {
                             setCmInputW(sanitizeCmInput(e.target.value));
                           }}
                           className={`w-full rounded-md border px-2 py-1 text-[11px] ${sizeControlDisabled
-                              ? "border-zinc-700 bg-zinc-800/60 text-zinc-500 cursor-not-allowed"
-                              : "border-zinc-600 bg-zinc-900/60 text-white"
+                            ? "border-zinc-700 bg-zinc-800/60 text-zinc-500 cursor-not-allowed"
+                            : "border-zinc-600 bg-zinc-900/60 text-white"
                             }`}
                           onFocus={() => setIsEditingCmW(true)}
                           onBlur={() => {
@@ -5335,8 +5423,8 @@ function TasarimClientContent({ isMobile }) {
                             setCmInputH(sanitizeCmInput(e.target.value));
                           }}
                           className={`w-full rounded-md border px-2 py-1 text-[11px] ${sizeControlDisabled
-                              ? "border-zinc-700 bg-zinc-800/60 text-zinc-500 cursor-not-allowed"
-                              : "border-zinc-600 bg-zinc-900/60 text-white"
+                            ? "border-zinc-700 bg-zinc-800/60 text-zinc-500 cursor-not-allowed"
+                            : "border-zinc-600 bg-zinc-900/60 text-white"
                             }`}
                           onFocus={() => setIsEditingCmH(true)}
                           onBlur={() => {
@@ -5451,8 +5539,8 @@ function TasarimClientContent({ isMobile }) {
                       disabled={imageControlDisabled}
                       onClick={() => setActiveLogoLayer("front")}
                       className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
-                          ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                          : "bg-zinc-700 hover:bg-zinc-600"
+                        ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                        : "bg-zinc-700 hover:bg-zinc-600"
                         }`}
                     >
                       Öne Al
@@ -5461,8 +5549,8 @@ function TasarimClientContent({ isMobile }) {
                       disabled={imageControlDisabled}
                       onClick={() => setActiveLogoLayer("back")}
                       className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
-                          ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                          : "bg-zinc-700 hover:bg-zinc-600"
+                        ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                        : "bg-zinc-700 hover:bg-zinc-600"
                         }`}
                     >
                       Arkaya Al
@@ -5474,8 +5562,8 @@ function TasarimClientContent({ isMobile }) {
                       disabled={imageControlDisabled}
                       onClick={() => updateActiveLogoBox({ ...activeLogoBox, x: 0.5, y: 0.5 })}
                       className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
-                          ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                          : "bg-zinc-700 hover:bg-zinc-600"
+                        ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                        : "bg-zinc-700 hover:bg-zinc-600"
                         }`}
                     >
                       Ortala
@@ -5490,8 +5578,8 @@ function TasarimClientContent({ isMobile }) {
                         )
                       }
                       className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
-                          ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                          : "bg-zinc-700 hover:bg-zinc-600"
+                        ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                        : "bg-zinc-700 hover:bg-zinc-600"
                         }`}
                     >
                       Sıfırla
@@ -5502,8 +5590,8 @@ function TasarimClientContent({ isMobile }) {
                     onClick={handleDeleteActiveImage}
                     disabled={!activeLogo}
                     className={`w-full py-1.5 rounded-lg text-[10px] font-bold uppercase border ${activeLogo
-                        ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
-                        : "border-zinc-600 bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                      ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
+                      : "border-zinc-600 bg-zinc-800 text-zinc-500 cursor-not-allowed"
                       }`}
                   >
                     Görseli Sil
@@ -5731,8 +5819,8 @@ function TasarimClientContent({ isMobile }) {
                     <button
                       onClick={() => updateActiveLogo({ flipX: !activeLogoFx.flipX })}
                       className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase border ${activeLogoFx.flipX
-                          ? "bg-cyan-100 text-cyan-900 border-cyan-300"
-                          : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
+                        ? "bg-cyan-100 text-cyan-900 border-cyan-300"
+                        : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
                         }`}
                     >
                       Yatay
@@ -5740,8 +5828,8 @@ function TasarimClientContent({ isMobile }) {
                     <button
                       onClick={() => updateActiveLogo({ flipY: !activeLogoFx.flipY })}
                       className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase border ${activeLogoFx.flipY
-                          ? "bg-cyan-100 text-cyan-900 border-cyan-300"
-                          : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
+                        ? "bg-cyan-100 text-cyan-900 border-cyan-300"
+                        : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
                         }`}
                     >
                       Dikey
@@ -5811,26 +5899,26 @@ function TasarimClientContent({ isMobile }) {
                 gl.setClearColor(bgColor, 1);
                 gl.outputColorSpace = THREE.SRGBColorSpace;
                 gl.toneMapping = THREE.ACESFilmicToneMapping;
-                gl.toneMappingExposure = 1.1;
+                gl.toneMappingExposure = 0.60;
               }}
               camera={{ position: [0, 0.36, 2.34], fov: isMobile ? (isPrintAreaOpen ? 38 : 34) : 30 }}
               shadows={!isMobile}
             >
               <SceneBackgroundLock />
 
-              <HdriEnvironment url={HDR_ENV_PATH} />
+              <HdriEnvironment url={HDR_ENV_PATH} enabled />
 
-              <ambientLight intensity={0.5} />
-              <hemisphereLight intensity={0.18} groundColor={"#1f1f1f"} />
+              <ambientLight intensity={0.35} />
+              <hemisphereLight intensity={0.12} groundColor={"#1f1f1f"} />
               <directionalLight
                 position={[6, 10, 8]}
-                intensity={0.58}
+                intensity={0.45}
                 castShadow={!isMobile}
                 shadow-mapSize-width={perf.shadowMap}
                 shadow-mapSize-height={perf.shadowMap}
               />
-              <directionalLight position={[-6, 6, -6]} intensity={0.2} />
-              <pointLight position={[0, 2.6, 2.2]} intensity={0.08} />
+              <directionalLight position={[-6, 6, -6]} intensity={0.16} />
+              <pointLight position={[0, 2.6, 2.2]} intensity={0.05} />
               {!isMobile && <ContactShadows position={[0, -1.4, 0]} opacity={0.16} scale={7} blur={2.2} far={3.2} />}
 
               <CameraController view={effectiveView} count={designs.length} onAnimatingChange={setCamAnimating} />
@@ -6094,8 +6182,8 @@ function TasarimClientContent({ isMobile }) {
         {drawerMenuMounted && (
           <div
             className={`fixed inset-0 z-[96] transition-opacity duration-200 ${drawerMenuOpen
-                ? "opacity-100 pointer-events-auto bg-black/16 backdrop-blur-[2px]"
-                : "opacity-0 pointer-events-none bg-black/0 backdrop-blur-0"
+              ? "opacity-100 pointer-events-auto bg-black/16 backdrop-blur-[2px]"
+              : "opacity-0 pointer-events-none bg-black/0 backdrop-blur-0"
               }`}
             onClick={closeDrawerMenu}
           >
@@ -6124,8 +6212,8 @@ function TasarimClientContent({ isMobile }) {
                     key={tab.id}
                     onClick={() => selectMenuTab(tab.id)}
                     className={`px-3 py-3 rounded-xl border text-[11px] font-black uppercase tracking-wide transition flex items-center justify-center gap-2 ${activeTab === tab.id
-                        ? "bg-black text-white border-black"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                      ? "bg-black text-white border-black"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
                       }`}
                   >
                     <tab.icon size={14} />

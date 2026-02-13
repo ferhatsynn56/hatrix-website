@@ -178,6 +178,32 @@ export default function UrunDetayPage() {
     const normalizeRenkler = Array.isArray(renkler) && typeof renkler[0] === 'string' 
         ? renkler.map(r => ({ hex: r.toLowerCase() === 'beyaz' ? '#ffffff' : r.toLowerCase() === 'siyah' ? '#000000' : r, name: r })) 
         : renkler;
+    const productInfoParagraphs =
+        Array.isArray(product.urunBilgiParagraflari) && product.urunBilgiParagraflari.length > 0
+            ? product.urunBilgiParagraflari
+            : [
+                product.kisaAciklama || "Relaxed fit kesim, bisiklet yaka ve günlük kullanıma uygun modern duruş.",
+                "Ürünün baskı ve model detayları üretim öncesi kalite kontrolünden geçirilir.",
+                "Seçtiğiniz renk, kumaş ve baskı tipine göre üretim planlaması yapılır.",
+            ];
+    const productDimensions =
+        product.urunBoyutlari ||
+        "Model ölçüsüne göre ürünün eni-boyu farklılık gösterebilir. Detay ölçü tablosu sipariş sonrası teyit edilir.";
+    const productMaterialAndCare =
+        Array.isArray(product.malzemeBakim) && product.malzemeBakim.length > 0
+            ? product.malzemeBakim
+            : [
+                "%100 pamuk veya modeline göre pamuk-poly karışım kumaş kullanılır.",
+                "30°C hassas programda yıkayınız.",
+                "Baskı yüzeyini korumak için ürünü ters çevirerek yıkayınız.",
+                "Düşük ısıda ütüleyiniz, baskı üzerine direkt ütü uygulamayınız.",
+            ];
+    const productStockInfo =
+        product.magazaStokDurumu ||
+        "Stok durumu mağaza ve üretim hattına göre anlık güncellenir. Sipariş sırasında son stok kontrolü yapılır.";
+    const productShippingAndReturn =
+        product.kargoIade ||
+        "Siparişler 1-3 iş günü içinde kargoya verilir. Teslimat sonrası 14 gün içinde iade/değişim talebi oluşturabilirsiniz.";
 
 
     return (
@@ -288,6 +314,14 @@ export default function UrunDetayPage() {
                                 </>
                             )}
                         </button>
+
+                        <div className="mb-6 md:mb-10 space-y-3">
+                            {productInfoParagraphs.map((line, idx) => (
+                                <p key={`product-info-line-${idx}`} className="text-sm text-zinc-300 leading-relaxed">
+                                    {line}
+                                </p>
+                            ))}
+                        </div>
                         
                         {/* Güvenlik Rozetleri */}
                         <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6 md:mb-10 py-4 md:py-6 border-t border-b border-zinc-900">
@@ -314,26 +348,40 @@ export default function UrunDetayPage() {
                             >
                                 <p>{product.detayliAciklama || "Bu ürün, yüksek kaliteli malzemeler kullanılarak Stenist tasarım stüdyosunda özenle üretilmiştir. Modern kesimi ve dayanıklı yapısı ile günlük kullanım için idealdir. Sokak modasının ruhunu yansıtan detaylara sahiptir."}</p>
                             </AccordionItem>
+                            <AccordionItem
+                                title="Ürün Boyutları"
+                                isOpen={openAccordion === 'dimensions'}
+                                onClick={() => setOpenAccordion(openAccordion === 'dimensions' ? null : 'dimensions')}
+                                icon={Ruler}
+                            >
+                                <p>{productDimensions}</p>
+                            </AccordionItem>
                             <AccordionItem 
-                                title="Materyal ve Bakım" 
+                                title="Malzemeler ve Bakım" 
                                 isOpen={openAccordion === 'material'} 
                                 onClick={() => setOpenAccordion(openAccordion === 'material' ? null : 'material')}
                             >
                                 <ul className="list-disc list-inside space-y-1">
-                                    <li>%100 Pamuk (veya ürün içeriğine göre değişir).</li>
-                                    <li>30°C'de makinede yıkanabilir.</li>
-                                    <li>Ağartıcı kullanmayınız.</li>
-                                    <li>Düşük ısıda ütüleyiniz.</li>
-                                    <li>Kuru temizleme yapılabilir.</li>
+                                    {productMaterialAndCare.map((item, idx) => (
+                                        <li key={`material-item-${idx}`}>{item}</li>
+                                    ))}
                                 </ul>
                             </AccordionItem>
+                            <AccordionItem
+                                title="Mağazadaki Stok Durumu"
+                                isOpen={openAccordion === 'stock'}
+                                onClick={() => setOpenAccordion(openAccordion === 'stock' ? null : 'stock')}
+                                icon={Star}
+                            >
+                                <p>{productStockInfo}</p>
+                            </AccordionItem>
                              <AccordionItem 
-                                title="Teslimat ve İade" 
+                                title="Kargo, Değişim ve İadeler" 
                                 isOpen={openAccordion === 'shipping'} 
                                 onClick={() => setOpenAccordion(openAccordion === 'shipping' ? null : 'shipping')}
                                 icon={Truck}
                             >
-                                <p>Siparişleriniz 1-3 iş günü içerisinde kargoya verilir. Teslimat süresi bulunduğunuz bölgeye göre değişiklik gösterebilir. Ürünü teslim aldığınız tarihten itibaren 14 gün içinde ücretsiz olarak iade edebilirsiniz.</p>
+                                <p>{productShippingAndReturn}</p>
                             </AccordionItem>
                         </div>
 

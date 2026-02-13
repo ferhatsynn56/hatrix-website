@@ -274,21 +274,25 @@ function RotatingModelPreviewMesh({
   const bodyMaterial = useMemo(() => {
     const base = new THREE.Color(color || "#d6dbe2");
     const lum = 0.2126 * base.r + 0.7152 * base.g + 0.0722 * base.b;
+    const whiteTaming = clamp((lum - 0.84) / 0.16, 0, 1);
+    if (whiteTaming > 0) {
+      base.multiplyScalar(1 - whiteTaming * 0.14);
+    }
     const darkBoost = clamp((0.42 - lum) / 0.42, 0, 1);
     const lightBoost = clamp((lum - 0.72) / 0.28, 0, 1);
     const resolvedFabric = normalizeFabricType(fabricType, resolvedType);
     const fabricMap = {
-      "supreme-24x1": { rough: -0.01, metal: 0.001, env: 0.03 },
-      "supreme-30x1": { rough: 0.018, metal: -0.001, env: -0.02 },
-      "iplik-3-sardonsuz": { rough: 0.012, metal: 0.001, env: -0.015 },
-      "iplik-3-sardonlu": { rough: 0.03, metal: -0.002, env: -0.04 },
+      "supreme-24x1": { rough: 0.01, metal: -0.001, env: 0.01 },
+      "supreme-30x1": { rough: 0.03, metal: -0.002, env: -0.01 },
+      "iplik-3-sardonsuz": { rough: 0.02, metal: -0.001, env: -0.005 },
+      "iplik-3-sardonlu": { rough: 0.045, metal: -0.002, env: -0.025 },
     };
     const fx = fabricMap[resolvedFabric] || fabricMap["supreme-24x1"];
     return new THREE.MeshStandardMaterial({
       color: base,
-      roughness: clamp(0.968 - 0.04 * darkBoost + 0.09 * lightBoost + fx.rough, 0.9, 0.995),
-      metalness: clamp(0.006 + 0.014 * darkBoost + fx.metal, 0.002, 0.03),
-      envMapIntensity: clamp(1.0 + fx.env, 0.7, 1.2),
+      roughness: clamp(0.955 + 0.02 * lightBoost + 0.01 * darkBoost + fx.rough, 0.93, 0.998),
+      metalness: clamp(0.004 + 0.006 * darkBoost + fx.metal, 0.001, 0.012),
+      envMapIntensity: clamp(0.62 + 0.08 * darkBoost - 0.22 * lightBoost + fx.env, 0.35, 0.78),
       side: THREE.FrontSide,
     });
   }, [color, fabricType]);
@@ -297,9 +301,9 @@ function RotatingModelPreviewMesh({
     () =>
       new THREE.MeshStandardMaterial({
         color: new THREE.Color(stringColor || "#e6e6e6"),
-        roughness: 0.9,
-        metalness: 0.02,
-        envMapIntensity: 1.0,
+        roughness: 0.94,
+        metalness: 0.008,
+        envMapIntensity: 0.62,
         side: THREE.FrontSide,
       }),
     [stringColor]
@@ -431,12 +435,17 @@ function OrderTurntablePreview({
         dpr={[1, 1.25]}
         camera={{ position: [0, 0.28, 2.12], fov: 30 }}
         gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+        onCreated={({ gl }) => {
+          gl.outputColorSpace = THREE.SRGBColorSpace;
+          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.toneMappingExposure = 0.96;
+        }}
       >
         <color attach="background" args={["#eef1f4"]} />
-        <ambientLight intensity={0.95} />
-        <hemisphereLight intensity={0.35} groundColor="#2a2a2a" />
-        <directionalLight position={[4, 7, 5]} intensity={0.85} />
-        <directionalLight position={[-4, 5, -4]} intensity={0.26} />
+        <ambientLight intensity={0.64} />
+        <hemisphereLight intensity={0.2} groundColor="#252525" />
+        <directionalLight position={[4, 7, 5]} intensity={0.56} />
+        <directionalLight position={[-4, 5, -4]} intensity={0.18} />
         <Suspense fallback={null}>
           <RotatingModelPreviewMesh
             modelType={modelType}
