@@ -4435,10 +4435,13 @@ function TasarimClientContent({ isMobile }) {
     setActiveTab(DRAWER_TABS[(tabIndex + 1) % DRAWER_TABS.length]);
   };
   const openPrintTypePickerFromHeader = () => {
+    setSelectedModelType(activeDesign?.modelType || selectedModelType || safeInitial);
+    setFlowStep("select");
+    setShowPlacementPanel(false);
     setActiveTab("upload");
     setDrawerMenuOpen(false);
-    setDrawerOpen(true);
-    setPrintTypePickerSignal((prev) => prev + 1);
+    setPickerOpen(false);
+    router.replace("/tasarim", { scroll: false });
   };
   const menuTabs = [
     { id: "color", label: "Renk", icon: Palette },
@@ -5044,7 +5047,6 @@ function TasarimClientContent({ isMobile }) {
       ? DESKTOP_DRAWER_HEIGHT
       : DESKTOP_DRAWER_PEEK;
   const hideMobileDrawerInEditor = false;
-  const menuPanelBottom = `calc(${Math.round(visibleDrawerHeight)}px + 12px)`;
   const isPlacementPanelVisible = isPrintAreaOpen && showPlacementPanel;
   const sceneEditCenterLeft = isMobile
     ? isPlacementPanelVisible
@@ -5114,15 +5116,13 @@ function TasarimClientContent({ isMobile }) {
       {/* Top Header */}
       <div className="absolute top-0 left-0 right-0 z-[90] px-4 pt-4 pb-3 flex items-start justify-between pointer-events-none">
         <div className="flex items-start gap-3 pointer-events-auto">
-          {isMobile && drawerOpen && (
-            <button
-              onClick={openPrintTypePickerFromHeader}
-              className="mt-0.5 h-8 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
-              aria-label="Baski tipi secimine don"
-            >
-              Geri
-            </button>
-          )}
+          <button
+            onClick={openPrintTypePickerFromHeader}
+            className="mt-0.5 h-8 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
+            aria-label="Model secimine don"
+          >
+            Geri
+          </button>
           <div>
             <p className="text-sm font-bold text-black">{MODEL_LABELS[headerDesign.modelType] || headerDesign.modelType}</p>
             <div className="flex items-center gap-2">
@@ -6357,13 +6357,6 @@ function TasarimClientContent({ isMobile }) {
                     {!isMobile ? (
                       <>
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                          <button
-                            onClick={openPrintTypePickerFromHeader}
-                            className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[11px] font-black uppercase tracking-wide shadow-sm"
-                            aria-label="Baski tipi secimine don"
-                          >
-                            Geri
-                          </button>
                           <div
                             className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm max-w-[250px] truncate"
                             title={selectedPrintTypeNames || "Baski secilmedi"}
@@ -6480,10 +6473,11 @@ function TasarimClientContent({ isMobile }) {
             onClick={closeDrawerMenu}
           >
             <div
-              className={`absolute left-1/2 -translate-x-1/2 w-[min(97vw,980px)] rounded-2xl border border-gray-200 bg-white/95 shadow-2xl p-4 md:p-5 transform-gpu will-change-transform transition-all duration-200 ease-out ${drawerMenuOpen ? "translate-y-0 opacity-100 scale-100" : "translate-y-3 opacity-0 scale-[0.985]"
+              className={`absolute left-1/2 w-[min(97vw,980px)] rounded-2xl border border-gray-200 bg-white/95 shadow-2xl p-4 md:p-5 transform-gpu will-change-transform transition-all duration-200 ease-out ${drawerMenuOpen ? "opacity-100" : "opacity-0"
                 }`}
               style={{
-                bottom: menuPanelBottom,
+                top: "50%",
+                transform: `translate(-50%, calc(-50% + ${drawerMenuOpen ? 0 : 12}px)) scale(${drawerMenuOpen ? 1 : 0.985})`,
               }}
               onClick={(e) => e.stopPropagation()}
             >
