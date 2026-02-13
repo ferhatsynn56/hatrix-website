@@ -2506,6 +2506,7 @@ function DesignModelItem({
   hidden,
   disableDrag,
   isMobile,
+  onUserRotate,
 }) {
   const groupRef = useRef(null);
   const userRotRef = useRef({ x: 0, y: 0 });
@@ -2517,7 +2518,8 @@ function DesignModelItem({
 
   useEffect(() => {
     userRotRef.current = { x: 0, y: 0 };
-  }, [view]);
+    onUserRotate?.(design.id, { x: 0, y: 0 });
+  }, [view, onUserRotate, design.id]);
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
@@ -2585,6 +2587,10 @@ function DesignModelItem({
         const nextX = dragRef.current.startRotX + (e.clientY - dragRef.current.startY) * ROT_SPEED;
         userRotRef.current.y = clampRotY(nextY);
         userRotRef.current.x = clampRotX(nextX);
+        onUserRotate?.(design.id, {
+          x: userRotRef.current.x,
+          y: userRotRef.current.y,
+        });
       }}
       onPointerUp={(e) => {
         if (disableDrag) return;
@@ -4075,6 +4081,7 @@ function TasarimClientContent({ isMobile }) {
   const lockToastTimerRef = useRef(null);
   const previewRef = useRef(null);
   const sceneEditRef = useRef(null);
+  const modelUserRotateRef = useRef({});
   const [isLogoDragging, setIsLogoDragging] = useState(false);
   const [sceneSelectionVisible, setSceneSelectionVisible] = useState(false);
   const [sceneFrameMode, setSceneFrameMode] = useState("resize");
@@ -4409,6 +4416,15 @@ function TasarimClientContent({ isMobile }) {
     if (!activeId && designs[0]) setActiveId(designs[0].id);
   }, [activeId, designs]);
 
+  useEffect(() => {
+    const alive = new Set(designs.map((d) => d.id));
+    const next = {};
+    Object.entries(modelUserRotateRef.current).forEach(([id, rot]) => {
+      if (alive.has(id)) next[id] = rot;
+    });
+    modelUserRotateRef.current = next;
+  }, [designs]);
+
   const activeDesign = useMemo(() => designs.find((d) => d.id === activeId) || designs[0], [designs, activeId]);
   const DRAWER_TABS = ["color", "upload", "text"];
   const tabIndex = DRAWER_TABS.indexOf(activeTab);
@@ -4587,6 +4603,15 @@ function TasarimClientContent({ isMobile }) {
     });
   };
 
+  const handleModelUserRotate = (designId, rotationPatch) => {
+    if (!designId || !rotationPatch) return;
+    const prev = modelUserRotateRef.current[designId] || { x: 0, y: 0 };
+    modelUserRotateRef.current[designId] = {
+      x: Number.isFinite(rotationPatch.x) ? rotationPatch.x : prev.x,
+      y: Number.isFinite(rotationPatch.y) ? rotationPatch.y : prev.y,
+    };
+  };
+
   const addModel = (type) => {
     const t = AVAILABLE_MODELS.includes(type) ? type : AVAILABLE_MODELS[0];
     const nd = createDesign(t);
@@ -4679,7 +4704,9 @@ function TasarimClientContent({ isMobile }) {
       const modelX = Number(layout?.x) || 0;
       const modelZ = Number(layout?.z) || 0;
       const modelY = -0.08;
-      const modelRotY = Number(layout?.rotY) || 0;
+      const userRotate = modelUserRotateRef.current?.[activeId] || { x: 0, y: 0 };
+      const modelRotY = (Number(layout?.rotY) || 0) + (Number(userRotate?.y) || 0);
+      const modelRotX = Number(userRotate?.x) || 0;
       const zOffset = currentSide === "back" ? -0.001 : 0.001;
 
       const toWorld = (nx, ny) => {
@@ -4689,7 +4716,7 @@ function TasarimClientContent({ isMobile }) {
         const v = new THREE.Vector3(x, y, z);
         v.applyAxisAngle(yAxis, sideRotY);
         v.multiplyScalar(modelScale);
-        euler.set(0, modelRotY, 0);
+        euler.set(modelRotX, modelRotY, 0);
         v.applyEuler(euler);
         v.x += modelX;
         v.y += modelY;
@@ -6014,8 +6041,9 @@ function TasarimClientContent({ isMobile }) {
                       targetRotY={layout.rotY}
                       targetScale={layout.scale}
                       hidden={layout.hidden}
-                      disableDrag={isPrintAreaOpen}
+                      disableDrag={isLogoDragging}
                       isMobile={isMobile}
+                      onUserRotate={handleModelUserRotate}
                     />
                   );
                 })}
@@ -6026,7 +6054,7 @@ function TasarimClientContent({ isMobile }) {
                 makeDefault
                 enableZoom
                 enablePan={false}
-                enableRotate
+                enableRotate={false}
                 enableDamping
                 dampingFactor={isMobile ? 0.12 : 0.08}
                 zoomSpeed={isMobile ? 0.95 : 0.7}
@@ -6035,8 +6063,8 @@ function TasarimClientContent({ isMobile }) {
                 zoomToCursor={false}
                 enabled={!camAnimating}
                 target={[0, controlsTargetY, 0]}
-                mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null }}
-                touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY }}
+                mouseButtons={{ LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null }}
+                touches={{ ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY }}
               />
             </Canvas>
           );
@@ -6231,6 +6259,7 @@ function TasarimClientContent({ isMobile }) {
                       onRotateChange={(nextRot) => bumpCustomText({ rotation: nextRot })}
                       onFrameTap={() => setSceneTextFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"))}
                       transformMode={sceneTextFrameMode}
+                      onDragStateChange={setIsLogoDragging}
                       disableResize
                       largeHandles={isMobile}
                     />
