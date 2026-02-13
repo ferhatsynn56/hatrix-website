@@ -6,6 +6,7 @@ import React, {
   Suspense,
   useRef,
   useEffect,
+  useLayoutEffect,
   useMemo,
 } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -37,6 +38,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Check,
+  Pencil,
   Lock,
   LockOpen,
 } from "lucide-react";
@@ -692,104 +694,153 @@ const drawStyledText = (ctx, t, centerX, centerY, fontSize) => {
   const scaleX = clamp(t?.scaleX || 1, 0.3, 3);
   const scaleY = clamp(t?.scaleY || 1, 0.3, 3);
   const rotationDeg = clamp(Number(t?.rotation) || 0, -180, 180);
+  const baseColor = t?.color || "#ffffff";
+  const embossEnabled = t?.emboss !== false;
+  const embossDepthMul = clamp(Number(t?.embossDepth ?? 1.4), 0.6, 2.8);
+  const embossStrength = clamp(Number(t?.embossStrength ?? 1.4), 0.6, 2.4);
+  const strokeWidth = clamp(fontSize * 0.11 * embossStrength, 1.2, 14);
+  const depth = clamp(fontSize * 0.07 * embossDepthMul, 2, 26);
 
-  ctx.save();
-  ctx.translate(centerX, centerY);
-  if (rotationDeg) {
-    ctx.rotate((rotationDeg * Math.PI) / 180);
-  }
-  ctx.scale(scaleX, scaleY);
-  ctx.font = `900 ${fontSize}px ${t?.font || FONT_OPTIONS[0].value}`;
-  ctx.fillStyle = t?.color || "#ffffff";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-
-  if (layout === "straight") {
-    ctx.fillText(text, 0, 0);
-    ctx.restore();
-    return;
-  }
-
-  const chars = [...text];
-  const widths = chars.map((ch) => ctx.measureText(ch).width);
-  const spacing = fontSize * 0.06;
-  const totalAdvance = widths.reduce((a, b) => a + b, 0) + spacing * Math.max(0, chars.length - 1);
-  if (totalAdvance <= 0) {
-    ctx.fillText(text, 0, 0);
-    ctx.restore();
-    return;
-  }
-
-  if (layout === "wave" || layout === "wave-soft" || layout === "wave-strong") {
-    const waveAmpMul = layout === "wave-soft" ? 0.85 : layout === "wave-strong" ? 1.75 : 1.35;
-    const amp = (curve / 100) * fontSize * waveAmpMul;
-    const rotMul = layout === "wave-soft" ? 0.11 : layout === "wave-strong" ? 0.2 : 0.16;
-    let cursor = -totalAdvance / 2;
-    chars.forEach((ch, i) => {
-      const w = widths[i];
-      const x = cursor + w / 2;
-      const phase = (i / Math.max(chars.length - 1, 1)) * Math.PI * 2;
-      const y = Math.sin(phase) * amp;
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(Math.cos(phase) * (curve * rotMul) * (Math.PI / 180));
-      ctx.fillText(ch, 0, 0);
-      ctx.restore();
-      cursor += w + spacing;
-    });
-    ctx.restore();
-    return;
-  }
-
-  if (layout === "zigzag" || layout === "stair-up" || layout === "stair-down") {
-    let cursor = -totalAdvance / 2;
-    const stepAmp = (curve / 100) * fontSize * 1.25;
-    chars.forEach((ch, i) => {
-      const w = widths[i];
-      const x = cursor + w / 2;
-      let y = 0;
-      let rot = 0;
-      if (layout === "zigzag") {
-        y = (i % 2 === 0 ? -1 : 1) * stepAmp * 0.7;
-        rot = (i % 2 === 0 ? -1 : 1) * curve * 0.2;
-      } else {
-        const p = chars.length > 1 ? i / (chars.length - 1) : 0.5;
-        y = (layout === "stair-up" ? -1 : 1) * (p - 0.5) * 2 * stepAmp;
-        rot = (layout === "stair-up" ? -1 : 1) * 6;
-      }
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate((rot * Math.PI) / 180);
-      ctx.fillText(ch, 0, 0);
-      ctx.restore();
-      cursor += w + spacing;
-    });
-    ctx.restore();
-    return;
-  }
-
-  const arcDown = layout === "arc-down" || layout === "arc-down-strong";
-  const arcStrong = layout === "arc-up-strong" || layout === "arc-down-strong";
-  const arcDir = arcDown ? 1 : -1;
-  const totalAngle = ((curve * (arcStrong ? 3.1 : 2.2)) * Math.PI) / 180;
-  const radius = Math.max(fontSize * 1.7, totalAdvance / Math.max(totalAngle, 0.1));
-  let cursor = -totalAdvance / 2;
-
-  chars.forEach((ch, i) => {
-    const w = widths[i];
-    const xMid = cursor + w / 2;
-    const progress = xMid / (totalAdvance / 2 || 1);
-    const angle = progress * (totalAngle / 2);
+  const renderPass = ({ fillStyle, strokeStyle = null, alpha = 1, offsetX = 0, offsetY = 0 }) => {
     ctx.save();
-    ctx.rotate(angle);
-    ctx.translate(0, arcDir * radius);
-    ctx.rotate(-angle * arcDir * 0.45);
-    ctx.fillText(ch, 0, 0);
-    ctx.restore();
-    cursor += w + spacing;
-  });
+    ctx.translate(centerX + offsetX, centerY + offsetY);
+    if (rotationDeg) {
+      ctx.rotate((rotationDeg * Math.PI) / 180);
+    }
+    ctx.scale(scaleX, scaleY);
+    ctx.globalAlpha = alpha;
+    ctx.font = `900 ${fontSize}px ${t?.font || FONT_OPTIONS[0].value}`;
+    ctx.fillStyle = fillStyle;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    if (strokeStyle) {
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.miterLimit = 2;
+      ctx.lineWidth = strokeWidth;
+      ctx.strokeStyle = strokeStyle;
+    }
 
-  ctx.restore();
+    if (layout === "straight") {
+      if (strokeStyle) ctx.strokeText(text, 0, 0);
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+      return;
+    }
+
+    const chars = [...text];
+    const widths = chars.map((ch) => ctx.measureText(ch).width);
+    const spacing = fontSize * 0.06;
+    const totalAdvance = widths.reduce((a, b) => a + b, 0) + spacing * Math.max(0, chars.length - 1);
+    if (totalAdvance <= 0) {
+      if (strokeStyle) ctx.strokeText(text, 0, 0);
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+      return;
+    }
+
+    if (layout === "wave" || layout === "wave-soft" || layout === "wave-strong") {
+      const waveAmpMul = layout === "wave-soft" ? 0.85 : layout === "wave-strong" ? 1.75 : 1.35;
+      const amp = (curve / 100) * fontSize * waveAmpMul;
+      const rotMul = layout === "wave-soft" ? 0.11 : layout === "wave-strong" ? 0.2 : 0.16;
+      let cursor = -totalAdvance / 2;
+      chars.forEach((ch, i) => {
+        const w = widths[i];
+        const x = cursor + w / 2;
+        const phase = (i / Math.max(chars.length - 1, 1)) * Math.PI * 2;
+        const y = Math.sin(phase) * amp;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(Math.cos(phase) * (curve * rotMul) * (Math.PI / 180));
+        if (strokeStyle) ctx.strokeText(ch, 0, 0);
+        ctx.fillText(ch, 0, 0);
+        ctx.restore();
+        cursor += w + spacing;
+      });
+      ctx.restore();
+      return;
+    }
+
+    if (layout === "zigzag" || layout === "stair-up" || layout === "stair-down") {
+      let cursor = -totalAdvance / 2;
+      const stepAmp = (curve / 100) * fontSize * 1.25;
+      chars.forEach((ch, i) => {
+        const w = widths[i];
+        const x = cursor + w / 2;
+        let y = 0;
+        let rot = 0;
+        if (layout === "zigzag") {
+          y = (i % 2 === 0 ? -1 : 1) * stepAmp * 0.7;
+          rot = (i % 2 === 0 ? -1 : 1) * curve * 0.2;
+        } else {
+          const p = chars.length > 1 ? i / (chars.length - 1) : 0.5;
+          y = (layout === "stair-up" ? -1 : 1) * (p - 0.5) * 2 * stepAmp;
+          rot = (layout === "stair-up" ? -1 : 1) * 6;
+        }
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate((rot * Math.PI) / 180);
+        if (strokeStyle) ctx.strokeText(ch, 0, 0);
+        ctx.fillText(ch, 0, 0);
+        ctx.restore();
+        cursor += w + spacing;
+      });
+      ctx.restore();
+      return;
+    }
+
+    const arcDown = layout === "arc-down" || layout === "arc-down-strong";
+    const arcStrong = layout === "arc-up-strong" || layout === "arc-down-strong";
+    const arcDir = arcDown ? 1 : -1;
+    const totalAngle = ((curve * (arcStrong ? 3.1 : 2.2)) * Math.PI) / 180;
+    const radius = Math.max(fontSize * 1.7, totalAdvance / Math.max(totalAngle, 0.1));
+    let cursor = -totalAdvance / 2;
+
+    chars.forEach((ch, i) => {
+      const w = widths[i];
+      const xMid = cursor + w / 2;
+      const progress = xMid / (totalAdvance / 2 || 1);
+      const angle = progress * (totalAngle / 2);
+      ctx.save();
+      ctx.rotate(angle);
+      ctx.translate(0, arcDir * radius);
+      ctx.rotate(-angle * arcDir * 0.45);
+      if (strokeStyle) ctx.strokeText(ch, 0, 0);
+      ctx.fillText(ch, 0, 0);
+      ctx.restore();
+      cursor += w + spacing;
+    });
+
+    ctx.restore();
+  };
+
+  if (!embossEnabled) {
+    renderPass({ fillStyle: baseColor, alpha: 1 });
+    return;
+  }
+
+  // Güçlü kabartı efekti: çok katmanlı extrusion + highlight + top face
+  const steps = Math.max(3, Math.round(depth * 1.2));
+  for (let i = steps; i >= 1; i -= 1) {
+    const f = i / steps;
+    renderPass({
+      fillStyle: "rgba(8,10,16,0.95)",
+      alpha: (0.20 + f * 0.38) * embossStrength,
+      offsetX: f * depth,
+      offsetY: f * depth,
+    });
+  }
+  renderPass({
+    fillStyle: "rgba(255,255,255,0.34)",
+    alpha: 0.72 + 0.16 * embossStrength,
+    offsetX: -depth * 0.68,
+    offsetY: -depth * 0.68,
+  });
+  renderPass({
+    fillStyle: baseColor,
+    strokeStyle: "rgba(12,15,24,0.52)",
+    alpha: clamp(0.95 + (embossStrength - 1) * 0.08, 0.9, 1),
+  });
 };
 
 const getLogoStyle = (logo) => ({
@@ -834,12 +885,37 @@ const fileToDataUrl = (file) =>
     reader.readAsDataURL(file);
   });
 
+const IMAGE_CACHE = new Map();
 const loadImg = (src) =>
   new Promise((resolve, reject) => {
+    const key = String(src || "");
+    if (!key) {
+      reject(new Error("Geçersiz görsel kaynağı."));
+      return;
+    }
+    const cached = IMAGE_CACHE.get(key);
+    if (cached?.img && cached.img.complete && cached.img.naturalWidth > 0) {
+      resolve(cached.img);
+      return;
+    }
+    if (cached?.promise) {
+      cached.promise.then(resolve).catch(reject);
+      return;
+    }
     const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Görsel çözümlenemedi."));
-    img.src = src;
+    const promise = new Promise((res, rej) => {
+      img.onload = () => {
+        IMAGE_CACHE.set(key, { img });
+        res(img);
+      };
+      img.onerror = () => {
+        IMAGE_CACHE.delete(key);
+        rej(new Error("Görsel çözümlenemedi."));
+      };
+    });
+    IMAGE_CACHE.set(key, { promise, img });
+    promise.then(resolve).catch(reject);
+    img.src = key;
   });
 
 async function optimizeUploadDataUrl(file) {
@@ -960,6 +1036,9 @@ const createSideData = () => ({
     size: 150,
     scaleX: 1,
     scaleY: 1,
+    emboss: true,
+    embossDepth: 1.4,
+    embossStrength: 1.4,
     font: FONT_OPTIONS[0].value,
     layout: "straight",
     curve: 30,
@@ -977,6 +1056,8 @@ const normalizeSideData = (sideData) => {
     ...base.customText,
     ...(source.customText && typeof source.customText === "object" ? source.customText : {}),
     rotation: clamp(Number(source?.customText?.rotation) || 0, -180, 180),
+    embossDepth: clamp(Number(source?.customText?.embossDepth ?? base.customText.embossDepth), 0.6, 2.8),
+    embossStrength: clamp(Number(source?.customText?.embossStrength ?? base.customText.embossStrength), 0.6, 2.4),
   };
   const textPos = clampTextPos(source.textPos || base.textPos, customText);
 
@@ -1448,11 +1529,11 @@ function useDesignCanvas(sideData, opts = {}) {
     )
     .join("|");
   const customText = sideData?.customText;
-  const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}_${customText?.font}_${customText?.layout || "straight"}_${customText?.curve ?? 30}_${customText?.rotation ?? 0}_${customText?.z ?? 0}`;
+  const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}_${customText?.font}_${customText?.layout || "straight"}_${customText?.curve ?? 30}_${customText?.rotation ?? 0}_${customText?.z ?? 0}_${Number(customText?.emboss !== false)}_${customText?.embossDepth ?? 1.4}_${customText?.embossStrength ?? 1.4}`;
   const posSignature = `${sideData?.textPos?.x}_${sideData?.textPos?.y}`;
 
   const CANVAS_SIZE = 2048;
-  const CANVAS_UPDATE_DEBOUNCE_MS = 16;
+  const CANVAS_UPDATE_DEBOUNCE_MS = 6;
 
   useEffect(() => {
     const hasContent = logosForCanvas.length > 0 || (customText?.text || "").trim();
@@ -1727,7 +1808,7 @@ function Real3DModel({
     [stringColor]
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!root) return;
     const isHoodieWithParts = MODELS_WITH_HOODIE_PARTS.has(modelType);
     const showStrings = !!hoodieV12Parts?.strings;
@@ -2075,10 +2156,15 @@ function Real3DModel({
 function ResizeFrame({
   box,
   onChange,
+  rotation = 0,
+  onRotateChange,
+  onFrameTap,
+  transformMode = "resize",
   containerRef,
   onDragStateChange,
   diagonalOnly = false,
   disableResize = false,
+  largeHandles = false,
 }) {
   const dragRef = useRef(null);
   const rafRef = useRef(0);
@@ -2105,7 +2191,7 @@ function ResizeFrame({
   });
 
   const begin = (mode, e) => {
-    if (disableResize && mode !== "move") return;
+    if (disableResize && mode !== "move" && mode !== "rotate") return;
     if (diagonalOnly && (mode === "t" || mode === "b" || mode === "l" || mode === "r")) return;
     e.preventDefault();
     e.stopPropagation();
@@ -2123,6 +2209,10 @@ function ResizeFrame({
       mode,
       rect,
       startBox: { ...box },
+      startClient: { x: e.clientX, y: e.clientY },
+      moved: false,
+      startRotation: Number(rotation) || 0,
+      startAngle: Math.atan2(py - box.y, px - box.x),
       startEdges: {
         left: box.x - box.w / 2,
         right: box.x + box.w / 2,
@@ -2141,10 +2231,25 @@ function ResizeFrame({
     const s = dragRef.current;
     if (!s) return;
     e.preventDefault();
+    if (!s.moved) {
+      const dx = Math.abs(e.clientX - s.startClient.x);
+      const dy = Math.abs(e.clientY - s.startClient.y);
+      if (dx > 2 || dy > 2) s.moved = true;
+    }
 
     const { x: px, y: py } = getPointer01(e, s.rect);
     const minW = 0.12;
     const minH = 0.12;
+
+    if (s.mode === "rotate") {
+      if (!onRotateChange) return;
+      const currentAngle = Math.atan2(py - s.startBox.y, px - s.startBox.x);
+      const deltaDeg = ((currentAngle - s.startAngle) * 180) / Math.PI;
+      let nextRot = s.startRotation + deltaDeg;
+      nextRot = ((((nextRot + 180) % 360) + 360) % 360) - 180;
+      onRotateChange(Math.round(nextRot));
+      return;
+    }
 
     if (s.mode === "move") {
       const halfW = s.startBox.w / 2;
@@ -2263,12 +2368,15 @@ function ResizeFrame({
         e.target.releasePointerCapture(e.pointerId);
       } catch { }
     }
+    const s = dragRef.current;
+    const wasTap = Boolean(s && s.mode === "move" && !s.moved);
     dragRef.current = null;
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = 0;
     }
     flushPendingChange();
+    if (wasTap) onFrameTap?.();
     onDragStateChange?.(false);
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", end);
@@ -2285,18 +2393,29 @@ function ResizeFrame({
 
   return (
     <div
-      className="absolute border-2 border-white/75 rounded-lg group cursor-grab active:cursor-grabbing"
+      className={`absolute border-2 rounded-lg group ${
+        transformMode === "rotate" ? "border-cyan-300/90 border-dashed" : "border-white/75 cursor-grab active:cursor-grabbing"
+      }`}
       style={{
         left: pct(box.x - box.w / 2),
         top: pct(box.y - box.h / 2),
         width: pct(box.w),
         height: pct(box.h),
         touchAction: "none",
+        pointerEvents: "auto",
         zIndex: 60,
       }}
-      onPointerDown={(e) => begin("move", e)}
+      onPointerDown={
+        transformMode === "rotate"
+          ? (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onFrameTap?.();
+          }
+          : (e) => begin("move", e)
+      }
     >
-      {!disableResize &&
+      {!disableResize && transformMode === "resize" &&
         [
           ["lt", 0, 0],
           ["t", 50, 0],
@@ -2311,7 +2430,7 @@ function ResizeFrame({
           .map(([key, lx, ty]) => (
             <div
               key={key}
-              className="absolute w-6 h-6 bg-white rounded-full border border-zinc-400 shadow-sm opacity-95 transition-transform group-hover:scale-105"
+              className={`absolute ${largeHandles ? "w-7 h-7" : "w-6 h-6"} bg-white rounded-full border border-zinc-400 shadow-sm opacity-95 transition-transform group-hover:scale-105`}
               style={{
                 left: `${lx}%`,
                 top: `${ty}%`,
@@ -2329,6 +2448,28 @@ function ResizeFrame({
               onPointerDown={(e) => begin(key, e)}
             />
           ))}
+      {onRotateChange && transformMode === "rotate" &&
+        [
+          [0, 0],
+          [100, 0],
+          [100, 100],
+          [0, 100],
+        ].map(([lx, ty], idx) => (
+          <div
+            key={`rot-handle-${idx}`}
+            className={`absolute ${largeHandles ? "w-8 h-8 text-[13px]" : "w-7 h-7 text-[12px]"} bg-cyan-50 rounded-full border border-cyan-300 shadow-sm opacity-95 text-cyan-900 font-black flex items-center justify-center`}
+            style={{
+              left: `${lx}%`,
+              top: `${ty}%`,
+              transform: "translate(-50%, -50%)",
+              touchAction: "none",
+              cursor: "grab",
+            }}
+            onPointerDown={(e) => begin("rotate", e)}
+          >
+            ⟳
+          </div>
+        ))}
     </div>
   );
 }
@@ -2857,6 +2998,9 @@ function EditorPanel({
   const cm = CM_LABELS[design.modelType]?.[currentSide] || { w: 0, h: 0 };
 
   const t = sideData?.customText || {};
+  const textEmbossEnabled = t?.emboss !== false;
+  const textEmbossDepth = clamp(Number(t?.embossDepth ?? 1.4), 0.6, 2.8);
+  const textEmbossStrength = clamp(Number(t?.embossStrength ?? 1.4), 0.6, 2.4);
   const hoodieV12Parts = normalizeHoodieParts(design.hoodieV12Parts);
   const hasPdf = Boolean(design?.hasPdf && design?.pdfFileUrl);
   const pdfPlacement = normalizePdfPlacement(design?.pdfPlacement, currentSide);
@@ -3094,7 +3238,7 @@ function EditorPanel({
                 return (
                   <div
                     key={l.id}
-                    className={`absolute rounded-lg overflow-hidden border ${isSel ? "border-white" : "border-white/10"}`}
+                    className={`absolute overflow-hidden border ${isSel ? "border-white" : "border-white/10"}`}
                     style={{
                       left: pct(box.x - box.w / 2),
                       top: pct(box.y - box.h / 2),
@@ -3111,7 +3255,7 @@ function EditorPanel({
                     <img
                       src={l.url}
                       alt=""
-                      className="w-full h-full object-fill pointer-events-none"
+                      className="w-full h-full object-cover pointer-events-none"
                       style={{
                         transform: `rotate(${l.rotation || 0}deg) scale(${fx.flipX ? -1 : 1}, ${fx.flipY ? -1 : 1})`,
                         filter: logoFilterCss(fx),
@@ -3636,6 +3780,9 @@ function EditorPanel({
                           text: "",
                           color: "#ffffff",
                           size: 150,
+                          emboss: true,
+                          embossDepth: 1.4,
+                          embossStrength: 1.4,
                           font: FONT_OPTIONS[0].value,
                           layout: "straight",
                           curve: 30,
@@ -3678,6 +3825,49 @@ function EditorPanel({
                         className="h-10 w-full rounded-lg border border-gray-300 bg-white p-1"
                       />
                     </label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => bumpText({ emboss: !textEmbossEnabled })}
+                    className={`w-full py-2 rounded-lg text-[10px] font-black uppercase border transition ${
+                      textEmbossEnabled
+                        ? "bg-zinc-900 text-white border-zinc-900"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                    }`}
+                  >
+                    Kabartı: {textEmbossEnabled ? "Açık" : "Kapalı"}
+                  </button>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-gray-500">
+                      <span className="font-black uppercase tracking-wide">Kabartı Kalınlığı</span>
+                      <span>{textEmbossDepth.toFixed(2)}x</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.6"
+                      max="2.8"
+                      step="0.05"
+                      value={textEmbossDepth}
+                      disabled={!textEmbossEnabled}
+                      onChange={(e) => bumpText({ embossDepth: Number(e.target.value) })}
+                      className={`w-full accent-black ${!textEmbossEnabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-gray-500">
+                      <span className="font-black uppercase tracking-wide">Kabartı Gücü</span>
+                      <span>{textEmbossStrength.toFixed(2)}x</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.6"
+                      max="2.4"
+                      step="0.05"
+                      value={textEmbossStrength}
+                      disabled={!textEmbossEnabled}
+                      onChange={(e) => bumpText({ embossStrength: Number(e.target.value) })}
+                      className={`w-full accent-black ${!textEmbossEnabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                    />
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[10px] text-gray-500">
@@ -4103,7 +4293,16 @@ function TasarimClientContent({ isMobile }) {
   const [camAnimating, setCamAnimating] = useState(false);
   const lockToastTimerRef = useRef(null);
   const previewRef = useRef(null);
+  const sceneEditRef = useRef(null);
   const [isLogoDragging, setIsLogoDragging] = useState(false);
+  const [sceneSelectionVisible, setSceneSelectionVisible] = useState(false);
+  const [sceneFrameMode, setSceneFrameMode] = useState("resize");
+  const [sceneTextSelectionVisible, setSceneTextSelectionVisible] = useState(false);
+  const [sceneTextFrameMode, setSceneTextFrameMode] = useState("resize");
+  const [showPlacementPanel, setShowPlacementPanel] = useState(false);
+  const [scenePlaneRect, setScenePlaneRect] = useState(null);
+  const logoCountTrackRef = useRef({});
+  const prevActiveTabRef = useRef("upload");
 
   const toggleLockAspect = () => {
     setLockAspect((prev) => {
@@ -4158,6 +4357,41 @@ function TasarimClientContent({ isMobile }) {
     : [];
   const isZipperFront = hasCenterZip(currentActiveDesign?.modelType) && currentSide === "front";
   const gap01 = MODEL_PRINT_BOUNDS[currentActiveDesign?.modelType]?.front?.zipGap01 || 0;
+  const textEditingMode = editorControlTab === "text" && showPlacementPanel;
+  const showSceneFrame = Boolean(sceneSelectionVisible && activeLogo && !textEditingMode);
+  const hasSceneText = Boolean((customText?.text || "").trim());
+  const textHalfBounds = estimateTextHalfBounds01(customText);
+  const sceneTextBox = useMemo(
+    () => ({
+      x: safeTextPos.x,
+      y: safeTextPos.y,
+      w: clamp(textHalfBounds.halfW01 * 2, 0.12, 0.98),
+      h: clamp(textHalfBounds.halfH01 * 2, 0.08, 0.72),
+    }),
+    [safeTextPos.x, safeTextPos.y, textHalfBounds.halfW01, textHalfBounds.halfH01]
+  );
+  const showSceneTextFrame = Boolean(sceneTextSelectionVisible && hasSceneText);
+
+  useEffect(() => {
+    clearSceneSelection();
+  }, [activeId, currentSide]);
+
+  useEffect(() => {
+    const key = `${activeId}_${currentSide}`;
+    const prevCount = logoCountTrackRef.current[key];
+    const nextCount = logos.length;
+    logoCountTrackRef.current[key] = nextCount;
+    if (typeof prevCount === "number" && prevCount !== nextCount) {
+      // Yeni görsel eklendiğinde çerçeve otomatik açılmasın.
+      clearSceneSelection();
+    }
+  }, [activeId, currentSide, logos.length]);
+
+  useEffect(() => {
+    if (hasSceneText) return;
+    setSceneTextSelectionVisible(false);
+    setSceneTextFrameMode("resize");
+  }, [hasSceneText]);
 
   // Editor overlay için updateSide fonksiyonu
   const updateSide = (patch) => {
@@ -4211,11 +4445,19 @@ function TasarimClientContent({ isMobile }) {
     updateSide({ logos: nextLogos });
   };
 
+  const clearSceneSelection = () => {
+    setSceneSelectionVisible(false);
+    setSceneTextSelectionVisible(false);
+    setSceneFrameMode("resize");
+    setSceneTextFrameMode("resize");
+  };
+
   const handleDeleteActiveImage = () => {
     const currentId = sideData.activeLogoId || sideData.logos?.[0]?.id;
     if (!currentId) return;
     const next = (sideData.logos || []).filter((l) => l.id !== currentId);
     updateSide({ logos: next, activeLogoId: next[0]?.id || null });
+    clearSceneSelection();
   };
 
   const setActiveLogoLayer = (layer) => {
@@ -4454,6 +4696,19 @@ function TasarimClientContent({ isMobile }) {
   }, [activeTab]);
 
   useEffect(() => {
+    const prev = prevActiveTabRef.current;
+    if (activeTab !== "editor") {
+      setShowPlacementPanel(false);
+      clearSceneSelection();
+    } else if (prev !== "editor") {
+      setShowPlacementPanel(false);
+      clearSceneSelection();
+      setEditorControlTab("logo");
+    }
+    prevActiveTabRef.current = activeTab;
+  }, [activeTab]);
+
+  useEffect(() => {
     if (!drawerOpen) setDrawerMenuOpen(false);
   }, [drawerOpen]);
 
@@ -4590,6 +4845,101 @@ function TasarimClientContent({ isMobile }) {
       scale: 0.9,
     };
   };
+
+  useEffect(() => {
+    if (!isPrintAreaOpen || !activeLogo || !printBounds) {
+      setScenePlaneRect(null);
+      return;
+    }
+
+    let rafId = 0;
+    const yAxis = new THREE.Vector3(0, 1, 0);
+    const euler = new THREE.Euler();
+
+    const calc = () => {
+      const camera = cameraRef.current;
+      const gl = glRef.current;
+      if (!camera || !gl?.domElement) {
+        rafId = requestAnimationFrame(calc);
+        return;
+      }
+
+      const canvasRect = gl.domElement.getBoundingClientRect();
+      const layout = layoutFor(activeId);
+      const sideRotY = Number(printBounds.rotY ?? (currentSide === "back" ? Math.PI : 0));
+      const modelScale = (Number(layout?.scale) || 1) + 0.05;
+      const modelX = Number(layout?.x) || 0;
+      const modelZ = Number(layout?.z) || 0;
+      const modelY = -0.08;
+      const modelRotY = Number(layout?.rotY) || 0;
+      const zOffset = currentSide === "back" ? -0.001 : 0.001;
+
+      const toWorld = (nx, ny) => {
+        const x = printBounds.xMin + nx * (printBounds.xMax - printBounds.xMin);
+        const y = printBounds.yTop - ny * (printBounds.yTop - printBounds.yBot);
+        const z = (printBounds.z || 0) + zOffset;
+        const v = new THREE.Vector3(x, y, z);
+        v.applyAxisAngle(yAxis, sideRotY);
+        v.multiplyScalar(modelScale);
+        euler.set(0, modelRotY, 0);
+        v.applyEuler(euler);
+        v.x += modelX;
+        v.y += modelY;
+        v.z += modelZ;
+        return v;
+      };
+
+      const points = [
+        toWorld(0, 0),
+        toWorld(1, 0),
+        toWorld(1, 1),
+        toWorld(0, 1),
+      ].map((v) => {
+        const p = v.clone().project(camera);
+        return {
+          x: canvasRect.left + (p.x * 0.5 + 0.5) * canvasRect.width,
+          y: canvasRect.top + (-p.y * 0.5 + 0.5) * canvasRect.height,
+        };
+      });
+
+      const xs = points.map((p) => p.x);
+      const ys = points.map((p) => p.y);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+
+      if (
+        Number.isFinite(minX) &&
+        Number.isFinite(maxX) &&
+        Number.isFinite(minY) &&
+        Number.isFinite(maxY)
+      ) {
+        setScenePlaneRect({
+          left: minX,
+          top: minY,
+          width: Math.max(1, maxX - minX),
+          height: Math.max(1, maxY - minY),
+        });
+      }
+
+      rafId = requestAnimationFrame(calc);
+    };
+
+    calc();
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [
+    isPrintAreaOpen,
+    activeLogo?.id,
+    activeId,
+    currentSide,
+    printBounds,
+    captureView,
+    view,
+    isMobile,
+  ]);
 
   const captureMockupForSide = async (designId, sideView) => {
     if (!glRef.current || !sceneRef.current || !cameraRef.current) return null;
@@ -4890,6 +5240,21 @@ function TasarimClientContent({ isMobile }) {
       : DESKTOP_DRAWER_PEEK;
   const hideMobileDrawerInEditor = isMobile && isPrintAreaOpen;
   const menuPanelBottom = `calc(${Math.round(visibleDrawerHeight)}px + 12px)`;
+  const isPlacementPanelVisible = isPrintAreaOpen && showPlacementPanel;
+  const sceneEditCenterLeft = isMobile
+    ? isPlacementPanelVisible
+      ? "60%"
+      : "56%"
+    : isPlacementPanelVisible
+      ? "63%"
+      : "50%";
+  const sceneEditCenterTop = isMobile
+    ? isPlacementPanelVisible
+      ? "41%"
+      : "45%"
+    : isPlacementPanelVisible
+      ? "43%"
+      : "47%";
 
   const renderPanel = (
     <EditorPanel
@@ -5100,7 +5465,7 @@ function TasarimClientContent({ isMobile }) {
         )}
 
         {/* Editor Overlay - Sol Taraf */}
-        {isPrintAreaOpen && (
+        {isPrintAreaOpen && showPlacementPanel && (
           <div
             className={`absolute z-[90] backdrop-blur-md border border-gray-200 shadow-2xl overflow-hidden flex flex-col ${isMobile ? "rounded-none border-x-0 rounded-t-2xl" : "rounded-2xl"
               }`}
@@ -5130,207 +5495,19 @@ function TasarimClientContent({ isMobile }) {
                   <h3 className="text-xs font-black uppercase tracking-widest text-gray-900">Yerleşim Ayarı</h3>
                   <p className="text-[10px] text-gray-500 mt-1">{sideLabel}</p>
                 </div>
-                {isMobile && (
-                  <button
-                    onClick={() => {
-                      setActiveTab("upload");
-                      setForceEditorOverlay(false);
-                      setDrawerOpen(false);
-                      setDrawerMenuOpen(false);
-                    }}
-                    className="px-3 py-1.5 rounded-full bg-zinc-900 text-white text-[10px] font-bold uppercase tracking-wider"
-                  >
-                    Tamam
-                  </button>
-                )}
+                <button
+                  onClick={() => setShowPlacementPanel(false)}
+                  className="w-8 h-8 rounded-full border border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 flex items-center justify-center"
+                  aria-label="Yerleşim panelini kapat"
+                  title="Kapat"
+                >
+                  <X size={14} />
+                </button>
               </div>
             </div>
 
             <div className={`flex-1 ${isMobile ? "overflow-y-auto overflow-x-hidden p-3" : "overflow-y-auto overflow-x-visible p-4"}`}>
-              <div
-                ref={previewRef}
-                className={`w-full rounded-xl border border-gray-300 relative overflow-hidden shadow-xl touch-none ${isMobile ? "h-[30vh] min-h-[220px] max-h-[340px]" : "h-[56vh]"}`}
-                style={{
-                  touchAction: "none",
-                  backgroundColor: "#eef1f5",
-                  aspectRatio: isMobile ? undefined : previewAspect,
-                }}
-              >
-                {/* hafif grid */}
-                <div
-                  className="absolute inset-0 opacity-25 pointer-events-none"
-                  style={{
-                    backgroundImage: "radial-gradient(#7b8794 1px, transparent 1px)",
-                    backgroundSize: "10px 10px",
-                  }}
-                />
-                {/* model sınırlarını okumayı kolaylaştıran yumuşak katman */}
-                <div
-                  className="absolute inset-0 pointer-events-none"
-                  style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.05) 100%)" }}
-                />
-
-                {activeVGuides.map((p) => (
-                  <div
-                    key={`vg-${p}`}
-                    className={`absolute top-0 bottom-0 w-px pointer-events-none ${p === 0.5 ? "bg-cyan-300/90" : "bg-cyan-200/70"}`}
-                    style={{ left: `${p * 100}%` }}
-                  />
-                ))}
-                {activeHGuides.map((p) => (
-                  <div
-                    key={`hg-${p}`}
-                    className={`absolute left-0 right-0 h-px pointer-events-none ${p === 0.5 ? "bg-cyan-300/90" : "bg-cyan-200/70"}`}
-                    style={{ top: `${p * 100}%` }}
-                  />
-                ))}
-
-                {/* fermuar boşluğu görünsün */}
-                {isZipperFront && (
-                  <div
-                    className="absolute pointer-events-none"
-                    style={{
-                      left: "50%",
-                      width: `${Math.round(gap01 * 100)}%`,
-                      transform: "translateX(-50%)",
-                      top: `${ZIP_STRIPE_TOP01 * 100}%`,
-                      bottom: `${(1 - ZIP_STRIPE_BOTTOM01) * 100}%`,
-                      background: "rgba(255,255,255,0.07)",
-                      borderLeft: "1px dashed rgba(255,255,255,0.20)",
-                      borderRight: "1px dashed rgba(255,255,255,0.20)",
-                    }}
-                  />
-                )}
-
-                {/* katmanlar: logo + text */}
-                {(() => {
-                  const items = [
-                    ...(logos || []).map((l, idx) => ({ kind: "logo", z: l?.z ?? 0, idx, payload: l })),
-                    ...(sideData?.customText?.text || "").trim()
-                      ? [{ kind: "text", z: sideData?.customText?.z ?? 0, idx: 9999, payload: sideData.customText }]
-                      : [],
-                  ].sort((a, b) => (a.z !== b.z ? a.z - b.z : a.idx - b.idx));
-
-                  return items.map((it, renderIdx) => {
-                    if (it.kind === "text") {
-                      return (
-                        <div
-                          key={`text-layer-${currentSide}`}
-                          className="absolute -translate-x-1/2 -translate-y-1/2 px-2 py-1 rounded bg-black/20 border border-white/20"
-                          style={{
-                            left: `${clampTextPos(sideData?.textPos, sideData?.customText).x * 100}%`,
-                            top: `${clampTextPos(sideData?.textPos, sideData?.customText).y * 100}%`,
-                            touchAction: "none",
-                            cursor: "grab",
-                            zIndex: editorControlTab === "text" ? 120 : 10 + renderIdx,
-                          }}
-                          onPointerDown={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const rect = previewRef.current?.getBoundingClientRect();
-                            if (!rect) return;
-                            const start = {
-                              x: clamp01((e.clientX - rect.left) / rect.width),
-                              y: clamp01((e.clientY - rect.top) / rect.height),
-                            };
-                            const base = sideData?.textPos || { x: 0.5, y: 0.85 };
-                            const offset = { dx: base.x - start.x, dy: base.y - start.y };
-                            const move = (ev) =>
-                              updateSide({
-                                textPos: clampTextPos({
-                                  x: clamp01((ev.clientX - rect.left) / rect.width + offset.dx),
-                                  y: clamp01((ev.clientY - rect.top) / rect.height + offset.dy),
-                                }, sideData?.customText)
-                              });
-                            const up = () => {
-                              window.removeEventListener("pointermove", move);
-                              window.removeEventListener("pointerup", up);
-                            };
-                            window.addEventListener("pointermove", move);
-                            window.addEventListener("pointerup", up);
-                          }}
-                        >
-                          <StyledTextPreview textState={sideData.customText} />
-                        </div>
-                      );
-                    }
-
-                    const l = it.payload;
-                    const isSelected = l.id === (sideData?.activeLogoId || sideData?.logos?.[0]?.id);
-                    const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
-                    const fx = getLogoStyle(l);
-                    const pct = (v) => `${v * 100}%`;
-                    return (
-                      <div
-                        key={l.id}
-                        className={`absolute border-2 transition-all ${isSelected ? "border-white" : "border-transparent"
-                          }`}
-                        style={{
-                          left: pct(box.x - box.w / 2),
-                          top: pct(box.y - box.h / 2),
-                          width: pct(box.w),
-                          height: pct(box.h),
-                          touchAction: "none",
-                          zIndex: 10 + renderIdx,
-                          pointerEvents: editorControlTab === "text" ? "none" : isSelected ? "none" : "auto",
-                        }}
-                        onPointerDown={(e) => {
-                          e.stopPropagation();
-                          updateSide({ activeLogoId: l.id });
-                        }}
-                      >
-                        <img
-                          src={l.url}
-                          alt=""
-                          className="w-full h-full object-fill pointer-events-none"
-                          style={{
-                            transform: `rotate(${l.rotation || 0}deg) scale(${fx.flipX ? -1 : 1}, ${fx.flipY ? -1 : 1})`,
-                            filter: logoFilterCss(fx),
-                            opacity: fx.opacity,
-                            transformOrigin: "center center",
-                          }}
-                        />
-                      </div>
-                    );
-                  });
-                })()}
-
-                {pdfVisibleOnCurrentSide && (
-                  <div
-                    className="absolute border-2 border-cyan-400/90 rounded-md bg-cyan-200/15 backdrop-blur-[1px] pointer-events-none"
-                    style={{
-                      left: `${(activePdfPlacement.x - activePdfPlacement.w / 2) * 100}%`,
-                      top: `${(activePdfPlacement.y - activePdfPlacement.h / 2) * 100}%`,
-                      width: `${activePdfPlacement.w * 100}%`,
-                      height: `${activePdfPlacement.h * 100}%`,
-                      transform: `rotate(${activePdfPlacement.rotation || 0}deg)`,
-                      transformOrigin: "center center",
-                      zIndex: 18,
-                    }}
-                  >
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <span className="px-2 py-1 rounded-full bg-cyan-500/85 text-[9px] font-black uppercase tracking-wider text-white">
-                        PDF Konumu
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* seçili logo resize/drag çerçevesi */}
-                {activeLogo && editorControlTab !== "text" && (
-                  <ResizeFrame
-                    box={activeLogo.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 }}
-                    containerRef={previewRef}
-                    onChange={updateActiveLogoBox}
-                    onDragStateChange={setIsLogoDragging}
-                    diagonalOnly={lockAspect}
-                    disableResize={activeLogoIsEmboss}
-                  />
-                )}
-
-              </div>
-
-              <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => setEditorControlTab("logo")}
                   className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${editorControlTab === "logo"
@@ -5650,6 +5827,49 @@ function TasarimClientContent({ isMobile }) {
                       />
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => bumpCustomText({ emboss: !(customText?.emboss !== false) })}
+                    className={`w-full py-1.5 rounded-lg text-[10px] font-black uppercase border transition ${
+                      customText?.emboss !== false
+                        ? "bg-cyan-200 text-cyan-950 border-cyan-300"
+                        : "bg-zinc-900/60 text-zinc-200 border-zinc-600 hover:bg-zinc-800"
+                    }`}
+                  >
+                    Kabartı: {customText?.emboss !== false ? "Açık" : "Kapalı"}
+                  </button>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                      <span>Kabartı Kalınlığı</span>
+                      <span>{clamp(Number(customText?.embossDepth ?? 1.4), 0.6, 2.8).toFixed(2)}x</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.6"
+                      max="2.8"
+                      step="0.05"
+                      value={clamp(Number(customText?.embossDepth ?? 1.4), 0.6, 2.8)}
+                      disabled={customText?.emboss === false}
+                      onChange={(e) => bumpCustomText({ embossDepth: Number(e.target.value) })}
+                      className={`w-full accent-cyan-300 ${customText?.emboss === false ? "opacity-45 cursor-not-allowed" : ""}`}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                      <span>Kabartı Gücü</span>
+                      <span>{clamp(Number(customText?.embossStrength ?? 1.4), 0.6, 2.4).toFixed(2)}x</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.6"
+                      max="2.4"
+                      step="0.05"
+                      value={clamp(Number(customText?.embossStrength ?? 1.4), 0.6, 2.4)}
+                      disabled={customText?.emboss === false}
+                      onChange={(e) => bumpCustomText({ embossStrength: Number(e.target.value) })}
+                      className={`w-full accent-cyan-300 ${customText?.emboss === false ? "opacity-45 cursor-not-allowed" : ""}`}
+                    />
+                  </div>
 
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[10px] text-zinc-400">
@@ -5855,23 +6075,45 @@ function TasarimClientContent({ isMobile }) {
         {/* THREE.js Canvas */}
         {/** Drawer state'e göre desktop'ta da model ölçeklenir: açıkken küçük, kapalıyken büyük */}
         {(() => {
-          const desktopClosedScale = isPrintAreaOpen ? 0.96 : 1.06;
-          const desktopOpenScale = isPrintAreaOpen ? 0.86 : 0.95;
+          const desktopClosedScale = isPlacementPanelVisible ? 0.96 : isPrintAreaOpen ? 1.1 : 1.06;
+          const desktopOpenScale = isPlacementPanelVisible ? 0.86 : isPrintAreaOpen ? 1.02 : 0.95;
           const desktopScale = drawerOpen ? desktopOpenScale : desktopClosedScale;
-          const desktopWidth = isPrintAreaOpen ? "62vw" : "70vw";
-          const desktopHeight = isPrintAreaOpen ? "82vh" : "86vh";
+          const desktopWidth = isPlacementPanelVisible ? "62vw" : isPrintAreaOpen ? "74vw" : "70vw";
+          const desktopHeight = isPlacementPanelVisible ? "82vh" : isPrintAreaOpen ? "90vh" : "86vh";
           const desktopTop = "50%";
-          const desktopShiftY = drawerOpen ? (isPrintAreaOpen ? "-18%" : "-12%") : "0%";
-          const mobileScale = isPrintAreaOpen ? (drawerOpen ? 0.72 : 0.86) : drawerOpen ? 0.8 : 0.96;
-          const mobileLeft = isPrintAreaOpen ? "60%" : drawerOpen ? "55%" : "57%";
-          const mobileShiftY = isPrintAreaOpen ? (drawerOpen ? "-25%" : "-21%") : drawerOpen ? "-14%" : "-8%";
-          const minZoomDistance = !isMobile ? (isPrintAreaOpen ? 1.86 : drawerOpen ? 1.72 : 1.56) : isPrintAreaOpen ? 1.9 : 1.72;
-          const controlsTargetY = !isMobile ? (isPrintAreaOpen ? -0.12 : drawerOpen ? -0.2 : -0.1) : isPrintAreaOpen ? -0.05 : -0.1;
+          const desktopShiftY = drawerOpen
+            ? isPlacementPanelVisible
+              ? "-18%"
+              : isPrintAreaOpen
+                ? "-6%"
+                : "-12%"
+            : "0%";
+          const mobileScale = isPrintAreaOpen ? (drawerOpen ? 0.78 : 0.92) : drawerOpen ? 0.8 : 0.96;
+          const mobileLeft = isPlacementPanelVisible ? "60%" : drawerOpen ? "55%" : "57%";
+          const mobileShiftY = isPlacementPanelVisible ? (drawerOpen ? "-25%" : "-21%") : drawerOpen ? "-12%" : "-7%";
+          const minZoomDistance = !isMobile
+            ? isPlacementPanelVisible
+              ? 1.86
+              : drawerOpen
+                ? 1.72
+                : 1.56
+            : isPlacementPanelVisible
+              ? 1.9
+              : 1.72;
+          const controlsTargetY = !isMobile
+            ? isPlacementPanelVisible
+              ? -0.12
+              : drawerOpen
+                ? -0.2
+                : -0.1
+            : isPlacementPanelVisible
+              ? -0.05
+              : -0.1;
           return (
             <Canvas
               style={{
                 position: "absolute",
-                left: isMobile ? mobileLeft : isPrintAreaOpen ? "63%" : "50%",
+                left: isMobile ? mobileLeft : isPlacementPanelVisible ? "63%" : "50%",
                 top: isMobile ? "50%" : desktopTop,
                 transform: `translate(-50%, -50%) translateY(${isMobile ? mobileShiftY : desktopShiftY}) scale(${isMobile ? mobileScale : desktopScale})`,
                 width: isMobile ? "100vw" : desktopWidth,
@@ -5890,6 +6132,9 @@ function TasarimClientContent({ isMobile }) {
                 powerPreference: perf.powerPreference,
               }}
               dpr={perf.dpr}
+              onPointerMissed={() => {
+                clearSceneSelection();
+              }}
               onCreated={({ gl, scene, camera }) => {
                 glRef.current = gl;
                 sceneRef.current = scene;
@@ -5901,7 +6146,7 @@ function TasarimClientContent({ isMobile }) {
                 gl.toneMapping = THREE.ACESFilmicToneMapping;
                 gl.toneMappingExposure = 0.60;
               }}
-              camera={{ position: [0, 0.36, 2.34], fov: isMobile ? (isPrintAreaOpen ? 38 : 34) : 30 }}
+              camera={{ position: [0, 0.36, 2.34], fov: isMobile ? (isPlacementPanelVisible ? 38 : 34) : 30 }}
               shadows={!isMobile}
             >
               <SceneBackgroundLock />
@@ -5941,7 +6186,7 @@ function TasarimClientContent({ isMobile }) {
                       targetRotY={layout.rotY}
                       targetScale={layout.scale}
                       hidden={layout.hidden}
-                      disableDrag={false}
+                      disableDrag={isPrintAreaOpen}
                       isMobile={isMobile}
                     />
                   );
@@ -5953,7 +6198,7 @@ function TasarimClientContent({ isMobile }) {
                 makeDefault
                 enableZoom
                 enablePan={false}
-                enableRotate={false}
+                enableRotate
                 enableDamping
                 dampingFactor={isMobile ? 0.12 : 0.08}
                 zoomSpeed={isMobile ? 0.95 : 0.7}
@@ -5962,12 +6207,242 @@ function TasarimClientContent({ isMobile }) {
                 zoomToCursor={false}
                 enabled={!camAnimating}
                 target={[0, controlsTargetY, 0]}
-                mouseButtons={{ LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null }}
-                touches={{ ONE: THREE.TOUCH.NONE, TWO: THREE.TOUCH.DOLLY }}
+                mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null }}
+                touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY }}
               />
             </Canvas>
           );
         })()}
+
+        {/* MODEL ÜZERİ DİREKT YERLEŞİM (Panel değişmeden) */}
+        {isPrintAreaOpen && (
+          <div
+            className="absolute z-[72] pointer-events-none"
+            style={{
+              left: scenePlaneRect ? `${scenePlaneRect.left}px` : sceneEditCenterLeft,
+              top: scenePlaneRect ? `${scenePlaneRect.top}px` : sceneEditCenterTop,
+              width: scenePlaneRect ? `${scenePlaneRect.width}px` : isMobile ? "min(74vw, 350px)" : "min(34vw, 470px)",
+              height: scenePlaneRect ? `${scenePlaneRect.height}px` : undefined,
+              aspectRatio: scenePlaneRect ? undefined : previewAspect,
+              transform: scenePlaneRect ? "none" : "translate(-50%, -50%)",
+            }}
+          >
+            <div
+              ref={sceneEditRef}
+              className="relative w-full h-full touch-none pointer-events-none"
+              style={{ touchAction: "none" }}
+            >
+              {(logos || []).map((l) => {
+                const isSelected = l.id === (sideData?.activeLogoId || sideData?.logos?.[0]?.id);
+                const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
+                return (
+                  <div
+                    key={`scene-logo-${l.id}`}
+                    className={`absolute border-2 rounded-sm transition-all ${
+                      isSelected && showSceneFrame
+                        ? "border-cyan-300/90 bg-transparent shadow-none"
+                        : "border-transparent bg-transparent"
+                    }`}
+                    style={{
+                      left: `${(box.x - box.w / 2) * 100}%`,
+                      top: `${(box.y - box.h / 2) * 100}%`,
+                      width: `${box.w * 100}%`,
+                      height: `${box.h * 100}%`,
+                      pointerEvents: textEditingMode ? "none" : "auto",
+                      touchAction: "none",
+                    }}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!isSelected || !sceneSelectionVisible) {
+                        updateSide({ activeLogoId: l.id });
+                        setSceneSelectionVisible(true);
+                        setSceneTextSelectionVisible(false);
+                        setSceneFrameMode("resize");
+                        return;
+                      }
+                      setSceneFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"));
+                    }}
+                  />
+                );
+              })}
+
+              {showSceneFrame && (
+                <ResizeFrame
+                  box={activeLogo.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 }}
+                  containerRef={sceneEditRef}
+                  onChange={updateActiveLogoBox}
+                  rotation={Number(activeLogo?.rotation) || 0}
+                  onRotateChange={(nextRot) => updateActiveLogo({ rotation: nextRot })}
+                  onFrameTap={() => setSceneFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"))}
+                  transformMode={sceneFrameMode}
+                  onDragStateChange={setIsLogoDragging}
+                  diagonalOnly={lockAspect}
+                  disableResize={activeLogoIsEmboss}
+                  largeHandles={isMobile}
+                />
+              )}
+
+              {showSceneFrame && (
+                <div
+                  className="absolute flex items-center gap-1.5 z-[85] pointer-events-auto"
+                  style={{
+                    left: `${(activeLogoBox.x - activeLogoBox.w / 2) * 100}%`,
+                    top: `${(activeLogoBox.y - activeLogoBox.h / 2) * 100}%`,
+                    transform: "translate(0%, -120%)",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleLockAspect();
+                    }}
+                    className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${
+                      isMobile ? "w-9 h-9" : "w-8 h-8"
+                    }`}
+                    aria-label="Oran kilidi"
+                    title={lockAspect ? "Kilitli" : "Kilit Açık"}
+                  >
+                    {lockAspect ? <Lock size={14} /> : <LockOpen size={14} />}
+                  </button>
+                </div>
+              )}
+
+              {showSceneFrame && (
+                <div
+                  className="absolute flex items-center gap-1.5 z-[85] pointer-events-auto"
+                  style={{
+                    left: `${(activeLogoBox.x + activeLogoBox.w / 2) * 100}%`,
+                    top: `${(activeLogoBox.y - activeLogoBox.h / 2) * 100}%`,
+                    transform: "translate(-100%, -120%)",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteActiveImage();
+                      setSceneSelectionVisible(false);
+                      setSceneFrameMode("resize");
+                    }}
+                    className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${
+                      isMobile ? "w-9 h-9" : "w-8 h-8"
+                    }`}
+                    aria-label="Seçili görseli sil"
+                    title="Sil"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditorControlTab("logo");
+                      setShowPlacementPanel(true);
+                    }}
+                    className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${
+                      isMobile ? "w-9 h-9" : "w-8 h-8"
+                    }`}
+                    aria-label="Görsel düzenleme paneline geç"
+                    title="Düzenle"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                </div>
+              )}
+
+              {hasSceneText && (
+                <>
+                  <div
+                    className={`absolute border-2 rounded-sm transition-all ${
+                      showSceneTextFrame
+                        ? "border-cyan-300/90 bg-transparent shadow-none"
+                        : "border-transparent bg-transparent"
+                    }`}
+                    style={{
+                      left: `${(sceneTextBox.x - sceneTextBox.w / 2) * 100}%`,
+                      top: `${(sceneTextBox.y - sceneTextBox.h / 2) * 100}%`,
+                      width: `${sceneTextBox.w * 100}%`,
+                      height: `${sceneTextBox.h * 100}%`,
+                      pointerEvents: "auto",
+                      touchAction: "none",
+                      zIndex: showSceneTextFrame ? 62 : 61,
+                    }}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!sceneTextSelectionVisible) {
+                        setSceneTextSelectionVisible(true);
+                        setSceneTextFrameMode("resize");
+                        setSceneSelectionVisible(false);
+                        return;
+                      }
+                      setSceneTextFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"));
+                    }}
+                  />
+
+                  {showSceneTextFrame && (
+                    <ResizeFrame
+                      box={sceneTextBox}
+                      containerRef={sceneEditRef}
+                      onChange={(nextBox) => updateTextPos({ x: nextBox.x, y: nextBox.y })}
+                      rotation={Number(customText?.rotation) || 0}
+                      onRotateChange={(nextRot) => bumpCustomText({ rotation: nextRot })}
+                      onFrameTap={() => setSceneTextFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"))}
+                      transformMode={sceneTextFrameMode}
+                      disableResize
+                      largeHandles={isMobile}
+                    />
+                  )}
+
+                  {showSceneTextFrame && (
+                    <div
+                      className="absolute flex items-center gap-1.5 z-[85] pointer-events-auto"
+                      style={{
+                        left: `${(sceneTextBox.x + sceneTextBox.w / 2) * 100}%`,
+                        top: `${(sceneTextBox.y - sceneTextBox.h / 2) * 100}%`,
+                        transform: "translate(-100%, -120%)",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditorControlTab("text");
+                          setShowPlacementPanel(true);
+                        }}
+                        className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${
+                          isMobile ? "w-9 h-9" : "w-8 h-8"
+                        }`}
+                        aria-label="Yazi düzenleme paneline geç"
+                        title="Yazı Düzenle"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* LEFT OVERLAY EDITOR (DESKTOP ONLY) */}
         {!isMobile && forceEditorOverlay && (
