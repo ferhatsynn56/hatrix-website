@@ -549,7 +549,8 @@ const TEXT_LAYOUT_OPTIONS = [
   { id: "stair-down", label: "Merdiven Asagi" },
 ];
 
-const HDR_ENV_PATH = "/hdr/white_studio_06_4k.exr";
+const HDR_ENV_DESKTOP_PATH = "/hdr/white_studio_06_4k.exr";
+const HDR_ENV_MOBILE_PATH = "/hdr/studio_small_03_2k.exr";
 const SCIENTIFIC_ROUTE = "/bilimsel";
 
 const PRINT_TYPE_OPTIONS = [
@@ -1426,40 +1427,56 @@ function SceneBackgroundLock() {
   return null;
 }
 
-function HdriEnvironment({ url, enabled = true }) {
+function HdriEnvironment({ urls = [], enabled = true }) {
   const { scene, gl } = useThree();
+  const envQueue = useMemo(() => (Array.isArray(urls) ? urls : [urls]).filter(Boolean), [urls]);
 
   useEffect(() => {
-    if (!url || !enabled) {
+    if (!enabled || envQueue.length === 0) {
       if (scene.environment) scene.environment = null;
       return undefined;
     }
 
-    const lowerUrl = String(url).toLowerCase();
-    const loader = lowerUrl.endsWith(".exr") ? new EXRLoader() : new RGBELoader();
     let disposed = false;
     let sourceTexture = null;
     let envRenderTarget = null;
     const pmrem = new THREE.PMREMGenerator(gl);
     pmrem.compileEquirectangularShader();
 
-    loader.load(
-      url,
-      (texture) => {
-        if (disposed) {
-          texture.dispose();
-          return;
-        }
-        texture.mapping = THREE.EquirectangularReflectionMapping;
-        envRenderTarget = pmrem.fromEquirectangular(texture);
-        scene.environment = envRenderTarget.texture;
-        sourceTexture = texture;
-      },
-      undefined,
-      (err) => {
-        console.error("HDR environment yuklenemedi:", err);
+    const loadAt = (index) => {
+      if (disposed) return;
+      if (index >= envQueue.length) {
+        if (scene.environment) scene.environment = null;
+        return;
       }
-    );
+      const url = envQueue[index];
+      const lowerUrl = String(url).toLowerCase();
+      const loader = lowerUrl.endsWith(".exr") ? new EXRLoader() : new RGBELoader();
+      loader.load(
+        url,
+        (texture) => {
+          if (disposed) {
+            texture.dispose();
+            return;
+          }
+          texture.mapping = THREE.EquirectangularReflectionMapping;
+          const nextTarget = pmrem.fromEquirectangular(texture);
+          if (scene.environment === envRenderTarget?.texture) scene.environment = null;
+          if (sourceTexture) sourceTexture.dispose();
+          if (envRenderTarget) envRenderTarget.dispose();
+          sourceTexture = texture;
+          envRenderTarget = nextTarget;
+          scene.environment = envRenderTarget.texture;
+        },
+        undefined,
+        (err) => {
+          console.error(`HDR environment yuklenemedi (${url}):`, err);
+          loadAt(index + 1);
+        }
+      );
+    };
+
+    loadAt(0);
 
     return () => {
       disposed = true;
@@ -1468,7 +1485,7 @@ function HdriEnvironment({ url, enabled = true }) {
       if (envRenderTarget) envRenderTarget.dispose();
       pmrem.dispose();
     };
-  }, [scene, gl, url, enabled]);
+  }, [scene, gl, enabled, envQueue]);
 
   return null;
 }
@@ -4525,15 +4542,30 @@ function TasarimClientContent({ isMobile }) {
   ]);
 
   const modelCount = designs.length;
+  const isIOSDevice = useMemo(() => {
+    if (typeof navigator === "undefined") return false;
+    const ua = navigator.userAgent || "";
+    const platform = navigator.platform || "";
+    return /iPad|iPhone|iPod/i.test(ua) || (platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  }, []);
   const perf = useMemo(() => {
     const heavy = modelCount > 2;
+    if (isMobile) {
+      const conservative = heavy || isIOSDevice;
+      return {
+        dpr: conservative ? 0.95 : 1.1,
+        antialias: !conservative,
+        shadowMap: conservative ? 256 : 320,
+        powerPreference: "default",
+      };
+    }
     return {
-      dpr: isMobile ? (heavy ? 1.2 : 1.35) : heavy ? 1.3 : 1.6,
+      dpr: heavy ? 1.3 : 1.6,
       antialias: !heavy,
-      shadowMap: isMobile ? 384 : heavy ? 512 : 768,
+      shadowMap: heavy ? 512 : 768,
       powerPreference: "high-performance",
     };
-  }, [isMobile, modelCount]);
+  }, [isMobile, modelCount, isIOSDevice]);
 
   // Mobile drawer
   const DRAWER_PEEK = 74;
@@ -4560,9 +4592,13 @@ function TasarimClientContent({ isMobile }) {
     const shouldLockScroll = flowStep !== "select";
     document.body.style.overflow = shouldLockScroll ? "hidden" : "";
     document.documentElement.style.overflow = shouldLockScroll ? "hidden" : "";
+    document.body.style.overscrollBehaviorY = shouldLockScroll ? "none" : "";
+    document.documentElement.style.overscrollBehaviorY = shouldLockScroll ? "none" : "";
     return () => {
       document.body.style.overflow = "";
       document.documentElement.style.overflow = "";
+      document.body.style.overscrollBehaviorY = "";
+      document.documentElement.style.overscrollBehaviorY = "";
     };
   }, [flowStep]);
 
@@ -5238,7 +5274,7 @@ function TasarimClientContent({ isMobile }) {
     : drawerOpen
       ? DESKTOP_DRAWER_HEIGHT
       : DESKTOP_DRAWER_PEEK;
-  const hideMobileDrawerInEditor = isMobile && isPrintAreaOpen;
+  const hideMobileDrawerInEditor = false;
   const menuPanelBottom = `calc(${Math.round(visibleDrawerHeight)}px + 12px)`;
   const isPlacementPanelVisible = isPrintAreaOpen && showPlacementPanel;
   const sceneEditCenterLeft = isMobile
@@ -5255,6 +5291,13 @@ function TasarimClientContent({ isMobile }) {
     : isPlacementPanelVisible
       ? "43%"
       : "47%";
+  const hdrEnvUrls = useMemo(
+    () =>
+      isMobile
+        ? [HDR_ENV_MOBILE_PATH, HDR_ENV_DESKTOP_PATH]
+        : [HDR_ENV_DESKTOP_PATH, HDR_ENV_MOBILE_PATH],
+    [isMobile]
+  );
 
   const renderPanel = (
     <EditorPanel
@@ -6090,7 +6133,7 @@ function TasarimClientContent({ isMobile }) {
             : "0%";
           const mobileScale = isPrintAreaOpen ? (drawerOpen ? 0.78 : 0.92) : drawerOpen ? 0.8 : 0.96;
           const mobileLeft = isPlacementPanelVisible ? "60%" : drawerOpen ? "55%" : "57%";
-          const mobileShiftY = isPlacementPanelVisible ? (drawerOpen ? "-25%" : "-21%") : drawerOpen ? "-12%" : "-7%";
+          const mobileShiftY = isPlacementPanelVisible ? (drawerOpen ? "-22%" : "-18%") : drawerOpen ? "-9%" : "-4%";
           const minZoomDistance = !isMobile
             ? isPlacementPanelVisible
               ? 1.86
@@ -6124,6 +6167,7 @@ function TasarimClientContent({ isMobile }) {
                 transformOrigin: "center center",
                 transition: isMobile ? "transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1)" : "transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1)",
                 zIndex: 10,
+                touchAction: "none",
               }}
               gl={{
                 preserveDrawingBuffer: true,
@@ -6145,13 +6189,19 @@ function TasarimClientContent({ isMobile }) {
                 gl.outputColorSpace = THREE.SRGBColorSpace;
                 gl.toneMapping = THREE.ACESFilmicToneMapping;
                 gl.toneMappingExposure = 0.60;
+                if (gl?.domElement) {
+                  gl.domElement.style.touchAction = "none";
+                  gl.domElement.style.overscrollBehavior = "contain";
+                  gl.domElement.style.webkitUserSelect = "none";
+                  gl.domElement.style.webkitTouchCallout = "none";
+                }
               }}
               camera={{ position: [0, 0.36, 2.34], fov: isMobile ? (isPlacementPanelVisible ? 38 : 34) : 30 }}
               shadows={!isMobile}
             >
               <SceneBackgroundLock />
 
-              <HdriEnvironment url={HDR_ENV_PATH} enabled />
+              <HdriEnvironment urls={hdrEnvUrls} enabled />
 
               <ambientLight intensity={0.35} />
               <hemisphereLight intensity={0.12} groundColor={"#1f1f1f"} />
@@ -6377,7 +6427,7 @@ function TasarimClientContent({ isMobile }) {
                       top: `${(sceneTextBox.y - sceneTextBox.h / 2) * 100}%`,
                       width: `${sceneTextBox.w * 100}%`,
                       height: `${sceneTextBox.h * 100}%`,
-                      pointerEvents: "auto",
+                      pointerEvents: showSceneTextFrame ? "none" : "auto",
                       touchAction: "none",
                       zIndex: showSceneTextFrame ? 62 : 61,
                     }}
