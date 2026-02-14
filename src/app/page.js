@@ -84,18 +84,6 @@ const STENI_CATEGORY_CARDS = [
     { key: "aksesuar", name: "AKSESUAR", label: "Tamamlayıcı parça", href: "/tum-urunler?kategori=aksesuar" },
 ];
 
-function AnnouncementBar() {
-    return (
-        <div className="relative z-[2] border-b border-zinc-800 bg-black/88 backdrop-blur-xl" style={{ height: "var(--announcement-h)" }}>
-            <div className="h-full max-w-[760px] mx-auto px-4 flex items-center justify-center">
-                <p className="text-[10px] tracking-[0.14em] uppercase text-white/90 font-bold text-center">
-                    LIMITED DROP · SMALL BATCH PRODUCTION
-                </p>
-            </div>
-        </div>
-    );
-}
-
 function HomeTabSwitcher({ activeTab, onChange }) {
     return (
         <div className="w-[170px]" style={{ transform: "translateZ(0)" }}>
@@ -117,23 +105,6 @@ function HomeTabSwitcher({ activeTab, onChange }) {
                 </button>
             </div>
         </div>
-    );
-}
-
-function StickyTopShell({ activeTab, onChange }) {
-    return (
-        <header
-            className="sticky top-0 z-[60] bg-[#050506]/95 backdrop-blur-xl border-b border-zinc-900"
-            style={{ paddingTop: "var(--safe-top)" }}
-        >
-            <AnnouncementBar />
-            <div
-                className="relative z-[1] max-w-[760px] mx-auto px-4 flex items-center border-t border-zinc-900/80"
-                style={{ height: "var(--toggle-h)" }}
-            >
-                <HomeTabSwitcher activeTab={activeTab} onChange={onChange} />
-            </div>
-        </header>
     );
 }
 
@@ -428,9 +399,18 @@ function SteniTabContent({ heroIndex, goPrevHero, goNextHero, onExplore, onNavig
     );
 }
 
-function OzelTabContent() {
+function OzelTabContent({ activeTab, onTabChange }) {
     return (
-        <>
+        <div className="ozelScope relative">
+            <div
+                className="sticky z-[35] px-4"
+                style={{ top: "calc(24px + env(safe-area-inset-top) + 8px)" }}
+            >
+                <div className="py-2">
+                    <HomeTabSwitcher activeTab={activeTab} onChange={onTabChange} />
+                </div>
+            </div>
+
             <HeroSection />
 
             <section className="max-w-[760px] mx-auto" style={{ padding: "56px var(--s-4)" }}>
@@ -469,16 +449,16 @@ function OzelTabContent() {
                     </a>
                 </div>
             </section>
-        </>
+        </div>
     );
 }
 
 function MobileHomeShell({ activeTab, onTabChange, heroIndex, onHeroPrev, onHeroNext, onExplore, onCategoryNavigate }) {
     return (
         <div style={FLOW_TOKENS} className="bg-[#050608] min-h-screen">
-            <StickyTopShell activeTab={activeTab} onChange={onTabChange} />
             <main
                 style={{
+                    paddingTop: "24px",
                     paddingBottom: "calc(var(--bottom-nav-h) + var(--safe-bottom) + var(--s-4))",
                     scrollPaddingTop: "calc(var(--sticky-offset) + var(--safe-top))",
                 }}
@@ -492,14 +472,10 @@ function MobileHomeShell({ activeTab, onTabChange, heroIndex, onHeroPrev, onHero
                         onNavigate={onCategoryNavigate}
                     />
                 ) : (
-                    <OzelTabContent />
+                    <OzelTabContent activeTab={activeTab} onTabChange={onTabChange} />
                 )}
                 <Footer />
             </main>
-            <BottomNavBar
-                primaryHref={activeTab === "steni" ? "/tum-urunler" : "/tasarim"}
-                primaryLabel={activeTab === "steni" ? "Koleksiyon" : "Tasarıma Başla"}
-            />
         </div>
     );
 }
@@ -509,7 +485,6 @@ export default function HomePage() {
 
     // --- STATE'LER ---
     const [aktifBolum, setAktifBolum] = useState(null);
-    const [isMobileViewport, setIsMobileViewport] = useState(false);
     const [heroIndex, setHeroIndex] = useState(0);
     const [introPressedCard, setIntroPressedCard] = useState(null);
     const [introTransitionCard, setIntroTransitionCard] = useState(null);
@@ -519,36 +494,31 @@ export default function HomePage() {
 
     // --- AKILLI NAVİGASYON KONTROLÜ ---
     useEffect(() => {
-        if (typeof window === 'undefined') return;
+        if (typeof window !== 'undefined') {
+            const modeFromQuery = new URLSearchParams(window.location.search).get('mode');
+            if (modeFromQuery === 'steni' || modeFromQuery === 'ozel') {
+                sessionStorage.setItem('session_bolum_tercihi', modeFromQuery);
+                setAktifBolum(modeFromQuery);
+                return;
+            }
 
-        const isMobile = window.matchMedia("(max-width: 767px)").matches;
-        setIsMobileViewport(isMobile);
+            const navEntries = performance.getEntriesByType("navigation");
+            let isReload = false;
+            if (navEntries.length > 0 && navEntries[0]?.type === 'reload') {
+                isReload = true;
+            }
 
-        const modeFromQuery = new URLSearchParams(window.location.search).get('mode');
-        if (modeFromQuery === 'steni' || modeFromQuery === 'ozel') {
-            sessionStorage.setItem('session_bolum_tercihi', modeFromQuery);
-            setAktifBolum(modeFromQuery);
-            return;
-        }
-
-        const kayitliTercih = sessionStorage.getItem('session_bolum_tercihi');
-        if (kayitliTercih === 'steni' || kayitliTercih === 'ozel') {
-            setAktifBolum(kayitliTercih);
-            return;
-        }
-
-        if (isMobile) {
-            setAktifBolum('steni');
-            return;
-        }
-
-        const navEntries = performance.getEntriesByType("navigation");
-        const isReload = navEntries.length > 0 && navEntries[0]?.type === 'reload';
-        if (isReload) {
-            sessionStorage.removeItem('session_bolum_tercihi');
-            setAktifBolum('intro');
-        } else {
-            setAktifBolum('intro');
+            if (isReload) {
+                sessionStorage.removeItem('session_bolum_tercihi');
+                setAktifBolum('intro');
+            } else {
+                const kayitliTercih = sessionStorage.getItem('session_bolum_tercihi');
+                if (kayitliTercih) {
+                    setAktifBolum(kayitliTercih);
+                } else {
+                    setAktifBolum('intro');
+                }
+            }
         }
     }, []);
 
@@ -638,7 +608,7 @@ export default function HomePage() {
     // =====================================================================================
     // --- GİRİŞ EKRANI (INTRO) ---
     // =====================================================================================
-    if (aktifBolum === 'intro' && !isMobileViewport) {
+    if (aktifBolum === 'intro') {
         const INTRO_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
         const isIntroLeaving = Boolean(introTransitionCard);
         return (
@@ -755,9 +725,7 @@ export default function HomePage() {
     // =====================================================================================
     return (
         <div style={FLOW_TOKENS} className="min-h-screen bg-black font-sans text-white overflow-x-hidden selection:bg-red-600 selection:text-white animate-in fade-in duration-700">
-            <div className="hidden md:block">
-                <Navbar />
-            </div>
+            <Navbar />
 
             <MobileHomeShell
                 activeTab={aktifBolum === 'ozel' ? 'ozel' : 'steni'}
