@@ -1132,7 +1132,7 @@ const createSideData = () => ({
     layout: "straight",
     curve: 30,
     rotation: 0,
-    rubberDepth: 0.6,
+    rubberDepth: 0.2,
     rubberStick: 0.96,
     rubberLetterSpacing: 1,
     z: 0,
@@ -1150,7 +1150,7 @@ const normalizeSideData = (sideData) => {
     rotation: clamp(Number(source?.customText?.rotation) || 0, -180, 180),
     embossDepth: clamp(Number(source?.customText?.embossDepth ?? base.customText.embossDepth), 0.6, 2.8),
     embossStrength: clamp(Number(source?.customText?.embossStrength ?? base.customText.embossStrength), 0.6, 2.4),
-    rubberDepth: clamp(Number(source?.customText?.rubberDepth ?? base.customText.rubberDepth), 0.2, 0.8),
+    rubberDepth: 0.2,
     rubberStick: clamp(Number(source?.customText?.rubberStick ?? base.customText.rubberStick), 0.7, 1),
     rubberLetterSpacing: clamp(
       Number(source?.customText?.rubberLetterSpacing ?? base.customText.rubberLetterSpacing),
@@ -1361,7 +1361,7 @@ const buildRubberSpecsBySide = (design) => {
     const sizeWcm = cm.w > 0 ? roundTo(textBounds.halfW01 * 2 * cm.w, 2) : 0;
     const sizeHcm = cm.h > 0 ? roundTo(textBounds.halfH01 * 2 * cm.h, 2) : 0;
 
-    const rubberDepth = clamp(Number(t?.rubberDepth ?? 0.6), 0.2, 0.8);
+    const rubberDepth = 0.2;
     const letterSpacingFactor = clamp(Number(t?.rubberLetterSpacing ?? 1), 0.2, 3);
     const textSizePx = clamp(Number(t?.size) || 150, 30, 420);
     const textScaleX = clamp(Number(t?.scaleX) || 1, 0.3, 3);
@@ -2399,9 +2399,9 @@ function Real3DModel({
     const fitHScale = (areaH * 0.88) / Math.max(0.001, totalRawH * scaleY);
     const scaleRaw = Math.min(targetW / totalRawW, targetH / maxRawH, fitWScale, fitHScale);
     const glyphScale = clamp(scaleRaw, 0.01, 1.35);
-    const rubberDepth = clamp(Number(textState?.rubberDepth ?? 0.6), 0.2, 0.8);
+    const rubberDepth = 0.2;
     const rubberStick = clamp(Number(textState?.rubberStick ?? 0.96), 0.7, 1);
-    const depthT = (rubberDepth - 0.2) / 0.6;
+    const depthT = 0;
     const zScale = clamp(
       (0.07 + depthT * 0.08) * (maxRawD / 0.024),
       0.06,
@@ -4358,15 +4358,21 @@ function EditorPanel({
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-gray-500">
                           <span>Rubber Kalınlık</span>
-                          <span className="text-gray-700 normal-case">{clamp(Number(t?.rubberDepth ?? 0.6), 0.2, 0.8).toFixed(2)}x</span>
+                          <span className="text-gray-700 normal-case">2.00 mm (Sabit)</span>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-gray-500">
+                          <span>Boyut</span>
+                          <span className="text-gray-700 normal-case">{Math.round(Number(t?.size) || 150)}px</span>
                         </div>
                         <input
                           type="range"
-                          min="0.2"
-                          max="0.8"
-                          step="0.02"
-                          value={clamp(Number(t?.rubberDepth ?? 0.6), 0.2, 0.8)}
-                          onChange={(e) => bumpText({ rubberDepth: Number(e.target.value) })}
+                          min="40"
+                          max="280"
+                          step="1"
+                          value={Number(t?.size) || 150}
+                          onChange={(e) => bumpText({ size: Number(e.target.value) })}
                           className="w-full accent-cyan-600"
                         />
                       </div>
@@ -5720,8 +5726,8 @@ function TasarimClientContent({ isMobile }) {
     : drawerOpen
       ? DESKTOP_DRAWER_HEIGHT
       : DESKTOP_DRAWER_PEEK;
-  const hideMobileDrawerInEditor = isMobile && isPlacementPanelVisible;
   const isPlacementPanelVisible = isPrintAreaOpen && showPlacementPanel;
+  const hideMobileDrawerInEditor = isMobile && isPlacementPanelVisible;
   const sceneEditCenterLeft = isMobile
     ? isPlacementPanelVisible
       ? "60%"
@@ -6372,15 +6378,22 @@ function TasarimClientContent({ isMobile }) {
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-[10px] text-zinc-400">
                           <span>Rubber Kalınlık</span>
-                          <span>{clamp(Number(customText?.rubberDepth ?? 0.6), 0.2, 0.8).toFixed(2)}x</span>
+                          <span>2.00 mm (Sabit)</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                          <span>Boyut</span>
+                          <span>{Math.round(Number(customText?.size) || 150)}px</span>
                         </div>
                         <input
                           type="range"
-                          min="0.2"
-                          max="0.8"
-                          step="0.02"
-                          value={clamp(Number(customText?.rubberDepth ?? 0.6), 0.2, 0.8)}
-                          onChange={(e) => bumpCustomText({ rubberDepth: Number(e.target.value) })}
+                          min="40"
+                          max="280"
+                          step="1"
+                          value={Number(customText?.size) || 150}
+                          onChange={(e) => bumpCustomText({ size: Number(e.target.value) })}
                           className="w-full accent-cyan-300"
                         />
                       </div>

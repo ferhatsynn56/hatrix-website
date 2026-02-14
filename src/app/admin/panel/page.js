@@ -230,7 +230,7 @@ const buildRubberSpecsBySide = (item, dd) => {
     const textBounds = estimateTextHalfBounds01(t);
     const sizeWcm = cm.w > 0 ? roundTo(textBounds.halfW01 * 2 * cm.w, 2) : 0;
     const sizeHcm = cm.h > 0 ? roundTo(textBounds.halfH01 * 2 * cm.h, 2) : 0;
-    const rubberDepth = clamp(Number(t?.rubberDepth ?? 0.6), 0.2, 0.8);
+    const rubberDepth = 0.2;
     const letterSpacingFactor = clamp(Number(t?.rubberLetterSpacing ?? 1), 0.2, 3);
     const textSizePx = clamp(Number(t?.size) || 150, 30, 420);
     const textScaleX = clamp(Number(t?.scaleX) || 1, 0.3, 3);
