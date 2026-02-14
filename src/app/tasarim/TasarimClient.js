@@ -623,8 +623,7 @@ const glyphTokenToChar = (tokenRaw, forceCase = null) => {
   if (/^[0-9]$/.test(token)) return token;
   if (/^[a-z]$/i.test(tokenOriginal)) {
     if (forceCase === "lower") return token;
-    if (forceCase === "upper") return token.toUpperCase();
-    return tokenOriginal === tokenOriginal.toLowerCase() ? token : token.toUpperCase();
+    return token.toUpperCase();
   }
   return null;
 };
@@ -2330,13 +2329,30 @@ function Real3DModel({
     const scaleX = clamp(Number(textState?.scaleX) || 1, 0.3, 3);
     const scaleY = clamp(Number(textState?.scaleY) || 1, 0.3, 3);
 
+    const resolveGlyphForChar = (ch) => {
+      if (!ch) return null;
+      if (glyphLibrary[ch]) return glyphLibrary[ch];
+
+      const isLetter = /\p{L}/u.test(ch);
+      if (isLetter) {
+        const upper = ch.toUpperCase();
+        const lower = ch.toLowerCase();
+        if (ch === upper) {
+          // Kullanici buyuk harf girdiyse once buyuk harf geometrisini zorla.
+          return glyphLibrary[upper] || null;
+        }
+        if (ch === lower) {
+          return glyphLibrary[lower] || glyphLibrary[upper] || null;
+        }
+        return glyphLibrary[ch] || glyphLibrary[upper] || glyphLibrary[lower] || null;
+      }
+
+      return glyphLibrary[ch.toUpperCase()] || glyphLibrary[ch.toLowerCase()] || null;
+    };
+
     const entries = chars.map((ch) => {
       if (ch === " ") return { char: ch, width: 0.52, isSpace: true };
-      const glyph =
-        glyphLibrary[ch] ||
-        glyphLibrary[ch.toUpperCase()] ||
-        glyphLibrary[ch.toLowerCase()] ||
-        null;
+      const glyph = resolveGlyphForChar(ch);
       if (!glyph) return { char: ch, width: 0.52, isSpace: true };
       return { char: ch, ...glyph, isSpace: false };
     });
@@ -3033,6 +3049,7 @@ function DesignModelItem({
   isSceneFocused,
   showModelDeleteButton,
   canDeleteModel,
+  enableLongPressDelete,
   onSelect,
   onHover,
   onUnhover,
@@ -3046,15 +3063,44 @@ function DesignModelItem({
   isMobile,
   onUserRotate,
   onModelTap,
+  onModelLongPress,
   onDeleteModel,
 }) {
   const groupRef = useRef(null);
   const userRotRef = useRef({ x: 0, y: 0 });
   const dragRef = useRef({ active: false, pid: null, startX: 0, startY: 0, startRotY: 0, startRotX: 0 });
+  const holdRef = useRef({ timer: null, pid: null, startX: 0, startY: 0, triggered: false });
 
   const ROT_SPEED = isMobile ? 0.014 : 0.01;
   const clampRotX = (v) => Math.max(isMobile ? -0.9 : -0.75, Math.min(isMobile ? 0.9 : 0.75, v));
   const clampRotY = (v) => Math.max(isMobile ? -1.05 : -0.85, Math.min(isMobile ? 1.05 : 0.85, v));
+
+  const clearHoldTimer = () => {
+    if (holdRef.current.timer) {
+      clearTimeout(holdRef.current.timer);
+      holdRef.current.timer = null;
+    }
+    holdRef.current.pid = null;
+    holdRef.current.triggered = false;
+  };
+
+  const armHoldTimer = (e) => {
+    if (!enableLongPressDelete) return;
+    clearHoldTimer();
+    holdRef.current.pid = e.pointerId;
+    holdRef.current.startX = e.clientX;
+    holdRef.current.startY = e.clientY;
+    holdRef.current.triggered = false;
+    holdRef.current.timer = setTimeout(() => {
+      holdRef.current.triggered = true;
+      onModelLongPress?.(design.id);
+      document.body.style.cursor = "default";
+    }, 420);
+  };
+
+  useEffect(() => {
+    return () => clearHoldTimer();
+  }, []);
 
   useEffect(() => {
     userRotRef.current = { x: 0, y: 0 };
@@ -3111,11 +3157,16 @@ function DesignModelItem({
       onPointerDown={(e) => {
         e.stopPropagation();
         onSelect(design.id);
+        armHoldTimer(e);
         if (!isActive) {
-          onModelTap?.(design.id);
+          if (!enableLongPressDelete) onModelTap?.(design.id);
           return;
         }
-        if (disableDrag) return;
+        if (holdRef.current.triggered) return;
+        if (disableDrag) {
+          if (!enableLongPressDelete) onModelTap?.(design.id);
+          return;
+        }
 
         dragRef.current = {
           active: true,
@@ -3131,6 +3182,11 @@ function DesignModelItem({
         if (e.target?.setPointerCapture) e.target.setPointerCapture(e.pointerId);
       }}
       onPointerMove={(e) => {
+        if (enableLongPressDelete && holdRef.current.pid === e.pointerId && holdRef.current.timer) {
+          const holdDx = Math.abs(e.clientX - holdRef.current.startX);
+          const holdDy = Math.abs(e.clientY - holdRef.current.startY);
+          if (holdDx > 6 || holdDy > 6) clearHoldTimer();
+        }
         if (disableDrag) return;
         if (!dragRef.current.active || dragRef.current.pid !== e.pointerId) return;
         e.stopPropagation();
@@ -3148,13 +3204,22 @@ function DesignModelItem({
         });
       }}
       onPointerUp={(e) => {
+        const holdTriggered = holdRef.current.pid === e.pointerId && holdRef.current.triggered;
+        if (holdRef.current.pid === e.pointerId) clearHoldTimer();
         if (disableDrag) return;
         if (dragRef.current.pid !== e.pointerId) return;
         const tapped = !dragRef.current.moved;
         dragRef.current.active = false;
         document.body.style.cursor = "grab";
         if (e.target?.releasePointerCapture) e.target.releasePointerCapture(e.pointerId);
-        if (tapped) onModelTap?.(design.id);
+        if (tapped && !holdTriggered && !enableLongPressDelete) onModelTap?.(design.id);
+      }}
+      onPointerCancel={(e) => {
+        if (holdRef.current.pid === e.pointerId) clearHoldTimer();
+        if (dragRef.current.pid !== e.pointerId) return;
+        dragRef.current.active = false;
+        document.body.style.cursor = "grab";
+        if (e.target?.releasePointerCapture) e.target.releasePointerCapture(e.pointerId);
       }}
     >
       <Real3DModel
@@ -4964,10 +5029,7 @@ function TasarimClientContent({ isMobile }) {
 
   const handleSceneModelTap = (designId) => {
     if (!designId) return;
-    if (activeTab !== "editor") {
-      setSceneModelSelectionId((prev) => (prev === designId ? null : designId));
-      return;
-    }
+    if (activeTab !== "editor") return;
     setSceneModelSelectionId(null);
     if (designId !== activeId) return;
     if (showPlacementPanel) return;
@@ -4992,6 +5054,14 @@ function TasarimClientContent({ isMobile }) {
       setSceneTextFrameMode("resize");
       setSceneSelectionVisible(false);
     }
+  };
+
+  const handleSceneModelLongPress = (designId) => {
+    if (!designId || activeTab === "editor") return;
+    setActiveId(designId);
+    setSceneModelSelectionId(designId);
+    setSceneSelectionVisible(false);
+    setSceneTextSelectionVisible(false);
   };
 
   const handleDeleteSceneModel = (designId) => {
@@ -6846,6 +6916,7 @@ function TasarimClientContent({ isMobile }) {
                       isSceneFocused={sceneModelSelectionId === design.id}
                       showModelDeleteButton={activeTab !== "editor" && sceneModelSelectionId === design.id}
                       canDeleteModel={designs.length > 1}
+                      enableLongPressDelete={activeTab !== "editor"}
                       onSelect={setActiveId}
                       onHover={setHoveredId}
                       onUnhover={() => setHoveredId(null)}
@@ -6859,6 +6930,7 @@ function TasarimClientContent({ isMobile }) {
                       isMobile={isMobile}
                       onUserRotate={handleModelUserRotate}
                       onModelTap={handleSceneModelTap}
+                      onModelLongPress={handleSceneModelLongPress}
                       onDeleteModel={handleDeleteSceneModel}
                     />
                   );

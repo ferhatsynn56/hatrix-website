@@ -68,11 +68,22 @@ export default function HomePage() {
     const [aktifBolum, setAktifBolum] = useState(null);
     const [bilimselAcik, setBilimselAcik] = useState(false);
     const [heroIndex, setHeroIndex] = useState(0);
+    const [introPressedCard, setIntroPressedCard] = useState(null);
+    const [introTransitionCard, setIntroTransitionCard] = useState(null);
     const heroTimerRef = useRef(null);
+    const introNavLockRef = useRef(false);
+    const introNavTimerRef = useRef(null);
 
     // --- AKILLI NAVİGASYON KONTROLÜ ---
     useEffect(() => {
         if (typeof window !== 'undefined') {
+            const modeFromQuery = new URLSearchParams(window.location.search).get('mode');
+            if (modeFromQuery === 'steni' || modeFromQuery === 'ozel') {
+                sessionStorage.setItem('session_bolum_tercihi', modeFromQuery);
+                setAktifBolum(modeFromQuery);
+                return;
+            }
+
             const navEntries = performance.getEntriesByType("navigation");
             let isReload = false;
             if (navEntries.length > 0 && navEntries[0]?.type === 'reload') {
@@ -91,6 +102,15 @@ export default function HomePage() {
                 }
             }
         }
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (introNavTimerRef.current) {
+                clearTimeout(introNavTimerRef.current);
+                introNavTimerRef.current = null;
+            }
+        };
     }, []);
 
     const startHeroTimer = useCallback(() => {
@@ -144,6 +164,25 @@ export default function HomePage() {
         setAktifBolum(bolum);
     };
 
+    const startIntroNavigation = (bolum) => {
+        if (introNavLockRef.current) return;
+        introNavLockRef.current = true;
+        setIntroPressedCard(null);
+        setIntroTransitionCard(bolum);
+
+        if (introNavTimerRef.current) {
+            clearTimeout(introNavTimerRef.current);
+            introNavTimerRef.current = null;
+        }
+
+        introNavTimerRef.current = setTimeout(() => {
+            sessionStorage.setItem('session_bolum_tercihi', bolum);
+            setAktifBolum(bolum);
+            router.push(`/?mode=${bolum}`, { scroll: false });
+            introNavLockRef.current = false;
+        }, 105);
+    };
+
     if (aktifBolum === null) {
         return <div className="h-screen w-full bg-black"></div>;
     }
@@ -152,63 +191,113 @@ export default function HomePage() {
     // --- GİRİŞ EKRANI (INTRO) ---
     // =====================================================================================
     if (aktifBolum === 'intro') {
+        const INTRO_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+        const isIntroLeaving = Boolean(introTransitionCard);
         return (
-            <div className="h-screen w-full flex flex-col md:flex-row bg-black overflow-hidden relative z-[60]">
-                <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_20%_10%,rgba(255,255,255,0.06),transparent_35%),radial-gradient(circle_at_80%_90%,rgba(255,255,255,0.05),transparent_35%)]" />
+            <div className="h-screen w-full bg-[#07080a] overflow-hidden relative z-[60]">
+                <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_16%_14%,rgba(255,255,255,0.10),transparent_42%),radial-gradient(circle_at_85%_88%,rgba(255,255,255,0.07),transparent_42%)]" />
+                <div
+                    className={`absolute inset-0 pointer-events-none bg-black/20 backdrop-blur-[4px] transition-opacity duration-200`}
+                    style={{
+                        opacity: isIntroLeaving ? 1 : 0,
+                        transitionTimingFunction: INTRO_EASE,
+                    }}
+                />
 
-                <button
-                    type="button"
-                    onClick={() => bolumSec('steni')}
-                    className="relative w-full md:w-1/2 h-1/2 md:h-full group cursor-pointer border-b md:border-b-0 md:border-r border-zinc-900 text-left"
+                <div
+                    className="relative z-10 h-full max-w-[760px] mx-auto px-4 sm:px-6 py-5 sm:py-6 flex flex-col justify-center gap-4 sm:gap-5"
+                    style={{
+                        opacity: isIntroLeaving ? 0 : 1,
+                        transform: isIntroLeaving ? 'scale(0.995)' : 'scale(1)',
+                        transition: `opacity 360ms ${INTRO_EASE}, transform 360ms ${INTRO_EASE}`,
+                    }}
                 >
-                    <div className="absolute inset-0 bg-black">
+                    <button
+                        type="button"
+                        onPointerDown={() => setIntroPressedCard('steni')}
+                        onPointerUp={() => setIntroPressedCard(null)}
+                        onPointerLeave={() => setIntroPressedCard(null)}
+                        onPointerCancel={() => setIntroPressedCard(null)}
+                        onClick={() => startIntroNavigation('steni')}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                startIntroNavigation('steni');
+                            }
+                        }}
+                        className="relative w-full min-h-[280px] sm:min-h-[310px] rounded-[24px] overflow-hidden border border-white/15 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-white/55"
+                        style={{
+                            transform: introPressedCard === 'steni' ? 'scale(0.985)' : 'scale(1)',
+                            boxShadow: introPressedCard === 'steni'
+                                ? '0 16px 36px rgba(0,0,0,0.42)'
+                                : '0 24px 52px rgba(0,0,0,0.48)',
+                            opacity: isIntroLeaving && introTransitionCard !== 'steni' ? 0.6 : 1,
+                            transition: `transform 170ms ${INTRO_EASE}, box-shadow 170ms ${INTRO_EASE}, opacity 170ms ${INTRO_EASE}`,
+                        }}
+                    >
                         <img
                             src="/urungorsel/girisFoto1.png"
-                            className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-[1.04] transition-all duration-700 ease-out"
-                            alt="Steni koleksiyon önizleme"
+                            alt="STENI Ready to Wear"
+                            className="absolute inset-0 w-full h-full object-cover"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/55" />
-                    </div>
-                    <div className="absolute inset-0 z-10 p-6 sm:p-8 md:p-10 flex flex-col justify-between">
-                        <div className="inline-flex items-center w-fit px-3 py-1 rounded-full border border-white/30 bg-black/30 backdrop-blur text-[10px] font-black tracking-[0.2em] text-zinc-200 uppercase">
-                            Hazır Giyim
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/48 to-black/18" />
+                        <div className="absolute inset-0 p-5 sm:p-6 flex flex-col justify-between">
+                            <span className="inline-flex items-center min-h-[44px] w-fit px-3 rounded-full border border-white/25 bg-black/35 backdrop-blur text-[10px] font-black tracking-[0.18em] uppercase text-zinc-100">
+                                Hazır Giyim
+                            </span>
+                            <div className="space-y-1.5">
+                                <h2 className="text-[44px] sm:text-[58px] leading-none font-black tracking-tight text-white">STENI</h2>
+                                <p className="text-[12px] sm:text-[13px] tracking-[0.24em] uppercase font-semibold text-zinc-100">READY TO WEAR</p>
+                                <p className="text-[13px] sm:text-sm text-zinc-200 max-w-[420px]">Hazır koleksiyonlardan seç, doğrudan satın al.</p>
+                                <p className="pt-1 text-[13px] sm:text-sm font-bold text-white">Koleksiyonu Gör →</p>
+                            </div>
                         </div>
-                        <div className="text-left">
-                            <h2 className="text-5xl sm:text-6xl md:text-8xl font-black text-white uppercase tracking-tighter leading-none mb-3 group-hover:translate-y-[-4px] transition duration-300">
-                                STENI
-                            </h2>
-                            <p className="text-white/85 font-bold tracking-[0.3em] text-xs uppercase">Ready to Wear</p>
-                            <p className="mt-3 text-zinc-300 text-xs sm:text-sm max-w-sm">Hazır koleksiyonlardan seç, doğrudan satın al.</p>
-                        </div>
-                    </div>
-                </button>
+                    </button>
 
-                <button
-                    type="button"
-                    onClick={() => bolumSec('ozel')}
-                    className="relative w-full md:w-1/2 h-1/2 md:h-full group cursor-pointer text-left"
-                >
-                    <div className="absolute inset-0 bg-black">
+                    <div className="h-px mx-3 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+
+                    <button
+                        type="button"
+                        onPointerDown={() => setIntroPressedCard('ozel')}
+                        onPointerUp={() => setIntroPressedCard(null)}
+                        onPointerLeave={() => setIntroPressedCard(null)}
+                        onPointerCancel={() => setIntroPressedCard(null)}
+                        onClick={() => startIntroNavigation('ozel')}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                startIntroNavigation('ozel');
+                            }
+                        }}
+                        className="relative w-full min-h-[280px] sm:min-h-[310px] rounded-[24px] overflow-hidden border border-white/15 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-white/55"
+                        style={{
+                            transform: introPressedCard === 'ozel' ? 'scale(0.985)' : 'scale(1)',
+                            boxShadow: introPressedCard === 'ozel'
+                                ? '0 16px 36px rgba(0,0,0,0.42)'
+                                : '0 24px 52px rgba(0,0,0,0.48)',
+                            opacity: isIntroLeaving && introTransitionCard !== 'ozel' ? 0.6 : 1,
+                            transition: `transform 170ms ${INTRO_EASE}, box-shadow 170ms ${INTRO_EASE}, opacity 170ms ${INTRO_EASE}`,
+                        }}
+                    >
                         <img
                             src="/urungorsel/800x800/conceptttt.jpg"
-                            className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-[1.04] transition-all duration-700 ease-out"
-                            alt="Özel tasarım stüdyo önizleme"
+                            alt="ÖZEL Design Studio"
+                            className="absolute inset-0 w-full h-full object-cover"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/55" />
-                    </div>
-                    <div className="absolute inset-0 z-10 p-6 sm:p-8 md:p-10 flex flex-col justify-between">
-                        <div className="inline-flex items-center w-fit px-3 py-1 rounded-full border border-white/30 bg-black/30 backdrop-blur text-[10px] font-black tracking-[0.2em] text-zinc-200 uppercase">
-                            Kişiye Özel
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/48 to-black/18" />
+                        <div className="absolute inset-0 p-5 sm:p-6 flex flex-col justify-between">
+                            <span className="inline-flex items-center min-h-[44px] w-fit px-3 rounded-full border border-white/25 bg-black/35 backdrop-blur text-[10px] font-black tracking-[0.18em] uppercase text-zinc-100">
+                                Kişiye Özel
+                            </span>
+                            <div className="space-y-1.5">
+                                <h2 className="text-[44px] sm:text-[58px] leading-none font-black tracking-tight text-white">ÖZEL</h2>
+                                <p className="text-[12px] sm:text-[13px] tracking-[0.24em] uppercase font-semibold text-zinc-100">DESIGN STUDIO</p>
+                                <p className="text-[13px] sm:text-sm text-zinc-200 max-w-[420px]">Modelini seç, tasarımını üretime hazırla.</p>
+                                <p className="pt-1 text-[13px] sm:text-sm font-bold text-white">Tasarımı Başlat →</p>
+                            </div>
                         </div>
-                        <div className="text-left">
-                            <h2 className="text-5xl sm:text-6xl md:text-8xl font-black text-white uppercase tracking-tighter leading-none mb-3 group-hover:translate-y-[-4px] transition duration-300">
-                                ÖZEL
-                            </h2>
-                            <p className="text-white/85 font-bold tracking-[0.3em] text-xs uppercase">Design Studio</p>
-                            <p className="mt-3 text-zinc-300 text-xs sm:text-sm max-w-sm">Modelini seç, kendi tasarımını üretime hazırla.</p>
-                        </div>
-                    </div>
-                </button>
+                    </button>
+                </div>
             </div>
         );
     }
