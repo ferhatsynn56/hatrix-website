@@ -3327,13 +3327,10 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
   const transitionLockRef = useRef(false);
   const cardRefs = useRef({});
   const timerRefs = useRef([]);
-  const rafRefs = useRef([]);
 
   const clearTransitionHandles = () => {
     timerRefs.current.forEach((id) => window.clearTimeout(id));
     timerRefs.current = [];
-    rafRefs.current.forEach((id) => window.cancelAnimationFrame(id));
-    rafRefs.current = [];
   };
 
   useEffect(() => {
@@ -3352,8 +3349,11 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
 
     const cardEl = cardRefs.current[modelType];
     if (!cardEl) {
-      onContinue?.(modelType);
-      transitionLockRef.current = false;
+      timerRefs.current.push(
+        window.setTimeout(() => {
+          onContinue?.(modelType);
+        }, 680)
+      );
       return;
     }
 
@@ -3362,12 +3362,11 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
 
     const viewportW = window.innerWidth;
     const viewportH = window.innerHeight;
-    const targetSize = Math.max(220, Math.min(viewportW * 0.78, viewportH * 0.56));
     const targetRect = {
-      width: targetSize,
-      height: targetSize,
-      left: (viewportW - targetSize) / 2,
-      top: Math.max(72, (viewportH - targetSize) * 0.36),
+      width: viewportW,
+      height: viewportH,
+      left: 0,
+      top: 0,
     };
 
     let snapshotSrc = "";
@@ -3385,7 +3384,8 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
     }
 
     setCardTransition({
-      phase: "press",
+      modelType,
+      phase: "focus",
       startRect,
       targetRect,
       snapshotSrc,
@@ -3394,19 +3394,20 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
     timerRefs.current.push(
       window.setTimeout(() => {
         setCardTransition((prev) => (prev ? { ...prev, phase: "expand" } : prev));
-      }, 180)
-    );
-
-    timerRefs.current.push(
-      window.setTimeout(() => {
-        setCardTransition((prev) => (prev ? { ...prev, phase: "bump" } : prev));
-      }, 90)
+      }, 150)
     );
 
     timerRefs.current.push(
       window.setTimeout(() => {
         onContinue?.(modelType);
-      }, 450)
+      }, 680)
+    );
+
+    timerRefs.current.push(
+      window.setTimeout(() => {
+        transitionLockRef.current = false;
+        setCardTransition(null);
+      }, 950)
     );
   };
 
@@ -3425,27 +3426,54 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
           const sy = targetRect.height / Math.max(1, startRect.height);
           const ease = "cubic-bezier(0.22, 1, 0.36, 1)";
 
-          let transform = "translate3d(0px, 0px, 0px) scale(0.97)";
-          let transition = "transform 90ms cubic-bezier(0.22, 1, 0.36, 1)";
-          if (phase === "bump") {
-            transform = "translate3d(0px, 0px, 0px) scale(1.02)";
-            transition = `transform 90ms ${ease}`;
-          } else if (phase === "expand") {
+          const isExpand = phase === "expand";
+          let transform = "translate3d(0px, 0px, 0px) scale(1.04)";
+          let transition = `transform 150ms ${ease}`;
+          if (isExpand) {
             transform = `translate3d(${dx}px, ${dy}px, 0px) scale(${sx}, ${sy})`;
-            transition = `transform 270ms ${ease}`;
+            transition = `transform 500ms ${ease}`;
           }
+          const cardRadius = isExpand ? "0px" : "20px";
+          const cardShadow = isExpand
+            ? "0 30px 68px rgba(0,0,0,0.24)"
+            : "0 18px 44px rgba(0,0,0,0.20)";
+          const imageTransform = isExpand ? "scale(1.06)" : "scale(1.00)";
 
           return (
             <div className="fixed inset-0 z-[140] pointer-events-none">
               <div
                 className="absolute inset-0"
                 style={{
-                  background: phase === "press" ? "rgba(16,20,28,0.00)" : "rgba(16,20,28,0.20)",
-                  transition: "background 200ms ease",
+                  background: "rgba(16,20,28,0.18)",
+                  backdropFilter: "blur(4px)",
+                  transition: `opacity 200ms ${ease}, backdrop-filter 200ms ${ease}`,
                 }}
               />
+
               <div
-                className="absolute overflow-hidden rounded-2xl border border-white/40 shadow-[0_24px_60px_rgba(0,0,0,0.28)]"
+                className="absolute left-0 right-0 top-0 z-[2] px-4 md:px-8"
+                style={{
+                  opacity: isExpand ? 1 : 0,
+                  transform: isExpand ? "translateY(0px)" : "translateY(-12px)",
+                  transition: `opacity 300ms ${ease} 200ms, transform 300ms ${ease} 200ms`,
+                }}
+              >
+                <div className="h-[72px] mt-3 rounded-2xl border border-white/35 bg-white/75 backdrop-blur-sm shadow-[0_10px_24px_rgba(0,0,0,0.12)]" />
+              </div>
+
+              <div
+                className="absolute left-0 right-0 bottom-0 z-[2] px-4 md:px-8 pb-4"
+                style={{
+                  opacity: isExpand ? 1 : 0,
+                  transform: isExpand ? "translateY(0px)" : "translateY(40px)",
+                  transition: `opacity 320ms ${ease} 200ms, transform 320ms ${ease} 200ms`,
+                }}
+              >
+                <div className="h-[190px] rounded-3xl border border-white/35 bg-white/82 backdrop-blur-sm shadow-[0_-10px_24px_rgba(0,0,0,0.14)]" />
+              </div>
+
+              <div
+                className="absolute overflow-hidden border border-white/45"
                 style={{
                   left: `${startRect.left}px`,
                   top: `${startRect.top}px`,
@@ -3455,10 +3483,22 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                   transition,
                   transformOrigin: "center center",
                   willChange: "transform",
+                  borderRadius: cardRadius,
+                  boxShadow: cardShadow,
+                  zIndex: 3,
                 }}
               >
                 {snapshotSrc ? (
-                  <img src={snapshotSrc} alt="" className="w-full h-full object-cover" />
+                  <img
+                    src={snapshotSrc}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    style={{
+                      transform: imageTransform,
+                      transformOrigin: "center center",
+                      transition: `transform 500ms ${ease}`,
+                    }}
+                  />
                 ) : (
                   <div className="w-full h-full bg-[#eef1f4]" />
                 )}
@@ -3496,6 +3536,16 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                 {group.models.map((modelType) => {
                   const active = selectedModel === modelType;
                   const shortLabel = MODEL_SELECTION_CARD_LABELS[modelType] || MODEL_LABELS[modelType] || modelType;
+                  const transitionActive = Boolean(cardTransition);
+                  const transitionSelected = cardTransition?.modelType === modelType;
+                  const isPressed = pressedModel === modelType;
+                  let cardScale = 1;
+                  if (isPressed) cardScale = 0.96;
+                  if (transitionSelected) cardScale = cardTransition?.phase === "expand" ? 1.04 : 1.04;
+                  const cardOpacity = transitionActive && !transitionSelected ? 0.6 : 1;
+                  const cardShadow = transitionSelected
+                    ? "0 16px 34px rgba(15,23,42,0.16)"
+                    : "0 8px 20px rgba(15,23,42,0.08)";
                   return (
                     <button
                       key={`select-model-${modelType}`}
@@ -3503,7 +3553,10 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                       ref={(el) => {
                         if (el) cardRefs.current[modelType] = el;
                       }}
-                      onPointerDown={() => setPressedModel(modelType)}
+                      onPointerDown={() => {
+                        if (transitionActive) return;
+                        setPressedModel(modelType);
+                      }}
                       onPointerUp={() => setPressedModel((prev) => (prev === modelType ? null : prev))}
                       onPointerLeave={() => setPressedModel((prev) => (prev === modelType ? null : prev))}
                       onPointerCancel={() => setPressedModel((prev) => (prev === modelType ? null : prev))}
@@ -3514,17 +3567,19 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                           runSelectionTransition(modelType);
                         }
                       }}
-                      className={`w-full rounded-[16px] border bg-white p-2.5 text-left transition-transform duration-150 shadow-[0_8px_20px_rgba(15,23,42,0.08)] ${active || pressedModel === modelType
+                      className={`w-full rounded-[20px] border bg-white p-2.5 text-left ${active || transitionSelected || isPressed
                         ? "border-black ring-1 ring-black/40"
                         : "border-zinc-200 hover:border-zinc-400"
                         }`}
                       style={{
-                        transform: pressedModel === modelType ? "scale(1.02)" : "scale(1)",
-                        transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+                        transform: `scale(${cardScale})`,
+                        opacity: cardOpacity,
+                        boxShadow: cardShadow,
+                        transition: "transform 150ms cubic-bezier(0.22, 1, 0.36, 1), opacity 150ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 150ms cubic-bezier(0.22, 1, 0.36, 1), border-color 150ms cubic-bezier(0.22, 1, 0.36, 1)",
                       }}
                       aria-pressed={active}
                     >
-                      <div data-model-preview className="aspect-square rounded-[14px] overflow-hidden border border-zinc-200 bg-[#F7F7F7]">
+                      <div data-model-preview className="aspect-square rounded-[20px] overflow-hidden border border-zinc-200 bg-[#F7F7F7]">
                         <Canvas
                           dpr={[1, 1.2]}
                           camera={{ position: [0, 0.28, 2.12], fov: 30 }}
@@ -3541,7 +3596,10 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                           <directionalLight position={[4, 7, 5]} intensity={0.45} />
                           <directionalLight position={[-4, 5, -4]} intensity={0.15} />
                           <Suspense fallback={null}>
-                            <ModelSelectionPreview3D modelType={modelType} paused={pressedModel === modelType} />
+                            <ModelSelectionPreview3D
+                              modelType={modelType}
+                              paused={isPressed || transitionSelected}
+                            />
                           </Suspense>
                         </Canvas>
                       </div>
