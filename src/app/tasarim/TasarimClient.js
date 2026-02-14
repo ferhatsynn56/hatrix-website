@@ -1133,7 +1133,7 @@ const createSideData = () => ({
     curve: 30,
     rotation: 0,
     rubberDepth: 0.6,
-    rubberStick: 0.9,
+    rubberStick: 0.96,
     rubberLetterSpacing: 1,
     z: 0,
   },
@@ -1323,6 +1323,64 @@ const getPrice = (design) => {
   const basePrice = getModelBasePrice(design?.modelType);
   const largePrintCharge = getLargePrintChargeSummary(design).amount;
   return basePrice + largePrintCharge;
+};
+
+const roundTo = (value, digits = 2) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  const p = 10 ** digits;
+  return Math.round(n * p) / p;
+};
+
+const getModelPrintCm = (modelType, side = "front") => {
+  const safeModel = normalizeModelType(modelType);
+  const sideKey = side === "back" ? "back" : "front";
+  const modelCm = CM_LABELS[safeModel] || CM_LABELS[DEFAULT_MODEL_TYPE] || {};
+  const cm = modelCm[sideKey] || modelCm.front || { w: 0, h: 0 };
+  return {
+    w: Number(cm.w) || 0,
+    h: Number(cm.h) || 0,
+  };
+};
+
+const buildRubberSpecsBySide = (design) => {
+  const bySide = normalizePrintTypesBySide(design?.printTypesBySide, design?.printTypes);
+  const out = {};
+
+  UI_SIDES.forEach((side) => {
+    const sideTypes = Array.isArray(bySide?.[side]) ? bySide[side] : [];
+    if (!sideTypes.includes("rubber")) return;
+
+    const sideData = design?.sides?.[side];
+    const t = sideData?.customText || {};
+    const rawText = String(t?.text || "").trim();
+    if (!rawText) return;
+
+    const cm = getModelPrintCm(design?.modelType, side);
+    const textBounds = estimateTextHalfBounds01(t);
+    const sizeWcm = cm.w > 0 ? roundTo(textBounds.halfW01 * 2 * cm.w, 2) : 0;
+    const sizeHcm = cm.h > 0 ? roundTo(textBounds.halfH01 * 2 * cm.h, 2) : 0;
+
+    const rubberDepth = clamp(Number(t?.rubberDepth ?? 0.6), 0.2, 0.8);
+    const letterSpacingFactor = clamp(Number(t?.rubberLetterSpacing ?? 1), 0.2, 3);
+    const textSizePx = clamp(Number(t?.size) || 150, 30, 420);
+    const textScaleX = clamp(Number(t?.scaleX) || 1, 0.3, 3);
+    const approxSpacingCm =
+      cm.w > 0 ? roundTo((((textSizePx * 0.03 * textScaleX) / 1024) * cm.w) * letterSpacingFactor, 2) : 0;
+
+    out[side] = {
+      side,
+      text: rawText,
+      color: t?.color || "#ffffff",
+      font: t?.font || FONT_OPTIONS[0].value,
+      sizeCm: { w: sizeWcm, h: sizeHcm },
+      thicknessMm: roundTo(rubberDepth * 10, 2),
+      letterSpacingCm: approxSpacingCm,
+      letterSpacingFactor: roundTo(letterSpacingFactor, 2),
+    };
+  });
+
+  return out;
 };
 
 const getListPriceBeforeLaunchDiscount = (discountedPrice) => {
@@ -2275,7 +2333,7 @@ function Real3DModel({
       .filter((entry) => !entry.isSpace)
       .reduce((sum, entry, _, arr) => sum + entry.width / Math.max(1, arr.length), 0) || 0.58;
     const rubberLetterSpacing = clamp(Number(textState?.rubberLetterSpacing ?? 1), 0.2, 3);
-    const spacingRaw = clamp(avgGlyphW * 0.18 * rubberLetterSpacing, 0.02, 0.9);
+    const spacingRaw = clamp(avgGlyphW * 0.18, 0.02, 0.9);
 
     const positions = [];
     let cursor = 0;
@@ -2342,6 +2400,7 @@ function Real3DModel({
     const scaleRaw = Math.min(targetW / totalRawW, targetH / maxRawH, fitWScale, fitHScale);
     const glyphScale = clamp(scaleRaw, 0.01, 1.35);
     const rubberDepth = clamp(Number(textState?.rubberDepth ?? 0.6), 0.2, 0.8);
+    const rubberStick = clamp(Number(textState?.rubberStick ?? 0.96), 0.7, 1);
     const depthT = (rubberDepth - 0.2) / 0.6;
     const zScale = clamp(
       (0.07 + depthT * 0.08) * (maxRawD / 0.024),
@@ -2349,7 +2408,7 @@ function Real3DModel({
       0.17
     );
     const depthBoost = 3.2 + depthT * 2.2;
-    const placedW = totalRawW * glyphScale * scaleX;
+    const placedW = totalRawW * glyphScale * scaleX * rubberLetterSpacing;
     const placedH = totalRawH * glyphScale * scaleY;
 
     const safeTextPos = clampTextPos(sideData?.textPos, textState);
@@ -2367,7 +2426,8 @@ function Real3DModel({
       profile.yTop - halfH - edgePad
     );
     const rz = ((Number(textState?.rotation) || 0) * Math.PI) / 180;
-    const zNudge = side === "back" ? -0.00012 : 0.00012;
+    const stickLift = (1 - rubberStick) * 0.00032;
+    const zNudge = side === "back" ? -(0.000012 + stickLift) : 0.000012 + stickLift;
     const sideRotY = Number(profile.rotY ?? (side === "back" ? Math.PI : 0));
     const textColor = textState?.color || "#f4f4f4";
     const yLift = 0;
@@ -2382,7 +2442,7 @@ function Real3DModel({
         {layoutRows.map((row, idx) => {
           const entry = row.entry;
           if (!entry.geometry || entry.isSpace) return null;
-          const x = row.baseX * glyphScale * scaleX;
+          const x = row.baseX * glyphScale * scaleX * rubberLetterSpacing;
           const y = (row.yRaw - centerRawY) * glyphScale * scaleY;
           return (
             <ShrinkwrappedRubberGlyph
@@ -2393,7 +2453,8 @@ function Real3DModel({
               rotationZ={(row.rotDeg * Math.PI) / 180}
               scale={[glyphScale * scaleX, glyphScale * scaleY, zScale]}
               color={textColor}
-              shrinkwrap={false}
+              shrinkwrap
+              stick={rubberStick}
               depthBoost={depthBoost}
               placementKey={placementKey}
             />
@@ -5442,6 +5503,7 @@ function TasarimClientContent({ isMobile }) {
         const previewMockup = mockupFiles.front || mockupFiles[activeSides[0][0]] || null;
         const launchPrice = getPrice(d);
         const listPrice = getListPriceBeforeLaunchDiscount(launchPrice);
+        const rubberSpecsBySide = buildRubberSpecsBySide(d);
         const orderItem = {
           id: `${d.id}-${Date.now()}`,
           name: MODEL_LABELS[d.modelType] || d.modelType,
@@ -5469,6 +5531,7 @@ function TasarimClientContent({ isMobile }) {
             mockupFiles,
             userUploads: Array.from(userUploadsSet),
             adjustedUploads,
+            rubberSpecsBySide,
             sides: d.sides,
           },
         };
@@ -5498,6 +5561,7 @@ function TasarimClientContent({ isMobile }) {
           mockupFiles,
           userUploads: Array.from(userUploadsSet),
           adjustedUploads,
+          rubberSpecsBySide,
           designDetails: orderItem.designDetails,
         });
       }
@@ -5656,7 +5720,7 @@ function TasarimClientContent({ isMobile }) {
     : drawerOpen
       ? DESKTOP_DRAWER_HEIGHT
       : DESKTOP_DRAWER_PEEK;
-  const hideMobileDrawerInEditor = false;
+  const hideMobileDrawerInEditor = isMobile && isPlacementPanelVisible;
   const isPlacementPanelVisible = isPrintAreaOpen && showPlacementPanel;
   const sceneEditCenterLeft = isMobile
     ? isPlacementPanelVisible
@@ -5909,7 +5973,7 @@ function TasarimClientContent({ isMobile }) {
                   ? "calc(env(safe-area-inset-bottom) + 2px)"
                   : `${Math.round(visibleDrawerHeight) + 48}px`
                 : `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
-              maxHeight: isMobile ? (hideMobileDrawerInEditor ? "52vh" : "58vh") : undefined,
+              maxHeight: isMobile ? (hideMobileDrawerInEditor ? "48vh" : "58vh") : undefined,
             }}
           >
             {isMobile && !!lockToast && (

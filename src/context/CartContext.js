@@ -132,11 +132,16 @@ const stripHeavyItemForStorage = (item) => {
     safe.designDetails = {
       model: dd.model,
       baseColor: dd.baseColor,
+      fabricType: dd.fabricType,
       stringColor: dd.stringColor,
+      hoodieV12Parts: dd.hoodieV12Parts || null,
       hasPdf: Boolean(dd.hasPdf),
       pdfFileUrl: isDataUrl(dd.pdfFileUrl) ? null : dd.pdfFileUrl || null,
       pdfOriginalName: dd.pdfOriginalName || "",
       pdfPlacement: dd.pdfPlacement || null,
+      printTypes: Array.isArray(dd.printTypes) ? dd.printTypes : [],
+      printTypesBySide: dd.printTypesBySide || null,
+      rubberSpecsBySide: dd.rubberSpecsBySide || null,
       // ağır alanları localStorage'dan çıkar
     };
   }
@@ -245,11 +250,16 @@ export function CartProvider({ children }) {
         ? {
             model: dd.model,
             baseColor: dd.baseColor,
+            fabricType: dd.fabricType,
             stringColor: dd.stringColor,
+            hoodieV12Parts: dd.hoodieV12Parts || null,
             hasPdf: Boolean(dd.hasPdf && uploadedPdfFileUrl),
             pdfFileUrl: uploadedPdfFileUrl,
             pdfOriginalName: dd.pdfOriginalName || "",
             pdfPlacement: normalizedPdfPlacement,
+            printTypes: Array.isArray(dd.printTypes) ? dd.printTypes : [],
+            printTypesBySide: dd.printTypesBySide || null,
+            rubberSpecsBySide: dd.rubberSpecsBySide || {},
             printFiles: uploadedPrintFiles,
             textFiles: uploadedTextFiles,
             mockupFiles: uploadedMockupFiles,

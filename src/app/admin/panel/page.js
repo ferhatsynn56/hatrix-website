@@ -27,7 +27,38 @@ import {
 
 const statusOptions = ["Hazırlanıyor", "Kargolandı", "Teslim Edildi", "İptal"];
 
+const MODEL_CM_LABELS = {
+  tshirt: { front: { w: 40, h: 54 }, back: { w: 40, h: 54 } },
+  sweatshirt: { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
+  "sweat-yeni": { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
+  "sweat-deneme": { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
+  hoodie: { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
+  "hoodie-cepli": { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
+  "hoodie-ceplipli": { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
+  "hoodie-v12-canavari": { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
+  "oversize-hoodie-parcali": { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
+  "oversize-tshirt": { front: { w: 45, h: 60 }, back: { w: 45, h: 60 } },
+  "oversize-tshirt-efektli": { front: { w: 45, h: 60 }, back: { w: 45, h: 60 } },
+  "oversize-sweat": { front: { w: 58, h: 58 }, back: { w: 58, h: 58 } },
+  fermuarli: { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
+  polar: { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
+  "polar-son": { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
+  "yeni-duz-tshirt": { front: { w: 40, h: 54 }, back: { w: 40, h: 54 } },
+  "yeni-oversize-tshirt": { front: { w: 45, h: 60 }, back: { w: 45, h: 60 } },
+  "yeni-duz-sweat": { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
+  "yeni-oversize-sweat": { front: { w: 58, h: 58 }, back: { w: 58, h: 58 } },
+  "yeni-fermuarli": { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
+};
+
 /* ================= helpers ================= */
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+const roundTo = (v, digits = 2) => {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  const p = 10 ** digits;
+  return Math.round(n * p) / p;
+};
+
 const formatDate = (ts) => {
   try {
     if (!ts) return "";
@@ -119,6 +150,106 @@ const pickAny = (obj) => {
   if (!obj) return null;
   const entries = Object.entries(obj).filter(([_, v]) => !!v);
   return entries[0]?.[1] || null;
+};
+
+const estimateTextHalfBounds01 = (textState = {}) => {
+  const rawText = String(textState?.text || "").trim();
+  const text = rawText || "W";
+  const charCount = Math.max(1, text.length);
+  const size = clamp(Number(textState?.size) || 150, 30, 420);
+  const scaleX = clamp(Number(textState?.scaleX) || 1, 0.3, 3);
+  const scaleY = clamp(Number(textState?.scaleY) || 1, 0.3, 3);
+  const layout = String(textState?.layout || "straight");
+  const curve = clamp(Number(textState?.curve) || 30, 0, 100);
+
+  const avgGlyphW = size * 0.58 * scaleX;
+  const spacing = size * 0.03 * scaleX;
+  const baseW = Math.max(size * 0.75 * scaleX, charCount * avgGlyphW + (charCount - 1) * spacing);
+  let boxW = baseW;
+  let boxH = size * 1.15 * scaleY;
+
+  if (layout === "wave") boxH += size * (curve / 100) * 0.9 * scaleY;
+  if (layout === "zigzag") boxH += size * (curve / 100) * 1.45 * scaleY;
+  if (layout === "stair-up" || layout === "stair-down") boxH += size * (curve / 100) * 1.7 * scaleY;
+  if (layout === "arc-up" || layout === "arc-down") {
+    boxH += size * (curve / 100) * 1.35 * scaleY;
+    boxW += size * 0.2 * scaleX;
+  }
+  if (layout === "arc-up-strong" || layout === "arc-down-strong") {
+    boxH += size * (curve / 100) * 1.8 * scaleY;
+    boxW += size * 0.28 * scaleX;
+  }
+
+  const pad = size * 0.1;
+  return {
+    halfW01: clamp((boxW / 2 + pad) / 1024, 0.035, 0.49),
+    halfH01: clamp((boxH / 2 + pad) / 1024, 0.035, 0.49),
+  };
+};
+
+const getModelPrintCm = (modelType, side = "front") => {
+  const safeModel = String(modelType || "").trim().toLowerCase();
+  const modelCm = MODEL_CM_LABELS[safeModel] || MODEL_CM_LABELS["yeni-duz-tshirt"];
+  const sideKey = side === "back" ? "back" : "front";
+  const cm = modelCm?.[sideKey] || modelCm?.front || { w: 0, h: 0 };
+  return {
+    w: Number(cm?.w) || 0,
+    h: Number(cm?.h) || 0,
+  };
+};
+
+const normalizePrintTypesBySide = (bySide, legacy = []) => {
+  const base = { front: [], back: [] };
+  const raw = bySide && typeof bySide === "object" ? bySide : {};
+  const legacyList = Array.isArray(legacy) ? legacy : [];
+  return {
+    front: Array.from(new Set([...(Array.isArray(raw.front) ? raw.front : []), ...legacyList])),
+    back: Array.from(new Set(Array.isArray(raw.back) ? raw.back : [])),
+  };
+};
+
+const buildRubberSpecsBySide = (item, dd) => {
+  const saved = dd?.rubberSpecsBySide;
+  if (saved && typeof saved === "object" && Object.keys(saved).length > 0) {
+    return saved;
+  }
+
+  const bySide = normalizePrintTypesBySide(dd?.printTypesBySide, dd?.printTypes);
+  const sides = dd?.sides || {};
+  const result = {};
+
+  ["front", "back"].forEach((side) => {
+    const sideTypes = Array.isArray(bySide?.[side]) ? bySide[side] : [];
+    if (!sideTypes.includes("rubber")) return;
+
+    const t = sides?.[side]?.customText || {};
+    const rawText = String(t?.text || "").trim();
+    if (!rawText) return;
+
+    const cm = getModelPrintCm(dd?.model || item?.modelType, side);
+    const textBounds = estimateTextHalfBounds01(t);
+    const sizeWcm = cm.w > 0 ? roundTo(textBounds.halfW01 * 2 * cm.w, 2) : 0;
+    const sizeHcm = cm.h > 0 ? roundTo(textBounds.halfH01 * 2 * cm.h, 2) : 0;
+    const rubberDepth = clamp(Number(t?.rubberDepth ?? 0.6), 0.2, 0.8);
+    const letterSpacingFactor = clamp(Number(t?.rubberLetterSpacing ?? 1), 0.2, 3);
+    const textSizePx = clamp(Number(t?.size) || 150, 30, 420);
+    const textScaleX = clamp(Number(t?.scaleX) || 1, 0.3, 3);
+    const spacingCm =
+      cm.w > 0 ? roundTo((((textSizePx * 0.03 * textScaleX) / 1024) * cm.w) * letterSpacingFactor, 2) : 0;
+
+    result[side] = {
+      side,
+      text: rawText,
+      color: t?.color || "#ffffff",
+      font: t?.font || "",
+      sizeCm: { w: sizeWcm, h: sizeHcm },
+      thicknessMm: roundTo(rubberDepth * 10, 2),
+      letterSpacingCm: spacingCm,
+      letterSpacingFactor: roundTo(letterSpacingFactor, 2),
+    };
+  });
+
+  return result;
 };
 
 export default function AdminOrdersPage() {
@@ -322,6 +453,10 @@ export default function AdminOrdersPage() {
                             dd.pdfPlacement && typeof dd.pdfPlacement === "object"
                               ? dd.pdfPlacement
                               : null;
+                          const rubberSpecsBySide = buildRubberSpecsBySide(item, dd);
+                          const rubberSpecEntries = Object.entries(rubberSpecsBySide || {}).filter(
+                            ([_, spec]) => spec && String(spec?.text || "").trim()
+                          );
 
                           // ✅ userUploads yoksa sides’tan otomatik çıkar
                           const userUploads =
@@ -386,6 +521,61 @@ export default function AdminOrdersPage() {
 
                                 {/* SAĞ */}
                                 <div className="lg:w-2/3 grid gap-6">
+                                  {/* Rubber text teknik bilgiler */}
+                                  <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
+                                    <div className="flex items-center gap-2 mb-3 text-orange-300">
+                                      <FileText size={16} />
+                                      <h5 className="text-xs font-black uppercase tracking-wider">
+                                        Rubber Yazı Teknik Bilgileri
+                                      </h5>
+                                    </div>
+
+                                    {rubberSpecEntries.length > 0 ? (
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {rubberSpecEntries.map(([side, spec]) => {
+                                          const sw = Number(spec?.sizeCm?.w || 0);
+                                          const sh = Number(spec?.sizeCm?.h || 0);
+                                          const thicknessMm = Number(spec?.thicknessMm || 0);
+                                          const spacingCm = Number(spec?.letterSpacingCm || 0);
+                                          const spacingFactor = Number(spec?.letterSpacingFactor || 0);
+                                          const colorHex = String(spec?.color || "#ffffff");
+                                          return (
+                                            <div key={`rubber-spec-${side}`} className="rounded-lg border border-zinc-700 bg-black/40 p-3 space-y-1.5">
+                                              <p className="text-[10px] font-black uppercase tracking-wide text-zinc-400">
+                                                {side === "back" ? "Arka Yüz" : "Ön Yüz"}
+                                              </p>
+                                              <p className="text-xs text-zinc-300 break-words">
+                                                <span className="text-zinc-500">Metin:</span> {String(spec?.text || "-")}
+                                              </p>
+                                              <div className="flex items-center gap-2 text-xs text-zinc-300">
+                                                <span className="text-zinc-500">Renk:</span>
+                                                <span className="inline-flex w-3.5 h-3.5 rounded-full border border-zinc-500" style={{ backgroundColor: colorHex }} />
+                                                <span className="font-mono">{colorHex}</span>
+                                              </div>
+                                              <p className="text-xs text-zinc-300">
+                                                <span className="text-zinc-500">Boyut:</span>{" "}
+                                                {sw > 0 && sh > 0 ? `${sw.toFixed(2)} × ${sh.toFixed(2)} cm` : "-"}
+                                              </p>
+                                              <p className="text-xs text-zinc-300">
+                                                <span className="text-zinc-500">Kalınlık:</span>{" "}
+                                                {thicknessMm > 0 ? `${thicknessMm.toFixed(2)} mm` : "-"}
+                                              </p>
+                                              <p className="text-xs text-zinc-300">
+                                                <span className="text-zinc-500">Harf Aralığı:</span>{" "}
+                                                {spacingCm > 0 ? `${spacingCm.toFixed(2)} cm` : "-"}
+                                                {spacingFactor > 0 ? ` (${spacingFactor.toFixed(2)}x)` : ""}
+                                              </p>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-zinc-500 italic">
+                                        Rubber yazı bilgisi yok.
+                                      </p>
+                                    )}
+                                  </div>
+
                                   {/* A) Print */}
                                   <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
                                     <div className="flex items-center gap-2 mb-3 text-emerald-400">
