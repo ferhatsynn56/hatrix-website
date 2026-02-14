@@ -556,6 +556,27 @@ const TEXT_LAYOUT_OPTIONS = [
 const HDR_ENV_DESKTOP_PATH = "/hdr/white_studio_06_4k.exr";
 const HDR_ENV_MOBILE_PATH = "/hdr/studio_small_03_2k.exr";
 const RUBBER_GLYPH_MODEL_PATH = `${NEW_MODELS_ROOT}/Harfler-isaretler.glb`;
+const HDR_SOURCE_CACHE = new Map();
+
+const getHdriSourceTexture = (url) => {
+  const safeUrl = toSafeUrl(url);
+  if (HDR_SOURCE_CACHE.has(safeUrl)) return HDR_SOURCE_CACHE.get(safeUrl);
+  const lowerUrl = String(safeUrl).toLowerCase();
+  const loader = lowerUrl.endsWith(".exr") ? new EXRLoader() : new RGBELoader();
+  const promise = new Promise((resolve, reject) => {
+    loader.load(
+      safeUrl,
+      (texture) => {
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        resolve(texture);
+      },
+      undefined,
+      reject
+    );
+  });
+  HDR_SOURCE_CACHE.set(safeUrl, promise);
+  return promise;
+};
 
 const GLYPH_TOKEN_MAP = {
   plus: "+",
@@ -749,7 +770,7 @@ const drawStyledText = (ctx, t, centerX, centerY, fontSize) => {
   const scaleY = clamp(t?.scaleY || 1, 0.3, 3);
   const rotationDeg = clamp(Number(t?.rotation) || 0, -180, 180);
   const baseColor = t?.color || "#ffffff";
-  const embossEnabled = t?.emboss !== false;
+  const embossEnabled = Boolean(t?.emboss);
   const embossDepthMul = clamp(Number(t?.embossDepth ?? 1.4), 0.6, 2.8);
   const embossStrength = clamp(Number(t?.embossStrength ?? 1.4), 0.6, 2.4);
   const strokeWidth = clamp(fontSize * 0.11 * embossStrength, 1.2, 14);
@@ -1090,7 +1111,7 @@ const createSideData = () => ({
     size: 150,
     scaleX: 1,
     scaleY: 1,
-    emboss: true,
+    emboss: false,
     embossDepth: 1.4,
     embossStrength: 1.4,
     font: FONT_OPTIONS[0].value,
@@ -1506,37 +1527,29 @@ function HdriEnvironment({ urls = [], enabled = true }) {
     const pmrem = new THREE.PMREMGenerator(gl);
     pmrem.compileEquirectangularShader();
 
-    const loadAt = (index) => {
+    const loadAt = async (index) => {
       if (disposed) return;
       if (index >= envQueue.length) {
         if (scene.environment) scene.environment = null;
         return;
       }
       const url = envQueue[index];
-      const lowerUrl = String(url).toLowerCase();
-      const loader = lowerUrl.endsWith(".exr") ? new EXRLoader() : new RGBELoader();
-      loader.load(
-        url,
-        (texture) => {
-          if (disposed) {
-            texture.dispose();
-            return;
-          }
-          texture.mapping = THREE.EquirectangularReflectionMapping;
-          const nextTarget = pmrem.fromEquirectangular(texture);
-          if (scene.environment === envRenderTarget?.texture) scene.environment = null;
-          if (sourceTexture) sourceTexture.dispose();
-          if (envRenderTarget) envRenderTarget.dispose();
-          sourceTexture = texture;
-          envRenderTarget = nextTarget;
-          scene.environment = envRenderTarget.texture;
-        },
-        undefined,
-        (err) => {
-          console.error(`HDR environment yuklenemedi (${url}):`, err);
-          loadAt(index + 1);
-        }
-      );
+      try {
+        const cachedTexture = await getHdriSourceTexture(url);
+        if (disposed) return;
+        const texture = cachedTexture.clone();
+        texture.needsUpdate = true;
+        const nextTarget = pmrem.fromEquirectangular(texture);
+        if (scene.environment === envRenderTarget?.texture) scene.environment = null;
+        if (sourceTexture) sourceTexture.dispose();
+        if (envRenderTarget) envRenderTarget.dispose();
+        sourceTexture = texture;
+        envRenderTarget = nextTarget;
+        scene.environment = envRenderTarget.texture;
+      } catch (err) {
+        console.error(`HDR environment yuklenemedi (${url}):`, err);
+        loadAt(index + 1);
+      }
     };
 
     loadAt(0);
@@ -1609,7 +1622,7 @@ function useDesignCanvas(sideData, opts = {}) {
     )
     .join("|");
   const customText = sideData?.customText;
-  const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}_${customText?.font}_${customText?.layout || "straight"}_${customText?.curve ?? 30}_${customText?.rotation ?? 0}_${customText?.z ?? 0}_${Number(customText?.emboss !== false)}_${customText?.embossDepth ?? 1.4}_${customText?.embossStrength ?? 1.4}`;
+  const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}_${customText?.font}_${customText?.layout || "straight"}_${customText?.curve ?? 30}_${customText?.rotation ?? 0}_${customText?.z ?? 0}_${Number(Boolean(customText?.emboss))}_${customText?.embossDepth ?? 1.4}_${customText?.embossStrength ?? 1.4}`;
   const posSignature = `${sideData?.textPos?.x}_${sideData?.textPos?.y}`;
 
   const CANVAS_SIZE = 2048;
@@ -2073,9 +2086,9 @@ function Real3DModel({
       let bb = geometry.boundingBox;
       if (!bb) return;
       const cx = (bb.min.x + bb.max.x) / 2;
-      const cy = (bb.min.y + bb.max.y) / 2;
       const zMin = bb.min.z;
-      geometry.translate(-cx, -cy, -zMin);
+      // Baseline'i sabitle: tum harflerin alt zemini aynı seviyede dursun.
+      geometry.translate(-cx, -bb.min.y, -zMin);
       geometry.computeBoundingBox?.();
       bb = geometry.boundingBox;
       if (!bb) return;
@@ -3468,6 +3481,20 @@ function EditorPanel({
   const sizes = ["S", "M", "L", "XL"];
   const colorPresets = BRAND_COLORS;
   const stringPresets = ["#e6e6e6", "#ffffff", "#000000", "#c8b08a", "#a0a0a0"];
+  const printTypes = design ? getPrintTypesForSide(design, currentSide) : [];
+  const dtfActiveForSide = printTypes.includes("dtf");
+  const rubberActiveForSide = printTypes.includes("rubber");
+
+  useEffect(() => {
+    if (printTypePickerSignal <= 0) return;
+    setActiveTab("print");
+  }, [printTypePickerSignal, setActiveTab]);
+
+  useEffect(() => {
+    if (activeTab === "upload" && !dtfActiveForSide) {
+      setActiveTab("print");
+    }
+  }, [activeTab, dtfActiveForSide, setActiveTab]);
 
   if (!design) return null;
 
@@ -3494,14 +3521,6 @@ function EditorPanel({
     });
   };
   const fabricType = normalizeFabricType(design.fabricType, design.modelType);
-  const printTypes = getPrintTypesForSide(design, currentSide);
-  const dtfActiveForSide = printTypes.includes("dtf");
-  const rubberActiveForSide = printTypes.includes("rubber");
-  const selectedPrintTypeLabel = printTypes.length
-    ? printTypes
-      .map((typeId) => PRINT_TYPE_OPTIONS.find((opt) => opt.id === typeId)?.label || typeId)
-      .join(" • ")
-    : "Seçili değil";
   const setCurrentSidePrintTypes = (nextTypes) => {
     const bySide = normalizePrintTypesBySide(design.printTypesBySide, design.printTypes);
     const safeSide = currentSide === "back" ? "back" : "front";
@@ -3593,6 +3612,12 @@ function EditorPanel({
 
   const isFocusMode = isMobile && activeTab === "editor" && !isDrawerLayout;
   const drawerHeadingClass = "text-[13px] font-black tracking-[0.14em] text-gray-500 uppercase";
+  const panelTabs = [
+    { id: "color", icon: Palette, label: "Renk" },
+    { id: "print", icon: Layers, label: "Baskı Seçim" },
+    { id: "text", icon: FileText, label: "Yazı" },
+    ...(dtfActiveForSide ? [{ id: "upload", icon: ImageIcon, label: "Görsel" }] : []),
+  ];
 
   const togglePrintType = (id) => {
     const alreadySelected = printTypes.includes(id);
@@ -3611,11 +3636,6 @@ function EditorPanel({
     const next = printTypes.filter((typeId) => typeId !== id);
     setCurrentSidePrintTypes(next);
   };
-
-  useEffect(() => {
-    if (printTypePickerSignal <= 0) return;
-    setActiveTab("print");
-  }, [printTypePickerSignal, setActiveTab]);
 
   const handleSelectPrintTypeFromPanel = (id) => {
     const opt = PRINT_TYPE_OPTIONS.find((entry) => entry.id === id);
@@ -3863,12 +3883,7 @@ function EditorPanel({
 
           {/* Tabs */}
           <div className="flex border-b border-zinc-800 bg-[#111111] flex-shrink-0">
-            {[
-              { id: "color", icon: Palette, label: "Renk" },
-              { id: "print", icon: Layers, label: "Baskı Seçim" },
-              { id: "text", icon: FileText, label: "Yazı" },
-              { id: "upload", icon: ImageIcon, label: "Görsel" },
-            ].map((tab) => (
+            {panelTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => {
@@ -3921,21 +3936,12 @@ function EditorPanel({
                 isMobile={isMobile}
               />
             </div>
-            <div className="w-full rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">Seçili Baskı</p>
-              <p className="text-[12px] font-bold text-gray-900 truncate mt-0.5">{selectedPrintTypeLabel}</p>
-            </div>
           </div>
         )}
 
         {/* UPLOAD / VISUAL */}
         {activeTab === "upload" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-stretch justify-start gap-2.5") : "space-y-2.5"}`}>
-            <div className="w-full rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">Seçili Baskı</p>
-              <p className="text-[12px] font-bold text-gray-900 truncate mt-0.5">{selectedPrintTypeLabel}</p>
-            </div>
-
             {!dtfActiveForSide && (
               <div className="w-full rounded-xl border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-[11px] font-semibold text-gray-600">
                 Görsel yükleme alanını açmak için DTF seç.
@@ -4227,7 +4233,7 @@ function EditorPanel({
                           text: "",
                           color: "#ffffff",
                           size: 150,
-                          emboss: true,
+                          emboss: false,
                           embossDepth: 1.4,
                           embossStrength: 1.4,
                           font: FONT_OPTIONS[0].value,
@@ -4246,7 +4252,7 @@ function EditorPanel({
                     maxLength={56}
                     onChange={(e) => bumpText({ text: e.target.value })}
                     placeholder="Yazını gir"
-                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-[12px] font-semibold text-gray-800"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-[16px] md:text-[12px] font-semibold text-gray-800"
                   />
                   <div className="grid grid-cols-2 gap-2">
                     <label className="space-y-1">
@@ -4254,7 +4260,7 @@ function EditorPanel({
                       <select
                         value={t.font || FONT_OPTIONS[0].value}
                         onChange={(e) => bumpText({ font: e.target.value })}
-                        className="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-[11px] font-semibold text-gray-800"
+                        className="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-[16px] md:text-[11px] font-semibold text-gray-800"
                       >
                         {FONT_OPTIONS.map((opt) => (
                           <option key={`font-opt-${opt.value}`} value={opt.value}>
@@ -4551,7 +4557,7 @@ function TasarimClientContent({ isMobile }) {
   const router = useRouter();
 
   // ✅ activeTab artık burada (hata bitti)
-  const [activeTab, setActiveTab] = useState("upload");
+  const [activeTab, setActiveTab] = useState("color");
   const [forceEditorOverlay, setForceEditorOverlay] = useState(false);
   const [drawerMenuOpen, setDrawerMenuOpen] = useState(false);
   const [drawerMenuMounted, setDrawerMenuMounted] = useState(false);
@@ -4986,7 +4992,8 @@ function TasarimClientContent({ isMobile }) {
   }, [designs]);
 
   const activeDesign = useMemo(() => designs.find((d) => d.id === activeId) || designs[0], [designs, activeId]);
-  const DRAWER_TABS = ["color", "print", "text", "upload"];
+  const hasDtfForActiveSide = getPrintTypesForSide(activeDesign, view).includes("dtf");
+  const DRAWER_TABS = hasDtfForActiveSide ? ["color", "print", "text", "upload"] : ["color", "print", "text"];
   const tabIndex = DRAWER_TABS.indexOf(activeTab);
   const tabLabelMap = {
     print: "Baskı Seçim",
@@ -5015,7 +5022,7 @@ function TasarimClientContent({ isMobile }) {
     setSelectedModelType(activeDesign?.modelType || selectedModelType || safeInitial);
     setFlowStep("select");
     setShowPlacementPanel(false);
-    setActiveTab("upload");
+    setActiveTab("print");
     setDrawerMenuOpen(false);
     setPickerOpen(false);
     router.replace("/tasarim", { scroll: false });
@@ -5024,7 +5031,7 @@ function TasarimClientContent({ isMobile }) {
     { id: "color", label: "Renk", icon: Palette },
     { id: "print", label: "Baskı Seçim", icon: Layers },
     { id: "text", label: "Yazı", icon: FileText },
-    { id: "upload", label: "Görsel", icon: ImageIcon },
+    ...(hasDtfForActiveSide ? [{ id: "upload", label: "Görsel", icon: ImageIcon }] : []),
   ];
   const activePrintTypes = getPrintTypesForSide(activeDesign, view);
   const selectedPrintTypeNames = activePrintTypes
@@ -5076,6 +5083,12 @@ function TasarimClientContent({ isMobile }) {
   useEffect(() => {
     if (activeTab !== "upload") setForceEditorOverlay(false);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === "upload" && !hasDtfForActiveSide) {
+      setActiveTab("print");
+    }
+  }, [activeTab, hasDtfForActiveSide]);
 
   useEffect(() => {
     const prev = prevActiveTabRef.current;
@@ -5662,8 +5675,8 @@ function TasarimClientContent({ isMobile }) {
       ? "43%"
       : "47%";
   const hdrEnvUrls = useMemo(
-    () => [HDR_ENV_MOBILE_PATH, HDR_ENV_DESKTOP_PATH],
-    []
+    () => (isMobile ? [HDR_ENV_MOBILE_PATH, HDR_ENV_DESKTOP_PATH] : [HDR_ENV_DESKTOP_PATH, HDR_ENV_MOBILE_PATH]),
+    [isMobile]
   );
 
   const renderPanel = (
@@ -5984,7 +5997,7 @@ function TasarimClientContent({ isMobile }) {
                           onChange={(e) => {
                             setCmInputW(sanitizeCmInput(e.target.value));
                           }}
-                          className={`w-full rounded-md border px-2 py-1 text-[11px] ${sizeControlDisabled
+                          className={`w-full rounded-md border px-2 py-1 text-[16px] md:text-[11px] ${sizeControlDisabled
                             ? "border-zinc-700 bg-zinc-800/60 text-zinc-500 cursor-not-allowed"
                             : "border-zinc-600 bg-zinc-900/60 text-white"
                             }`}
@@ -6016,7 +6029,7 @@ function TasarimClientContent({ isMobile }) {
                           onChange={(e) => {
                             setCmInputH(sanitizeCmInput(e.target.value));
                           }}
-                          className={`w-full rounded-md border px-2 py-1 text-[11px] ${sizeControlDisabled
+                          className={`w-full rounded-md border px-2 py-1 text-[16px] md:text-[11px] ${sizeControlDisabled
                             ? "border-zinc-700 bg-zinc-800/60 text-zinc-500 cursor-not-allowed"
                             : "border-zinc-600 bg-zinc-900/60 text-white"
                             }`}
@@ -6214,7 +6227,7 @@ function TasarimClientContent({ isMobile }) {
                       type="text"
                       value={customText?.text || ""}
                       onChange={(e) => bumpCustomText({ text: e.target.value })}
-                      className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 text-white px-2 py-1 text-[11px]"
+                      className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 text-white px-2 py-1 text-[16px] md:text-[11px]"
                       placeholder="Yazinizi girin"
                     />
                   </div>
@@ -6225,7 +6238,7 @@ function TasarimClientContent({ isMobile }) {
                       <select
                         value={customText?.font || FONT_OPTIONS[0].value}
                         onChange={(e) => bumpCustomText({ font: e.target.value })}
-                        className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 text-white px-2 py-1 text-[11px]"
+                        className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 text-white px-2 py-1 text-[16px] md:text-[11px]"
                       >
                         {FONT_OPTIONS.map((opt) => (
                           <option key={`editor-text-font-${opt.value}`} value={opt.value}>
@@ -6248,14 +6261,14 @@ function TasarimClientContent({ isMobile }) {
                     <>
                       <button
                         type="button"
-                        onClick={() => bumpCustomText({ emboss: !(customText?.emboss !== false) })}
+                        onClick={() => bumpCustomText({ emboss: !Boolean(customText?.emboss) })}
                         className={`w-full py-1.5 rounded-lg text-[10px] font-black uppercase border transition ${
-                          customText?.emboss !== false
+                          Boolean(customText?.emboss)
                             ? "bg-cyan-200 text-cyan-950 border-cyan-300"
                             : "bg-zinc-900/60 text-zinc-200 border-zinc-600 hover:bg-zinc-800"
                         }`}
                       >
-                        Kabartı: {customText?.emboss !== false ? "Açık" : "Kapalı"}
+                        Kabartı: {Boolean(customText?.emboss) ? "Açık" : "Kapalı"}
                       </button>
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-[10px] text-zinc-400">
@@ -7070,42 +7083,44 @@ function TasarimClientContent({ isMobile }) {
                       </>
                     ) : (
                       <>
-                        <div className="flex items-center gap-1 min-w-0">
+                        <div className="w-full flex items-center justify-between gap-2">
                           <button
                             onClick={() => {
                               setPickerStep("root");
                               setPickerOpen(true);
                             }}
-                            className="h-8 px-2 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
+                            className="h-8 px-2.5 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
                             aria-label="Model ekle"
                           >
                             + Model
                           </button>
-                          <button
-                            onClick={goPrevTab}
-                            className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
-                            aria-label="Önceki adım"
-                          >
-                            <ChevronLeft size={18} strokeWidth={2.6} />
-                          </button>
-                          <div className="text-center min-w-0 px-1">
-                            <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
-                              {tabLabelMap[activeTab] || "Görsel"}
-                            </p>
-                            <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-                              {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
-                            </p>
+                          <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-center">
+                            <button
+                              onClick={goPrevTab}
+                              className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
+                              aria-label="Önceki adım"
+                            >
+                              <ChevronLeft size={18} strokeWidth={2.6} />
+                            </button>
+                            <div className="text-center min-w-0 max-w-[140px] px-0.5">
+                              <p className="text-[15px] leading-none font-black uppercase tracking-wide text-gray-900 truncate">
+                                {tabLabelMap[activeTab] || "Görsel"}
+                              </p>
+                              <p className="text-[10px] text-gray-500 mt-0.5 truncate">
+                                {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
+                              </p>
+                            </div>
+                            <button
+                              onClick={goNextTab}
+                              className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
+                              aria-label="Sonraki adım"
+                            >
+                              <ChevronRight size={18} strokeWidth={2.6} />
+                            </button>
                           </div>
                           <button
-                            onClick={goNextTab}
-                            className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
-                            aria-label="Sonraki adım"
-                          >
-                            <ChevronRight size={18} strokeWidth={2.6} />
-                          </button>
-                          <button
                             onClick={openDrawerMenu}
-                            className="h-8 px-2 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wide shadow-sm"
+                            className="h-8 px-2.5 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wide shadow-sm"
                             aria-label="Kategori menüsünü aç"
                           >
                             <Menu size={12} />
@@ -7181,10 +7196,34 @@ function TasarimClientContent({ isMobile }) {
   );
 }
 
-/* preload (lightweight set) */
-AVAILABLE_MODELS.forEach((modelType) => {
+/* preload (first paint priority) */
+const PRIORITY_PRELOAD_MODELS = Array.from(new Set([DEFAULT_MODEL_TYPE, "hoodie-v12-canavari"]));
+PRIORITY_PRELOAD_MODELS.forEach((modelType) => {
   const modelPath = MODEL_PATHS[modelType];
   if (modelPath) useGLTF.preload(toSafeUrl(modelPath));
 });
-
 useGLTF.preload(toSafeUrl(RUBBER_GLYPH_MODEL_PATH));
+
+if (typeof window !== "undefined") {
+  // Ortam ışığını cihaz tipine göre tek dosya preload et (ilk açılış ve bellek daha stabil).
+  const prefersMobileEnv = window.matchMedia("(max-width: 1023px)").matches;
+  const preferredEnv = prefersMobileEnv ? HDR_ENV_MOBILE_PATH : HDR_ENV_DESKTOP_PATH;
+  getHdriSourceTexture(preferredEnv).catch(() => {});
+
+  // Diğer modelleri idle zamanda sırayla preload et; ilk modeli bloke etmesin.
+  const preloadRest = () => {
+    const rest = AVAILABLE_MODELS.filter((m) => !PRIORITY_PRELOAD_MODELS.includes(m));
+    rest.forEach((modelType, idx) => {
+      const modelPath = MODEL_PATHS[modelType];
+      if (!modelPath) return;
+      window.setTimeout(() => {
+        useGLTF.preload(toSafeUrl(modelPath));
+      }, idx * 120);
+    });
+  };
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(preloadRest, { timeout: 1600 });
+  } else {
+    window.setTimeout(preloadRest, 900);
+  }
+}

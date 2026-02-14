@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   collection,
   getDocs,
@@ -123,20 +122,10 @@ const pickAny = (obj) => {
 };
 
 export default function AdminOrdersPage() {
-  const router = useRouter();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
-
-  useEffect(() => {
-    try {
-      const ok = localStorage.getItem("hatrix_admin_auth") === "1";
-      if (!ok) router.push("/admin");
-    } catch {
-      router.push("/admin");
-    }
-  }, [router]);
 
   useEffect(() => {
     const fetchOrders = async () => {

@@ -3,9 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
-import { getAuth, onAuthStateChanged, signOut, signInAnonymously } from "firebase/auth";
-import { Trash2, Plus, Edit, X, Save, LogOut, ArrowLeft, Tag, Link as LinkIcon, Image as ImageIcon, AlertCircle } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { getAuth, onAuthStateChanged, signInAnonymously } from "firebase/auth";
+import { Trash2, Plus, Edit, X, Save, Tag, Link as LinkIcon, Image as ImageIcon, AlertCircle } from 'lucide-react';
 import AdminShell from "@/components/AdminShell";
 
 // --- FIREBASE AYARLARI ---
@@ -30,7 +29,6 @@ try {
 } catch (e) { console.error("Firebase Başlatılamadı:", e); }
 
 export default function UrunYonetimi() {
-  const router = useRouter();
   const [urunler, setUrunler] = useState([]);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [duzenlemeModu, setDuzenlemeModu] = useState(null);
@@ -44,15 +42,6 @@ export default function UrunYonetimi() {
       .replace(/[^A-Z0-9\-]/g, "")
       .slice(0, 40);
   };
-
-  useEffect(() => {
-    try {
-      const ok = localStorage.getItem('hatrix_admin_auth') === '1';
-      if (!ok) router.push('/admin');
-    } catch {
-      router.push('/admin');
-    }
-  }, [router]);
 
   // Form State
   const [yeniUrun, setYeniUrun] = useState({
@@ -126,7 +115,7 @@ export default function UrunYonetimi() {
         .catch(() => verileriGetir());
     });
     return () => unsubscribe();
-  }, [router]);
+  }, []);
 
   // --- ÜRÜN EKLEME ---
   const urunEkle = async (e) => {
@@ -179,15 +168,30 @@ export default function UrunYonetimi() {
 
   // --- GÜNCELLEME ---
   const urunGuncelle = async (id) => {
-    const isim = document.getElementById(`edit-isim-${id}`).value;
-    const fiyat = document.getElementById(`edit-fiyat-${id}`).value;
-    const kategori = document.getElementById(`edit-kategori-${id}`).value;
-    const koleksiyon = document.getElementById(`edit-koleksiyon-${id}`).value;
-    const modelKodu = document.getElementById(`edit-modelKodu-${id}`).value;
-    const renk = document.getElementById(`edit-renk-${id}`).value;
-    const stok = document.getElementById(`edit-stok-${id}`).value;
-    const aktif = document.getElementById(`edit-aktif-${id}`).checked;
-    const resim = document.getElementById(`edit-resim-${id}`).value;
+    const isimEl = document.getElementById(`edit-isim-${id}`);
+    const fiyatEl = document.getElementById(`edit-fiyat-${id}`);
+    const kategoriEl = document.getElementById(`edit-kategori-${id}`);
+    const koleksiyonEl = document.getElementById(`edit-koleksiyon-${id}`);
+    const modelKoduEl = document.getElementById(`edit-modelKodu-${id}`);
+    const renkEl = document.getElementById(`edit-renk-${id}`);
+    const stokEl = document.getElementById(`edit-stok-${id}`);
+    const aktifEl = document.getElementById(`edit-aktif-${id}`);
+    const resimEl = document.getElementById(`edit-resim-${id}`);
+
+    if (!isimEl || !fiyatEl || !kategoriEl || !koleksiyonEl || !modelKoduEl || !renkEl || !stokEl || !aktifEl || !resimEl) {
+      setHataMesaji("Form alanları bulunamadı. Sayfayı yenileyip tekrar dene.");
+      return;
+    }
+
+    const isim = isimEl.value;
+    const fiyat = fiyatEl.value;
+    const kategori = kategoriEl.value;
+    const koleksiyon = koleksiyonEl.value;
+    const modelKodu = modelKoduEl.value;
+    const renk = renkEl.value;
+    const stok = stokEl.value;
+    const aktif = aktifEl.checked;
+    const resim = resimEl.value;
 
     try {
       await updateDoc(doc(db, "urunler", id), { 
@@ -210,16 +214,6 @@ export default function UrunYonetimi() {
         setHataMesaji("Firestore izin hatası: Ürün güncelleme yetkisi yok. (Rules)");
       }
     }
-  };
-
-  const cikisYap = async () => {
-    try {
-      localStorage.removeItem('hatrix_admin_auth');
-    } catch {}
-    try {
-      if (auth) await signOut(auth);
-    } catch {}
-    router.push('/admin');
   };
 
   return (

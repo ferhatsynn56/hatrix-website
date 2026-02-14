@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LayoutDashboard, ShoppingBag, Package, TrendingUp, LogOut } from "lucide-react";
@@ -9,20 +9,11 @@ export default function AdminShell({ children, title }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  useEffect(() => {
+  const logout = async () => {
     try {
-      const ok = localStorage.getItem("hatrix_admin_auth") === "1";
-      if (!ok) router.push("/admin");
-    } catch {
-      router.push("/admin");
-    }
-  }, [router]);
-
-  const logout = () => {
-    try {
-      localStorage.removeItem("hatrix_admin_auth");
+      await fetch("/api/admin/logout", { method: "POST" });
     } catch {}
-    router.push("/admin");
+    router.replace("/admin");
   };
 
   const nav = [
