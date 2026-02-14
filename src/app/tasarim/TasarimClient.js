@@ -225,21 +225,27 @@ const MODEL_SELECTION_GROUPS = [
     models: ["yeni-duz-tshirt", "yeni-oversize-tshirt"],
   },
   {
-    id: "sweat",
-    title: "Sweat",
-    models: ["yeni-duz-sweat", "yeni-oversize-sweat"],
+    id: "sweatshirt",
+    title: "Sweatshirt",
+    models: ["yeni-duz-sweat", "yeni-oversize-sweat", "yeni-fermuarli", "polar-son"],
   },
   {
     id: "hoodie",
     title: "Hoodie",
     models: ["hoodie-v12-canavari", "oversize-hoodie-parcali"],
   },
-  {
-    id: "outer",
-    title: "Dış Giyim",
-    models: ["yeni-fermuarli", "polar-son"],
-  },
 ];
+
+const MODEL_SELECTION_CARD_LABELS = Object.freeze({
+  "yeni-duz-tshirt": "Klasik",
+  "yeni-oversize-tshirt": "Oversize",
+  "yeni-duz-sweat": "Klasik",
+  "yeni-oversize-sweat": "Oversize",
+  "yeni-fermuarli": "Fermuarlı Sweatshirt",
+  "polar-son": "Polar",
+  "hoodie-v12-canavari": "Klasik",
+  "oversize-hoodie-parcali": "Oversize",
+});
 
 /* ================= PRINT BOUNDS ================= */
 const MODEL_PRINT_BOUNDS = {
@@ -3291,15 +3297,157 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
       models: group.models.filter((modelType) => AVAILABLE_MODELS.includes(modelType)),
     })).filter((group) => group.models.length > 0);
   }, []);
+  const [pressedModel, setPressedModel] = useState(null);
+  const [cardTransition, setCardTransition] = useState(null);
+  const transitionLockRef = useRef(false);
+  const cardRefs = useRef({});
+  const timerRefs = useRef([]);
+  const rafRefs = useRef([]);
+
+  const clearTransitionHandles = () => {
+    timerRefs.current.forEach((id) => window.clearTimeout(id));
+    timerRefs.current = [];
+    rafRefs.current.forEach((id) => window.cancelAnimationFrame(id));
+    rafRefs.current = [];
+  };
+
+  useEffect(() => {
+    return () => {
+      clearTransitionHandles();
+      transitionLockRef.current = false;
+    };
+  }, []);
+
+  const runSelectionTransition = (modelType) => {
+    if (!modelType || transitionLockRef.current) return;
+    transitionLockRef.current = true;
+    clearTransitionHandles();
+    setPressedModel(null);
+    onSelectModel?.(modelType);
+
+    const cardEl = cardRefs.current[modelType];
+    if (!cardEl) {
+      onContinue?.(modelType);
+      transitionLockRef.current = false;
+      return;
+    }
+
+    const previewEl = cardEl.querySelector("[data-model-preview]") || cardEl;
+    const startRect = previewEl.getBoundingClientRect();
+
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+    const targetSize = Math.max(220, Math.min(viewportW * 0.78, viewportH * 0.56));
+    const targetRect = {
+      width: targetSize,
+      height: targetSize,
+      left: (viewportW - targetSize) / 2,
+      top: Math.max(72, (viewportH - targetSize) * 0.36),
+    };
+
+    let snapshotSrc = "";
+    try {
+      const canvas = previewEl.querySelector("canvas");
+      if (canvas && typeof canvas.toDataURL === "function") {
+        snapshotSrc = canvas.toDataURL("image/png");
+      }
+    } catch {
+      snapshotSrc = "";
+    }
+    if (!snapshotSrc) {
+      const img = previewEl.querySelector("img");
+      snapshotSrc = img?.src || "";
+    }
+
+    setCardTransition({
+      phase: "press-release",
+      startRect,
+      targetRect,
+      snapshotSrc,
+    });
+
+    rafRefs.current.push(
+      window.requestAnimationFrame(() => {
+        setCardTransition((prev) => (prev ? { ...prev, phase: "bump" } : prev));
+      })
+    );
+
+    timerRefs.current.push(
+      window.setTimeout(() => {
+        setCardTransition((prev) => (prev ? { ...prev, phase: "expand" } : prev));
+      }, 110)
+    );
+
+    timerRefs.current.push(
+      window.setTimeout(() => {
+        onContinue?.(modelType);
+      }, 450)
+    );
+  };
 
   return (
     <div className="h-screen overflow-y-auto bg-[#f3f5f7] text-zinc-900 px-4 py-6 md:px-8 md:py-10">
+      {cardTransition && (
+        (() => {
+          const { startRect, targetRect, snapshotSrc, phase } = cardTransition;
+          const startCenterX = startRect.left + startRect.width / 2;
+          const startCenterY = startRect.top + startRect.height / 2;
+          const targetCenterX = targetRect.left + targetRect.width / 2;
+          const targetCenterY = targetRect.top + targetRect.height / 2;
+          const dx = targetCenterX - startCenterX;
+          const dy = targetCenterY - startCenterY;
+          const sx = targetRect.width / Math.max(1, startRect.width);
+          const sy = targetRect.height / Math.max(1, startRect.height);
+          const ease = "cubic-bezier(0.22, 1, 0.36, 1)";
+
+          let transform = "translate3d(0px, 0px, 0px) scale(1)";
+          let transition = "transform 100ms cubic-bezier(0.22, 1, 0.36, 1)";
+          if (phase === "bump") {
+            transform = "translate3d(0px, 0px, 0px) scale(1.02)";
+            transition = `transform 110ms ${ease}`;
+          } else if (phase === "expand") {
+            transform = `translate3d(${dx}px, ${dy}px, 0px) scale(${sx}, ${sy})`;
+            transition = `transform 340ms ${ease}`;
+          }
+
+          return (
+            <div className="fixed inset-0 z-[140] pointer-events-none">
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: phase === "press-release" ? "rgba(16,20,28,0.00)" : "rgba(16,20,28,0.20)",
+                  transition: "background 200ms ease",
+                }}
+              />
+              <div
+                className="absolute overflow-hidden rounded-2xl border border-white/40 shadow-[0_24px_60px_rgba(0,0,0,0.28)]"
+                style={{
+                  left: `${startRect.left}px`,
+                  top: `${startRect.top}px`,
+                  width: `${startRect.width}px`,
+                  height: `${startRect.height}px`,
+                  transform,
+                  transition,
+                  transformOrigin: "center center",
+                  willChange: "transform",
+                }}
+              >
+                {snapshotSrc ? (
+                  <img src={snapshotSrc} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-[#eef1f4]" />
+                )}
+              </div>
+            </div>
+          );
+        })()
+      )}
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between gap-3 mb-6 md:mb-8">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500">Adım 1</p>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight">Model Seçim</h1>
-            <p className="text-sm text-zinc-500 mt-1">Model seçmeden tasarım ekranına geçilemez.</p>
+            <p className="text-sm text-zinc-500 mt-1">Model kartına tek dokunma ile tasarıma geçilir.</p>
           </div>
           <Link
             href="/"
@@ -3322,29 +3470,36 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
                 {group.models.map((modelType) => {
                   const active = selectedModel === modelType;
+                  const shortLabel = MODEL_SELECTION_CARD_LABELS[modelType] || MODEL_LABELS[modelType] || modelType;
                   return (
                     <button
                       key={`select-model-${modelType}`}
                       type="button"
-                      onClick={() => onSelectModel(modelType)}
-                      onDoubleClick={() => {
-                        onSelectModel(modelType);
-                        onContinue?.(modelType);
+                      ref={(el) => {
+                        if (el) cardRefs.current[modelType] = el;
                       }}
+                      onPointerDown={() => setPressedModel(modelType)}
+                      onPointerUp={() => setPressedModel((prev) => (prev === modelType ? null : prev))}
+                      onPointerLeave={() => setPressedModel((prev) => (prev === modelType ? null : prev))}
+                      onPointerCancel={() => setPressedModel((prev) => (prev === modelType ? null : prev))}
+                      onClick={() => runSelectionTransition(modelType)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          onSelectModel(modelType);
-                          onContinue?.(modelType);
+                          runSelectionTransition(modelType);
                         }
                       }}
-                      className={`w-full rounded-2xl border bg-white p-2.5 shadow-sm text-left transition ${active
+                      className={`w-full rounded-2xl border bg-white p-2.5 shadow-sm text-left transition-transform duration-150 ${active
                         ? "border-black ring-2 ring-black/70"
                         : "border-zinc-200 hover:border-zinc-400 hover:shadow-md"
                         }`}
+                      style={{
+                        transform: pressedModel === modelType ? "scale(0.97)" : "scale(1)",
+                        transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+                      }}
                       aria-pressed={active}
                     >
-                      <div className="aspect-square rounded-xl overflow-hidden border border-zinc-200 bg-[#eef1f4]">
+                      <div data-model-preview className="aspect-square rounded-xl overflow-hidden border border-zinc-200 bg-[#eef1f4]">
                         <Canvas
                           dpr={[1, 1.2]}
                           camera={{ position: [0, 0.28, 2.12], fov: 30 }}
@@ -3366,7 +3521,7 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                         </Canvas>
                       </div>
                       <p className="mt-2 text-[12px] font-black uppercase tracking-wide text-zinc-900 leading-tight">
-                        {MODEL_LABELS[modelType] || modelType}
+                        {shortLabel}
                       </p>
                     </button>
                   );
@@ -3382,7 +3537,7 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
             <span className="font-black text-zinc-900">
               {selectedModel ? MODEL_LABELS[selectedModel] || selectedModel : "Henüz seçilmedi"}
             </span>
-            <span className="ml-2 text-xs text-zinc-500">(Seçmek için karta çift tıkla)</span>
+            <span className="ml-2 text-xs text-zinc-500">(Tek dokunuşla geçiş başlar)</span>
           </p>
           <button
             type="button"
