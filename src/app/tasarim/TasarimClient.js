@@ -247,6 +247,12 @@ const MODEL_SELECTION_CARD_LABELS = Object.freeze({
   "oversize-hoodie-parcali": "Oversize",
 });
 
+const getModelGroupTitle = (modelType) => {
+  const safeType = normalizeModelType(modelType);
+  const found = MODEL_SELECTION_GROUPS.find((group) => group.models.includes(safeType));
+  return found?.title || "Model";
+};
+
 /* ================= PRINT BOUNDS ================= */
 const MODEL_PRINT_BOUNDS = {
   tshirt: {
@@ -3235,12 +3241,13 @@ function StyledTextPreview({ textState, className = "" }) {
   );
 }
 
-let modelSelectionSpinStart = 0;
-
-function ModelSelectionPreview3D({ modelType }) {
+function ModelSelectionPreview3D({ modelType, paused = false }) {
   const modelPathRaw = MODEL_PATHS[normalizeModelType(modelType)] || MODEL_PATHS[DEFAULT_MODEL_TYPE];
   const gltf = useGLTF(toSafeUrl(modelPathRaw));
   const groupRef = useRef(null);
+  const spinStartRef = useRef(0);
+  const progressRef = useRef(0);
+  const wasPausedRef = useRef(false);
   const hasSkinned = useMemo(() => {
     let found = false;
     gltf.scene.traverse((o) => {
@@ -3255,9 +3262,27 @@ function ModelSelectionPreview3D({ modelType }) {
 
   useFrame(() => {
     if (!groupRef.current) return;
-    if (!modelSelectionSpinStart) modelSelectionSpinStart = performance.now();
-    const elapsedSec = (performance.now() - modelSelectionSpinStart) / 1000;
-    groupRef.current.rotation.y = elapsedSec * 0.75;
+    const now = performance.now();
+    const cycleMs = 9000; // 8-10 saniye arasi 1 tur
+    if (!spinStartRef.current) spinStartRef.current = now;
+
+    if (paused) {
+      if (!wasPausedRef.current) {
+        const elapsed = now - spinStartRef.current;
+        progressRef.current = ((elapsed % cycleMs) + cycleMs) % cycleMs / cycleMs;
+      }
+      wasPausedRef.current = true;
+    } else {
+      if (wasPausedRef.current) {
+        spinStartRef.current = now - progressRef.current * cycleMs;
+      }
+      wasPausedRef.current = false;
+      const elapsed = now - spinStartRef.current;
+      progressRef.current = ((elapsed % cycleMs) + cycleMs) % cycleMs / cycleMs;
+    }
+
+    const easedProgress = 0.5 - 0.5 * Math.cos(Math.PI * progressRef.current);
+    groupRef.current.rotation.y = easedProgress * Math.PI * 2;
   });
 
   // Apply fabric material to review model
@@ -3360,22 +3385,22 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
     }
 
     setCardTransition({
-      phase: "press-release",
+      phase: "press",
       startRect,
       targetRect,
       snapshotSrc,
     });
 
-    rafRefs.current.push(
-      window.requestAnimationFrame(() => {
-        setCardTransition((prev) => (prev ? { ...prev, phase: "bump" } : prev));
-      })
+    timerRefs.current.push(
+      window.setTimeout(() => {
+        setCardTransition((prev) => (prev ? { ...prev, phase: "expand" } : prev));
+      }, 180)
     );
 
     timerRefs.current.push(
       window.setTimeout(() => {
-        setCardTransition((prev) => (prev ? { ...prev, phase: "expand" } : prev));
-      }, 110)
+        setCardTransition((prev) => (prev ? { ...prev, phase: "bump" } : prev));
+      }, 90)
     );
 
     timerRefs.current.push(
@@ -3386,7 +3411,7 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
   };
 
   return (
-    <div className="h-screen overflow-y-auto bg-[#f3f5f7] text-zinc-900 px-4 py-6 md:px-8 md:py-10">
+    <div className="h-screen overflow-y-auto bg-[#F7F7F7] text-zinc-900 px-4 py-6 md:px-8 md:py-10">
       {cardTransition && (
         (() => {
           const { startRect, targetRect, snapshotSrc, phase } = cardTransition;
@@ -3400,14 +3425,14 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
           const sy = targetRect.height / Math.max(1, startRect.height);
           const ease = "cubic-bezier(0.22, 1, 0.36, 1)";
 
-          let transform = "translate3d(0px, 0px, 0px) scale(1)";
-          let transition = "transform 100ms cubic-bezier(0.22, 1, 0.36, 1)";
+          let transform = "translate3d(0px, 0px, 0px) scale(0.97)";
+          let transition = "transform 90ms cubic-bezier(0.22, 1, 0.36, 1)";
           if (phase === "bump") {
             transform = "translate3d(0px, 0px, 0px) scale(1.02)";
-            transition = `transform 110ms ${ease}`;
+            transition = `transform 90ms ${ease}`;
           } else if (phase === "expand") {
             transform = `translate3d(${dx}px, ${dy}px, 0px) scale(${sx}, ${sy})`;
-            transition = `transform 340ms ${ease}`;
+            transition = `transform 270ms ${ease}`;
           }
 
           return (
@@ -3415,7 +3440,7 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
               <div
                 className="absolute inset-0"
                 style={{
-                  background: phase === "press-release" ? "rgba(16,20,28,0.00)" : "rgba(16,20,28,0.20)",
+                  background: phase === "press" ? "rgba(16,20,28,0.00)" : "rgba(16,20,28,0.20)",
                   transition: "background 200ms ease",
                 }}
               />
@@ -3489,17 +3514,17 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                           runSelectionTransition(modelType);
                         }
                       }}
-                      className={`w-full rounded-2xl border bg-white p-2.5 shadow-sm text-left transition-transform duration-150 ${active
-                        ? "border-black ring-2 ring-black/70"
-                        : "border-zinc-200 hover:border-zinc-400 hover:shadow-md"
+                      className={`w-full rounded-[16px] border bg-white p-2.5 text-left transition-transform duration-150 shadow-[0_8px_20px_rgba(15,23,42,0.08)] ${active || pressedModel === modelType
+                        ? "border-black ring-1 ring-black/40"
+                        : "border-zinc-200 hover:border-zinc-400"
                         }`}
                       style={{
-                        transform: pressedModel === modelType ? "scale(0.97)" : "scale(1)",
+                        transform: pressedModel === modelType ? "scale(1.02)" : "scale(1)",
                         transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
                       }}
                       aria-pressed={active}
                     >
-                      <div data-model-preview className="aspect-square rounded-xl overflow-hidden border border-zinc-200 bg-[#eef1f4]">
+                      <div data-model-preview className="aspect-square rounded-[14px] overflow-hidden border border-zinc-200 bg-[#F7F7F7]">
                         <Canvas
                           dpr={[1, 1.2]}
                           camera={{ position: [0, 0.28, 2.12], fov: 30 }}
@@ -3510,19 +3535,18 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                             gl.toneMappingExposure = 0.60;
                           }}
                         >
-                          <color attach="background" args={["#eef1f4"]} />
+                          <color attach="background" args={["#F7F7F7"]} />
                           <ambientLight intensity={0.45} />
                           <hemisphereLight intensity={0.15} groundColor="#252525" />
                           <directionalLight position={[4, 7, 5]} intensity={0.45} />
                           <directionalLight position={[-4, 5, -4]} intensity={0.15} />
                           <Suspense fallback={null}>
-                            <ModelSelectionPreview3D modelType={modelType} />
+                            <ModelSelectionPreview3D modelType={modelType} paused={pressedModel === modelType} />
                           </Suspense>
                         </Canvas>
                       </div>
-                      <p className="mt-2 text-[12px] font-black uppercase tracking-wide text-zinc-900 leading-tight">
-                        {shortLabel}
-                      </p>
+                      <p className="mt-2 text-[16px] md:text-[18px] font-medium text-zinc-900 leading-tight">{shortLabel}</p>
+                      <p className="mt-0.5 text-[12px] md:text-[13px] font-normal text-zinc-500">{getModelGroupTitle(modelType)}</p>
                     </button>
                   );
                 })}
@@ -3556,122 +3580,6 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
   );
 }
 
-function ModelManagementCard({
-  designs = [],
-  activeId = null,
-  onSelectModel,
-  onRemoveModel,
-  activeModelType,
-  hoodieParts,
-  onToggleHoodiePart,
-  fabricType = "supreme-24x1",
-  onChangeFabric,
-  cardClassName = "",
-}) {
-  const parts = normalizeHoodieParts(hoodieParts);
-  const showHoodieOptions = MODELS_WITH_HOODIE_PARTS.has(activeModelType);
-  const fabricOptions = getFabricOptionsForModel(activeModelType);
-  const resolvedFabricType = normalizeFabricType(fabricType, activeModelType);
-  const selectedFabric = fabricOptions.find((f) => f.id === resolvedFabricType) || fabricOptions[0];
-
-  return (
-    <div className={`rounded-xl border border-gray-200 bg-white p-2 shadow-sm min-h-[206px] ${cardClassName}`}>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[13px] font-black tracking-[0.14em] text-gray-500 uppercase">Model Yönetimi</p>
-        <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{(designs || []).length} model</p>
-      </div>
-
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {(designs || []).map((item) => {
-          const selected = item.id === activeId;
-          return (
-            <button
-              key={`model-card-${item.id}`}
-              onClick={() => onSelectModel?.(item.id)}
-              className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wide border transition ${selected
-                ? "bg-black text-white border-black"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                }`}
-            >
-              {MODEL_LABELS[item.modelType] || item.modelType}
-            </button>
-          );
-        })}
-      </div>
-
-      {showHoodieOptions && (
-        <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-2 space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-600">Hoodie Detayları</p>
-            <span className="text-[10px] font-bold text-gray-600">{getHoodieVariantLabel(parts)}</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {HOODIE_DETAIL_OPTIONS.map((opt) => {
-              const active = Boolean(parts[opt.id]);
-              return (
-                <button
-                  key={`hoodie-detail-toggle-${opt.id}`}
-                  type="button"
-                  onClick={() => onToggleHoodiePart?.(opt.id, !active)}
-                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase border transition flex items-center justify-center gap-1 ${active
-                    ? "bg-black text-white border-black"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                    }`}
-                >
-                  {active && <Check size={12} />}
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-2 space-y-1">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-[10px] font-black uppercase tracking-[0.1em] text-gray-600">Kumaş</p>
-          {selectedFabric?.label && (
-            <span className="text-[10px] font-bold text-gray-600">{selectedFabric.label}</span>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {fabricOptions.map((opt) => (
-            <button
-              key={`fabric-${opt.id}`}
-              type="button"
-              onClick={() => onChangeFabric?.(opt.id)}
-              className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase border transition ${resolvedFabricType === opt.id
-                ? "bg-black text-white border-black"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        {selectedFabric?.desc && <p className="text-[10px] leading-relaxed text-gray-500">{selectedFabric.desc}</p>}
-      </div>
-
-      {(designs || []).length > 1 && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {(designs || []).map((item) => {
-            if (item.id === activeId) return null;
-            return (
-              <button
-                key={`remove-model-${item.id}`}
-                onClick={() => onRemoveModel?.(item.id)}
-                className="px-2 py-1 rounded-md text-[10px] font-bold uppercase border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
-              >
-                Kaldır: {MODEL_LABELS[item.modelType] || item.modelType}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ================= EDITOR PANEL ================= */
 function EditorPanel({
   design,
@@ -3686,11 +3594,6 @@ function EditorPanel({
   onRequestShowEditorOverlay,
   forceShowEditorOverlay = false,
   suppressEditorInPanel = false,
-  designs = [],
-  activeId = null,
-  onSelectModel,
-  onRemoveModel,
-  onOpenModelPicker,
   onOpenCategoryMenu,
   printTypePickerSignal = 0,
 }) {
@@ -3731,25 +3634,14 @@ function EditorPanel({
   const cm = CM_LABELS[design.modelType]?.[currentSide] || { w: 0, h: 0 };
 
   const t = sideData?.customText || {};
-  const hoodieV12Parts = normalizeHoodieParts(design.hoodieV12Parts);
   const hasPdf = Boolean(design?.hasPdf && design?.pdfFileUrl);
   const pdfPlacement = normalizePdfPlacement(design?.pdfPlacement, currentSide);
-  const setHoodiePartEnabled = (partKey, enabled) => {
-    if (!["strings", "pocket"].includes(partKey)) return;
-    updateDesign({
-      hoodieV12Parts: {
-        ...hoodieV12Parts,
-        [partKey]: Boolean(enabled),
-      },
-    });
-  };
   const updatePdfPlacement = (patch) => {
     updateDesign({
       hasPdf: true,
       pdfPlacement: normalizePdfPlacement({ ...pdfPlacement, ...patch }, patch?.side || pdfPlacement.side || currentSide),
     });
   };
-  const fabricType = normalizeFabricType(design.fabricType, design.modelType);
   const setCurrentSidePrintTypes = (nextTypes) => {
     const bySide = normalizePrintTypesBySide(design.printTypesBySide, design.printTypes);
     const safeSide = currentSide === "back" ? "back" : "front";
@@ -4139,21 +4031,6 @@ function EditorPanel({
           }`}
         style={{ touchAction: "pan-y", minHeight: 0, backgroundColor: contentBackground }}
       >
-        {isDrawerLayout && activeTab !== "upload" && (
-          <ModelManagementCard
-            designs={designs}
-            activeId={activeId}
-            onSelectModel={onSelectModel}
-            onRemoveModel={onRemoveModel}
-            activeModelType={design.modelType}
-            hoodieParts={hoodieV12Parts}
-            onToggleHoodiePart={setHoodiePartEnabled}
-            fabricType={fabricType}
-            onChangeFabric={(id) => updateDesign({ fabricType: id })}
-            cardClassName={isMobileDrawer ? "w-full shrink-0" : "shrink-0 flex-[1.2] min-w-[300px] max-w-[440px] 2xl:min-w-[380px] 2xl:max-w-[620px] h-full min-h-[188px] overflow-hidden"}
-          />
-        )}
-
         {/* PRINT TYPE */}
         {activeTab === "print" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-stretch justify-start gap-2.5") : "space-y-2.5"}`}>
@@ -4178,19 +4055,7 @@ function EditorPanel({
             )}
 
             {dtfActiveForSide && (
-              <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full grid grid-cols-1 gap-2" : "w-full grid grid-cols-[minmax(320px,1.05fr)_minmax(460px,1.35fr)] gap-2") : "grid grid-cols-1 lg:grid-cols-[1.1fr_1.3fr] gap-2"}`}>
-                <ModelManagementCard
-                  designs={designs}
-                  activeId={activeId}
-                  onSelectModel={onSelectModel}
-                  onRemoveModel={onRemoveModel}
-                  activeModelType={design.modelType}
-                  hoodieParts={hoodieV12Parts}
-                  onToggleHoodiePart={setHoodiePartEnabled}
-                  fabricType={fabricType}
-                  onChangeFabric={(id) => updateDesign({ fabricType: id })}
-                />
-
+              <div className={`${isDrawerLayout ? "w-full" : "grid grid-cols-1 gap-2"}`}>
                 <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "h-full min-h-[206px]") : ""}`}>
                   <div className="flex items-center justify-between">
                     <p className={drawerHeadingClass}>Dosya</p>
@@ -4810,7 +4675,6 @@ function TasarimClientContent({ isMobile }) {
   const [hoveredId, setHoveredId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerStep, setPickerStep] = useState("root");
   const [lockAspect, setLockAspect] = useState(true);
   const [lockToast, setLockToast] = useState("");
   const [cmInputW, setCmInputW] = useState("");
@@ -5901,6 +5765,13 @@ function TasarimClientContent({ isMobile }) {
     () => (isMobile ? [HDR_ENV_MOBILE_PATH, HDR_ENV_DESKTOP_PATH] : [HDR_ENV_DESKTOP_PATH, HDR_ENV_MOBILE_PATH]),
     [isMobile]
   );
+  const pickerGroups = MODEL_SELECTION_GROUPS.map((group) => ({
+    ...group,
+    models: group.models.filter((modelType) => AVAILABLE_MODELS.includes(modelType)),
+  })).filter((group) => group.models.length > 0);
+  const selectedModelTypesSet = new Set(
+    (designs || []).map((d) => normalizeModelType(d?.modelType))
+  );
 
   const renderPanel = (
     <EditorPanel
@@ -5916,14 +5787,6 @@ function TasarimClientContent({ isMobile }) {
       onRequestShowEditorOverlay={() => setForceEditorOverlay(true)}
       forceShowEditorOverlay={forceEditorOverlay}
       suppressEditorInPanel={!isMobile && forceEditorOverlay}
-      designs={designs}
-      activeId={activeId}
-      onSelectModel={setActiveId}
-      onRemoveModel={removeModel}
-      onOpenModelPicker={() => {
-        setPickerStep("root");
-        setPickerOpen(true);
-      }}
       onOpenCategoryMenu={openDrawerMenu}
       printTypePickerSignal={printTypePickerSignal}
     />
@@ -6059,60 +5922,95 @@ function TasarimClientContent({ isMobile }) {
         {/* Model picker modal */}
         {pickerOpen && (
           <div className="absolute inset-0 z-[95] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
-            <div className="w-full max-w-md bg-[#eef1f4] border border-gray-300 rounded-2xl p-4 max-h-[80vh] overflow-y-auto shadow-2xl">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  {pickerStep !== "root" && (
-                    <button
-                      onClick={() => setPickerStep("root")}
-                      className="w-8 h-8 rounded-full border border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-800 flex items-center justify-center"
-                      title="Geri"
-                    >
-                      <span className="text-sm">←</span>
-                    </button>
-                  )}
-                  <h3 className="text-sm font-black tracking-widest uppercase text-zinc-800">Model Seç</h3>
-                </div>
-
+            <div className="w-full max-w-2xl bg-[#eef1f4] border border-gray-300 rounded-2xl p-4 max-h-[82vh] overflow-y-auto shadow-2xl">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-black tracking-widest uppercase text-zinc-800">Model Yönetimi</h3>
                 <button
                   onClick={() => {
-                    setPickerStep("root");
                     setPickerOpen(false);
                   }}
                   className="w-8 h-8 rounded-full border border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-800 flex items-center justify-center"
+                  aria-label="Model penceresini kapat"
                 >
                   <X size={16} />
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                {pickerStep === "root" &&
-                  MODEL_SELECTION_GROUPS.map((group) => (
-                    <button
-                      key={`picker-group-${group.id}`}
-                      onClick={() => setPickerStep(group.id)}
-                      className="py-3 px-2 rounded-xl bg-white hover:bg-zinc-100 border border-zinc-300 text-xs font-bold uppercase tracking-wide text-center text-zinc-800"
-                    >
-                      {group.title}
-                    </button>
-                  ))}
-
-                {pickerStep !== "root" && (
-                  <>
-                    {(MODEL_SELECTION_GROUPS.find((group) => group.id === pickerStep)?.models || []).map((modelType) => (
-                      <button
-                        key={`picker-model-${modelType}`}
-                        onClick={() => addModel(modelType)}
-                        className="py-3 px-2 rounded-xl bg-white hover:bg-zinc-100 border border-zinc-300 text-xs font-bold uppercase tracking-wide text-center text-zinc-800"
-                      >
-                        {MODEL_LABELS[modelType] || modelType}
-                      </button>
-                    ))}
-                  </>
+              <div className="rounded-xl border border-zinc-300 bg-white p-3 mb-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500 mb-2">Seçili Modeller</p>
+                {(designs || []).length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {(designs || []).map((d) => {
+                      const isActive = d.id === activeId;
+                      return (
+                        <div
+                          key={`picker-selected-${d.id}`}
+                          className={`rounded-lg border px-2.5 py-2 ${isActive ? "border-black bg-zinc-50" : "border-zinc-300 bg-white"}`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveId(d.id);
+                                setPickerOpen(false);
+                              }}
+                              className="text-left min-w-0"
+                            >
+                              <p className="text-[12px] font-bold uppercase text-zinc-800 truncate">
+                                {MODEL_SELECTION_CARD_LABELS[normalizeModelType(d.modelType)] || MODEL_LABELS[d.modelType] || d.modelType}
+                              </p>
+                              <p className="text-[11px] text-zinc-500">{getModelGroupTitle(d.modelType)}</p>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeModel(d.id)}
+                              className="w-7 h-7 rounded-full border border-red-300 bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center shrink-0"
+                              aria-label="Seçili modeli sil"
+                              title="Sil"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-zinc-500">Seçili model yok.</p>
                 )}
               </div>
 
-              <p className="text-[10px] text-zinc-500 mt-3">Tıkladığın model öne gelir, diğerleri solda yan durur.</p>
+              <div className="space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">Eklenebilecek Modeller</p>
+                {pickerGroups.map((group) => (
+                  <div key={`picker-group-full-${group.id}`} className="rounded-xl border border-zinc-300 bg-white p-3">
+                    <p className="text-[11px] font-black uppercase tracking-wide text-zinc-600 mb-2">{group.title}</p>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {group.models.map((modelType) => {
+                        const alreadyAdded = selectedModelTypesSet.has(normalizeModelType(modelType));
+                        return (
+                          <button
+                            key={`picker-add-model-${modelType}`}
+                            type="button"
+                            disabled={alreadyAdded}
+                            onClick={() => addModel(modelType)}
+                            className={`py-2 px-2 rounded-lg border text-xs font-bold uppercase tracking-wide text-center ${
+                              alreadyAdded
+                                ? "bg-zinc-100 text-zinc-400 border-zinc-200 cursor-not-allowed"
+                                : "bg-white hover:bg-zinc-100 border-zinc-300 text-zinc-800"
+                            }`}
+                          >
+                            {MODEL_SELECTION_CARD_LABELS[normalizeModelType(modelType)] || MODEL_LABELS[modelType] || modelType}
+                            <span className="block mt-0.5 text-[10px] font-normal normal-case text-zinc-500">
+                              {alreadyAdded ? "Ekli" : getModelGroupTitle(modelType)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -7253,7 +7151,6 @@ function TasarimClientContent({ isMobile }) {
                         <div className="flex items-center gap-4">
                           <button
                             onClick={() => {
-                              setPickerStep("root");
                               setPickerOpen(true);
                             }}
                             className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[11px] font-black uppercase tracking-wide shadow-sm"
@@ -7300,7 +7197,6 @@ function TasarimClientContent({ isMobile }) {
                         <div className="w-full flex items-center justify-between gap-2">
                           <button
                             onClick={() => {
-                              setPickerStep("root");
                               setPickerOpen(true);
                             }}
                             className="h-8 px-2.5 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
