@@ -3030,6 +3030,9 @@ function DesignModelItem({
   design,
   isActive,
   isHovered,
+  isSceneFocused,
+  showModelDeleteButton,
+  canDeleteModel,
   onSelect,
   onHover,
   onUnhover,
@@ -3043,6 +3046,7 @@ function DesignModelItem({
   isMobile,
   onUserRotate,
   onModelTap,
+  onDeleteModel,
 }) {
   const groupRef = useRef(null);
   const userRotRef = useRef({ x: 0, y: 0 });
@@ -3070,7 +3074,7 @@ function DesignModelItem({
     g.rotation.y = THREE.MathUtils.lerp(g.rotation.y, desiredRotY, Math.min(1, delta * 10));
     g.rotation.x = THREE.MathUtils.lerp(g.rotation.x, desiredRotX, Math.min(1, delta * 10));
 
-    const nextS = targetScale + (isHovered ? 0.06 : 0) + (isActive ? 0.05 : 0);
+    const nextS = targetScale + (isHovered ? 0.06 : 0) + (isActive ? 0.05 : 0) + (isSceneFocused ? 0.14 : 0);
     const lerped = THREE.MathUtils.lerp(g.scale.x || 1, nextS, Math.min(1, delta * 10));
     g.scale.setScalar(lerped);
   });
@@ -3168,6 +3172,35 @@ function DesignModelItem({
         frontPrintTypes={printTypesBySide.front}
         backPrintTypes={printTypesBySide.back}
       />
+      {showModelDeleteButton && (
+        <Html position={[0, 1.18, 0]} center transform distanceFactor={4.8} zIndexRange={[180, 240]}>
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (canDeleteModel) onDeleteModel?.(design.id);
+            }}
+            disabled={!canDeleteModel}
+            className={`h-9 px-3 rounded-full border text-[11px] font-black uppercase tracking-wide shadow-lg backdrop-blur-sm ${
+              canDeleteModel
+                ? "border-red-300 bg-red-600/90 text-white hover:bg-red-700/95"
+                : "border-zinc-400 bg-zinc-500/60 text-zinc-200 cursor-not-allowed"
+            }`}
+            aria-label="Modeli sil"
+            title={canDeleteModel ? "Modeli Sil" : "En az bir model kalmalı"}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Trash2 size={13} />
+              Sil
+            </span>
+          </button>
+        </Html>
+      )}
     </group>
   );
 }
@@ -4757,6 +4790,7 @@ function TasarimClientContent({ isMobile }) {
   const [sceneFrameMode, setSceneFrameMode] = useState("resize");
   const [sceneTextSelectionVisible, setSceneTextSelectionVisible] = useState(false);
   const [sceneTextFrameMode, setSceneTextFrameMode] = useState("resize");
+  const [sceneModelSelectionId, setSceneModelSelectionId] = useState(null);
   const [showPlacementPanel, setShowPlacementPanel] = useState(false);
   const [scenePlaneRect, setScenePlaneRect] = useState(null);
   const logoCountTrackRef = useRef({});
@@ -4834,7 +4868,10 @@ function TasarimClientContent({ isMobile }) {
   const showSceneTextFrame = Boolean(sceneTextSelectionVisible && hasSceneText);
 
   useEffect(() => {
-    clearSceneSelection();
+    setSceneSelectionVisible(false);
+    setSceneTextSelectionVisible(false);
+    setSceneFrameMode("resize");
+    setSceneTextFrameMode("resize");
   }, [activeId, currentSide]);
 
   useEffect(() => {
@@ -4844,7 +4881,10 @@ function TasarimClientContent({ isMobile }) {
     logoCountTrackRef.current[key] = nextCount;
     if (typeof prevCount === "number" && prevCount !== nextCount) {
       // Yeni görsel eklendiğinde çerçeve otomatik açılmasın.
-      clearSceneSelection();
+      setSceneSelectionVisible(false);
+      setSceneTextSelectionVisible(false);
+      setSceneFrameMode("resize");
+      setSceneTextFrameMode("resize");
     }
   }, [activeId, currentSide, logos.length]);
 
@@ -4911,6 +4951,7 @@ function TasarimClientContent({ isMobile }) {
     setSceneTextSelectionVisible(false);
     setSceneFrameMode("resize");
     setSceneTextFrameMode("resize");
+    setSceneModelSelectionId(null);
   };
 
   const handleDeleteActiveImage = () => {
@@ -4922,17 +4963,13 @@ function TasarimClientContent({ isMobile }) {
   };
 
   const handleSceneModelTap = (designId) => {
-    if (designId !== activeId) return;
+    if (!designId) return;
     if (activeTab !== "editor") {
-      if (activeTab === "text" && hasSceneText) {
-        setEditorControlTab("text");
-        setSceneTextSelectionVisible(true);
-        setSceneTextFrameMode("resize");
-        setSceneSelectionVisible(false);
-        setActiveTab("editor");
-      }
+      setSceneModelSelectionId((prev) => (prev === designId ? null : designId));
       return;
     }
+    setSceneModelSelectionId(null);
+    if (designId !== activeId) return;
     if (showPlacementPanel) return;
 
     const preferText = editorControlTab === "text" || rubberActiveForSide;
@@ -4955,6 +4992,12 @@ function TasarimClientContent({ isMobile }) {
       setSceneTextFrameMode("resize");
       setSceneSelectionVisible(false);
     }
+  };
+
+  const handleDeleteSceneModel = (designId) => {
+    if (!designId) return;
+    setSceneModelSelectionId((prev) => (prev === designId ? null : prev));
+    removeModel(designId);
   };
 
   const setActiveLogoLayer = (layer) => {
@@ -5982,7 +6025,7 @@ function TasarimClientContent({ isMobile }) {
           <div className="absolute inset-0 z-[95] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
             <div className="w-full max-w-2xl bg-[#eef1f4] border border-gray-300 rounded-2xl p-4 max-h-[82vh] overflow-y-auto shadow-2xl">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-black tracking-widest uppercase text-zinc-800">Model Yönetimi</h3>
+                <h3 className="text-sm font-black tracking-widest uppercase text-zinc-800">Model Ekle</h3>
                 <button
                   onClick={() => {
                     setPickerOpen(false);
@@ -5992,50 +6035,6 @@ function TasarimClientContent({ isMobile }) {
                 >
                   <X size={16} />
                 </button>
-              </div>
-
-              <div className="rounded-xl border border-zinc-300 bg-white p-3 mb-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500 mb-2">Seçili Modeller</p>
-                {(designs || []).length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {(designs || []).map((d) => {
-                      const isActive = d.id === activeId;
-                      return (
-                        <div
-                          key={`picker-selected-${d.id}`}
-                          className={`rounded-lg border px-2.5 py-2 ${isActive ? "border-black bg-zinc-50" : "border-zinc-300 bg-white"}`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveId(d.id);
-                                setPickerOpen(false);
-                              }}
-                              className="text-left min-w-0"
-                            >
-                              <p className="text-[12px] font-bold uppercase text-zinc-800 truncate">
-                                {MODEL_SELECTION_CARD_LABELS[normalizeModelType(d.modelType)] || MODEL_LABELS[d.modelType] || d.modelType}
-                              </p>
-                              <p className="text-[11px] text-zinc-500">{getModelGroupTitle(d.modelType)}</p>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeModel(d.id)}
-                              className="w-7 h-7 rounded-full border border-red-300 bg-red-50 text-red-600 hover:bg-red-100 flex items-center justify-center shrink-0"
-                              aria-label="Seçili modeli sil"
-                              title="Sil"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-xs text-zinc-500">Seçili model yok.</p>
-                )}
               </div>
 
               <div className="space-y-3">
@@ -6844,6 +6843,9 @@ function TasarimClientContent({ isMobile }) {
                       design={design}
                       isActive={design.id === activeId}
                       isHovered={design.id === hoveredId}
+                      isSceneFocused={sceneModelSelectionId === design.id}
+                      showModelDeleteButton={activeTab !== "editor" && sceneModelSelectionId === design.id}
+                      canDeleteModel={designs.length > 1}
                       onSelect={setActiveId}
                       onHover={setHoveredId}
                       onUnhover={() => setHoveredId(null)}
@@ -6857,6 +6859,7 @@ function TasarimClientContent({ isMobile }) {
                       isMobile={isMobile}
                       onUserRotate={handleModelUserRotate}
                       onModelTap={handleSceneModelTap}
+                      onDeleteModel={handleDeleteSceneModel}
                     />
                   );
                 })}
