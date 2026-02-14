@@ -191,12 +191,12 @@ const AVAILABLE_MODELS = [
 ];
 
 const MODEL_LABELS = {
-  tshirt: "Normal Tişört",
+  tshirt: "Normal Tshirt",
   sweatshirt: "Normal Sweat",
   "sweat-yeni": "Yeni Sweat",
   "sweat-deneme": "Deneme Sweat",
-  "oversize-tshirt": "Oversize Tişört",
-  "oversize-tshirt-efektli": "Oversize Tişört Efektli",
+  "oversize-tshirt": "Oversize Tshirt",
+  "oversize-tshirt-efektli": "Oversize Tshirt Efektli",
   "oversize-sweat": "Oversize Sweat",
   hoodie: "Hoodie",
   "hoodie-ipli": "Hoodie İpli",
@@ -211,8 +211,8 @@ const MODEL_LABELS = {
   fermuarli: "Fermuarlı",
   polar: "Polar",
   "polar-son": "Polar Son",
-  "yeni-duz-tshirt": "Yeni Düz Tişört",
-  "yeni-oversize-tshirt": "Yeni Oversize Tişört",
+  "yeni-duz-tshirt": "Yeni Düz Tshirt",
+  "yeni-oversize-tshirt": "Yeni Oversize Tshirt",
   "yeni-duz-sweat": "Yeni Düz Sweat",
   "yeni-oversize-sweat": "Yeni Oversize Sweat",
   "yeni-fermuarli": "Yeni Fermuarlı",
@@ -221,7 +221,7 @@ const MODEL_LABELS = {
 const MODEL_SELECTION_GROUPS = [
   {
     id: "tisort",
-    title: "Tişört",
+    title: "Tshirt",
     models: ["yeni-duz-tshirt", "yeni-oversize-tshirt"],
   },
   {
@@ -566,7 +566,7 @@ const TEXT_LAYOUT_OPTIONS = [
 ];
 
 const HDR_ENV_DESKTOP_PATH = "/hdr/white_studio_06_4k.exr";
-const HDR_ENV_MOBILE_PATH = "/hdr/studio_small_03_2k.exr";
+const HDR_ENV_MOBILE_PATH = "/hdr/white_studio_06_4k.exr";
 const RUBBER_GLYPH_MODEL_PATH = `${NEW_MODELS_ROOT}/Harfler-isaretler.glb`;
 const HDR_SOURCE_CACHE = new Map();
 
@@ -3385,7 +3385,7 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
       timerRefs.current.push(
         window.setTimeout(() => {
           onContinue?.(modelType);
-        }, 680)
+        }, 560)
       );
       return;
     }
@@ -3427,20 +3427,20 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
     timerRefs.current.push(
       window.setTimeout(() => {
         setCardTransition((prev) => (prev ? { ...prev, phase: "expand" } : prev));
-      }, 150)
+      }, 110)
     );
 
     timerRefs.current.push(
       window.setTimeout(() => {
         onContinue?.(modelType);
-      }, 680)
+      }, 560)
     );
 
     timerRefs.current.push(
       window.setTimeout(() => {
         transitionLockRef.current = false;
         setCardTransition(null);
-      }, 950)
+      }, 760)
     );
   };
 
@@ -3461,10 +3461,10 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
 
           const isExpand = phase === "expand";
           let transform = "translate3d(0px, 0px, 0px) scale(1.04)";
-          let transition = `transform 150ms ${ease}`;
+          let transition = `transform 110ms ${ease}`;
           if (isExpand) {
             transform = `translate3d(${dx}px, ${dy}px, 0px) scale(${sx}, ${sy})`;
-            transition = `transform 500ms ${ease}`;
+            transition = `transform 380ms ${ease}`;
           }
           const cardRadius = isExpand ? "0px" : "20px";
           const cardShadow = isExpand
@@ -3479,7 +3479,7 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                 style={{
                   background: "rgba(16,20,28,0.18)",
                   backdropFilter: "blur(4px)",
-                  transition: `opacity 200ms ${ease}, backdrop-filter 200ms ${ease}`,
+                  transition: `opacity 160ms ${ease}, backdrop-filter 160ms ${ease}`,
                 }}
               />
 
@@ -3488,7 +3488,7 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                 style={{
                   opacity: isExpand ? 1 : 0,
                   transform: isExpand ? "translateY(0px)" : "translateY(-12px)",
-                  transition: `opacity 300ms ${ease} 200ms, transform 300ms ${ease} 200ms`,
+                  transition: `opacity 220ms ${ease} 120ms, transform 220ms ${ease} 120ms`,
                 }}
               >
                 <div className="h-[72px] mt-3 rounded-2xl border border-white/35 bg-white/75 backdrop-blur-sm shadow-[0_10px_24px_rgba(0,0,0,0.12)]" />
@@ -3499,7 +3499,7 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                 style={{
                   opacity: isExpand ? 1 : 0,
                   transform: isExpand ? "translateY(0px)" : "translateY(40px)",
-                  transition: `opacity 320ms ${ease} 200ms, transform 320ms ${ease} 200ms`,
+                  transition: `opacity 240ms ${ease} 120ms, transform 240ms ${ease} 120ms`,
                 }}
               >
                 <div className="h-[190px] rounded-3xl border border-white/35 bg-white/82 backdrop-blur-sm shadow-[0_-10px_24px_rgba(0,0,0,0.14)]" />
@@ -3529,7 +3529,7 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                     style={{
                       transform: imageTransform,
                       transformOrigin: "center center",
-                      transition: `transform 500ms ${ease}`,
+                      transition: `transform 380ms ${ease}`,
                     }}
                   />
                 ) : (
@@ -3608,7 +3608,7 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                         transform: `scale(${cardScale})`,
                         opacity: cardOpacity,
                         boxShadow: cardShadow,
-                        transition: "transform 150ms cubic-bezier(0.22, 1, 0.36, 1), opacity 150ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 150ms cubic-bezier(0.22, 1, 0.36, 1), border-color 150ms cubic-bezier(0.22, 1, 0.36, 1)",
+                        transition: "transform 110ms cubic-bezier(0.22, 1, 0.36, 1), opacity 110ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 110ms cubic-bezier(0.22, 1, 0.36, 1), border-color 110ms cubic-bezier(0.22, 1, 0.36, 1)",
                       }}
                       aria-pressed={active}
                     >
