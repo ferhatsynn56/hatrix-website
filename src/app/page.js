@@ -61,6 +61,213 @@ const HOME_CATEGORY_IMAGES_800x800 = {
     sweatshirt: "/urungorsel/800x800/11ss.jpg",
 };
 
+const APPLE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+const FLOW_TOKENS = {
+    "--s-2": "8px",
+    "--s-3": "12px",
+    "--s-4": "16px",
+    "--s-6": "24px",
+    "--s-8": "32px",
+    "--s-10": "40px",
+    "--s-12": "48px",
+    "--bottom-nav-height": "72px",
+    "--top-banner-height": "0px",
+};
+
+function SegmentToggle({ aktifBolum, onSelect }) {
+    return (
+        <div
+            className="fixed left-4 sm:left-6 md:left-8 z-40 w-40 sm:w-48"
+            style={{
+                transform: "translateZ(0)",
+                top: "calc(var(--top-banner-height, 0px) + env(safe-area-inset-top) + 12px)",
+            }}
+        >
+            <div className="relative bg-black/80 backdrop-blur-xl rounded-full p-1 border border-zinc-700 shadow-2xl flex w-full">
+                <div className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-full transition-all duration-300 ${aktifBolum === 'steni' ? 'left-1' : 'left-[calc(50%+2px)]'}`}></div>
+                <button onClick={() => onSelect('steni')} className={`min-h-[44px] flex-1 relative z-10 py-1.5 text-[9px] sm:text-[10px] font-black tracking-widest transition-colors duration-300 rounded-full ${aktifBolum === 'steni' ? 'text-black' : 'text-zinc-400 hover:text-white'}`}>STENI</button>
+                <button onClick={() => onSelect('ozel')} className={`min-h-[44px] flex-1 relative z-10 py-1.5 text-[9px] sm:text-[10px] font-black tracking-widest transition-colors duration-300 rounded-full ${aktifBolum === 'ozel' ? 'text-black' : 'text-zinc-400 hover:text-white'}`}>ÖZEL</button>
+            </div>
+        </div>
+    );
+}
+
+function HeroSection() {
+    return (
+        <section className="relative overflow-hidden border-b border-zinc-900" style={{ padding: "calc(var(--s-12) + env(safe-area-inset-top)) var(--s-4) var(--s-10)" }}>
+            <div className="absolute inset-0">
+                <video autoPlay loop muted playsInline className="w-full h-full object-cover opacity-45" src="https://videos.pexels.com/video-files/3163534/3163534-uhd_2560_1440_30fps.mp4" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/45 to-black/92" />
+            </div>
+            <div className="relative z-10 max-w-[760px] mx-auto">
+                <div className="inline-flex items-center min-h-[44px] px-4 rounded-full border border-white/20 bg-black/35 backdrop-blur mb-4">
+                    <span className="text-[11px] font-black uppercase tracking-[0.18em] text-white/90">Interactive Studio</span>
+                </div>
+                <h1 className="text-[42px] sm:text-[56px] md:text-[76px] font-black leading-[0.9] tracking-tight text-white">DESIGN YOURSELF</h1>
+                <p className="text-white/90 text-sm sm:text-base max-w-xl mt-4">Modelini seç, tasarımını üretime hazırla.</p>
+                <a
+                    href="/tasarim"
+                    className="inline-flex items-center justify-center min-h-[48px] mt-6 px-7 rounded-full bg-white text-black text-xs font-black uppercase tracking-[0.16em] shadow-[0_14px_32px_rgba(0,0,0,0.35)] active:scale-[0.985] transition-transform duration-150"
+                    style={{ transitionTimingFunction: APPLE_EASE }}
+                >
+                    Tasarıma Başla
+                </a>
+            </div>
+        </section>
+    );
+}
+
+function StepCard({ index, title, desc, Icon }) {
+    return (
+        <article
+            className="rounded-2xl border border-zinc-800 bg-zinc-950/90 shadow-[0_12px_32px_rgba(0,0,0,0.28)] active:scale-[0.985] transition-transform duration-150"
+            style={{ transitionTimingFunction: APPLE_EASE, padding: "var(--s-6)" }}
+        >
+            <div className="w-11 h-11 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4">
+                <Icon size={20} className="text-zinc-100" />
+            </div>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-zinc-500 mb-1">{index}. Adım</p>
+            <h3 className="text-white font-black text-lg leading-tight">{title}</h3>
+            <p className="text-sm mt-2 leading-relaxed text-white/90">{desc}</p>
+        </article>
+    );
+}
+
+function TrustItem({ title, desc, Icon }) {
+    return (
+        <div
+            className="rounded-2xl border border-zinc-800 bg-zinc-950/90 shadow-[0_10px_26px_rgba(0,0,0,0.25)]"
+            style={{ padding: "var(--s-4)" }}
+        >
+            <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3">
+                <Icon size={18} className="text-zinc-100" />
+            </div>
+            <h4 className="text-white font-black text-sm tracking-wide uppercase">{title}</h4>
+            <p className="text-xs mt-2 leading-relaxed text-white/90">{desc}</p>
+        </div>
+    );
+}
+
+function CommunityGrid() {
+    const cards = [
+        "https://images.unsplash.com/photo-1503341504253-dff4815485f1?q=80&w=900&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1503342394128-c104d54dba01?q=80&w=900&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1529374255404-311a2a4f1fd9?q=80&w=900&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?q=80&w=900&auto=format&fit=crop",
+    ];
+    return (
+        <div className="grid grid-cols-2 gap-3">
+            {cards.map((src, i) => (
+                <div key={`community-${i}`} className="aspect-square rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950">
+                    <img src={src} alt={`Topluluk tasarım ${i + 1}`} className="w-full h-full object-cover" />
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function FooterGroup({ title, children }) {
+    return (
+        <div className="space-y-3">
+            <h4 className="text-[11px] uppercase tracking-[0.16em] text-zinc-500 font-black">{title}</h4>
+            {children}
+        </div>
+    );
+}
+
+function BottomNav() {
+    return (
+        <nav
+            className="fixed left-0 right-0 bottom-0 z-40 border-t border-zinc-800 bg-black/92 backdrop-blur-xl"
+            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        >
+            <div className="max-w-[760px] mx-auto grid grid-cols-3 gap-2 px-4 py-3">
+                <a href="/tasarim" className="min-h-[44px] rounded-full bg-white text-black text-[11px] font-black tracking-wide uppercase flex items-center justify-center active:scale-[0.985] transition-transform duration-150" style={{ transitionTimingFunction: APPLE_EASE }}>
+                    Tasarıma Başla
+                </a>
+                <a href="/bilimsel" className="min-h-[44px] rounded-full border border-zinc-700 text-white/90 text-[11px] font-bold uppercase flex items-center justify-center active:scale-[0.985] transition-transform duration-150" style={{ transitionTimingFunction: APPLE_EASE }}>
+                    Bilimsel
+                </a>
+                <a href="/hakkimizda" className="min-h-[44px] rounded-full border border-zinc-700 text-white/90 text-[11px] font-bold uppercase flex items-center justify-center active:scale-[0.985] transition-transform duration-150" style={{ transitionTimingFunction: APPLE_EASE }}>
+                    Destek
+                </a>
+            </div>
+        </nav>
+    );
+}
+
+function OzelPremiumFlow() {
+    return (
+        <div style={FLOW_TOKENS} className="bg-[#050608]">
+            <main style={{ paddingBottom: "calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 16px)" }}>
+                <HeroSection />
+
+                <section className="max-w-[760px] mx-auto" style={{ padding: "var(--s-10) var(--s-4)" }}>
+                    <h2 className="text-white font-black text-[24px] sm:text-[30px] leading-tight">3 adımda özel üretim</h2>
+                    <div className="grid gap-3 mt-4">
+                        <StepCard index={1} title="Ürününü Seç" desc="Tshirt, Sweatshirt, Hoodie veya Polar modelini seç." Icon={MousePointer2} />
+                        <StepCard index={2} title="Tasarımını Oluştur" desc="Yazı, baskı ve renk ayarlarını 3D sahnede düzenle." Icon={PenTool} />
+                        <StepCard index={3} title="Kaydet & Sipariş Ver" desc="Son görünümü onayla, siparişini güvenle tamamla." Icon={Download} />
+                    </div>
+                </section>
+
+                <section className="border-y border-zinc-900 bg-black/60">
+                    <div className="max-w-[760px] mx-auto" style={{ padding: "var(--s-8) var(--s-4)" }}>
+                        <h3 className="text-white font-black text-[22px] sm:text-[26px]">Neden STENI Custom?</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+                            <TrustItem title="Ücretsiz Kargo" desc="1500 TL üzeri alışverişlerde ücretsiz gönderim." Icon={Truck} />
+                            <TrustItem title="Kolay İade" desc="14 gün içinde kolay ve hızlı iade süreci." Icon={RotateCcw} />
+                            <TrustItem title="Güvenli Ödeme" desc="Iyzico altyapısı ile güvenli ödeme deneyimi." Icon={ShieldCheck} />
+                        </div>
+                    </div>
+                </section>
+
+                <section className="max-w-[760px] mx-auto" style={{ padding: "var(--s-10) var(--s-4)" }}>
+                    <div className="flex items-end justify-between gap-3 mb-4">
+                        <h3 className="text-white font-black text-[22px] sm:text-[26px] leading-tight">Topluluk Tasarımları</h3>
+                        <a href="/tasarim" className="text-xs uppercase tracking-[0.14em] text-white/90 font-bold">Keşfet →</a>
+                    </div>
+                    <CommunityGrid />
+                </section>
+
+                <footer className="border-t border-zinc-900 bg-black/80">
+                    <div className="max-w-[760px] mx-auto grid grid-cols-1 sm:grid-cols-2 gap-6" style={{ padding: "var(--s-8) var(--s-4) var(--s-12)" }}>
+                        <FooterGroup title="Müşteri Hizmetleri">
+                            <div className="space-y-2 text-sm text-white/90">
+                                <a href="#" className="block">Bize Ulaşın</a>
+                                <a href="#" className="block">İade ve Değişim</a>
+                            </div>
+                        </FooterGroup>
+                        <FooterGroup title="Şirket">
+                            <div className="space-y-2 text-sm text-white/90">
+                                <a href="/hakkimizda" className="block">Hakkımızda</a>
+                                <a href="/bilimsel" className="block">Bilimsel</a>
+                            </div>
+                        </FooterGroup>
+                        <FooterGroup title="Sosyal">
+                            <div className="flex gap-4 text-sm text-white/90">
+                                <a href="#">Instagram</a>
+                                <a href="#">Youtube</a>
+                                <a href="#">X</a>
+                            </div>
+                        </FooterGroup>
+                        <FooterGroup title="Bülten">
+                            <p className="text-sm text-white/90">Yeni koleksiyonlardan ilk sen haberdar ol.</p>
+                            <form className="flex items-center gap-2">
+                                <input type="email" placeholder="E-posta" className="min-h-[44px] flex-1 rounded-xl bg-zinc-950 border border-zinc-700 px-3 text-white placeholder:text-zinc-500" />
+                                <button type="button" className="min-h-[44px] px-4 rounded-xl bg-white text-black text-xs font-black uppercase tracking-wide active:scale-[0.985] transition-transform duration-150" style={{ transitionTimingFunction: APPLE_EASE }}>
+                                    Kayıt Ol
+                                </button>
+                            </form>
+                        </FooterGroup>
+                    </div>
+                </footer>
+            </main>
+            <BottomNav />
+        </div>
+    );
+}
+
 export default function HomePage() {
     const router = useRouter();
 
@@ -310,13 +517,8 @@ export default function HomePage() {
             
             <Navbar />
 
-            {/* --- SWITCHER --- */}
-            <div className="fixed top-16 sm:top-20 left-4 sm:left-6 md:left-8 z-40 animate-in fade-in slide-in-from-left-4 duration-700 delay-500 w-40 sm:w-48">
-                <div className="bg-black/80 backdrop-blur-xl rounded-full p-1 border border-zinc-700 shadow-2xl flex w-full">
-                    <div className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-full transition-all duration-300 shadow-sm ${aktifBolum === 'steni' ? 'left-1' : 'left-[calc(50%+2px)]'}`}></div>
-                    <button onClick={() => bolumSec('steni')} className={`flex-1 relative z-10 py-1.5 text-[9px] sm:text-[10px] font-black tracking-widest transition-colors duration-300 rounded-full ${aktifBolum === 'steni' ? 'text-black' : 'text-zinc-400 hover:text-white'}`}>STENI</button>
-                    <button onClick={() => bolumSec('ozel')} className={`flex-1 relative z-10 py-1.5 text-[9px] sm:text-[10px] font-black tracking-widest transition-colors duration-300 rounded-full ${aktifBolum === 'ozel' ? 'text-black' : 'text-zinc-400 hover:text-white'}`}>ÖZEL</button>
-                </div>
+            <div className="animate-in fade-in slide-in-from-left-4 duration-700 delay-500">
+                <SegmentToggle aktifBolum={aktifBolum} onSelect={bolumSec} />
             </div>
 
             {/*
@@ -473,119 +675,13 @@ export default function HomePage() {
                 {/* ================= ÖZEL BÖLÜMÜ (3D TASARIM) ================= */}
                 {aktifBolum === 'ozel' && (
                     <div className="animate-in fade-in duration-700">
-                        {/* 1. VIDEO BANNER */}
-                        <header className="relative h-[70svh] sm:h-[82svh] md:h-screen w-full overflow-hidden bg-black">
-                            <div className="absolute inset-0">
-                                <video autoPlay loop muted playsInline className="w-full h-full object-cover opacity-60" src="https://videos.pexels.com/video-files/3163534/3163534-uhd_2560_1440_30fps.mp4" />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/60"></div>
-                            </div>
-                            <div className="absolute inset-0 flex flex-col justify-center items-center text-center px-6 pt-20 z-10">
-                                <div className="border border-white/30 backdrop-blur-md px-6 py-2 rounded-full mb-8 animate-in fade-in slide-in-from-top-4">
-                                    <span className="text-xs font-bold uppercase tracking-[0.3em] text-white">Interactive Studio</span>
-                                </div>
-                                <h1 className="text-4xl sm:text-5xl md:text-[8rem] font-black tracking-tighter text-white leading-[0.9] mb-6 animate-in zoom-in duration-1000">
-                                    DESIGN<br />YOURSELF
-                                </h1>
-                                <p className="text-zinc-300 text-sm md:text-lg max-w-xl font-light tracking-wide mb-10 animate-in fade-in delay-300">
-                                    Sınırları kaldır. Kendi koleksiyonunu tasarla ve anında üretime gönder.
-                                </p>
-                                <a href="/tasarim">
-                                    <button className="w-full sm:w-auto bg-red-600 text-white px-8 sm:px-10 py-3.5 sm:py-4 font-black text-xs uppercase tracking-[0.2em] hover:bg-white hover:text-red-600 transition duration-300 rounded-full shadow-[0_0_20px_rgba(220,38,38,0.5)]">
-                                            Stüdyoyu Başlat
-                                    </button>
-                                </a>
-                            </div>
-                        </header>
-
-                        {/* 2. NASIL ÇALIŞIR? */}
-                        <section className="bg-black py-20 border-b border-zinc-900">
-                            <div className="container mx-auto px-6">
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
-                                    <div className="group">
-                                        <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-white transition duration-500">
-                                            <MousePointer2 size={32} className="text-white group-hover:text-black transition" />
-                                        </div>
-                                        <h3 className="text-xl font-black uppercase tracking-tight mb-2">1. Ürününü Seç</h3>
-                                        <p className="text-zinc-500 text-xs leading-relaxed">T-Shirt, Hoodie veya ikonik Hatrix. Başlamak için tuvali belirle.</p>
-                                    </div>
-                                    <div className="group">
-                                        <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-red-600 transition duration-500">
-                                            <PenTool size={32} className="text-white transition" />
-                                        </div>
-                                        <h3 className="text-xl font-black uppercase tracking-tight mb-2">2. Tasarla</h3>
-                                        <p className="text-zinc-500 text-xs leading-relaxed">Renkleri değiştir, desen ekle, yazı yaz. Tamamen sana özel.</p>
-                                    </div>
-                                    <div className="group">
-                                        <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-blue-600 transition duration-500">
-                                            <Download size={32} className="text-white transition" />
-                                        </div>
-                                        <h3 className="text-xl font-black uppercase tracking-tight mb-2">3. Kaydet & Al</h3>
-                                        <p className="text-zinc-500 text-xs leading-relaxed">Tasarımını 3D önizle, kaydet ve sipariş ver. Kapına gelsin.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-
-                        {/* 3. TOPLULUK TASARIMLARI */}
-                        <section className="bg-zinc-950 py-20">
-                            <div className="container mx-auto px-6 mb-12 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
-                                <div>
-                                    <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tighter text-white">Topluluk<br />Tasarimları</h2>
-                                </div>
-                                <button className="text-xs font-bold uppercase tracking-widest text-zinc-500 hover:text-white transition flex items-center gap-2">Tümünü Gör <ArrowRight size={14} /></button>
-                            </div>
-                            <div className="w-full overflow-hidden">
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-1">
-                                    <div className="aspect-square bg-zinc-900 relative group overflow-hidden">
-                                        <img src="https://images.unsplash.com/photo-1503341504253-dff4815485f1?q=80&w=800&auto=format&fit=crop" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500" />
-                                    </div>
-                                    <div className="aspect-square bg-zinc-900 relative group overflow-hidden">
-                                        <img src="https://images.unsplash.com/photo-1503342394128-c104d54dba01?q=80&w=800&auto=format&fit=crop" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500" />
-                                    </div>
-                                    <div className="aspect-square bg-zinc-900 relative group overflow-hidden">
-                                        <img src="https://images.unsplash.com/photo-1529374255404-311a2a4f1fd9?q=80&w=800&auto=format&fit=crop" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500" />
-                                    </div>
-                                    <div className="aspect-square bg-zinc-900 relative group overflow-hidden">
-                                        <img src="https://images.unsplash.com/photo-1523381210434-271e8be1f52b?q=80&w=800&auto=format&fit=crop" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500" />
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-
-                        {/* 4. HATRIX */}
-                        <section className="bg-black py-32 relative overflow-hidden border-t border-zinc-900">
-                            <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-red-900/10 to-transparent"></div>
-                            <div className="container mx-auto px-6 relative z-10 flex flex-col md:flex-row items-center gap-16">
-                                <div className="md:w-1/2">
-                                    <div className="flex items-center gap-2 text-red-500 mb-6 font-bold uppercase tracking-widest text-xs animate-pulse">
-                                        <Sparkles size={16} /> Best Seller
-                                    </div>
-                                    <h2 className="text-4xl sm:text-5xl md:text-8xl font-black text-white uppercase tracking-tighter leading-[0.9] mb-8">
-                                        İKONİK<br />ÜRÜN:<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-600">HATRIX.</span>
-                                    </h2>
-                                    <p className="text-zinc-400 text-lg max-w-md mb-10 leading-relaxed">
-                                        Arabanızın aynası için tasarladığımız, dünyanın en detaylı mini T-Shirt aksesuarı.
-                                    </p>
-                                    <div className="flex gap-4">
-                                        <a href="/tasarim?tip=mini" className="bg-white text-black px-8 py-4 font-black text-xs uppercase tracking-widest hover:bg-zinc-200 transition rounded-full">
-                                            Hatrix Tasarla
-                                        </a>
-                                        <a href="/tum-urunler?kategori=aksesuar" className="border border-zinc-700 text-white px-8 py-4 font-black text-xs uppercase tracking-widest hover:border-white transition rounded-full">
-                                            Koleksiyonu Gör
-                                        </a>
-                                    </div>
-                                </div>
-                                <div className="md:w-1/2 relative">
-                                    <div className="aspect-[4/5] w-full bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 shadow-2xl relative group">
-                                        <img src="https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=1200&auto=format&fit=crop" className="w-full h-full object-cover transition duration-700 group-hover:scale-105" />
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
+                        <OzelPremiumFlow />
                     </div>
                 )}
 
                 {/* ✅ ORTAK FOOTER & TRUST BADGES */}
+                {aktifBolum !== 'ozel' && (
+                <>
                 <section className="bg-zinc-900 border-t border-zinc-800 py-16 relative z-10">
                     <div className="container mx-auto px-6">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
@@ -651,6 +747,8 @@ export default function HomePage() {
                         <p>© 2025 STENIST. Tüm hakları saklıdır.</p>
                     </div>
                 </footer>
+                </>
+                )}
 
                 {/* BİLİMSEL MODAL (GÜNCELLENDİ) */}
                 {bilimselAcik && (
