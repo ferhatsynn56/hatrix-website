@@ -3,9 +3,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-    ArrowRight, ShoppingBag, Play, Instagram, Twitter, Youtube, 
+    ArrowRight,
     MousePointer2, PenTool, Download, Truck, RotateCcw, ShieldCheck, 
-    Sparkles, Beaker, X, Printer, Layers, Palette, ChevronLeft, ChevronRight
+    Beaker, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 
@@ -36,21 +36,21 @@ try {
 const HOME_HERO_SLIDES_1920x850 = [
     {
         src: "/urungorsel/1920x850/Start-ana-ekran.jpg",
-        kicker: "YENİ KOLEKSİYON",
+        kicker: "LIMITED DROP",
         title: "START",
-        subtitle: "Street-ready parçalar. Yeni sezonun en net hali.",
+        subtitle: "Temiz siluet, premium kumaş, sınırlı stok.",
     },
     {
         src: "/urungorsel/1920x850/Start-ana-ekranv2.jpg",
-        kicker: "YENİ KOLEKSİYON",
+        kicker: "SMALL BATCH PRODUCTION",
         title: "START V2",
-        subtitle: "Minimal çizgi, maksimum duruş.",
+        subtitle: "Minimal çizgi, yüksek işçilik.",
     },
     {
         src: "/urungorsel/1920x850/concept-black-hoodie-front-v2.jpg",
-        kicker: "CONCEPT",
+        kicker: "SIGNATURE PRINT SERIES",
         title: "BLACK HOODIE",
-        subtitle: "Sokak stili için ağır kumaş, temiz silhouette.",
+        subtitle: "Uzun ömürlü baskı, premium dokunuş.",
     },
 ];
 
@@ -71,8 +71,30 @@ const FLOW_TOKENS = {
     "--s-10": "40px",
     "--s-12": "48px",
     "--bottom-nav-height": "72px",
-    "--top-banner-height": "0px",
+    "--top-banner-height": "36px",
 };
+
+const STENI_CATEGORY_CARDS = [
+    { key: "tshirt", name: "T-SHIRT", label: "Günlük premium", href: "/tum-urunler?kategori=tshirt" },
+    { key: "hoodie", name: "HOODIE", label: "Soğuk hava seçimi", href: "/tum-urunler?kategori=hoodie" },
+    { key: "sweatshirt", name: "SWEATSHIRT", label: "Clean street layer", href: "/tum-urunler?kategori=sweatshirt" },
+    { key: "aksesuar", name: "AKSESUAR", label: "Tamamlayıcı parça", href: "/tum-urunler?kategori=aksesuar" },
+];
+
+function AnnouncementBar() {
+    return (
+        <div
+            className="fixed top-0 left-0 right-0 z-50 border-b border-zinc-800 bg-black/88 backdrop-blur-xl"
+            style={{ height: "var(--top-banner-height)" }}
+        >
+            <div className="h-full max-w-[760px] mx-auto px-4 flex items-center justify-center">
+                <p className="text-[10px] tracking-[0.14em] uppercase text-white/90 font-bold text-center">
+                    Limited Drop · Small Batch Production
+                </p>
+            </div>
+        </div>
+    );
+}
 
 function SegmentToggle({ aktifBolum, onSelect }) {
     return (
@@ -177,13 +199,19 @@ function FooterGroup({ title, children }) {
 
 function BottomNav() {
     return (
+        <BottomNavBar primaryHref="/tasarim" primaryLabel="Tasarıma Başla" />
+    );
+}
+
+function BottomNavBar({ primaryHref, primaryLabel }) {
+    return (
         <nav
             className="fixed left-0 right-0 bottom-0 z-40 border-t border-zinc-800 bg-black/92 backdrop-blur-xl"
             style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
             <div className="max-w-[760px] mx-auto grid grid-cols-3 gap-2 px-4 py-3">
-                <a href="/tasarim" className="min-h-[44px] rounded-full bg-white text-black text-[11px] font-black tracking-wide uppercase flex items-center justify-center active:scale-[0.985] transition-transform duration-150" style={{ transitionTimingFunction: APPLE_EASE }}>
-                    Tasarıma Başla
+                <a href={primaryHref} className="min-h-[44px] rounded-full bg-white text-black text-[11px] font-black tracking-wide uppercase flex items-center justify-center active:scale-[0.985] transition-transform duration-150" style={{ transitionTimingFunction: APPLE_EASE }}>
+                    {primaryLabel}
                 </a>
                 <a href="/bilimsel" className="min-h-[44px] rounded-full border border-zinc-700 text-white/90 text-[11px] font-bold uppercase flex items-center justify-center active:scale-[0.985] transition-transform duration-150" style={{ transitionTimingFunction: APPLE_EASE }}>
                     Bilimsel
@@ -193,6 +221,198 @@ function BottomNav() {
                 </a>
             </div>
         </nav>
+    );
+}
+
+function HeroCarousel({ heroIndex, goPrevHero, goNextHero }) {
+    const slide = HOME_HERO_SLIDES_1920x850[heroIndex] || HOME_HERO_SLIDES_1920x850[0];
+    return (
+        <section className="relative border-b border-zinc-900 overflow-hidden" style={{ paddingTop: "calc(var(--top-banner-height) + env(safe-area-inset-top) + 56px)" }}>
+            <div className="relative h-[62svh] min-h-[440px]">
+                {HOME_HERO_SLIDES_1920x850.map((item, i) => (
+                    <img
+                        key={item.src}
+                        src={encodeURI(item.src)}
+                        alt={item.title}
+                        className={`absolute inset-0 w-full h-full object-cover object-[52%_18%] transition-opacity duration-700 ${i === heroIndex ? "opacity-100" : "opacity-0"}`}
+                    />
+                ))}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/42 to-black/25" />
+
+                <div className="absolute inset-x-0 bottom-0 max-w-[760px] mx-auto px-4" style={{ paddingBottom: "var(--s-8)" }}>
+                    <p className="text-[10px] tracking-[0.2em] text-white/90 uppercase font-bold">{slide.kicker}</p>
+                    <h1 className="text-[42px] leading-[0.95] tracking-tight font-black text-white mt-2">{slide.title}</h1>
+                    <p className="text-sm text-white/90 mt-3 max-w-[30ch]">{slide.subtitle}</p>
+                    <div className="flex flex-wrap gap-2 mt-4">
+                        <span className="text-[10px] uppercase tracking-[0.14em] border border-white/25 rounded-full px-3 py-1.5 text-white/90">Limited Drop</span>
+                        <span className="text-[10px] uppercase tracking-[0.14em] border border-white/25 rounded-full px-3 py-1.5 text-white/90">Small Batch Production</span>
+                        <span className="text-[10px] uppercase tracking-[0.14em] border border-white/25 rounded-full px-3 py-1.5 text-white/90">Signature Print Series</span>
+                    </div>
+                </div>
+
+                <div className="absolute inset-y-0 left-0 right-0 z-20 flex items-center justify-between px-3 pointer-events-none">
+                    <button
+                        type="button"
+                        onClick={goPrevHero}
+                        className="pointer-events-auto min-h-[44px] min-w-[44px] rounded-full bg-black/50 backdrop-blur border border-white/25 text-white flex items-center justify-center active:scale-[0.985] transition-transform duration-150"
+                        style={{ transitionTimingFunction: APPLE_EASE }}
+                        aria-label="Önceki slide"
+                    >
+                        <ChevronLeft size={18} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={goNextHero}
+                        className="pointer-events-auto min-h-[44px] min-w-[44px] rounded-full bg-black/50 backdrop-blur border border-white/25 text-white flex items-center justify-center active:scale-[0.985] transition-transform duration-150"
+                        style={{ transitionTimingFunction: APPLE_EASE }}
+                        aria-label="Sonraki slide"
+                    >
+                        <ChevronRight size={18} />
+                    </button>
+                </div>
+            </div>
+        </section>
+    );
+}
+
+function PrimaryCTA({ onExplore }) {
+    return (
+        <section className="max-w-[760px] mx-auto" style={{ padding: "var(--s-8) var(--s-4) var(--s-6)" }}>
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/90 shadow-[0_12px_28px_rgba(0,0,0,0.28)]" style={{ padding: "var(--s-6)" }}>
+                <p className="text-white/90 text-sm leading-relaxed">Sınırlı stok premium koleksiyon. Kaliteli kumaş + seçkin baskı teknikleri.</p>
+                <button
+                    type="button"
+                    onClick={onExplore}
+                    className="mt-4 min-h-[48px] w-full rounded-full bg-white text-black text-xs font-black uppercase tracking-[0.16em] active:scale-[0.985] transition-transform duration-150"
+                    style={{ transitionTimingFunction: APPLE_EASE }}
+                >
+                    Koleksiyonu Keşfet
+                </button>
+                <a href="/tum-urunler" className="block mt-3 text-center text-[11px] tracking-[0.12em] uppercase text-white/80 font-semibold">
+                    Limited Drop’u İncele →
+                </a>
+            </div>
+        </section>
+    );
+}
+
+function CategoryGrid({ onNavigate }) {
+    return (
+        <section className="max-w-[760px] mx-auto" style={{ padding: "0 var(--s-4) var(--s-8)" }}>
+            <h2 className="text-white text-2xl font-black tracking-tight mb-4">Kategoriler</h2>
+            <div className="grid grid-cols-1 gap-3">
+                {STENI_CATEGORY_CARDS.map((card) => (
+                    <button
+                        key={card.key}
+                        type="button"
+                        onClick={() => onNavigate(card.href)}
+                        className="relative h-[188px] rounded-2xl overflow-hidden border border-zinc-800 text-left group active:scale-[0.985] transition-transform duration-150"
+                        style={{ transitionTimingFunction: APPLE_EASE }}
+                    >
+                        <img
+                            src={encodeURI(HOME_CATEGORY_IMAGES_800x800[card.key])}
+                            alt={card.name}
+                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/86 via-black/32 to-black/18" />
+                        <div className="absolute left-4 right-4 bottom-4">
+                            <h3 className="text-2xl font-black tracking-tight text-white">{card.name}</h3>
+                            <p className="text-xs text-white/90 mt-1">{card.label}</p>
+                            <p className="text-xs text-white/90 mt-2 font-bold tracking-[0.14em] uppercase">İncele →</p>
+                        </div>
+                    </button>
+                ))}
+            </div>
+        </section>
+    );
+}
+
+function PrintTechSection() {
+    return (
+        <section className="border-y border-zinc-900 bg-zinc-950/60">
+            <div className="max-w-[760px] mx-auto" style={{ padding: "var(--s-8) var(--s-4)" }}>
+                <p className="text-[11px] uppercase tracking-[0.16em] text-zinc-400 font-bold">Print Technology</p>
+                <h3 className="text-white text-2xl font-black tracking-tight mt-2">Signature Print Series</h3>
+                <div className="grid gap-2 mt-4 text-sm text-white/90">
+                    <p>Premium baskı kalitesi ve net detay.</p>
+                    <p>Uzun ömürlü yüzey performansı.</p>
+                    <p>Kumaş dostu, tok ama konforlu his.</p>
+                </div>
+                <a
+                    href="/bilimsel"
+                    className="inline-flex items-center justify-center min-h-[44px] px-6 mt-5 rounded-full border border-zinc-700 text-white text-xs font-black uppercase tracking-[0.14em] active:scale-[0.985] transition-transform duration-150"
+                    style={{ transitionTimingFunction: APPLE_EASE }}
+                >
+                    Teknolojiyi İncele
+                </a>
+            </div>
+        </section>
+    );
+}
+
+function TrustRow() {
+    return (
+        <section className="max-w-[760px] mx-auto" style={{ padding: "var(--s-8) var(--s-4)" }}>
+            <div className="grid grid-cols-1 gap-3">
+                <TrustItem title="Ücretsiz Kargo" desc="1500 TL üzeri siparişlerde ücretsiz." Icon={Truck} />
+                <TrustItem title="Kolay İade" desc="14 gün içinde hızlı iade süreci." Icon={RotateCcw} />
+                <TrustItem title="Güvenli Ödeme" desc="Iyzico altyapısı ile korumalı ödeme." Icon={ShieldCheck} />
+            </div>
+        </section>
+    );
+}
+
+function Footer() {
+    return (
+        <footer className="border-t border-zinc-900 bg-black/80">
+            <div className="max-w-[760px] mx-auto grid grid-cols-1 gap-6" style={{ padding: "var(--s-8) var(--s-4) var(--s-12)" }}>
+                <FooterGroup title="Müşteri Hizmetleri">
+                    <div className="space-y-2 text-sm text-white/90">
+                        <a href="#" className="block">Bize Ulaşın</a>
+                        <a href="#" className="block">İade ve Değişim</a>
+                    </div>
+                </FooterGroup>
+                <FooterGroup title="Şirket">
+                    <div className="space-y-2 text-sm text-white/90">
+                        <a href="/hakkimizda" className="block">Hakkımızda</a>
+                        <a href="/bilimsel" className="block">Bilimsel</a>
+                    </div>
+                </FooterGroup>
+                <FooterGroup title="Sosyal">
+                    <div className="flex gap-4 text-sm text-white/90">
+                        <a href="#">Instagram</a>
+                        <a href="#">Youtube</a>
+                        <a href="#">X</a>
+                    </div>
+                </FooterGroup>
+                <FooterGroup title="Bülten">
+                    <p className="text-sm text-white/90">Yeni drop bilgileri için e-posta listesine katıl.</p>
+                    <form className="flex items-center gap-2">
+                        <input type="email" placeholder="E-posta" className="min-h-[44px] flex-1 rounded-xl bg-zinc-950 border border-zinc-700 px-3 text-white placeholder:text-zinc-500" />
+                        <button type="button" className="min-h-[44px] px-4 rounded-xl bg-white text-black text-xs font-black uppercase tracking-wide active:scale-[0.985] transition-transform duration-150" style={{ transitionTimingFunction: APPLE_EASE }}>
+                            Kayıt
+                        </button>
+                    </form>
+                </FooterGroup>
+            </div>
+        </footer>
+    );
+}
+
+function SteniPremiumFlow({ heroIndex, goPrevHero, goNextHero, onExplore, onNavigate }) {
+    return (
+        <div style={FLOW_TOKENS} className="bg-[#050608]">
+            <AnnouncementBar />
+            <main style={{ paddingBottom: "calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 16px)" }}>
+                <HeroCarousel heroIndex={heroIndex} goPrevHero={goPrevHero} goNextHero={goNextHero} />
+                <PrimaryCTA onExplore={onExplore} />
+                <CategoryGrid onNavigate={onNavigate} />
+                <PrintTechSection />
+                <TrustRow />
+                <Footer />
+            </main>
+            <BottomNavBar primaryHref="/tum-urunler" primaryLabel="Koleksiyon" />
+        </div>
     );
 }
 
@@ -273,7 +493,6 @@ export default function HomePage() {
 
     // --- STATE'LER ---
     const [aktifBolum, setAktifBolum] = useState(null);
-    const [bilimselAcik, setBilimselAcik] = useState(false);
     const [heroIndex, setHeroIndex] = useState(0);
     const [introPressedCard, setIntroPressedCard] = useState(null);
     const [introTransitionCard, setIntroTransitionCard] = useState(null);
@@ -513,7 +732,7 @@ export default function HomePage() {
     // --- ANA SİTE İÇERİĞİ ---
     // =====================================================================================
     return (
-        <div className="min-h-screen bg-black font-sans text-white overflow-x-hidden selection:bg-red-600 selection:text-white animate-in fade-in duration-700">
+        <div style={FLOW_TOKENS} className="min-h-screen bg-black font-sans text-white overflow-x-hidden selection:bg-red-600 selection:text-white animate-in fade-in duration-700">
             
             <Navbar />
 
@@ -531,144 +750,13 @@ export default function HomePage() {
                 {/* ================= STENI BÖLÜMÜ (HAZIR GİYİM) ================= */}
                 {aktifBolum === 'steni' && (
                     <div className="animate-in fade-in duration-700">
-                        
-                        {/* HERO BANNER (MOBİL UYUMLU) */}
-                        {/*
-                          Mobilde "çok yakından" görünmesin diye:
-                          - h-screen yerine daha kısa bir viewport yüksekliği
-                          - object-position'ı yukarı/merkeze alıp yüzü/kafayı kesmesin
-                          - minimum yükseklik verip aşırı küçülmeyi engelledik
-                        */}
-                        <header className="relative w-full h-[68svh] sm:h-[76svh] md:h-screen min-h-[480px] sm:min-h-[520px] md:min-h-0 overflow-hidden">
-                            <div className="absolute inset-0">
-                                {HOME_HERO_SLIDES_1920x850.map((slide, i) => (
-                                    <img
-                                        key={slide.src}
-                                        src={encodeURI(slide.src)}
-                                        alt="Stenist Hero"
-                                        className={`absolute inset-0 w-full h-full object-cover object-[50%_18%] sm:object-[50%_28%] md:object-center transition-opacity duration-1000 ${i === heroIndex ? 'opacity-100' : 'opacity-0'}`}
-                                        onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1523398002811-999ca8dec234?q=80&w=2000&auto=format&fit=crop'; }}
-                                    />
-                                ))}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/30" />
-                            </div>
-
-                            <div className="absolute left-4 right-4 sm:left-6 sm:right-6 md:left-12 md:right-12 bottom-8 sm:bottom-12 md:bottom-20 z-10">
-                                <div className="max-w-xl">
-                                    <div className="inline-flex items-center gap-2 text-white/85 text-[9px] sm:text-[10px] md:text-xs font-black tracking-[0.5em] uppercase mb-3 sm:mb-4">
-                                        {HOME_HERO_SLIDES_1920x850[heroIndex]?.kicker || ""}
-                                    </div>
-                                    <h2 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-black uppercase tracking-tighter text-white leading-[0.9]">
-                                        {HOME_HERO_SLIDES_1920x850[heroIndex]?.title || ""}
-                                    </h2>
-                                    <p className="text-zinc-200/80 text-xs sm:text-xs md:text-sm mt-3 sm:mt-4 max-w-md leading-relaxed">
-                                        {HOME_HERO_SLIDES_1920x850[heroIndex]?.subtitle || ""}
-                                    </p>
-
-                                    <div className="mt-6 sm:mt-8">
-                                        <button
-                                            onClick={() => router.push('/tum-urunler')}
-                                            className="w-full sm:w-auto bg-white text-black px-8 sm:px-10 py-3.5 sm:py-4 rounded-full font-black text-xs sm:text-xs md:text-sm tracking-[0.2em] hover:bg-zinc-200 hover:scale-105 transition-all duration-300"
-                                        >
-                                            KEŞFET
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="absolute inset-y-0 left-0 right-0 z-20 flex items-center justify-between px-3 sm:px-4 md:px-8 pointer-events-none">
-                                <button
-                                    type="button"
-                                    onClick={goPrevHero}
-                                    className="pointer-events-auto w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white hover:bg-black/60 transition flex items-center justify-center"
-                                    aria-label="Önceki banner"
-                                >
-                                    <ChevronLeft size={18} className="sm:size-22" />
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={goNextHero}
-                                    className="pointer-events-auto w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white hover:bg-black/60 transition flex items-center justify-center"
-                                    aria-label="Sonraki banner"
-                                >
-                                    <ChevronRight size={18} className="sm:size-22" />
-                                </button>
-                            </div>
-                        </header>
-
-                        {/* --- GRID (KATEGORİLER) --- */}
-                        <section className="w-full bg-white">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-[2px] bg-white px-[0px] pb-[0px]">
-                                {/* Kutu 1 - TSHIRT */}
-                                <div onClick={() => router.push('/tum-urunler?kategori=tshirt')} className="relative h-[320px] sm:h-[420px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
-                                    <img src={encodeURI(HOME_CATEGORY_IMAGES_800x800.tshirt)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                                    <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-500"></div>
-                                    <div className="absolute bottom-6 left-4 sm:left-6 md:left-10 z-20">
-                                        <h3 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tighter mb-3 sm:mb-4 drop-shadow-md">T-Shirts</h3>
-                                        <span className="inline-block border-b-2 border-white text-white font-bold text-[10px] sm:text-xs uppercase tracking-widest pb-1 hover:text-gray-200 hover:border-gray-200 transition">Koleksiyonu Keşfet</span>
-                                    </div>
-                                </div>
-                                {/* Kutu 2 - HOODIE */}
-                                <div onClick={() => router.push('/tum-urunler?kategori=hoodie')} className="relative h-[320px] sm:h-[420px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
-                                    <img src={encodeURI(HOME_CATEGORY_IMAGES_800x800.hoodie)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                                    <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-500"></div>
-                                    <div className="absolute bottom-6 left-4 sm:left-6 md:left-10 z-20">
-                                        <h3 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tighter mb-3 sm:mb-4 drop-shadow-md">Hoodies</h3>
-                                        <span className="inline-block border-b-2 border-white text-white font-bold text-[10px] sm:text-xs uppercase tracking-widest pb-1 hover:text-gray-200 hover:border-gray-200 transition">Sıcak Kal</span>
-                                    </div>
-                                </div>
-                                {/* Kutu 3 - AKSESUAR */}
-                                <div onClick={() => router.push('/tum-urunler?kategori=aksesuar')} className="relative h-[320px] sm:h-[420px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
-                                    <img src={encodeURI(HOME_CATEGORY_IMAGES_800x800.aksesuar)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                                    <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-500"></div>
-                                    <div className="absolute bottom-6 left-4 sm:left-6 md:left-10 z-20">
-                                        <h3 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tighter mb-3 sm:mb-4 drop-shadow-md">Aksesuarlar</h3>
-                                        <span className="inline-block border-b-2 border-white text-white font-bold text-xs uppercase tracking-widest pb-1 hover:text-gray-200 hover:border-gray-200 transition">Detayları Gör</span>
-                                    </div>
-                                </div>
-                                {/* Kutu 4 - SWEATSHIRT (GÜNCELLENDİ: ARTIK SWEATSHIRT KUTUSU) */}
-                                <div onClick={() => router.push('/tum-urunler?kategori=sweatshirt')} className="relative h-[320px] sm:h-[420px] md:h-[700px] group overflow-hidden bg-gray-100 cursor-pointer">
-                                    <img src={encodeURI(HOME_CATEGORY_IMAGES_800x800.sweatshirt)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                                    <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-500"></div>
-                                    <div className="absolute bottom-6 left-4 sm:left-6 md:left-10 z-20">
-                                        <h3 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tighter mb-3 sm:mb-4 drop-shadow-md">Sweatshirts</h3>
-                                        <span className="inline-block border-b-2 border-white text-white font-bold text-[10px] sm:text-xs uppercase tracking-widest pb-1 hover:text-gray-200 hover:border-gray-200 transition">İncele</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-
-                        {/* --- BİLİMSEL / BASKI TEKNOLOJİSİ (YENİLENEN ALAN) --- */}
-                        <section className="bg-black py-32 relative overflow-hidden border-t border-zinc-900">
-                            {/* Hafif Teknolojik Işık Efekti */}
-                            <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-indigo-900/10 to-transparent"></div>
-                            
-                            <div className="container mx-auto px-6 relative z-10 flex flex-col md:flex-row items-center gap-16">
-                                <div className="md:w-1/2">
-                                    <div className="flex items-center gap-2 text-indigo-500 mb-6 font-bold uppercase tracking-widest text-xs animate-pulse">
-                                        <Printer size={16} /> Print Technology
-                                    </div>
-                                    <h2 className="text-6xl md:text-8xl font-black text-white uppercase tracking-tighter leading-none mb-8">
-                                        BİLİMSEL<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-600">DİJİTAL BASKI.</span>
-                                    </h2>
-                                    <p className="text-zinc-400 text-lg max-w-md mb-10 leading-relaxed">
-                                        Sadece giyinmek değil, sanatı üzerinizde taşımak. Kullandığımız yüksek çözünürlüklü dijital baskı teknikleri ile kumaşın dokusunu bozmadan, canlı ve kalıcı desenler sunuyoruz.
-                                    </p>
-                                    <div className="flex gap-4">
-                                        <button onClick={() => router.push('/bilimsel')} className="bg-white text-black px-8 py-4 font-black text-xs uppercase tracking-widest hover:bg-zinc-200 transition rounded-full flex items-center gap-2">
-                                            <Beaker size={16} /> Teknolojiyi İncele
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="md:w-1/2 relative">
-                                    <div className="aspect-[4/5] w-full bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 shadow-2xl relative group">
-                                        {/* Baskı Makinesi veya Detaylı Baskı Görseli */}
-                                        <img src="https://images.unsplash.com/photo-1565538420870-da58522e2307?q=80&w=1200&auto=format&fit=crop" className="w-full h-full object-cover transition duration-700 group-hover:scale-105 saturate-0 group-hover:saturate-100" />
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
+                        <SteniPremiumFlow
+                            heroIndex={heroIndex}
+                            goPrevHero={goPrevHero}
+                            goNextHero={goNextHero}
+                            onExplore={() => router.push('/tum-urunler')}
+                            onNavigate={(href) => router.push(href)}
+                        />
                     </div>
                 )}
 
@@ -679,118 +767,6 @@ export default function HomePage() {
                     </div>
                 )}
 
-                {/* ✅ ORTAK FOOTER & TRUST BADGES */}
-                {aktifBolum !== 'ozel' && (
-                <>
-                <section className="bg-zinc-900 border-t border-zinc-800 py-16 relative z-10">
-                    <div className="container mx-auto px-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
-                            <div className="flex flex-col items-center group">
-                                <div className="w-20 h-20 bg-black border border-zinc-800 rounded-full flex items-center justify-center text-white mb-6 group-hover:scale-110 group-hover:border-white transition-all duration-300 shadow-xl">
-                                    <Truck size={32} strokeWidth={1.5} />
-                                </div>
-                                <h4 className="text-white font-black text-sm uppercase tracking-[0.2em] mb-2">ÜCRETSİZ KARGO</h4>
-                                <p className="text-zinc-400 text-xs font-medium">Tüm Türkiye'ye aynı gün ücretsiz gönderim.</p>
-                            </div>
-                            <div className="flex flex-col items-center group">
-                                <div className="w-20 h-20 bg-black border border-zinc-800 rounded-full flex items-center justify-center text-white mb-6 group-hover:scale-110 group-hover:border-white transition-all duration-300 shadow-xl">
-                                    <RotateCcw size={32} strokeWidth={1.5} />
-                                </div>
-                                <h4 className="text-white font-black text-sm uppercase tracking-[0.2em] mb-2">KOLAY İADE</h4>
-                                <p className="text-zinc-400 text-xs font-medium">14 gün içinde koşulsuz ve ücretsiz iade.</p>
-                            </div>
-                            <div className="flex flex-col items-center group">
-                                <div className="w-20 h-20 bg-black border border-zinc-800 rounded-full flex items-center justify-center text-white mb-6 group-hover:scale-110 group-hover:border-white transition-all duration-300 shadow-xl">
-                                    <ShieldCheck size={32} strokeWidth={1.5} />
-                                </div>
-                                <h4 className="text-white font-black text-sm uppercase tracking-[0.2em] mb-2">GÜVENLİ ÖDEME</h4>
-                                <p className="text-zinc-400 text-xs font-medium">Iyzico ve 256-bit SSL ile %100 güvenli.</p>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <footer className="bg-zinc-950 text-white py-20 px-8 border-t border-zinc-900">
-                    <div className="max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
-                        <div className="flex flex-col space-y-6">
-                            <h4 className="text-xs font-bold uppercase tracking-widest text-zinc-500">Müşteri Hizmetleri</h4>
-                            <ul className="space-y-4 text-sm font-medium text-zinc-300">
-                                <li><a href="#" className="hover:text-white hover:underline transition">Bize Ulaşın</a></li>
-                                <li><a href="#" className="hover:text-white hover:underline transition">İade ve Değişim</a></li>
-                            </ul>
-                        </div>
-                        <div className="flex flex-col space-y-6">
-                            <h4 className="text-xs font-bold uppercase tracking-widest text-zinc-500">Şirket</h4>
-                            <ul className="space-y-4 text-sm font-medium text-zinc-300">
-                                <li><a href="/hakkimizda" className="hover:text-white hover:underline transition">Hakkımızda</a></li>
-                                <li><a href="#" className="hover:text-white hover:underline transition">Kariyer</a></li>
-                            </ul>
-                        </div>
-                        <div className="flex flex-col space-y-6">
-                            <h4 className="text-xs font-bold uppercase tracking-widest text-zinc-500">Bizi Takip Et</h4>
-                            <div className="flex space-x-6 text-zinc-300">
-                                <a href="#" className="hover:text-white transition text-sm uppercase font-bold">Instagram</a>
-                                <a href="#" className="hover:text-white transition text-sm uppercase font-bold">Youtube</a>
-                                <a href="#" className="hover:text-white transition text-sm uppercase font-bold">X</a>
-                            </div>
-                        </div>
-                        <div className="flex flex-col space-y-6">
-                            <h4 className="text-xs font-bold uppercase tracking-widest text-zinc-500">Bülten</h4>
-                            <p className="text-zinc-400 text-xs leading-relaxed">Yeni koleksiyonlardan ilk siz haberdar olun.</p>
-                            <form className="flex border-b border-zinc-700 pb-2">
-                                <input type="email" placeholder="E-posta" className="bg-transparent border-none outline-none text-white w-full text-sm placeholder-zinc-600" />
-                                <button type="button" className="text-white hover:text-zinc-400 transition font-bold uppercase text-xs">KAYIT OL</button>
-                            </form>
-                        </div>
-                    </div>
-                    <div className="max-w-[1400px] mx-auto mt-20 pt-8 border-t border-zinc-900 flex flex-col md:flex-row justify-between items-center text-zinc-600 text-[10px] font-bold uppercase tracking-wider">
-                        <p>© 2025 STENIST. Tüm hakları saklıdır.</p>
-                    </div>
-                </footer>
-                </>
-                )}
-
-                {/* BİLİMSEL MODAL (GÜNCELLENDİ) */}
-                {bilimselAcik && (
-                    <div className="fixed inset-0 z-[150] bg-black text-white overflow-y-auto animate-in slide-in-from-bottom-10 duration-500">
-                        <div className="sticky top-0 bg-black/90 backdrop-blur-md z-50 px-6 py-6 flex justify-between items-center max-w-[1400px] mx-auto w-full border-b border-zinc-800">
-                            <div className="flex items-center gap-2 text-zinc-400 hover:text-white transition cursor-pointer uppercase font-bold text-xs tracking-widest" onClick={() => setBilimselAcik(false)}>
-                                <X size={24} /> Kapat
-                            </div>
-                            <div className="flex items-center gap-2 text-indigo-500">
-                                <Printer size={24} />
-                                <span className="font-black tracking-tighter text-lg">BASKI TEKNOLOJİSİ</span>
-                            </div>
-                        </div>
-                        <div className="max-w-7xl mx-auto px-6 py-32">
-                            <h2 className="text-7xl font-black mb-12 uppercase">Baskı Bilimi</h2>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                                <div>
-                                    <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-3"><Layers className="text-indigo-500" /> DTG (Direct to Garment)</h3>
-                                    <p className="text-zinc-400 leading-relaxed mb-8">
-                                        Doğrudan kumaşa püskürtülen su bazlı boyalar ile kumaşın nefes alabilirliği korunur. Bu teknoloji sayesinde baskı, kumaşın bir parçası gibi hissettirir; asla plastik veya yapışkan bir doku bırakmaz. Sınırsız renk geçişi ve fotoğraf kalitesinde detaylar sunar.
-                                    </p>
-
-                                    <h3 className="text-2xl font-bold text-white mb-4 flex items-center gap-3"><Palette className="text-indigo-500" /> Dijital Transfer</h3>
-                                    <p className="text-zinc-400 leading-relaxed">
-                                        Özel koleksiyonlarda kullanılan yüksek mukavemetli transfer teknolojisi. Esnekliği sayesinde kumaşla birlikte hareket eder, çatlama yapmaz ve yıkamalara karşı üstün dayanıklılık gösterir. Renkler her zaman ilk günkü canlılığını korur.
-                                    </p>
-                                </div>
-                                <div className="space-y-4">
-                                    <div className="bg-zinc-900 p-8 rounded-xl border border-zinc-800">
-                                        <h4 className="text-white font-bold mb-2">Ekolojik Mürekkepler</h4>
-                                        <p className="text-zinc-500 text-sm">Kullandığımız boyalar Oeko-Tex sertifikalıdır, insan sağlığına ve çevreye zarar vermez.</p>
-                                    </div>
-                                    <div className="bg-zinc-900 p-8 rounded-xl border border-zinc-800">
-                                        <h4 className="text-white font-bold mb-2">Hassas Kürleme</h4>
-                                        <p className="text-zinc-500 text-sm">Baskılarımız, endüstriyel tünel fırınlarda optimum sıcaklıkta sabitlenerek maksimum yıkama ömrü sağlar.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     );
