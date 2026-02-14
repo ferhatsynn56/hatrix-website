@@ -63,11 +63,12 @@ const HOME_CATEGORY_IMAGES_800x800 = {
 
 const APPLE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 const FLOW_TOKENS = {
-    "--top-bar-h": "56px",
+    "--announcement-h": "36px",
     "--toggle-h": "52px",
     "--bottom-nav-h": "72px",
     "--safe-top": "env(safe-area-inset-top)",
     "--safe-bottom": "env(safe-area-inset-bottom)",
+    "--sticky-offset": "calc(var(--announcement-h) + var(--toggle-h))",
     "--s-2": "8px",
     "--s-3": "12px",
     "--s-4": "16px",
@@ -86,10 +87,7 @@ const STENI_CATEGORY_CARDS = [
 
 function AnnouncementBar() {
     return (
-        <div
-            className="fixed top-0 left-0 right-0 z-50 border-b border-zinc-800 bg-black/88 backdrop-blur-xl"
-            style={{ height: "var(--top-bar-h)" }}
-        >
+        <div className="border-b border-zinc-800 bg-black/88 backdrop-blur-xl" style={{ height: "var(--announcement-h)" }}>
             <div className="h-full max-w-[760px] mx-auto px-4 flex items-center justify-center">
                 <p className="text-[10px] tracking-[0.14em] uppercase text-white/90 font-bold text-center">
                     LIMITED DROP · SMALL BATCH PRODUCTION
@@ -101,19 +99,30 @@ function AnnouncementBar() {
 
 function SegmentToggle({ aktifBolum, onSelect }) {
     return (
-        <div
-            className="fixed left-4 sm:left-6 md:left-8 z-[45] w-40 sm:w-48"
-            style={{
-                transform: "translateZ(0)",
-                top: "calc(var(--top-bar-h) + var(--safe-top) + var(--s-3))",
-            }}
-        >
+        <div className="w-40 sm:w-48" style={{ transform: "translateZ(0)" }}>
             <div className="relative bg-black/88 backdrop-blur-xl rounded-full p-1 border border-zinc-700 shadow-[0_10px_24px_rgba(0,0,0,0.35)] flex w-full">
                 <div className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-full transition-all duration-300 ${aktifBolum === 'steni' ? 'left-1' : 'left-[calc(50%+2px)]'}`}></div>
                 <button onClick={() => onSelect('steni')} className={`min-h-[44px] flex-1 relative z-10 py-1.5 text-[9px] sm:text-[10px] font-black tracking-widest transition-colors duration-300 rounded-full ${aktifBolum === 'steni' ? 'text-black' : 'text-zinc-300 hover:text-white'}`}>STENI</button>
                 <button onClick={() => onSelect('ozel')} className={`min-h-[44px] flex-1 relative z-10 py-1.5 text-[9px] sm:text-[10px] font-black tracking-widest transition-colors duration-300 rounded-full ${aktifBolum === 'ozel' ? 'text-black' : 'text-zinc-300 hover:text-white'}`}>ÖZEL</button>
             </div>
         </div>
+    );
+}
+
+function StickyTopShell({ aktifBolum, onSelect }) {
+    return (
+        <header
+            className="sticky top-0 z-[60] bg-black/94 backdrop-blur-xl border-b border-zinc-900"
+            style={{ paddingTop: "var(--safe-top)" }}
+        >
+            <AnnouncementBar />
+            <div
+                className="max-w-[760px] mx-auto px-4 flex items-center"
+                style={{ height: "var(--toggle-h)" }}
+            >
+                <SegmentToggle aktifBolum={aktifBolum} onSelect={onSelect} />
+            </div>
+        </header>
     );
 }
 
@@ -161,10 +170,10 @@ function StepCard({ index, title, desc, Icon }) {
 function TrustItem({ title, desc, Icon }) {
     return (
         <div
-            className="rounded-2xl border border-zinc-800 bg-zinc-950/90 shadow-[0_10px_26px_rgba(0,0,0,0.25)]"
-            style={{ padding: "var(--s-4)" }}
+            className="h-full rounded-[20px] border border-zinc-800 bg-zinc-950/90 shadow-[0_10px_26px_rgba(0,0,0,0.25)]"
+            style={{ padding: "20px" }}
         >
-            <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3">
+            <div className="w-11 h-11 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-3">
                 <Icon size={18} className="text-zinc-100" />
             </div>
             <h4 className="text-white font-black text-sm tracking-wide uppercase">{title}</h4>
@@ -301,7 +310,7 @@ function PrimaryCTA({ onExplore }) {
 
 function CategoryGrid({ onNavigate }) {
     return (
-        <section className="max-w-[760px] mx-auto" style={{ padding: "0 var(--s-4) var(--s-8)" }}>
+        <section className="max-w-[760px] mx-auto" style={{ padding: "0 var(--s-4) 56px" }}>
             <h2 className="text-white text-2xl font-black tracking-tight mb-4">Kategoriler</h2>
             <div className="grid grid-cols-1 gap-3">
                 {STENI_CATEGORY_CARDS.map((card) => (
@@ -309,7 +318,7 @@ function CategoryGrid({ onNavigate }) {
                         key={card.key}
                         type="button"
                         onClick={() => onNavigate(card.href)}
-                        className="relative h-[188px] rounded-2xl overflow-hidden border border-zinc-800 text-left group active:scale-[0.985] transition-transform duration-150"
+                        className="relative h-[196px] rounded-[20px] overflow-hidden border border-zinc-800 text-left group active:scale-[0.985] transition-transform duration-150"
                         style={{ transitionTimingFunction: APPLE_EASE }}
                     >
                         <img
@@ -318,7 +327,7 @@ function CategoryGrid({ onNavigate }) {
                             className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/86 via-black/32 to-black/18" />
-                        <div className="absolute left-4 right-4 bottom-4">
+                        <div className="absolute left-5 right-5 bottom-5">
                             <h3 className="text-2xl font-black tracking-tight text-white">{card.name}</h3>
                             <p className="text-xs text-white/90 mt-1">{card.label}</p>
                             <p className="text-xs text-white/90 mt-2 font-bold tracking-[0.14em] uppercase">İncele →</p>
@@ -333,7 +342,7 @@ function CategoryGrid({ onNavigate }) {
 function PrintTechSection() {
     return (
         <section className="border-y border-zinc-900 bg-zinc-950/60">
-            <div className="max-w-[760px] mx-auto" style={{ padding: "var(--s-8) var(--s-4)" }}>
+            <div className="max-w-[760px] mx-auto" style={{ padding: "72px var(--s-4)" }}>
                 <p className="text-[11px] uppercase tracking-[0.16em] text-zinc-400 font-bold">Print Technology</p>
                 <h3 className="text-white text-2xl font-black tracking-tight mt-2">Signature Print Series</h3>
                 <div className="grid gap-2 mt-4 text-sm text-white/90">
@@ -355,8 +364,8 @@ function PrintTechSection() {
 
 function TrustRow() {
     return (
-        <section className="max-w-[760px] mx-auto" style={{ padding: "var(--s-8) var(--s-4)" }}>
-            <div className="grid grid-cols-1 gap-3">
+        <section className="max-w-[760px] mx-auto" style={{ padding: "56px var(--s-4)" }}>
+            <div className="grid grid-cols-1 gap-3 auto-rows-fr">
                 <TrustItem title="Ücretsiz Kargo" desc="1500 TL üzeri siparişlerde ücretsiz." Icon={Truck} />
                 <TrustItem title="Kolay İade" desc="14 gün içinde hızlı iade süreci." Icon={RotateCcw} />
                 <TrustItem title="Güvenli Ödeme" desc="Iyzico altyapısı ile korumalı ödeme." Icon={ShieldCheck} />
@@ -368,7 +377,7 @@ function TrustRow() {
 function Footer() {
     return (
         <footer className="border-t border-zinc-900 bg-black/80">
-            <div className="max-w-[760px] mx-auto grid grid-cols-1 gap-6" style={{ padding: "var(--s-8) var(--s-4) var(--s-12)" }}>
+            <div className="max-w-[760px] mx-auto grid grid-cols-1 gap-6" style={{ padding: "56px var(--s-4) 72px" }}>
                 <FooterGroup title="Müşteri Hizmetleri">
                     <div className="space-y-2 text-sm text-white/90">
                         <a href="#" className="block">Bize Ulaşın</a>
@@ -391,8 +400,8 @@ function Footer() {
                 <FooterGroup title="Bülten">
                     <p className="text-sm text-white/90">Yeni drop bilgileri için e-posta listesine katıl.</p>
                     <form className="flex items-center gap-2">
-                        <input type="email" placeholder="E-posta" className="min-h-[44px] flex-1 rounded-xl bg-zinc-950 border border-zinc-700 px-3 text-white placeholder:text-zinc-500" />
-                        <button type="button" className="min-h-[44px] px-4 rounded-xl bg-white text-black text-xs font-black uppercase tracking-wide active:scale-[0.985] transition-transform duration-150" style={{ transitionTimingFunction: APPLE_EASE }}>
+                        <input type="email" placeholder="E-posta" className="min-h-[44px] flex-1 rounded-[20px] bg-zinc-950 border border-zinc-700 px-4 text-white placeholder:text-zinc-500" />
+                        <button type="button" className="min-h-[44px] px-5 rounded-[20px] bg-white text-black text-xs font-black uppercase tracking-wide active:scale-[0.985] transition-transform duration-150" style={{ transitionTimingFunction: APPLE_EASE }}>
                             Kayıt
                         </button>
                     </form>
@@ -405,7 +414,13 @@ function Footer() {
 function SteniPremiumFlow({ heroIndex, goPrevHero, goNextHero, onExplore, onNavigate }) {
     return (
         <div style={FLOW_TOKENS} className="bg-[#050608]">
-            <main style={{ paddingTop: "calc(var(--top-bar-h) + var(--safe-top) + var(--toggle-h) + var(--s-6))", paddingBottom: "calc(var(--bottom-nav-h) + var(--safe-bottom) + var(--s-4))" }}>
+            <main
+                style={{
+                    paddingTop: "var(--s-4)",
+                    paddingBottom: "calc(var(--bottom-nav-h) + var(--safe-bottom) + var(--s-4))",
+                    scrollPaddingTop: "calc(var(--sticky-offset) + var(--safe-top))",
+                }}
+            >
                 <HeroCarousel heroIndex={heroIndex} goPrevHero={goPrevHero} goNextHero={goNextHero} />
                 <PrimaryCTA onExplore={onExplore} />
                 <CategoryGrid onNavigate={onNavigate} />
@@ -421,10 +436,16 @@ function SteniPremiumFlow({ heroIndex, goPrevHero, goNextHero, onExplore, onNavi
 function OzelPremiumFlow() {
     return (
         <div style={FLOW_TOKENS} className="bg-[#050608]">
-            <main style={{ paddingTop: "calc(var(--top-bar-h) + var(--safe-top) + var(--toggle-h) + var(--s-6))", paddingBottom: "calc(var(--bottom-nav-h) + var(--safe-bottom) + var(--s-4))" }}>
+            <main
+                style={{
+                    paddingTop: "var(--s-4)",
+                    paddingBottom: "calc(var(--bottom-nav-h) + var(--safe-bottom) + var(--s-4))",
+                    scrollPaddingTop: "calc(var(--sticky-offset) + var(--safe-top))",
+                }}
+            >
                 <HeroSection />
 
-                <section className="max-w-[760px] mx-auto" style={{ padding: "var(--s-10) var(--s-4)" }}>
+                <section className="max-w-[760px] mx-auto" style={{ padding: "56px var(--s-4)" }}>
                     <h2 className="text-white font-black text-[24px] sm:text-[30px] leading-tight">3 adımda özel üretim</h2>
                     <div className="grid gap-3 mt-4">
                         <StepCard index={1} title="Ürününü Seç" desc="Tshirt, Sweatshirt, Hoodie veya Polar modelini seç." Icon={MousePointer2} />
@@ -434,7 +455,7 @@ function OzelPremiumFlow() {
                 </section>
 
                 <section className="border-y border-zinc-900 bg-black/60">
-                    <div className="max-w-[760px] mx-auto" style={{ padding: "var(--s-8) var(--s-4)" }}>
+                    <div className="max-w-[760px] mx-auto" style={{ padding: "72px var(--s-4)" }}>
                         <h3 className="text-white font-black text-[22px] sm:text-[26px]">Neden STENI Custom?</h3>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
                             <TrustItem title="Ücretsiz Kargo" desc="1500 TL üzeri alışverişlerde ücretsiz gönderim." Icon={Truck} />
@@ -444,7 +465,7 @@ function OzelPremiumFlow() {
                     </div>
                 </section>
 
-                <section className="max-w-[760px] mx-auto" style={{ padding: "var(--s-10) var(--s-4)" }}>
+                <section className="max-w-[760px] mx-auto" style={{ padding: "56px var(--s-4)" }}>
                     <div className="flex items-end justify-between gap-3 mb-4">
                         <h3 className="text-white font-black text-[22px] sm:text-[26px] leading-tight">Topluluk Tasarımları</h3>
                         <a href="/tasarim" className="text-xs uppercase tracking-[0.14em] text-white/90 font-bold">Keşfet →</a>
@@ -453,7 +474,7 @@ function OzelPremiumFlow() {
                 </section>
 
                 <footer className="border-t border-zinc-900 bg-black/80">
-                    <div className="max-w-[760px] mx-auto grid grid-cols-1 sm:grid-cols-2 gap-6" style={{ padding: "var(--s-8) var(--s-4) var(--s-12)" }}>
+                    <div className="max-w-[760px] mx-auto grid grid-cols-1 sm:grid-cols-2 gap-6" style={{ padding: "56px var(--s-4) 72px" }}>
                         <FooterGroup title="Müşteri Hizmetleri">
                             <div className="space-y-2 text-sm text-white/90">
                                 <a href="#" className="block">Bize Ulaşın</a>
@@ -736,12 +757,10 @@ export default function HomePage() {
     return (
         <div style={FLOW_TOKENS} className="min-h-screen bg-black font-sans text-white overflow-x-hidden selection:bg-red-600 selection:text-white animate-in fade-in duration-700">
             
-            <Navbar />
-            <AnnouncementBar />
-
-            <div className="animate-in fade-in slide-in-from-left-4 duration-700 delay-500">
-                <SegmentToggle aktifBolum={aktifBolum} onSelect={bolumSec} />
+            <div className="hidden md:block">
+                <Navbar />
             </div>
+            <StickyTopShell aktifBolum={aktifBolum} onSelect={bolumSec} />
 
             {/*
               ✅ Mobil alttaki sabit menü barı kaldırıldıysa (Navbar'dan),
