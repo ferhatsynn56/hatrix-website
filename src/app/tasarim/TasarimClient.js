@@ -596,35 +596,49 @@ const GLYPH_TOKEN_MAP = {
   period: ".",
 };
 
-const glyphTokenToChar = (tokenRaw, lower = false) => {
-  const token = String(tokenRaw || "").toLowerCase().trim();
+const glyphTokenToChar = (tokenRaw, forceCase = null) => {
+  const tokenOriginal = String(tokenRaw || "").trim();
+  const token = tokenOriginal.toLowerCase();
   if (!token) return null;
   if (GLYPH_TOKEN_MAP[token]) return GLYPH_TOKEN_MAP[token];
-  if (token === "ouml") return lower ? "ö" : "Ö";
-  if (token === "uuml") return lower ? "ü" : "Ü";
-  if (token === "ccedilla") return lower ? "ç" : "Ç";
-  if (token === "scedilla") return lower ? "ş" : "Ş";
-  if (token === "gbreve") return lower ? "ğ" : "Ğ";
-  if (token === "i_dotted") return lower ? "i" : "İ";
+  if (token === "ouml") return forceCase === "lower" ? "ö" : "Ö";
+  if (token === "uuml") return forceCase === "lower" ? "ü" : "Ü";
+  if (token === "ccedilla") return forceCase === "lower" ? "ç" : "Ç";
+  if (token === "scedilla") return forceCase === "lower" ? "ş" : "Ş";
+  if (token === "gbreve") return forceCase === "lower" ? "ğ" : "Ğ";
+  if (token === "i_dotted") return forceCase === "lower" ? "i" : "İ";
   if (token === "i_nodot") return "ı";
   if (/^[0-9]$/.test(token)) return token;
-  if (/^[a-z]$/.test(token)) return lower ? token : token.toUpperCase();
+  if (/^[a-z]$/i.test(tokenOriginal)) {
+    if (forceCase === "lower") return token;
+    if (forceCase === "upper") return token.toUpperCase();
+    return tokenOriginal === tokenOriginal.toLowerCase() ? token : token.toUpperCase();
+  }
   return null;
 };
 
 const glyphNodeNameToChar = (nameRaw) => {
-  const normalized = String(nameRaw || "")
-    .trim()
-    .replace(/\.\d+$/g, "")
-    .toLowerCase();
-  if (!normalized.startsWith("glyph_")) return null;
-  let token = normalized.slice("glyph_".length);
-  let lower = false;
-  if (token.startsWith("lower_")) {
-    lower = true;
-    token = token.slice("lower_".length);
+  const normalized = String(nameRaw || "").trim().replace(/\.\d+$/g, "");
+  if (!/^glyph_/i.test(normalized)) return null;
+
+  let token = normalized.replace(/^glyph_/i, "");
+  let forceCase = null;
+
+  if (/^lower_/i.test(token)) {
+    forceCase = "lower";
+    token = token.replace(/^lower_/i, "");
+  } else if (/^upper_/i.test(token)) {
+    forceCase = "upper";
+    token = token.replace(/^upper_/i, "");
+  } else if (/_lower$/i.test(token)) {
+    forceCase = "lower";
+    token = token.replace(/_lower$/i, "");
+  } else if (/_upper$/i.test(token)) {
+    forceCase = "upper";
+    token = token.replace(/_upper$/i, "");
   }
-  return glyphTokenToChar(token, lower);
+
+  return glyphTokenToChar(token, forceCase);
 };
 
 const PRINT_TYPE_OPTIONS = [
@@ -1118,8 +1132,8 @@ const createSideData = () => ({
     layout: "straight",
     curve: 30,
     rotation: 0,
-    rubberDepth: 1,
-    rubberStick: 0.96,
+    rubberDepth: 0.6,
+    rubberStick: 0.9,
     rubberLetterSpacing: 1,
     z: 0,
   },
@@ -1136,12 +1150,12 @@ const normalizeSideData = (sideData) => {
     rotation: clamp(Number(source?.customText?.rotation) || 0, -180, 180),
     embossDepth: clamp(Number(source?.customText?.embossDepth ?? base.customText.embossDepth), 0.6, 2.8),
     embossStrength: clamp(Number(source?.customText?.embossStrength ?? base.customText.embossStrength), 0.6, 2.4),
-    rubberDepth: clamp(Number(source?.customText?.rubberDepth ?? base.customText.rubberDepth), 0.6, 2.4),
+    rubberDepth: clamp(Number(source?.customText?.rubberDepth ?? base.customText.rubberDepth), 0.2, 0.8),
     rubberStick: clamp(Number(source?.customText?.rubberStick ?? base.customText.rubberStick), 0.7, 1),
     rubberLetterSpacing: clamp(
       Number(source?.customText?.rubberLetterSpacing ?? base.customText.rubberLetterSpacing),
-      0.5,
-      2
+      0.2,
+      3
     ),
   };
   const textPos = clampTextPos(source.textPos || base.textPos, customText);
@@ -1929,6 +1943,7 @@ function ShrinkwrappedRubberGlyph({
   rotationZ,
   scale,
   color,
+  shrinkwrap = true,
   stick = 0.96,
   depthBoost = 5.5,
   placementKey = "",
@@ -1946,7 +1961,7 @@ function ShrinkwrappedRubberGlyph({
     mesh.geometry = wrapped;
     if (prev && prev !== wrapped) prev.dispose?.();
 
-    if (targetMesh?.geometry) {
+    if (shrinkwrap && targetMesh?.geometry) {
       const eps = 0.000008 + (1 - clamp(stick, 0.7, 1)) * 0.00035;
       try {
         shrinkwrapGlyphMeshToSurface(mesh, targetMesh, eps, depthBoost);
@@ -1954,7 +1969,7 @@ function ShrinkwrappedRubberGlyph({
         console.warn("Rubber shrinkwrap failed:", err);
       }
     }
-  }, [baseGeometry, targetMesh, px, py, pz, rotationZ, sx, sy, sz, stick, depthBoost, placementKey]);
+  }, [baseGeometry, targetMesh, px, py, pz, rotationZ, sx, sy, sz, shrinkwrap, stick, depthBoost, placementKey]);
 
   useEffect(
     () => () => {
@@ -2259,7 +2274,7 @@ function Real3DModel({
     const avgGlyphW = entries
       .filter((entry) => !entry.isSpace)
       .reduce((sum, entry, _, arr) => sum + entry.width / Math.max(1, arr.length), 0) || 0.58;
-    const rubberLetterSpacing = clamp(Number(textState?.rubberLetterSpacing ?? 1), 0.5, 2);
+    const rubberLetterSpacing = clamp(Number(textState?.rubberLetterSpacing ?? 1), 0.2, 3);
     const spacingRaw = clamp(avgGlyphW * 0.18 * rubberLetterSpacing, 0.02, 0.9);
 
     const positions = [];
@@ -2326,15 +2341,14 @@ function Real3DModel({
     const fitHScale = (areaH * 0.88) / Math.max(0.001, totalRawH * scaleY);
     const scaleRaw = Math.min(targetW / totalRawW, targetH / maxRawH, fitWScale, fitHScale);
     const glyphScale = clamp(scaleRaw, 0.01, 1.35);
-    const rubberDepth = clamp(Number(textState?.rubberDepth ?? 1), 0.6, 2.4);
-    const rubberStick = clamp(Number(textState?.rubberStick ?? 0.96), 0.7, 1);
-    const depthT = (rubberDepth - 0.6) / 1.8;
+    const rubberDepth = clamp(Number(textState?.rubberDepth ?? 0.6), 0.2, 0.8);
+    const depthT = (rubberDepth - 0.2) / 0.6;
     const zScale = clamp(
-      (0.06 + depthT * 0.18) * (maxRawD / 0.024),
-      0.08,
-      0.28
+      (0.07 + depthT * 0.08) * (maxRawD / 0.024),
+      0.06,
+      0.17
     );
-    const depthBoost = 3.5 + depthT * 4.5;
+    const depthBoost = 3.2 + depthT * 2.2;
     const placedW = totalRawW * glyphScale * scaleX;
     const placedH = totalRawH * glyphScale * scaleY;
 
@@ -2353,8 +2367,7 @@ function Real3DModel({
       profile.yTop - halfH - edgePad
     );
     const rz = ((Number(textState?.rotation) || 0) * Math.PI) / 180;
-    const stickLift = (1 - rubberStick) * 0.00032;
-    const zNudge = side === "back" ? -(0.000012 + stickLift) : 0.000012 + stickLift;
+    const zNudge = side === "back" ? -0.00012 : 0.00012;
     const sideRotY = Number(profile.rotY ?? (side === "back" ? Math.PI : 0));
     const textColor = textState?.color || "#f4f4f4";
     const yLift = 0;
@@ -2380,7 +2393,7 @@ function Real3DModel({
               rotationZ={(row.rotDeg * Math.PI) / 180}
               scale={[glyphScale * scaleX, glyphScale * scaleY, zScale]}
               color={textColor}
-              stick={rubberStick}
+              shrinkwrap={false}
               depthBoost={depthBoost}
               placementKey={placementKey}
             />
@@ -4251,7 +4264,7 @@ function EditorPanel({
                     value={t.text || ""}
                     maxLength={56}
                     onChange={(e) => bumpText({ text: e.target.value })}
-                    placeholder="Yazını gir"
+                    placeholder=""
                     className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-[16px] md:text-[12px] font-semibold text-gray-800"
                   />
                   <div className="grid grid-cols-2 gap-2">
@@ -4284,44 +4297,29 @@ function EditorPanel({
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-gray-500">
                           <span>Rubber Kalınlık</span>
-                          <span className="text-gray-700 normal-case">{clamp(Number(t?.rubberDepth ?? 1), 0.6, 2.4).toFixed(2)}x</span>
+                          <span className="text-gray-700 normal-case">{clamp(Number(t?.rubberDepth ?? 0.6), 0.2, 0.8).toFixed(2)}x</span>
                         </div>
                         <input
                           type="range"
-                          min="0.6"
-                          max="2.4"
-                          step="0.05"
-                          value={clamp(Number(t?.rubberDepth ?? 1), 0.6, 2.4)}
+                          min="0.2"
+                          max="0.8"
+                          step="0.02"
+                          value={clamp(Number(t?.rubberDepth ?? 0.6), 0.2, 0.8)}
                           onChange={(e) => bumpText({ rubberDepth: Number(e.target.value) })}
                           className="w-full accent-cyan-600"
                         />
                       </div>
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-gray-500">
-                          <span>Yüzeye Yapışma</span>
-                          <span className="text-gray-700 normal-case">{Math.round(clamp(Number(t?.rubberStick ?? 0.96), 0.7, 1) * 100)}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="70"
-                          max="100"
-                          step="1"
-                          value={Math.round(clamp(Number(t?.rubberStick ?? 0.96), 0.7, 1) * 100)}
-                          onChange={(e) => bumpText({ rubberStick: Number(e.target.value) / 100 })}
-                          className="w-full accent-cyan-600"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-gray-500">
                           <span>Harf Aralığı</span>
-                          <span className="text-gray-700 normal-case">{clamp(Number(t?.rubberLetterSpacing ?? 1), 0.5, 2).toFixed(2)}x</span>
+                          <span className="text-gray-700 normal-case">{clamp(Number(t?.rubberLetterSpacing ?? 1), 0.2, 3).toFixed(2)}x</span>
                         </div>
                         <input
                           type="range"
-                          min="0.5"
-                          max="2"
+                          min="0.2"
+                          max="3"
                           step="0.05"
-                          value={clamp(Number(t?.rubberLetterSpacing ?? 1), 0.5, 2)}
+                          value={clamp(Number(t?.rubberLetterSpacing ?? 1), 0.2, 3)}
                           onChange={(e) => bumpText({ rubberLetterSpacing: Number(e.target.value) })}
                           className="w-full accent-cyan-600"
                         />
@@ -6228,7 +6226,7 @@ function TasarimClientContent({ isMobile }) {
                       value={customText?.text || ""}
                       onChange={(e) => bumpCustomText({ text: e.target.value })}
                       className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 text-white px-2 py-1 text-[16px] md:text-[11px]"
-                      placeholder="Yazinizi girin"
+                      placeholder=""
                     />
                   </div>
 
@@ -6310,14 +6308,14 @@ function TasarimClientContent({ isMobile }) {
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-[10px] text-zinc-400">
                           <span>Rubber Kalınlık</span>
-                          <span>{clamp(Number(customText?.rubberDepth ?? 1), 0.6, 2.4).toFixed(2)}x</span>
+                          <span>{clamp(Number(customText?.rubberDepth ?? 0.6), 0.2, 0.8).toFixed(2)}x</span>
                         </div>
                         <input
                           type="range"
-                          min="0.6"
-                          max="2.4"
-                          step="0.05"
-                          value={clamp(Number(customText?.rubberDepth ?? 1), 0.6, 2.4)}
+                          min="0.2"
+                          max="0.8"
+                          step="0.02"
+                          value={clamp(Number(customText?.rubberDepth ?? 0.6), 0.2, 0.8)}
                           onChange={(e) => bumpCustomText({ rubberDepth: Number(e.target.value) })}
                           className="w-full accent-cyan-300"
                         />
@@ -6325,31 +6323,15 @@ function TasarimClientContent({ isMobile }) {
 
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                          <span>Yüzeye Yapışma</span>
-                          <span>{Math.round(clamp(Number(customText?.rubberStick ?? 0.96), 0.7, 1) * 100)}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="70"
-                          max="100"
-                          step="1"
-                          value={Math.round(clamp(Number(customText?.rubberStick ?? 0.96), 0.7, 1) * 100)}
-                          onChange={(e) => bumpCustomText({ rubberStick: Number(e.target.value) / 100 })}
-                          className="w-full accent-cyan-300"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
                           <span>Harf Aralığı</span>
-                          <span>{clamp(Number(customText?.rubberLetterSpacing ?? 1), 0.5, 2).toFixed(2)}x</span>
+                          <span>{clamp(Number(customText?.rubberLetterSpacing ?? 1), 0.2, 3).toFixed(2)}x</span>
                         </div>
                         <input
                           type="range"
-                          min="0.5"
-                          max="2"
+                          min="0.2"
+                          max="3"
                           step="0.05"
-                          value={clamp(Number(customText?.rubberLetterSpacing ?? 1), 0.5, 2)}
+                          value={clamp(Number(customText?.rubberLetterSpacing ?? 1), 0.2, 3)}
                           onChange={(e) => bumpCustomText({ rubberLetterSpacing: Number(e.target.value) })}
                           className="w-full accent-cyan-300"
                         />

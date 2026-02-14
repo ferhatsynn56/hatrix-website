@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { createHash, timingSafeEqual } from "crypto";
 import { getAdminCookieOptions, getAdminSessionToken } from "@/lib/adminSession";
 
-const DEV_FALLBACK_USERNAME = "admin";
-const DEV_FALLBACK_PASSWORD = "123456";
+const DEFAULT_ADMIN_USERNAME = "s0n0smanli56";
+const DEFAULT_ADMIN_PASSWORD = "06SG716tr.";
 const ADMIN_COOKIE_NAME = "hatrix_admin_session";
 
 const hashSha256 = (value) => createHash("sha256").update(String(value || ""), "utf8").digest("hex");
@@ -15,23 +15,8 @@ const safeCompare = (left, right) => {
   return timingSafeEqual(a, b);
 };
 
-const getExpectedUsername = () => {
-  const fromEnv = process.env.ADMIN_USERNAME;
-  if (typeof fromEnv === "string" && fromEnv.trim()) return fromEnv.trim();
-  if (process.env.NODE_ENV !== "production") return DEV_FALLBACK_USERNAME;
-  return "";
-};
-
-const getExpectedPasswordHash = () => {
-  const fromHash = process.env.ADMIN_PASSWORD_HASH;
-  if (typeof fromHash === "string" && fromHash.trim().length === 64) return fromHash.trim().toLowerCase();
-
-  const fromPlain = process.env.ADMIN_PASSWORD;
-  if (typeof fromPlain === "string" && fromPlain.length > 0) return hashSha256(fromPlain);
-
-  if (process.env.NODE_ENV !== "production") return hashSha256(DEV_FALLBACK_PASSWORD);
-  return "";
-};
+const getExpectedUsername = () => DEFAULT_ADMIN_USERNAME;
+const getExpectedPasswordHash = () => hashSha256(DEFAULT_ADMIN_PASSWORD);
 
 export async function POST(request) {
   try {
