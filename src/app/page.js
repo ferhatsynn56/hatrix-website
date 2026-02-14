@@ -3,9 +3,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-    ArrowRight,
     MousePointer2, PenTool, Download, Truck, RotateCcw, ShieldCheck, 
-    Beaker, ChevronLeft, ChevronRight
+    ChevronLeft, ChevronRight
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 
@@ -87,7 +86,7 @@ const STENI_CATEGORY_CARDS = [
 
 function AnnouncementBar() {
     return (
-        <div className="border-b border-zinc-800 bg-black/88 backdrop-blur-xl" style={{ height: "var(--announcement-h)" }}>
+        <div className="relative z-[2] border-b border-zinc-800 bg-black/88 backdrop-blur-xl" style={{ height: "var(--announcement-h)" }}>
             <div className="h-full max-w-[760px] mx-auto px-4 flex items-center justify-center">
                 <p className="text-[10px] tracking-[0.14em] uppercase text-white/90 font-bold text-center">
                     LIMITED DROP · SMALL BATCH PRODUCTION
@@ -97,30 +96,42 @@ function AnnouncementBar() {
     );
 }
 
-function SegmentToggle({ aktifBolum, onSelect }) {
+function HomeTabSwitcher({ activeTab, onChange }) {
     return (
-        <div className="w-40 sm:w-48" style={{ transform: "translateZ(0)" }}>
-            <div className="relative bg-black/88 backdrop-blur-xl rounded-full p-1 border border-zinc-700 shadow-[0_10px_24px_rgba(0,0,0,0.35)] flex w-full">
-                <div className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-full transition-all duration-300 ${aktifBolum === 'steni' ? 'left-1' : 'left-[calc(50%+2px)]'}`}></div>
-                <button onClick={() => onSelect('steni')} className={`min-h-[44px] flex-1 relative z-10 py-1.5 text-[9px] sm:text-[10px] font-black tracking-widest transition-colors duration-300 rounded-full ${aktifBolum === 'steni' ? 'text-black' : 'text-zinc-300 hover:text-white'}`}>STENI</button>
-                <button onClick={() => onSelect('ozel')} className={`min-h-[44px] flex-1 relative z-10 py-1.5 text-[9px] sm:text-[10px] font-black tracking-widest transition-colors duration-300 rounded-full ${aktifBolum === 'ozel' ? 'text-black' : 'text-zinc-300 hover:text-white'}`}>ÖZEL</button>
+        <div className="w-[170px]" style={{ transform: "translateZ(0)" }}>
+            <div className="relative bg-[#0b0d12] rounded-full p-1 border border-zinc-700 shadow-[0_8px_20px_rgba(0,0,0,0.34)] flex w-full">
+                <div className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-full transition-all duration-150 ${activeTab === 'steni' ? 'left-1' : 'left-[calc(50%+2px)]'}`}></div>
+                <button
+                    type="button"
+                    onClick={() => onChange('steni')}
+                    className={`min-h-[44px] flex-1 relative z-10 px-1 text-[10px] font-black tracking-[0.12em] transition-colors duration-150 rounded-full ${activeTab === 'steni' ? 'text-black' : 'text-zinc-400 hover:text-white'}`}
+                >
+                    STENI
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onChange('ozel')}
+                    className={`min-h-[44px] flex-1 relative z-10 px-1 text-[10px] font-black tracking-[0.12em] transition-colors duration-150 rounded-full ${activeTab === 'ozel' ? 'text-black' : 'text-zinc-400 hover:text-white'}`}
+                >
+                    ÖZEL
+                </button>
             </div>
         </div>
     );
 }
 
-function StickyTopShell({ aktifBolum, onSelect }) {
+function StickyTopShell({ activeTab, onChange }) {
     return (
         <header
-            className="sticky top-0 z-[60] bg-black/94 backdrop-blur-xl border-b border-zinc-900"
+            className="sticky top-0 z-[60] bg-[#050506]/95 backdrop-blur-xl border-b border-zinc-900"
             style={{ paddingTop: "var(--safe-top)" }}
         >
             <AnnouncementBar />
             <div
-                className="max-w-[760px] mx-auto px-4 flex items-center"
+                className="relative z-[1] max-w-[760px] mx-auto px-4 flex items-center border-t border-zinc-900/80"
                 style={{ height: "var(--toggle-h)" }}
             >
-                <SegmentToggle aktifBolum={aktifBolum} onSelect={onSelect} />
+                <HomeTabSwitcher activeTab={activeTab} onChange={onChange} />
             </div>
         </header>
     );
@@ -128,7 +139,7 @@ function StickyTopShell({ aktifBolum, onSelect }) {
 
 function HeroSection() {
     return (
-        <section className="relative overflow-hidden border-b border-zinc-900" style={{ padding: "calc(var(--s-12) + env(safe-area-inset-top)) var(--s-4) var(--s-10)" }}>
+        <section className="relative overflow-hidden border-b border-zinc-900" style={{ padding: "72px var(--s-4) 56px" }}>
             <div className="absolute inset-0">
                 <video autoPlay loop muted playsInline className="w-full h-full object-cover opacity-45" src="https://videos.pexels.com/video-files/3163534/3163534-uhd_2560_1440_30fps.mp4" />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/45 to-black/92" />
@@ -209,16 +220,10 @@ function FooterGroup({ title, children }) {
     );
 }
 
-function BottomNav() {
-    return (
-        <BottomNavBar primaryHref="/tasarim" primaryLabel="Tasarıma Başla" />
-    );
-}
-
 function BottomNavBar({ primaryHref, primaryLabel }) {
     return (
         <nav
-            className="fixed left-0 right-0 bottom-0 z-40 border-t border-zinc-800 bg-black/92 backdrop-blur-xl"
+            className="fixed left-0 right-0 bottom-0 z-[70] border-t border-zinc-800 bg-black/92 backdrop-blur-xl"
             style={{ paddingBottom: "var(--safe-bottom)" }}
         >
             <div className="max-w-[760px] mx-auto grid grid-cols-3 gap-2 px-4 py-3">
@@ -402,7 +407,7 @@ function Footer() {
                     <form className="flex items-center gap-2">
                         <input type="email" placeholder="E-posta" className="min-h-[44px] flex-1 rounded-[20px] bg-zinc-950 border border-zinc-700 px-4 text-white placeholder:text-zinc-500" />
                         <button type="button" className="min-h-[44px] px-5 rounded-[20px] bg-white text-black text-xs font-black uppercase tracking-wide active:scale-[0.985] transition-transform duration-150" style={{ transitionTimingFunction: APPLE_EASE }}>
-                            Kayıt
+                            KAYIT OL
                         </button>
                     </form>
                 </FooterGroup>
@@ -411,102 +416,90 @@ function Footer() {
     );
 }
 
-function SteniPremiumFlow({ heroIndex, goPrevHero, goNextHero, onExplore, onNavigate }) {
+function SteniTabContent({ heroIndex, goPrevHero, goNextHero, onExplore, onNavigate }) {
     return (
-        <div style={FLOW_TOKENS} className="bg-[#050608]">
-            <main
-                style={{
-                    paddingTop: "var(--s-4)",
-                    paddingBottom: "calc(var(--bottom-nav-h) + var(--safe-bottom) + var(--s-4))",
-                    scrollPaddingTop: "calc(var(--sticky-offset) + var(--safe-top))",
-                }}
-            >
-                <HeroCarousel heroIndex={heroIndex} goPrevHero={goPrevHero} goNextHero={goNextHero} />
-                <PrimaryCTA onExplore={onExplore} />
-                <CategoryGrid onNavigate={onNavigate} />
-                <PrintTechSection />
-                <TrustRow />
-                <Footer />
-            </main>
-            <BottomNavBar primaryHref="/tum-urunler" primaryLabel="Koleksiyon" />
-        </div>
+        <>
+            <HeroCarousel heroIndex={heroIndex} goPrevHero={goPrevHero} goNextHero={goNextHero} />
+            <PrimaryCTA onExplore={onExplore} />
+            <CategoryGrid onNavigate={onNavigate} />
+            <PrintTechSection />
+            <TrustRow />
+        </>
     );
 }
 
-function OzelPremiumFlow() {
+function OzelTabContent() {
     return (
-        <div style={FLOW_TOKENS} className="bg-[#050608]">
+        <>
+            <HeroSection />
+
+            <section className="max-w-[760px] mx-auto" style={{ padding: "56px var(--s-4)" }}>
+                <h2 className="text-white font-black text-[24px] sm:text-[30px] leading-tight">3 adımda özel üretim</h2>
+                <div className="grid gap-3 mt-4">
+                    <StepCard index={1} title="Ürününü Seç" desc="Tshirt, Sweatshirt, Hoodie veya Polar modelini seç." Icon={MousePointer2} />
+                    <StepCard index={2} title="Tasarımını Oluştur" desc="Yazı, baskı ve renk ayarlarını 3D sahnede düzenle." Icon={PenTool} />
+                    <StepCard index={3} title="Kaydet & Sipariş Ver" desc="Son görünümü onayla, siparişini güvenle tamamla." Icon={Download} />
+                </div>
+            </section>
+
+            <section className="border-y border-zinc-900 bg-black/60">
+                <div className="max-w-[760px] mx-auto" style={{ padding: "72px var(--s-4)" }}>
+                    <h3 className="text-white font-black text-[22px] sm:text-[26px]">Neden STENI Custom?</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 auto-rows-fr">
+                        <TrustItem title="Ücretsiz Kargo" desc="1500 TL üzeri alışverişlerde ücretsiz gönderim." Icon={Truck} />
+                        <TrustItem title="Kolay İade" desc="14 gün içinde kolay ve hızlı iade süreci." Icon={RotateCcw} />
+                        <TrustItem title="Güvenli Ödeme" desc="Iyzico altyapısı ile güvenli ödeme deneyimi." Icon={ShieldCheck} />
+                    </div>
+                </div>
+            </section>
+
+            <section className="max-w-[760px] mx-auto" style={{ padding: "56px var(--s-4)" }}>
+                <div className="flex items-end justify-between gap-3 mb-4">
+                    <h3 className="text-white font-black text-[22px] sm:text-[26px] leading-tight">Topluluk Tasarımları</h3>
+                    <a href="/tasarim" className="text-xs uppercase tracking-[0.14em] text-white/90 font-bold">Keşfet →</a>
+                </div>
+                <CommunityGrid />
+            </section>
+
+            <section className="max-w-[760px] mx-auto" style={{ padding: "0 var(--s-4) 56px" }}>
+                <div className="rounded-[20px] border border-zinc-800 bg-zinc-950/90 shadow-[0_12px_26px_rgba(0,0,0,0.28)]" style={{ padding: "20px" }}>
+                    <p className="text-sm text-white/90">Tasarım stüdyosuna geç, ürününü anında kişiselleştir.</p>
+                    <a href="/tasarim" className="mt-4 inline-flex items-center min-h-[44px] px-6 rounded-full bg-white text-black text-xs font-black uppercase tracking-[0.12em] active:scale-[0.985] transition-transform duration-150" style={{ transitionTimingFunction: APPLE_EASE }}>
+                        Tasarıma Başla
+                    </a>
+                </div>
+            </section>
+        </>
+    );
+}
+
+function MobileHomeShell({ activeTab, onTabChange, heroIndex, onHeroPrev, onHeroNext, onExplore, onCategoryNavigate }) {
+    return (
+        <div style={FLOW_TOKENS} className="bg-[#050608] min-h-screen">
+            <StickyTopShell activeTab={activeTab} onChange={onTabChange} />
             <main
                 style={{
-                    paddingTop: "var(--s-4)",
                     paddingBottom: "calc(var(--bottom-nav-h) + var(--safe-bottom) + var(--s-4))",
                     scrollPaddingTop: "calc(var(--sticky-offset) + var(--safe-top))",
                 }}
             >
-                <HeroSection />
-
-                <section className="max-w-[760px] mx-auto" style={{ padding: "56px var(--s-4)" }}>
-                    <h2 className="text-white font-black text-[24px] sm:text-[30px] leading-tight">3 adımda özel üretim</h2>
-                    <div className="grid gap-3 mt-4">
-                        <StepCard index={1} title="Ürününü Seç" desc="Tshirt, Sweatshirt, Hoodie veya Polar modelini seç." Icon={MousePointer2} />
-                        <StepCard index={2} title="Tasarımını Oluştur" desc="Yazı, baskı ve renk ayarlarını 3D sahnede düzenle." Icon={PenTool} />
-                        <StepCard index={3} title="Kaydet & Sipariş Ver" desc="Son görünümü onayla, siparişini güvenle tamamla." Icon={Download} />
-                    </div>
-                </section>
-
-                <section className="border-y border-zinc-900 bg-black/60">
-                    <div className="max-w-[760px] mx-auto" style={{ padding: "72px var(--s-4)" }}>
-                        <h3 className="text-white font-black text-[22px] sm:text-[26px]">Neden STENI Custom?</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
-                            <TrustItem title="Ücretsiz Kargo" desc="1500 TL üzeri alışverişlerde ücretsiz gönderim." Icon={Truck} />
-                            <TrustItem title="Kolay İade" desc="14 gün içinde kolay ve hızlı iade süreci." Icon={RotateCcw} />
-                            <TrustItem title="Güvenli Ödeme" desc="Iyzico altyapısı ile güvenli ödeme deneyimi." Icon={ShieldCheck} />
-                        </div>
-                    </div>
-                </section>
-
-                <section className="max-w-[760px] mx-auto" style={{ padding: "56px var(--s-4)" }}>
-                    <div className="flex items-end justify-between gap-3 mb-4">
-                        <h3 className="text-white font-black text-[22px] sm:text-[26px] leading-tight">Topluluk Tasarımları</h3>
-                        <a href="/tasarim" className="text-xs uppercase tracking-[0.14em] text-white/90 font-bold">Keşfet →</a>
-                    </div>
-                    <CommunityGrid />
-                </section>
-
-                <footer className="border-t border-zinc-900 bg-black/80">
-                    <div className="max-w-[760px] mx-auto grid grid-cols-1 sm:grid-cols-2 gap-6" style={{ padding: "56px var(--s-4) 72px" }}>
-                        <FooterGroup title="Müşteri Hizmetleri">
-                            <div className="space-y-2 text-sm text-white/90">
-                                <a href="#" className="block">Bize Ulaşın</a>
-                                <a href="#" className="block">İade ve Değişim</a>
-                            </div>
-                        </FooterGroup>
-                        <FooterGroup title="Şirket">
-                            <div className="space-y-2 text-sm text-white/90">
-                                <a href="/hakkimizda" className="block">Hakkımızda</a>
-                                <a href="/bilimsel" className="block">Bilimsel</a>
-                            </div>
-                        </FooterGroup>
-                        <FooterGroup title="Sosyal">
-                            <div className="flex gap-4 text-sm text-white/90">
-                                <a href="#">Instagram</a>
-                                <a href="#">Youtube</a>
-                                <a href="#">X</a>
-                            </div>
-                        </FooterGroup>
-                        <FooterGroup title="Bülten">
-                            <p className="text-sm text-white/90">Yeni koleksiyonlardan ilk sen haberdar ol.</p>
-                            <form className="flex items-center gap-2">
-                                <input type="email" placeholder="E-posta" className="min-h-[44px] flex-1 rounded-xl bg-zinc-950 border border-zinc-700 px-3 text-white placeholder:text-zinc-500" />
-                                <button type="button" className="min-h-[44px] px-4 rounded-xl bg-white text-black text-xs font-black uppercase tracking-wide active:scale-[0.985] transition-transform duration-150" style={{ transitionTimingFunction: APPLE_EASE }}>
-                                    Kayıt Ol
-                                </button>
-                            </form>
-                        </FooterGroup>
-                    </div>
-                </footer>
+                {activeTab === "steni" ? (
+                    <SteniTabContent
+                        heroIndex={heroIndex}
+                        goPrevHero={onHeroPrev}
+                        goNextHero={onHeroNext}
+                        onExplore={onExplore}
+                        onNavigate={onCategoryNavigate}
+                    />
+                ) : (
+                    <OzelTabContent />
+                )}
+                <Footer />
             </main>
-            <BottomNav />
+            <BottomNavBar
+                primaryHref={activeTab === "steni" ? "/tum-urunler" : "/tasarim"}
+                primaryLabel={activeTab === "steni" ? "Koleksiyon" : "Tasarıma Başla"}
+            />
         </div>
     );
 }
@@ -516,6 +509,7 @@ export default function HomePage() {
 
     // --- STATE'LER ---
     const [aktifBolum, setAktifBolum] = useState(null);
+    const [isMobileViewport, setIsMobileViewport] = useState(false);
     const [heroIndex, setHeroIndex] = useState(0);
     const [introPressedCard, setIntroPressedCard] = useState(null);
     const [introTransitionCard, setIntroTransitionCard] = useState(null);
@@ -525,31 +519,36 @@ export default function HomePage() {
 
     // --- AKILLI NAVİGASYON KONTROLÜ ---
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const modeFromQuery = new URLSearchParams(window.location.search).get('mode');
-            if (modeFromQuery === 'steni' || modeFromQuery === 'ozel') {
-                sessionStorage.setItem('session_bolum_tercihi', modeFromQuery);
-                setAktifBolum(modeFromQuery);
-                return;
-            }
+        if (typeof window === 'undefined') return;
 
-            const navEntries = performance.getEntriesByType("navigation");
-            let isReload = false;
-            if (navEntries.length > 0 && navEntries[0]?.type === 'reload') {
-                isReload = true;
-            }
+        const isMobile = window.matchMedia("(max-width: 767px)").matches;
+        setIsMobileViewport(isMobile);
 
-            if (isReload) {
-                sessionStorage.removeItem('session_bolum_tercihi');
-                setAktifBolum('intro');
-            } else {
-                const kayitliTercih = sessionStorage.getItem('session_bolum_tercihi');
-                if (kayitliTercih) {
-                    setAktifBolum(kayitliTercih);
-                } else {
-                    setAktifBolum('intro');
-                }
-            }
+        const modeFromQuery = new URLSearchParams(window.location.search).get('mode');
+        if (modeFromQuery === 'steni' || modeFromQuery === 'ozel') {
+            sessionStorage.setItem('session_bolum_tercihi', modeFromQuery);
+            setAktifBolum(modeFromQuery);
+            return;
+        }
+
+        const kayitliTercih = sessionStorage.getItem('session_bolum_tercihi');
+        if (kayitliTercih === 'steni' || kayitliTercih === 'ozel') {
+            setAktifBolum(kayitliTercih);
+            return;
+        }
+
+        if (isMobile) {
+            setAktifBolum('steni');
+            return;
+        }
+
+        const navEntries = performance.getEntriesByType("navigation");
+        const isReload = navEntries.length > 0 && navEntries[0]?.type === 'reload';
+        if (isReload) {
+            sessionStorage.removeItem('session_bolum_tercihi');
+            setAktifBolum('intro');
+        } else {
+            setAktifBolum('intro');
         }
     }, []);
 
@@ -639,7 +638,7 @@ export default function HomePage() {
     // =====================================================================================
     // --- GİRİŞ EKRANI (INTRO) ---
     // =====================================================================================
-    if (aktifBolum === 'intro') {
+    if (aktifBolum === 'intro' && !isMobileViewport) {
         const INTRO_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
         const isIntroLeaving = Boolean(introTransitionCard);
         return (
@@ -756,40 +755,19 @@ export default function HomePage() {
     // =====================================================================================
     return (
         <div style={FLOW_TOKENS} className="min-h-screen bg-black font-sans text-white overflow-x-hidden selection:bg-red-600 selection:text-white animate-in fade-in duration-700">
-            
             <div className="hidden md:block">
                 <Navbar />
             </div>
-            <StickyTopShell aktifBolum={aktifBolum} onSelect={bolumSec} />
 
-            {/*
-              ✅ Mobil alttaki sabit menü barı kaldırıldıysa (Navbar'dan),
-              burada ekstra padding'e gerek yok. Eğer tekrar sabit bar eklersen,
-              pb değerlerini geri açabilirsin.
-            */}
-            <div className="pb-0"> 
-                
-                {/* ================= STENI BÖLÜMÜ (HAZIR GİYİM) ================= */}
-                {aktifBolum === 'steni' && (
-                    <div className="animate-in fade-in duration-700">
-                        <SteniPremiumFlow
-                            heroIndex={heroIndex}
-                            goPrevHero={goPrevHero}
-                            goNextHero={goNextHero}
-                            onExplore={() => router.push('/tum-urunler')}
-                            onNavigate={(href) => router.push(href)}
-                        />
-                    </div>
-                )}
-
-                {/* ================= ÖZEL BÖLÜMÜ (3D TASARIM) ================= */}
-                {aktifBolum === 'ozel' && (
-                    <div className="animate-in fade-in duration-700">
-                        <OzelPremiumFlow />
-                    </div>
-                )}
-
-            </div>
+            <MobileHomeShell
+                activeTab={aktifBolum === 'ozel' ? 'ozel' : 'steni'}
+                onTabChange={bolumSec}
+                heroIndex={heroIndex}
+                onHeroPrev={goPrevHero}
+                onHeroNext={goNextHero}
+                onExplore={() => router.push('/tum-urunler')}
+                onCategoryNavigate={(href) => router.push(href)}
+            />
         </div>
     );
 }
