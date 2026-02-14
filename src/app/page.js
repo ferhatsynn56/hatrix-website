@@ -180,7 +180,7 @@ export default function HomePage() {
             setAktifBolum(bolum);
             router.push(`/?mode=${bolum}`, { scroll: false });
             introNavLockRef.current = false;
-        }, 105);
+        }, 100);
     };
 
     if (aktifBolum === null) {
@@ -225,7 +225,7 @@ export default function HomePage() {
                                 startIntroNavigation('steni');
                             }
                         }}
-                        className="relative w-full min-h-[280px] sm:min-h-[310px] rounded-[24px] overflow-hidden border border-white/15 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-white/55"
+                        className="relative w-full min-h-[280px] sm:min-h-[310px] rounded-[24px] overflow-hidden border border-white/15 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-white/55 mt-[7px]"
                         style={{
                             transform: introPressedCard === 'steni' ? 'scale(0.985)' : 'scale(1)',
                             boxShadow: introPressedCard === 'steni'
@@ -238,7 +238,7 @@ export default function HomePage() {
                         <img
                             src="/urungorsel/girisFoto1.png"
                             alt="STENI Ready to Wear"
-                            className="absolute inset-0 w-full h-full object-cover"
+                            className="absolute inset-0 w-full h-full object-cover object-center md:object-[50%_8%] lg:object-[50%_6%]"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/48 to-black/18" />
                         <div className="absolute inset-0 p-5 sm:p-6 flex flex-col justify-between">
@@ -248,7 +248,7 @@ export default function HomePage() {
                             <div className="space-y-1.5">
                                 <h2 className="text-[44px] sm:text-[58px] leading-none font-black tracking-tight text-white">STENI</h2>
                                 <p className="text-[12px] sm:text-[13px] tracking-[0.24em] uppercase font-semibold text-zinc-100">READY TO WEAR</p>
-                                <p className="text-[13px] sm:text-sm text-zinc-200 max-w-[420px]">Hazır koleksiyonlardan seç, doğrudan satın al.</p>
+                                <p className="text-[13px] sm:text-sm text-white/90 max-w-[420px]">Hazır koleksiyonlardan seç, doğrudan satın al.</p>
                                 <p className="pt-1 text-[13px] sm:text-sm font-bold text-white">Koleksiyonu Gör →</p>
                             </div>
                         </div>
@@ -282,7 +282,7 @@ export default function HomePage() {
                         <img
                             src="/urungorsel/800x800/conceptttt.jpg"
                             alt="ÖZEL Design Studio"
-                            className="absolute inset-0 w-full h-full object-cover"
+                            className="absolute inset-0 w-full h-full object-cover object-center md:object-[50%_12%] lg:object-[50%_10%]"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/48 to-black/18" />
                         <div className="absolute inset-0 p-5 sm:p-6 flex flex-col justify-between">
@@ -292,7 +292,7 @@ export default function HomePage() {
                             <div className="space-y-1.5">
                                 <h2 className="text-[44px] sm:text-[58px] leading-none font-black tracking-tight text-white">ÖZEL</h2>
                                 <p className="text-[12px] sm:text-[13px] tracking-[0.24em] uppercase font-semibold text-zinc-100">DESIGN STUDIO</p>
-                                <p className="text-[13px] sm:text-sm text-zinc-200 max-w-[420px]">Modelini seç, tasarımını üretime hazırla.</p>
+                                <p className="text-[13px] sm:text-sm text-white/90 max-w-[420px]">Modelini seç, tasarımını üretime hazırla.</p>
                                 <p className="pt-1 text-[13px] sm:text-sm font-bold text-white">Tasarımı Başlat →</p>
                             </div>
                         </div>
