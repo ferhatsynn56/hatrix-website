@@ -63,6 +63,11 @@ const HOME_CATEGORY_IMAGES_800x800 = {
 
 const APPLE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 const FLOW_TOKENS = {
+    "--top-bar-h": "56px",
+    "--toggle-h": "52px",
+    "--bottom-nav-h": "72px",
+    "--safe-top": "env(safe-area-inset-top)",
+    "--safe-bottom": "env(safe-area-inset-bottom)",
     "--s-2": "8px",
     "--s-3": "12px",
     "--s-4": "16px",
@@ -70,8 +75,6 @@ const FLOW_TOKENS = {
     "--s-8": "32px",
     "--s-10": "40px",
     "--s-12": "48px",
-    "--bottom-nav-height": "72px",
-    "--top-banner-height": "36px",
 };
 
 const STENI_CATEGORY_CARDS = [
@@ -85,11 +88,11 @@ function AnnouncementBar() {
     return (
         <div
             className="fixed top-0 left-0 right-0 z-50 border-b border-zinc-800 bg-black/88 backdrop-blur-xl"
-            style={{ height: "var(--top-banner-height)" }}
+            style={{ height: "var(--top-bar-h)" }}
         >
             <div className="h-full max-w-[760px] mx-auto px-4 flex items-center justify-center">
                 <p className="text-[10px] tracking-[0.14em] uppercase text-white/90 font-bold text-center">
-                    Limited Drop · Small Batch Production
+                    LIMITED DROP · SMALL BATCH PRODUCTION
                 </p>
             </div>
         </div>
@@ -99,16 +102,16 @@ function AnnouncementBar() {
 function SegmentToggle({ aktifBolum, onSelect }) {
     return (
         <div
-            className="fixed left-4 sm:left-6 md:left-8 z-40 w-40 sm:w-48"
+            className="fixed left-4 sm:left-6 md:left-8 z-[45] w-40 sm:w-48"
             style={{
                 transform: "translateZ(0)",
-                top: "calc(var(--top-banner-height, 0px) + env(safe-area-inset-top) + 12px)",
+                top: "calc(var(--top-bar-h) + var(--safe-top) + var(--s-3))",
             }}
         >
-            <div className="relative bg-black/80 backdrop-blur-xl rounded-full p-1 border border-zinc-700 shadow-2xl flex w-full">
+            <div className="relative bg-black/88 backdrop-blur-xl rounded-full p-1 border border-zinc-700 shadow-[0_10px_24px_rgba(0,0,0,0.35)] flex w-full">
                 <div className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-full transition-all duration-300 ${aktifBolum === 'steni' ? 'left-1' : 'left-[calc(50%+2px)]'}`}></div>
-                <button onClick={() => onSelect('steni')} className={`min-h-[44px] flex-1 relative z-10 py-1.5 text-[9px] sm:text-[10px] font-black tracking-widest transition-colors duration-300 rounded-full ${aktifBolum === 'steni' ? 'text-black' : 'text-zinc-400 hover:text-white'}`}>STENI</button>
-                <button onClick={() => onSelect('ozel')} className={`min-h-[44px] flex-1 relative z-10 py-1.5 text-[9px] sm:text-[10px] font-black tracking-widest transition-colors duration-300 rounded-full ${aktifBolum === 'ozel' ? 'text-black' : 'text-zinc-400 hover:text-white'}`}>ÖZEL</button>
+                <button onClick={() => onSelect('steni')} className={`min-h-[44px] flex-1 relative z-10 py-1.5 text-[9px] sm:text-[10px] font-black tracking-widest transition-colors duration-300 rounded-full ${aktifBolum === 'steni' ? 'text-black' : 'text-zinc-300 hover:text-white'}`}>STENI</button>
+                <button onClick={() => onSelect('ozel')} className={`min-h-[44px] flex-1 relative z-10 py-1.5 text-[9px] sm:text-[10px] font-black tracking-widest transition-colors duration-300 rounded-full ${aktifBolum === 'ozel' ? 'text-black' : 'text-zinc-300 hover:text-white'}`}>ÖZEL</button>
             </div>
         </div>
     );
@@ -207,7 +210,7 @@ function BottomNavBar({ primaryHref, primaryLabel }) {
     return (
         <nav
             className="fixed left-0 right-0 bottom-0 z-40 border-t border-zinc-800 bg-black/92 backdrop-blur-xl"
-            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+            style={{ paddingBottom: "var(--safe-bottom)" }}
         >
             <div className="max-w-[760px] mx-auto grid grid-cols-3 gap-2 px-4 py-3">
                 <a href={primaryHref} className="min-h-[44px] rounded-full bg-white text-black text-[11px] font-black tracking-wide uppercase flex items-center justify-center active:scale-[0.985] transition-transform duration-150" style={{ transitionTimingFunction: APPLE_EASE }}>
@@ -227,7 +230,7 @@ function BottomNavBar({ primaryHref, primaryLabel }) {
 function HeroCarousel({ heroIndex, goPrevHero, goNextHero }) {
     const slide = HOME_HERO_SLIDES_1920x850[heroIndex] || HOME_HERO_SLIDES_1920x850[0];
     return (
-        <section className="relative border-b border-zinc-900 overflow-hidden" style={{ paddingTop: "calc(var(--top-banner-height) + env(safe-area-inset-top) + 56px)" }}>
+        <section className="relative border-b border-zinc-900 overflow-hidden">
             <div className="relative h-[62svh] min-h-[440px]">
                 {HOME_HERO_SLIDES_1920x850.map((item, i) => (
                     <img
@@ -402,8 +405,7 @@ function Footer() {
 function SteniPremiumFlow({ heroIndex, goPrevHero, goNextHero, onExplore, onNavigate }) {
     return (
         <div style={FLOW_TOKENS} className="bg-[#050608]">
-            <AnnouncementBar />
-            <main style={{ paddingBottom: "calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 16px)" }}>
+            <main style={{ paddingTop: "calc(var(--top-bar-h) + var(--safe-top) + var(--toggle-h) + var(--s-6))", paddingBottom: "calc(var(--bottom-nav-h) + var(--safe-bottom) + var(--s-4))" }}>
                 <HeroCarousel heroIndex={heroIndex} goPrevHero={goPrevHero} goNextHero={goNextHero} />
                 <PrimaryCTA onExplore={onExplore} />
                 <CategoryGrid onNavigate={onNavigate} />
@@ -419,7 +421,7 @@ function SteniPremiumFlow({ heroIndex, goPrevHero, goNextHero, onExplore, onNavi
 function OzelPremiumFlow() {
     return (
         <div style={FLOW_TOKENS} className="bg-[#050608]">
-            <main style={{ paddingBottom: "calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + 16px)" }}>
+            <main style={{ paddingTop: "calc(var(--top-bar-h) + var(--safe-top) + var(--toggle-h) + var(--s-6))", paddingBottom: "calc(var(--bottom-nav-h) + var(--safe-bottom) + var(--s-4))" }}>
                 <HeroSection />
 
                 <section className="max-w-[760px] mx-auto" style={{ padding: "var(--s-10) var(--s-4)" }}>
@@ -735,6 +737,7 @@ export default function HomePage() {
         <div style={FLOW_TOKENS} className="min-h-screen bg-black font-sans text-white overflow-x-hidden selection:bg-red-600 selection:text-white animate-in fade-in duration-700">
             
             <Navbar />
+            <AnnouncementBar />
 
             <div className="animate-in fade-in slide-in-from-left-4 duration-700 delay-500">
                 <SegmentToggle aktifBolum={aktifBolum} onSelect={bolumSec} />
