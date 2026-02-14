@@ -37,6 +37,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Layers,
   Check,
   Pencil,
   Lock,
@@ -44,10 +45,13 @@ import {
 } from "lucide-react";
 
 import * as THREE from "three";
+import { MeshBVH, acceleratedRaycast } from "three-mesh-bvh";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 import { EXRLoader } from "three/examples/jsm/loaders/EXRLoader.js";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { getCheckoutData, setCheckoutData } from "@/lib/checkoutStore";
+
+THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
 /* ================= LOADER (SUSPENSE FALLBACK) ================= */
 function ThreeDotsLoader() {
@@ -551,6 +555,56 @@ const TEXT_LAYOUT_OPTIONS = [
 
 const HDR_ENV_DESKTOP_PATH = "/hdr/white_studio_06_4k.exr";
 const HDR_ENV_MOBILE_PATH = "/hdr/studio_small_03_2k.exr";
+const RUBBER_GLYPH_MODEL_PATH = `${NEW_MODELS_ROOT}/Harfler-isaretler.glb`;
+
+const GLYPH_TOKEN_MAP = {
+  plus: "+",
+  comma: ",",
+  parenright: ")",
+  slash: "/",
+  hyphen: "-",
+  question: "?",
+  exclam: "!",
+  asterisk: "*",
+  equal: "=",
+  at: "@",
+  numbersign: "#",
+  dollar: "$",
+  percent: "%",
+  ampersand: "&",
+  period: ".",
+};
+
+const glyphTokenToChar = (tokenRaw, lower = false) => {
+  const token = String(tokenRaw || "").toLowerCase().trim();
+  if (!token) return null;
+  if (GLYPH_TOKEN_MAP[token]) return GLYPH_TOKEN_MAP[token];
+  if (token === "ouml") return lower ? "ö" : "Ö";
+  if (token === "uuml") return lower ? "ü" : "Ü";
+  if (token === "ccedilla") return lower ? "ç" : "Ç";
+  if (token === "scedilla") return lower ? "ş" : "Ş";
+  if (token === "gbreve") return lower ? "ğ" : "Ğ";
+  if (token === "i_dotted") return lower ? "i" : "İ";
+  if (token === "i_nodot") return "ı";
+  if (/^[0-9]$/.test(token)) return token;
+  if (/^[a-z]$/.test(token)) return lower ? token : token.toUpperCase();
+  return null;
+};
+
+const glyphNodeNameToChar = (nameRaw) => {
+  const normalized = String(nameRaw || "")
+    .trim()
+    .replace(/\.\d+$/g, "")
+    .toLowerCase();
+  if (!normalized.startsWith("glyph_")) return null;
+  let token = normalized.slice("glyph_".length);
+  let lower = false;
+  if (token.startsWith("lower_")) {
+    lower = true;
+    token = token.slice("lower_".length);
+  }
+  return glyphTokenToChar(token, lower);
+};
 
 const PRINT_TYPE_OPTIONS = [
   {
@@ -1043,6 +1097,9 @@ const createSideData = () => ({
     layout: "straight",
     curve: 30,
     rotation: 0,
+    rubberDepth: 1,
+    rubberStick: 0.96,
+    rubberLetterSpacing: 1,
     z: 0,
   },
   textPos: { x: 0.5, y: 0.85 },
@@ -1058,6 +1115,13 @@ const normalizeSideData = (sideData) => {
     rotation: clamp(Number(source?.customText?.rotation) || 0, -180, 180),
     embossDepth: clamp(Number(source?.customText?.embossDepth ?? base.customText.embossDepth), 0.6, 2.8),
     embossStrength: clamp(Number(source?.customText?.embossStrength ?? base.customText.embossStrength), 0.6, 2.4),
+    rubberDepth: clamp(Number(source?.customText?.rubberDepth ?? base.customText.rubberDepth), 0.6, 2.4),
+    rubberStick: clamp(Number(source?.customText?.rubberStick ?? base.customText.rubberStick), 0.7, 1),
+    rubberLetterSpacing: clamp(
+      Number(source?.customText?.rubberLetterSpacing ?? base.customText.rubberLetterSpacing),
+      0.5,
+      2
+    ),
   };
   const textPos = clampTextPos(source.textPos || base.textPos, customText);
 
@@ -1550,9 +1614,11 @@ function useDesignCanvas(sideData, opts = {}) {
 
   const CANVAS_SIZE = 2048;
   const CANVAS_UPDATE_DEBOUNCE_MS = 6;
+  const textEnabled = opts?.disableText !== true;
 
   useEffect(() => {
-    const hasContent = logosForCanvas.length > 0 || (customText?.text || "").trim();
+    const hasTextContent = textEnabled && (customText?.text || "").trim();
+    const hasContent = logosForCanvas.length > 0 || hasTextContent;
     if (!hasContent) {
       setCanvas(null);
       return;
@@ -1570,6 +1636,7 @@ function useDesignCanvas(sideData, opts = {}) {
       ctx.imageSmoothingQuality = "high";
 
       const drawText = () => {
+        if (!textEnabled) return;
         const t = customText || {};
         if (!t.text) return;
         const safeTextPos = clampTextPos(sideData?.textPos, t);
@@ -1643,9 +1710,9 @@ function useDesignCanvas(sideData, opts = {}) {
 
         const items = [
           ...logosForCanvas.map((l, idx) => ({ kind: "logo", z: l?.z ?? 0, idx, payload: l })),
-          ...(customText?.text || "").trim()
+          ...(hasTextContent
             ? [{ kind: "text", z: customText?.z ?? 0, idx: 9999, payload: customText }]
-            : [],
+            : []),
         ].sort((a, b) => (a.z !== b.z ? a.z - b.z : a.idx - b.idx));
 
         for (const item of items) {
@@ -1669,7 +1736,7 @@ function useDesignCanvas(sideData, opts = {}) {
       clearTimeout(timeoutId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [logoSignature, textSignature, posSignature, opts?.clearCenterStripe01, CANVAS_SIZE, logosForCanvas, customText?.text]);
+  }, [logoSignature, textSignature, posSignature, opts?.clearCenterStripe01, opts?.disableText, CANVAS_SIZE, logosForCanvas, customText?.text, textEnabled]);
 
   return canvas;
 }
@@ -1745,6 +1812,172 @@ function makeCanvasTexture(canvas) {
   return tex;
 }
 
+function shrinkwrapGlyphMeshToSurface(mesh, targetMesh, epsilon = 0.00002, depthBoost = 5.5) {
+  if (!mesh?.geometry?.attributes?.position || !targetMesh?.geometry) return;
+  const targetGeometry = targetMesh.geometry;
+  if (!targetGeometry.boundsTree) {
+    targetGeometry.boundsTree = new MeshBVH(targetGeometry);
+  }
+
+  targetMesh.updateWorldMatrix(true, true);
+  mesh.updateWorldMatrix(true, false);
+
+  const raycaster = new THREE.Raycaster();
+  raycaster.firstHitOnly = true;
+  raycaster.far = 5;
+
+  const meshQuat = new THREE.Quaternion();
+  mesh.getWorldQuaternion(meshQuat);
+  const dir = new THREE.Vector3(0, 0, 1).applyQuaternion(meshQuat).normalize();
+
+  mesh.geometry.computeBoundingBox?.();
+  const maxLocalDepth = Math.max(0.0001, mesh.geometry.boundingBox?.max?.z || 0.0001);
+  const scaleZ = Math.max(0.0001, Math.abs(mesh.scale.z || 1));
+  const worldDepth = maxLocalDepth * scaleZ * Math.max(0.1, depthBoost);
+
+  const pos = mesh.geometry.attributes.position;
+  const local = new THREE.Vector3();
+  const world = new THREE.Vector3();
+  const originA = new THREE.Vector3();
+  const originB = new THREE.Vector3();
+  const rayA = new THREE.Vector3();
+  const rayB = new THREE.Vector3();
+  const normalWorld = new THREE.Vector3();
+  const snappedWorld = new THREE.Vector3();
+
+  const castDist = 0.18;
+  for (let i = 0; i < pos.count; i += 1) {
+    local.fromBufferAttribute(pos, i);
+    const localDepth = Math.max(0, local.z);
+    world.copy(local);
+    mesh.localToWorld(world);
+
+    originA.copy(world).addScaledVector(dir, castDist);
+    rayA.copy(dir).multiplyScalar(-1);
+    raycaster.set(originA, rayA);
+    const hitA = (raycaster.intersectObject(targetMesh, false) || [])[0] || null;
+
+    originB.copy(world).addScaledVector(dir, -castDist);
+    rayB.copy(dir);
+    raycaster.set(originB, rayB);
+    const hitB = (raycaster.intersectObject(targetMesh, false) || [])[0] || null;
+
+    let hit = null;
+    let usedOrigin = null;
+    let usedRay = null;
+
+    if (hitA && hitB) {
+      const dA = hitA.point.distanceTo(world);
+      const dB = hitB.point.distanceTo(world);
+      if (dA <= dB) {
+        hit = hitA;
+        usedOrigin = originA;
+        usedRay = rayA;
+      } else {
+        hit = hitB;
+        usedOrigin = originB;
+        usedRay = rayB;
+      }
+    } else if (hitA) {
+      hit = hitA;
+      usedOrigin = originA;
+      usedRay = rayA;
+    } else if (hitB) {
+      hit = hitB;
+      usedOrigin = originB;
+      usedRay = rayB;
+    }
+
+    if (!hit) continue;
+
+    if (hit.face?.normal) {
+      normalWorld.copy(hit.face.normal).transformDirection(targetMesh.matrixWorld).normalize();
+    } else {
+      normalWorld.copy(usedRay).multiplyScalar(-1).normalize();
+    }
+
+    if (normalWorld.dot(dir) < 0) normalWorld.multiplyScalar(-1);
+
+    const depthRatio = clamp(localDepth / maxLocalDepth, 0, 1);
+    const depthOffset = depthRatio * worldDepth;
+    snappedWorld.copy(hit.point).addScaledVector(normalWorld, epsilon + depthOffset);
+    mesh.worldToLocal(snappedWorld);
+    pos.setXYZ(i, snappedWorld.x, snappedWorld.y, snappedWorld.z);
+  }
+
+  pos.needsUpdate = true;
+  mesh.geometry.computeVertexNormals();
+}
+
+function ShrinkwrappedRubberGlyph({
+  baseGeometry,
+  targetMesh,
+  position,
+  rotationZ,
+  scale,
+  color,
+  stick = 0.96,
+  depthBoost = 5.5,
+  placementKey = "",
+}) {
+  const meshRef = useRef(null);
+  const [px, py, pz] = position;
+  const [sx, sy, sz] = scale;
+
+  useLayoutEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh || !baseGeometry) return;
+
+    const wrapped = baseGeometry.clone();
+    const prev = mesh.geometry;
+    mesh.geometry = wrapped;
+    if (prev && prev !== wrapped) prev.dispose?.();
+
+    if (targetMesh?.geometry) {
+      const eps = 0.000008 + (1 - clamp(stick, 0.7, 1)) * 0.00035;
+      try {
+        shrinkwrapGlyphMeshToSurface(mesh, targetMesh, eps, depthBoost);
+      } catch (err) {
+        console.warn("Rubber shrinkwrap failed:", err);
+      }
+    }
+  }, [baseGeometry, targetMesh, px, py, pz, rotationZ, sx, sy, sz, stick, depthBoost, placementKey]);
+
+  useEffect(
+    () => () => {
+      const mesh = meshRef.current;
+      if (mesh?.geometry) mesh.geometry.dispose?.();
+    },
+    []
+  );
+
+  return (
+    <mesh
+      ref={meshRef}
+      position={position}
+      rotation={[0, 0, rotationZ]}
+      scale={scale}
+      renderOrder={42}
+    >
+      <bufferGeometry />
+      <meshPhysicalMaterial
+        color={color}
+        roughness={0.86}
+        metalness={0.02}
+        clearcoat={0.08}
+        clearcoatRoughness={0.75}
+        reflectivity={0.15}
+        sheen={0.14}
+        envMapIntensity={0.26}
+        depthWrite={false}
+        polygonOffset
+        polygonOffsetFactor={-8}
+        side={THREE.FrontSide}
+      />
+    </mesh>
+  );
+}
+
 function Real3DModel({
   color,
   stringColor,
@@ -1757,9 +1990,12 @@ function Real3DModel({
   isMobile,
   frontSideData,
   backSideData,
+  frontPrintTypes = [],
+  backPrintTypes = [],
 }) {
   const modelPathRaw = MODEL_PATHS[normalizeModelType(modelType)] || MODEL_PATHS[DEFAULT_MODEL_TYPE];
   const gltf = useGLTF(toSafeUrl(modelPathRaw));
+  const glyphGltf = useGLTF(toSafeUrl(RUBBER_GLYPH_MODEL_PATH));
 
   const hasSkinned = useMemo(() => {
     let found = false;
@@ -1823,6 +2059,43 @@ function Real3DModel({
       }),
     [stringColor]
   );
+
+  const glyphLibrary = useMemo(() => {
+    const source = glyphGltf?.scene;
+    const next = {};
+    if (!source) return next;
+    source.traverse((o) => {
+      if (!(o && (o.isMesh || o.isSkinnedMesh) && o.geometry)) return;
+      const ch = glyphNodeNameToChar(o.name);
+      if (!ch || next[ch]) return;
+      const geometry = o.geometry.clone();
+      geometry.computeBoundingBox?.();
+      let bb = geometry.boundingBox;
+      if (!bb) return;
+      const cx = (bb.min.x + bb.max.x) / 2;
+      const cy = (bb.min.y + bb.max.y) / 2;
+      const zMin = bb.min.z;
+      geometry.translate(-cx, -cy, -zMin);
+      geometry.computeBoundingBox?.();
+      bb = geometry.boundingBox;
+      if (!bb) return;
+      const size = new THREE.Vector3();
+      bb.getSize(size);
+      next[ch] = {
+        geometry,
+        width: Math.max(0.001, size.x),
+        height: Math.max(0.001, size.y),
+        depth: Math.max(0.0002, size.z),
+      };
+    });
+    return next;
+  }, [glyphGltf]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(glyphLibrary).forEach((entry) => entry?.geometry?.dispose?.());
+    };
+  }, [glyphLibrary]);
 
   useLayoutEffect(() => {
     if (!root) return;
@@ -1920,6 +2193,8 @@ function Real3DModel({
 
   const showFront = view === "front";
   const showBack = view === "back";
+  const frontHasRubber = Array.isArray(frontPrintTypes) && frontPrintTypes.includes("rubber");
+  const backHasRubber = Array.isArray(backPrintTypes) && backPrintTypes.includes("rubber");
   const frontEmbossLogos = useMemo(
     () => (frontSideData?.logos || []).filter((l) => isEmbossSticker(l)),
     [frontSideData?.logos]
@@ -1944,6 +2219,163 @@ function Real3DModel({
       tex.needsUpdate = true;
     });
   }, [frontEmbossTextures, backEmbossTextures]);
+
+  const renderRubberText = (side, sideData, profile, areaW, areaH, enabled) => {
+    if (!enabled) return null;
+    const textState = sideData?.customText || {};
+    const rawText = String(textState?.text || "").trim();
+    if (!rawText) return null;
+    const chars = [...rawText];
+    if (!chars.length) return null;
+    const layout = String(textState?.layout || "straight");
+    const curve = getTextCurveValue(textState);
+    const scaleX = clamp(Number(textState?.scaleX) || 1, 0.3, 3);
+    const scaleY = clamp(Number(textState?.scaleY) || 1, 0.3, 3);
+
+    const entries = chars.map((ch) => {
+      if (ch === " ") return { char: ch, width: 0.52, isSpace: true };
+      const glyph =
+        glyphLibrary[ch] ||
+        glyphLibrary[ch.toUpperCase()] ||
+        glyphLibrary[ch.toLowerCase()] ||
+        null;
+      if (!glyph) return { char: ch, width: 0.52, isSpace: true };
+      return { char: ch, ...glyph, isSpace: false };
+    });
+
+    const avgGlyphW = entries
+      .filter((entry) => !entry.isSpace)
+      .reduce((sum, entry, _, arr) => sum + entry.width / Math.max(1, arr.length), 0) || 0.58;
+    const rubberLetterSpacing = clamp(Number(textState?.rubberLetterSpacing ?? 1), 0.5, 2);
+    const spacingRaw = clamp(avgGlyphW * 0.18 * rubberLetterSpacing, 0.02, 0.9);
+
+    const positions = [];
+    let cursor = 0;
+    entries.forEach((entry, idx) => {
+      const stepW = entry.isSpace ? avgGlyphW * 0.55 : entry.width;
+      positions[idx] = { x: cursor + stepW / 2, width: stepW };
+      cursor += stepW + spacingRaw;
+    });
+    const totalRawW = Math.max(0.001, cursor - spacingRaw);
+    const maxRawH = Math.max(
+      0.001,
+      ...entries.filter((entry) => !entry.isSpace).map((entry) => entry.height)
+    );
+    const maxRawD = Math.max(
+      0.0002,
+      ...entries.filter((entry) => !entry.isSpace).map((entry) => entry.depth || 0.0002)
+    );
+    const ampRaw = clamp((curve / 100) * maxRawH, 0, maxRawH * 2.8);
+    const layoutRows = entries.map((entry, idx) => {
+      const baseX = positions[idx].x - totalRawW / 2;
+      const count = Math.max(entries.length, 1);
+      const p = count > 1 ? idx / (count - 1) : 0.5;
+      const norm = count > 1 ? p * 2 - 1 : 0;
+      const phase = p * Math.PI * 2;
+      let yRaw = 0;
+      let rotDeg = 0;
+
+      if (layout === "wave" || layout === "wave-soft" || layout === "wave-strong") {
+        const waveMul = layout === "wave-soft" ? 0.7 : layout === "wave-strong" ? 1.35 : 1;
+        const rotMul = layout === "wave-soft" ? 0.11 : layout === "wave-strong" ? 0.21 : 0.16;
+        yRaw = Math.sin(phase) * ampRaw * waveMul;
+        rotDeg = Math.cos(phase) * curve * rotMul;
+      } else if (layout === "zigzag") {
+        yRaw = (idx % 2 === 0 ? -1 : 1) * ampRaw * 0.7;
+        rotDeg = (idx % 2 === 0 ? -1 : 1) * curve * 0.2;
+      } else if (layout === "stair-up" || layout === "stair-down") {
+        const dir = layout === "stair-up" ? -1 : 1;
+        yRaw = dir * (p - 0.5) * 2 * ampRaw * 1.1;
+        rotDeg = dir * 6;
+      } else if (layout === "arc-up" || layout === "arc-down" || layout === "arc-up-strong" || layout === "arc-down-strong") {
+        const arcDown = layout === "arc-down" || layout === "arc-down-strong";
+        const strong = layout === "arc-up-strong" || layout === "arc-down-strong";
+        const arcMul = strong ? 2.05 : 1.45;
+        const rotMul = strong ? 0.75 : 0.55;
+        yRaw = (arcDown ? 1 : -1) * Math.pow(norm, 2) * ampRaw * arcMul;
+        rotDeg = norm * curve * rotMul;
+      }
+
+      const top = yRaw + (entry.height || maxRawH);
+      const bottom = yRaw;
+      return { entry, baseX, yRaw, rotDeg, top, bottom };
+    });
+
+    const minRawY = layoutRows.reduce((min, row) => Math.min(min, row.bottom), 0);
+    const maxRawY = layoutRows.reduce((max, row) => Math.max(max, row.top), maxRawH);
+    const centerRawY = (minRawY + maxRawY) / 2;
+    const totalRawH = Math.max(0.001, maxRawY - minRawY);
+
+    const textBounds01 = estimateTextHalfBounds01(textState);
+    const targetW = clamp(textBounds01.halfW01 * 2 * areaW, 0.03, areaW * 0.96);
+    const targetH = clamp(textBounds01.halfH01 * 2 * areaH, 0.03, areaH * 0.88);
+    const fitWScale = (areaW * 0.96) / Math.max(0.001, totalRawW * scaleX);
+    const fitHScale = (areaH * 0.88) / Math.max(0.001, totalRawH * scaleY);
+    const scaleRaw = Math.min(targetW / totalRawW, targetH / maxRawH, fitWScale, fitHScale);
+    const glyphScale = clamp(scaleRaw, 0.01, 1.35);
+    const rubberDepth = clamp(Number(textState?.rubberDepth ?? 1), 0.6, 2.4);
+    const rubberStick = clamp(Number(textState?.rubberStick ?? 0.96), 0.7, 1);
+    const depthT = (rubberDepth - 0.6) / 1.8;
+    const zScale = clamp(
+      (0.06 + depthT * 0.18) * (maxRawD / 0.024),
+      0.08,
+      0.28
+    );
+    const depthBoost = 3.5 + depthT * 4.5;
+    const placedW = totalRawW * glyphScale * scaleX;
+    const placedH = totalRawH * glyphScale * scaleY;
+
+    const safeTextPos = clampTextPos(sideData?.textPos, textState);
+    const halfW = placedW / 2;
+    const halfH = placedH / 2;
+    const edgePad = 0.002;
+    const cx = clamp(
+      profile.xMin + safeTextPos.x * areaW,
+      profile.xMin + halfW + edgePad,
+      profile.xMax - halfW - edgePad
+    );
+    const cy = clamp(
+      profile.yTop - safeTextPos.y * areaH,
+      profile.yBot + halfH + edgePad,
+      profile.yTop - halfH - edgePad
+    );
+    const rz = ((Number(textState?.rotation) || 0) * Math.PI) / 180;
+    const stickLift = (1 - rubberStick) * 0.00032;
+    const zNudge = side === "back" ? -(0.000012 + stickLift) : 0.000012 + stickLift;
+    const sideRotY = Number(profile.rotY ?? (side === "back" ? Math.PI : 0));
+    const textColor = textState?.color || "#f4f4f4";
+    const yLift = 0;
+    const placementKey = `${side}_${cx}_${cy}_${profile.z || 0}_${sideRotY}_${rz}`;
+
+    return (
+      <group
+        key={`rubber-text-${side}-${rawText}`}
+        position={[cx, cy + yLift, (profile.z || 0) + zNudge]}
+        rotation={[0, sideRotY, rz]}
+      >
+        {layoutRows.map((row, idx) => {
+          const entry = row.entry;
+          if (!entry.geometry || entry.isSpace) return null;
+          const x = row.baseX * glyphScale * scaleX;
+          const y = (row.yRaw - centerRawY) * glyphScale * scaleY;
+          return (
+            <ShrinkwrappedRubberGlyph
+              key={`rubber-glyph-${side}-${entry.char}-${idx}`}
+              baseGeometry={entry.geometry}
+              targetMesh={decalHost}
+              position={[x, y, 0]}
+              rotationZ={(row.rotDeg * Math.PI) / 180}
+              scale={[glyphScale * scaleX, glyphScale * scaleY, zScale]}
+              color={textColor}
+              stick={rubberStick}
+              depthBoost={depthBoost}
+              placementKey={placementKey}
+            />
+          );
+        })}
+      </group>
+    );
+  };
 
   return (
     <group dispose={null} position={[0, -0.08, 0]}>
@@ -2057,6 +2489,8 @@ function Real3DModel({
                 );
               })}
 
+            {showFront && renderRubberText("front", frontSideData, frontProfile, frontW, frontH, frontHasRubber)}
+
             {showBack && backTex && (
               <Decal
                 mesh={decalHostRef}
@@ -2077,6 +2511,8 @@ function Real3DModel({
                 />
               </Decal>
             )}
+
+            {showBack && renderRubberText("back", backSideData, backProfile, backW, backH, backHasRubber)}
 
             {showBack &&
               backEmbossLogos.map((logo, idx) => {
@@ -2507,6 +2943,7 @@ function DesignModelItem({
   disableDrag,
   isMobile,
   onUserRotate,
+  onModelTap,
 }) {
   const groupRef = useRef(null);
   const userRotRef = useRef({ x: 0, y: 0 });
@@ -2519,7 +2956,7 @@ function DesignModelItem({
   useEffect(() => {
     userRotRef.current = { x: 0, y: 0 };
     onUserRotate?.(design.id, { x: 0, y: 0 });
-  }, [view, onUserRotate, design.id]);
+  }, [view, design.id]);
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
@@ -2541,9 +2978,17 @@ function DesignModelItem({
 
   const isZipper = hasCenterZip(design.modelType);
   const gap01 = MODEL_PRINT_BOUNDS?.[design.modelType]?.front?.zipGap01 ?? MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
+  const printTypesBySide = normalizePrintTypesBySide(design.printTypesBySide, design.printTypes);
+  const frontHasRubber = (printTypesBySide.front || []).includes("rubber");
+  const backHasRubber = (printTypesBySide.back || []).includes("rubber");
 
-  const frontCanvas = useDesignCanvas(design.sides.front || EMPTY_SIDE, isZipper ? { clearCenterStripe01: gap01 } : {});
-  const backCanvas = useDesignCanvas(design.sides.back || EMPTY_SIDE, {});
+  const frontCanvas = useDesignCanvas(
+    design.sides.front || EMPTY_SIDE,
+    isZipper
+      ? { clearCenterStripe01: gap01, disableText: frontHasRubber }
+      : { disableText: frontHasRubber }
+  );
+  const backCanvas = useDesignCanvas(design.sides.back || EMPTY_SIDE, { disableText: backHasRubber });
 
   if (hidden) return null;
 
@@ -2563,7 +3008,10 @@ function DesignModelItem({
       onPointerDown={(e) => {
         e.stopPropagation();
         onSelect(design.id);
-        if (!isActive) return;
+        if (!isActive) {
+          onModelTap?.(design.id);
+          return;
+        }
         if (disableDrag) return;
 
         dragRef.current = {
@@ -2573,6 +3021,7 @@ function DesignModelItem({
           startY: e.clientY,
           startRotY: userRotRef.current.y,
           startRotX: userRotRef.current.x,
+          moved: false,
         };
 
         document.body.style.cursor = "grabbing";
@@ -2582,6 +3031,9 @@ function DesignModelItem({
         if (disableDrag) return;
         if (!dragRef.current.active || dragRef.current.pid !== e.pointerId) return;
         e.stopPropagation();
+        const dx = Math.abs(e.clientX - dragRef.current.startX);
+        const dy = Math.abs(e.clientY - dragRef.current.startY);
+        if (dx > 2 || dy > 2) dragRef.current.moved = true;
 
         const nextY = dragRef.current.startRotY + (e.clientX - dragRef.current.startX) * ROT_SPEED;
         const nextX = dragRef.current.startRotX + (e.clientY - dragRef.current.startY) * ROT_SPEED;
@@ -2595,9 +3047,11 @@ function DesignModelItem({
       onPointerUp={(e) => {
         if (disableDrag) return;
         if (dragRef.current.pid !== e.pointerId) return;
+        const tapped = !dragRef.current.moved;
         dragRef.current.active = false;
         document.body.style.cursor = "grab";
         if (e.target?.releasePointerCapture) e.target.releasePointerCapture(e.pointerId);
+        if (tapped) onModelTap?.(design.id);
       }}
     >
       <Real3DModel
@@ -2612,6 +3066,8 @@ function DesignModelItem({
         fabricType={design.fabricType}
         view={view}
         isMobile={isMobile}
+        frontPrintTypes={printTypesBySide.front}
+        backPrintTypes={printTypesBySide.back}
       />
     </group>
   );
@@ -3008,7 +3464,6 @@ function EditorPanel({
   const uploadSlotRefs = useRef([]);
   const pdfInputRef = useRef(null);
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
-  const [showPrintTypePicker, setShowPrintTypePicker] = useState(false);
 
   const sizes = ["S", "M", "L", "XL"];
   const colorPresets = BRAND_COLORS;
@@ -3040,6 +3495,13 @@ function EditorPanel({
   };
   const fabricType = normalizeFabricType(design.fabricType, design.modelType);
   const printTypes = getPrintTypesForSide(design, currentSide);
+  const dtfActiveForSide = printTypes.includes("dtf");
+  const rubberActiveForSide = printTypes.includes("rubber");
+  const selectedPrintTypeLabel = printTypes.length
+    ? printTypes
+      .map((typeId) => PRINT_TYPE_OPTIONS.find((opt) => opt.id === typeId)?.label || typeId)
+      .join(" • ")
+    : "Seçili değil";
   const setCurrentSidePrintTypes = (nextTypes) => {
     const bySide = normalizePrintTypesBySide(design.printTypesBySide, design.printTypes);
     const safeSide = currentSide === "back" ? "back" : "front";
@@ -3151,20 +3613,14 @@ function EditorPanel({
   };
 
   useEffect(() => {
-    if (activeTab !== "upload") return;
-    if (printTypes.length === 0) setShowPrintTypePicker(true);
-  }, [activeTab, printTypes.length, design.id, currentSide]);
-
-  useEffect(() => {
     if (printTypePickerSignal <= 0) return;
-    setShowPrintTypePicker(true);
-  }, [printTypePickerSignal]);
+    setActiveTab("print");
+  }, [printTypePickerSignal, setActiveTab]);
 
   const handleSelectPrintTypeFromPanel = (id) => {
     const opt = PRINT_TYPE_OPTIONS.find((entry) => entry.id === id);
     if (!opt?.available) return;
     togglePrintType(id);
-    setShowPrintTypePicker(false);
   };
 
   const handlePdfUpload = async (file) => {
@@ -3408,9 +3864,10 @@ function EditorPanel({
           {/* Tabs */}
           <div className="flex border-b border-zinc-800 bg-[#111111] flex-shrink-0">
             {[
-              { id: "upload", icon: ImageIcon, label: "Baskı" },
-              { id: "text", icon: FileText, label: "Yazı" },
               { id: "color", icon: Palette, label: "Renk" },
+              { id: "print", icon: Layers, label: "Baskı Seçim" },
+              { id: "text", icon: FileText, label: "Yazı" },
+              { id: "upload", icon: ImageIcon, label: "Görsel" },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -3453,130 +3910,146 @@ function EditorPanel({
           />
         )}
 
-        {/* UPLOAD */}
+        {/* PRINT TYPE */}
+        {activeTab === "print" && (
+          <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-stretch justify-start gap-2.5") : "space-y-2.5"}`}>
+            <div className={isDrawerLayout ? "w-full" : ""}>
+              <PrintTypePickerCards
+                selectedIds={printTypes}
+                onSelect={handleSelectPrintTypeFromPanel}
+                sourceLabel="Panelden sec"
+                isMobile={isMobile}
+              />
+            </div>
+            <div className="w-full rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">Seçili Baskı</p>
+              <p className="text-[12px] font-bold text-gray-900 truncate mt-0.5">{selectedPrintTypeLabel}</p>
+            </div>
+          </div>
+        )}
+
+        {/* UPLOAD / VISUAL */}
         {activeTab === "upload" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-stretch justify-start gap-2.5") : "space-y-2.5"}`}>
-            {showPrintTypePicker && (
-              <div className={isDrawerLayout ? "w-full" : ""}>
-                <PrintTypePickerCards
-                  selectedIds={printTypes}
-                  onSelect={handleSelectPrintTypeFromPanel}
-                  sourceLabel="Panelden sec"
-                  isMobile={isMobile}
-                />
+            <div className="w-full rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">Seçili Baskı</p>
+              <p className="text-[12px] font-bold text-gray-900 truncate mt-0.5">{selectedPrintTypeLabel}</p>
+            </div>
+
+            {!dtfActiveForSide && (
+              <div className="w-full rounded-xl border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-[11px] font-semibold text-gray-600">
+                Görsel yükleme alanını açmak için DTF seç.
               </div>
             )}
 
-            {!showPrintTypePicker && (
-              <>
-                <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full grid grid-cols-1 gap-2" : "w-full grid grid-cols-[minmax(320px,1.05fr)_minmax(460px,1.35fr)] gap-2") : "grid grid-cols-1 lg:grid-cols-[1.1fr_1.3fr] gap-2"}`}>
-                  <ModelManagementCard
-                    designs={designs}
-                    activeId={activeId}
-                    onSelectModel={onSelectModel}
-                    onRemoveModel={onRemoveModel}
-                    activeModelType={design.modelType}
-                    hoodieParts={hoodieV12Parts}
-                    onToggleHoodiePart={setHoodiePartEnabled}
-                    fabricType={fabricType}
-                    onChangeFabric={(id) => updateDesign({ fabricType: id })}
-                  />
+            {dtfActiveForSide && (
+              <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full grid grid-cols-1 gap-2" : "w-full grid grid-cols-[minmax(320px,1.05fr)_minmax(460px,1.35fr)] gap-2") : "grid grid-cols-1 lg:grid-cols-[1.1fr_1.3fr] gap-2"}`}>
+                <ModelManagementCard
+                  designs={designs}
+                  activeId={activeId}
+                  onSelectModel={onSelectModel}
+                  onRemoveModel={onRemoveModel}
+                  activeModelType={design.modelType}
+                  hoodieParts={hoodieV12Parts}
+                  onToggleHoodiePart={setHoodiePartEnabled}
+                  fabricType={fabricType}
+                  onChangeFabric={(id) => updateDesign({ fabricType: id })}
+                />
 
-                  <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "h-full min-h-[206px]") : ""}`}>
-                    <div className="flex items-center justify-between">
-                      <p className={drawerHeadingClass}>Dosya</p>
-                      <p className="text-[10px] text-gray-500">{logoCount}/{MAX_LOGOS_PER_SIDE} katman</p>
-                    </div>
+                <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "h-full min-h-[206px]") : ""}`}>
+                  <div className="flex items-center justify-between">
+                    <p className={drawerHeadingClass}>Dosya</p>
+                    <p className="text-[10px] text-gray-500">{logoCount}/{MAX_LOGOS_PER_SIDE} katman</p>
+                  </div>
 
-                    <div className="grid grid-cols-3 gap-2">
-                      {Array.from({ length: MAX_LOGOS_PER_SIDE }).map((_, slotIdx) => {
-                        const layer = sideData.logos?.[slotIdx] || null;
-                        const selected = layer && (sideData.activeLogoId || sideData.logos?.[0]?.id) === layer.id;
+                  <div className="grid grid-cols-3 gap-2">
+                    {Array.from({ length: MAX_LOGOS_PER_SIDE }).map((_, slotIdx) => {
+                      const layer = sideData.logos?.[slotIdx] || null;
+                      const selected = layer && (sideData.activeLogoId || sideData.logos?.[0]?.id) === layer.id;
 
-                        if (layer) {
-                          return (
-                            <div
-                              key={`slot-layer-${layer.id}`}
-                              onClick={() => updateSide({ activeLogoId: layer.id })}
-                              role="button"
-                              className={`relative h-28 rounded-lg border overflow-hidden transition cursor-pointer ${selected ? "border-black ring-1 ring-black/20" : "border-gray-300 hover:border-gray-400"
-                                }`}
-                            >
-                              <div className="absolute left-1.5 top-1.5 z-10 px-1.5 py-0.5 rounded bg-white/90 border border-gray-200 text-[9px] text-gray-700 font-black uppercase tracking-wide flex items-center gap-1">
-                                <ImageIcon size={10} />
-                                Dosya {slotIdx + 1}
-                              </div>
-                              <img src={layer.url} alt="" className="w-full h-full object-cover" />
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const next = (sideData.logos || []).filter((l) => l.id !== layer.id);
-                                  updateSide({ logos: next, activeLogoId: next[0]?.id || null });
-                                }}
-                                className="absolute right-1.5 top-1.5 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center"
-                                aria-label="Katmanı sil"
-                              >
-                                <X size={11} />
-                              </button>
-                            </div>
-                          );
-                        }
-
+                      if (layer) {
                         return (
-                          <div key={`slot-empty-${slotIdx}`} className="relative h-28 rounded-lg border border-dashed border-gray-300 bg-gray-50">
+                          <div
+                            key={`slot-layer-${layer.id}`}
+                            onClick={() => updateSide({ activeLogoId: layer.id })}
+                            role="button"
+                            className={`relative h-28 rounded-lg border overflow-hidden transition cursor-pointer ${selected ? "border-black ring-1 ring-black/20" : "border-gray-300 hover:border-gray-400"
+                              }`}
+                          >
+                            <div className="absolute left-1.5 top-1.5 z-10 px-1.5 py-0.5 rounded bg-white/90 border border-gray-200 text-[9px] text-gray-700 font-black uppercase tracking-wide flex items-center gap-1">
+                              <ImageIcon size={10} />
+                              Dosya {slotIdx + 1}
+                            </div>
+                            <img src={layer.url} alt="" className="w-full h-full object-cover" />
                             <button
-                              onClick={() => uploadSlotRefs.current?.[slotIdx]?.click()}
-                              disabled={!canUploadMoreLogos}
-                              className={`w-full h-full flex flex-col items-start justify-center pl-4 gap-1 ${canUploadMoreLogos ? "text-gray-600 hover:bg-gray-100" : "text-gray-400 cursor-not-allowed"
-                                }`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const next = (sideData.logos || []).filter((l) => l.id !== layer.id);
+                                updateSide({ logos: next, activeLogoId: next[0]?.id || null });
+                              }}
+                              className="absolute right-1.5 top-1.5 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center"
+                              aria-label="Katmanı sil"
                             >
-                              <Plus size={26} strokeWidth={2.8} />
-                              <span className="text-[11px] font-bold uppercase">Dosya Ekle</span>
+                              <X size={11} />
                             </button>
-                            <input
-                              ref={(el) => {
-                                uploadSlotRefs.current[slotIdx] = el;
-                              }}
-                              type="file"
-                              className="hidden"
-                              accept="image/*"
-                              disabled={!canUploadMoreLogos}
-                              onChange={async (e) => {
-                                const inputEl = e.currentTarget;
-                                const file = inputEl.files?.[0];
-                                await handleUploadFile(file);
-                                inputEl.value = "";
-                              }}
-                            />
                           </div>
                         );
-                      })}
-                    </div>
-                    <button
-                      onClick={() => {
-                        setActiveTab("editor");
-                        if (isMobileDrawer) onRequestDrawerCollapse?.();
-                      }}
-                      className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2"
-                    >
-                      <Move size={14} /> Yerleşim Paneli
-                    </button>
-                    <button
-                      onClick={handleDeleteActiveImage}
-                      disabled={!activeLogo}
-                      className={`w-full py-1.5 rounded-lg text-[10px] font-bold uppercase border flex items-center justify-center gap-2 ${activeLogo
-                        ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
-                        : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                        }`}
-                    >
-                      <Trash2 size={13} /> Seçili Dosyayı Sil
-                    </button>
-                    {!canUploadMoreLogos && (
-                      <p className="text-[10px] text-gray-500 font-semibold">Maksimum 3 görsel yüklendi.</p>
-                    )}
+                      }
+
+                      return (
+                        <div key={`slot-empty-${slotIdx}`} className="relative h-28 rounded-lg border border-dashed border-gray-300 bg-gray-50">
+                          <button
+                            onClick={() => uploadSlotRefs.current?.[slotIdx]?.click()}
+                            disabled={!canUploadMoreLogos}
+                            className={`w-full h-full flex flex-col items-start justify-center pl-4 gap-1 ${canUploadMoreLogos ? "text-gray-600 hover:bg-gray-100" : "text-gray-400 cursor-not-allowed"
+                              }`}
+                          >
+                            <Plus size={26} strokeWidth={2.8} />
+                            <span className="text-[11px] font-bold uppercase">Dosya Ekle</span>
+                          </button>
+                          <input
+                            ref={(el) => {
+                              uploadSlotRefs.current[slotIdx] = el;
+                            }}
+                            type="file"
+                            className="hidden"
+                            accept="image/*"
+                            disabled={!canUploadMoreLogos}
+                            onChange={async (e) => {
+                              const inputEl = e.currentTarget;
+                              const file = inputEl.files?.[0];
+                              await handleUploadFile(file);
+                              inputEl.value = "";
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
+                  <button
+                    onClick={() => {
+                      setActiveTab("editor");
+                      if (isMobileDrawer) onRequestDrawerCollapse?.();
+                    }}
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2"
+                  >
+                    <Move size={14} /> Yerleşim Paneli
+                  </button>
+                  <button
+                    onClick={handleDeleteActiveImage}
+                    disabled={!activeLogo}
+                    className={`w-full py-1.5 rounded-lg text-[10px] font-bold uppercase border flex items-center justify-center gap-2 ${activeLogo
+                      ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                      : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                      }`}
+                  >
+                    <Trash2 size={13} /> Seçili Dosyayı Sil
+                  </button>
+                  {!canUploadMoreLogos && (
+                    <p className="text-[10px] text-gray-500 font-semibold">Maksimum 3 görsel yüklendi.</p>
+                  )}
                 </div>
-              </>
+              </div>
             )}
           </div>
         )}
@@ -3800,6 +4273,55 @@ function EditorPanel({
                       />
                     </label>
                   </div>
+                  {rubberActiveForSide && (
+                    <>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-gray-500">
+                          <span>Rubber Kalınlık</span>
+                          <span className="text-gray-700 normal-case">{clamp(Number(t?.rubberDepth ?? 1), 0.6, 2.4).toFixed(2)}x</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.6"
+                          max="2.4"
+                          step="0.05"
+                          value={clamp(Number(t?.rubberDepth ?? 1), 0.6, 2.4)}
+                          onChange={(e) => bumpText({ rubberDepth: Number(e.target.value) })}
+                          className="w-full accent-cyan-600"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-gray-500">
+                          <span>Yüzeye Yapışma</span>
+                          <span className="text-gray-700 normal-case">{Math.round(clamp(Number(t?.rubberStick ?? 0.96), 0.7, 1) * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="70"
+                          max="100"
+                          step="1"
+                          value={Math.round(clamp(Number(t?.rubberStick ?? 0.96), 0.7, 1) * 100)}
+                          onChange={(e) => bumpText({ rubberStick: Number(e.target.value) / 100 })}
+                          className="w-full accent-cyan-600"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-gray-500">
+                          <span>Harf Aralığı</span>
+                          <span className="text-gray-700 normal-case">{clamp(Number(t?.rubberLetterSpacing ?? 1), 0.5, 2).toFixed(2)}x</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="2"
+                          step="0.05"
+                          value={clamp(Number(t?.rubberLetterSpacing ?? 1), 0.5, 2)}
+                          onChange={(e) => bumpText({ rubberLetterSpacing: Number(e.target.value) })}
+                          className="w-full accent-cyan-600"
+                        />
+                      </div>
+                    </>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -4135,6 +4657,8 @@ function TasarimClientContent({ isMobile }) {
   const activeLogoFx = getLogoStyle(activeLogo);
   const activePdfPlacement = normalizePdfPlacement(currentActiveDesign?.pdfPlacement, currentSide);
   const pdfVisibleOnCurrentSide = Boolean(currentActiveDesign?.hasPdf && activePdfPlacement.side === currentSide);
+  const activeSidePrintTypes = getPrintTypesForSide(currentActiveDesign, currentSide);
+  const rubberActiveForSide = activeSidePrintTypes.includes("rubber");
   const snapThreshold = 0.02;
   const guideStops = [0.25, 0.5, 0.75];
   const activeVGuides = isLogoDragging
@@ -4247,6 +4771,42 @@ function TasarimClientContent({ isMobile }) {
     const next = (sideData.logos || []).filter((l) => l.id !== currentId);
     updateSide({ logos: next, activeLogoId: next[0]?.id || null });
     clearSceneSelection();
+  };
+
+  const handleSceneModelTap = (designId) => {
+    if (designId !== activeId) return;
+    if (activeTab !== "editor") {
+      if (activeTab === "text" && hasSceneText) {
+        setEditorControlTab("text");
+        setSceneTextSelectionVisible(true);
+        setSceneTextFrameMode("resize");
+        setSceneSelectionVisible(false);
+        setActiveTab("editor");
+      }
+      return;
+    }
+    if (showPlacementPanel) return;
+
+    const preferText = editorControlTab === "text" || rubberActiveForSide;
+    if (preferText && hasSceneText) {
+      setSceneTextSelectionVisible(true);
+      setSceneTextFrameMode("resize");
+      setSceneSelectionVisible(false);
+      return;
+    }
+
+    if (activeLogo) {
+      setSceneSelectionVisible(true);
+      setSceneFrameMode("resize");
+      setSceneTextSelectionVisible(false);
+      return;
+    }
+
+    if (hasSceneText) {
+      setSceneTextSelectionVisible(true);
+      setSceneTextFrameMode("resize");
+      setSceneSelectionVisible(false);
+    }
   };
 
   const setActiveLogoLayer = (layer) => {
@@ -4426,10 +4986,11 @@ function TasarimClientContent({ isMobile }) {
   }, [designs]);
 
   const activeDesign = useMemo(() => designs.find((d) => d.id === activeId) || designs[0], [designs, activeId]);
-  const DRAWER_TABS = ["color", "upload", "text"];
+  const DRAWER_TABS = ["color", "print", "text", "upload"];
   const tabIndex = DRAWER_TABS.indexOf(activeTab);
   const tabLabelMap = {
-    upload: "Baskı",
+    print: "Baskı Seçim",
+    upload: "Görsel",
     text: "Yazı",
     editor: "Yerleşim",
     color: "Renk",
@@ -4461,8 +5022,9 @@ function TasarimClientContent({ isMobile }) {
   };
   const menuTabs = [
     { id: "color", label: "Renk", icon: Palette },
-    { id: "upload", label: "Baskı", icon: ImageIcon },
+    { id: "print", label: "Baskı Seçim", icon: Layers },
     { id: "text", label: "Yazı", icon: FileText },
+    { id: "upload", label: "Görsel", icon: ImageIcon },
   ];
   const activePrintTypes = getPrintTypesForSide(activeDesign, view);
   const selectedPrintTypeNames = activePrintTypes
@@ -4493,8 +5055,10 @@ function TasarimClientContent({ isMobile }) {
 
     if (becameSelected && (typeId === "rubber" || typeId === "flock")) {
       setActiveTab("text");
-    } else {
+    } else if (becameSelected && typeId === "dtf") {
       setActiveTab("upload");
+    } else {
+      setActiveTab("print");
     }
     setDrawerMenuOpen(false);
   };
@@ -4521,10 +5085,15 @@ function TasarimClientContent({ isMobile }) {
     } else if (prev !== "editor") {
       setShowPlacementPanel(false);
       clearSceneSelection();
-      setEditorControlTab("logo");
+      const enteringFromText = prev === "text";
+      setEditorControlTab(enteringFromText ? "text" : "logo");
+      if (enteringFromText && hasSceneText) {
+        setSceneTextSelectionVisible(true);
+        setSceneTextFrameMode("resize");
+      }
     }
     prevActiveTabRef.current = activeTab;
-  }, [activeTab]);
+  }, [activeTab, hasSceneText]);
 
   useEffect(() => {
     if (!drawerOpen) setDrawerMenuOpen(false);
@@ -4546,14 +5115,14 @@ function TasarimClientContent({ isMobile }) {
   useEffect(() => {
     if (activeTab !== "editor") return;
     const hasLogo = (sideData?.logos || []).length > 0;
-    if (!hasLogo && editorControlTab !== "logo") {
+    if (!hasLogo && editorControlTab === "effects") {
       setEditorControlTab("logo");
     }
   }, [activeTab, activeId, currentSide, sideData?.logos?.length, editorControlTab]);
 
   useEffect(() => {
     if (activeTab === "pattern") {
-      setActiveTab("upload");
+      setActiveTab("print");
     }
   }, [activeTab]);
 
@@ -4680,7 +5249,8 @@ function TasarimClientContent({ isMobile }) {
   };
 
   useEffect(() => {
-    if (!isPrintAreaOpen || !activeLogo || !printBounds) {
+    const hasSceneTarget = Boolean(activeLogo || hasSceneText || pdfVisibleOnCurrentSide);
+    if (!isPrintAreaOpen || !printBounds || !hasSceneTarget) {
       setScenePlaneRect(null);
       return;
     }
@@ -4768,6 +5338,8 @@ function TasarimClientContent({ isMobile }) {
   }, [
     isPrintAreaOpen,
     activeLogo?.id,
+    hasSceneText,
+    pdfVisibleOnCurrentSide,
     activeId,
     currentSide,
     printBounds,
@@ -5050,7 +5622,7 @@ function TasarimClientContent({ isMobile }) {
   const switchSideAndOpenPrintPicker = (nextSide) => {
     if (nextSide !== "front" && nextSide !== "back") return;
     setView(nextSide);
-    setActiveTab("upload");
+    setActiveTab("print");
     setDrawerOpen(true);
     setDrawerMenuOpen(false);
     setPrintTypePickerSignal((prev) => prev + 1);
@@ -5090,11 +5662,8 @@ function TasarimClientContent({ isMobile }) {
       ? "43%"
       : "47%";
   const hdrEnvUrls = useMemo(
-    () =>
-      isMobile
-        ? [HDR_ENV_MOBILE_PATH, HDR_ENV_DESKTOP_PATH]
-        : [HDR_ENV_DESKTOP_PATH, HDR_ENV_MOBILE_PATH],
-    [isMobile]
+    () => [HDR_ENV_MOBILE_PATH, HDR_ENV_DESKTOP_PATH],
+    []
   );
 
   const renderPanel = (
@@ -5675,129 +6244,189 @@ function TasarimClientContent({ isMobile }) {
                       />
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => bumpCustomText({ emboss: !(customText?.emboss !== false) })}
-                    className={`w-full py-1.5 rounded-lg text-[10px] font-black uppercase border transition ${
-                      customText?.emboss !== false
-                        ? "bg-cyan-200 text-cyan-950 border-cyan-300"
-                        : "bg-zinc-900/60 text-zinc-200 border-zinc-600 hover:bg-zinc-800"
-                    }`}
-                  >
-                    Kabartı: {customText?.emboss !== false ? "Açık" : "Kapalı"}
-                  </button>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                      <span>Kabartı Kalınlığı</span>
-                      <span>{clamp(Number(customText?.embossDepth ?? 1.4), 0.6, 2.8).toFixed(2)}x</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.6"
-                      max="2.8"
-                      step="0.05"
-                      value={clamp(Number(customText?.embossDepth ?? 1.4), 0.6, 2.8)}
-                      disabled={customText?.emboss === false}
-                      onChange={(e) => bumpCustomText({ embossDepth: Number(e.target.value) })}
-                      className={`w-full accent-cyan-300 ${customText?.emboss === false ? "opacity-45 cursor-not-allowed" : ""}`}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                      <span>Kabartı Gücü</span>
-                      <span>{clamp(Number(customText?.embossStrength ?? 1.4), 0.6, 2.4).toFixed(2)}x</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.6"
-                      max="2.4"
-                      step="0.05"
-                      value={clamp(Number(customText?.embossStrength ?? 1.4), 0.6, 2.4)}
-                      disabled={customText?.emboss === false}
-                      onChange={(e) => bumpCustomText({ embossStrength: Number(e.target.value) })}
-                      className={`w-full accent-cyan-300 ${customText?.emboss === false ? "opacity-45 cursor-not-allowed" : ""}`}
-                    />
-                  </div>
+                  {!rubberActiveForSide && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => bumpCustomText({ emboss: !(customText?.emboss !== false) })}
+                        className={`w-full py-1.5 rounded-lg text-[10px] font-black uppercase border transition ${
+                          customText?.emboss !== false
+                            ? "bg-cyan-200 text-cyan-950 border-cyan-300"
+                            : "bg-zinc-900/60 text-zinc-200 border-zinc-600 hover:bg-zinc-800"
+                        }`}
+                      >
+                        Kabartı: {customText?.emboss !== false ? "Açık" : "Kapalı"}
+                      </button>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                          <span>Kabartı Kalınlığı</span>
+                          <span>{clamp(Number(customText?.embossDepth ?? 1.4), 0.6, 2.8).toFixed(2)}x</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.6"
+                          max="2.8"
+                          step="0.05"
+                          value={clamp(Number(customText?.embossDepth ?? 1.4), 0.6, 2.8)}
+                          disabled={customText?.emboss === false}
+                          onChange={(e) => bumpCustomText({ embossDepth: Number(e.target.value) })}
+                          className={`w-full accent-cyan-300 ${customText?.emboss === false ? "opacity-45 cursor-not-allowed" : ""}`}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                          <span>Kabartı Gücü</span>
+                          <span>{clamp(Number(customText?.embossStrength ?? 1.4), 0.6, 2.4).toFixed(2)}x</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.6"
+                          max="2.4"
+                          step="0.05"
+                          value={clamp(Number(customText?.embossStrength ?? 1.4), 0.6, 2.4)}
+                          disabled={customText?.emboss === false}
+                          onChange={(e) => bumpCustomText({ embossStrength: Number(e.target.value) })}
+                          className={`w-full accent-cyan-300 ${customText?.emboss === false ? "opacity-45 cursor-not-allowed" : ""}`}
+                        />
+                      </div>
+                    </>
+                  )}
 
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                      <span>Boyut</span>
-                      <span>{Math.round(Number(customText?.size) || 150)}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="40"
-                      max="280"
-                      step="1"
-                      value={Number(customText?.size) || 150}
-                      onChange={(e) => bumpCustomText({ size: Number(e.target.value) })}
-                      className="w-full accent-cyan-300"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                      <span>Döndürme</span>
-                      <span>{Math.round(Number(customText?.rotation) || 0)}°</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="-180"
-                      max="180"
-                      step="1"
-                      value={Number(customText?.rotation) || 0}
-                      onChange={(e) => bumpCustomText({ rotation: Number(e.target.value) })}
-                      className="w-full accent-cyan-300"
-                    />
-                  </div>
+                  {rubberActiveForSide && (
+                    <>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                          <span>Rubber Kalınlık</span>
+                          <span>{clamp(Number(customText?.rubberDepth ?? 1), 0.6, 2.4).toFixed(2)}x</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.6"
+                          max="2.4"
+                          step="0.05"
+                          value={clamp(Number(customText?.rubberDepth ?? 1), 0.6, 2.4)}
+                          onChange={(e) => bumpCustomText({ rubberDepth: Number(e.target.value) })}
+                          className="w-full accent-cyan-300"
+                        />
+                      </div>
 
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                      <span>X Konum</span>
-                      <span>{Math.round(safeTextPos.x * 100)}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.005"
-                      value={safeTextPos.x}
-                      onChange={(e) => updateTextPos({ x: Number(e.target.value) })}
-                      className="w-full accent-cyan-300"
-                    />
-                  </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                          <span>Yüzeye Yapışma</span>
+                          <span>{Math.round(clamp(Number(customText?.rubberStick ?? 0.96), 0.7, 1) * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="70"
+                          max="100"
+                          step="1"
+                          value={Math.round(clamp(Number(customText?.rubberStick ?? 0.96), 0.7, 1) * 100)}
+                          onChange={(e) => bumpCustomText({ rubberStick: Number(e.target.value) / 100 })}
+                          className="w-full accent-cyan-300"
+                        />
+                      </div>
 
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                      <span>Y Konum</span>
-                      <span>{Math.round(safeTextPos.y * 100)}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.005"
-                      value={safeTextPos.y}
-                      onChange={(e) => updateTextPos({ y: Number(e.target.value) })}
-                      className="w-full accent-cyan-300"
-                    />
-                  </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                          <span>Harf Aralığı</span>
+                          <span>{clamp(Number(customText?.rubberLetterSpacing ?? 1), 0.5, 2).toFixed(2)}x</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="2"
+                          step="0.05"
+                          value={clamp(Number(customText?.rubberLetterSpacing ?? 1), 0.5, 2)}
+                          onChange={(e) => bumpCustomText({ rubberLetterSpacing: Number(e.target.value) })}
+                          className="w-full accent-cyan-300"
+                        />
+                      </div>
+                    </>
+                  )}
 
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setTextLayer("front")}
-                      className="flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-zinc-700 hover:bg-zinc-600"
-                    >
-                      Öne Al
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTextLayer("back")}
-                      className="flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-zinc-700 hover:bg-zinc-600"
-                    >
-                      Arkaya Al
-                    </button>
-                  </div>
+                  {!rubberActiveForSide && (
+                    <>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                          <span>Boyut</span>
+                          <span>{Math.round(Number(customText?.size) || 150)}px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="40"
+                          max="280"
+                          step="1"
+                          value={Number(customText?.size) || 150}
+                          onChange={(e) => bumpCustomText({ size: Number(e.target.value) })}
+                          className="w-full accent-cyan-300"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                          <span>Döndürme</span>
+                          <span>{Math.round(Number(customText?.rotation) || 0)}°</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="-180"
+                          max="180"
+                          step="1"
+                          value={Number(customText?.rotation) || 0}
+                          onChange={(e) => bumpCustomText({ rotation: Number(e.target.value) })}
+                          className="w-full accent-cyan-300"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                          <span>X Konum</span>
+                          <span>{Math.round(safeTextPos.x * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.005"
+                          value={safeTextPos.x}
+                          onChange={(e) => updateTextPos({ x: Number(e.target.value) })}
+                          className="w-full accent-cyan-300"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                          <span>Y Konum</span>
+                          <span>{Math.round(safeTextPos.y * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.005"
+                          value={safeTextPos.y}
+                          onChange={(e) => updateTextPos({ y: Number(e.target.value) })}
+                          className="w-full accent-cyan-300"
+                        />
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setTextLayer("front")}
+                          className="flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-zinc-700 hover:bg-zinc-600"
+                        >
+                          Öne Al
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTextLayer("back")}
+                          className="flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-zinc-700 hover:bg-zinc-600"
+                        >
+                          Arkaya Al
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -6044,6 +6673,7 @@ function TasarimClientContent({ isMobile }) {
                       disableDrag={isLogoDragging}
                       isMobile={isMobile}
                       onUserRotate={handleModelUserRotate}
+                      onModelTap={handleSceneModelTap}
                     />
                   );
                 })}
@@ -6414,7 +7044,7 @@ function TasarimClientContent({ isMobile }) {
                             </button>
                             <div className="text-center min-w-0 px-1">
                               <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
-                                {tabLabelMap[activeTab] || "Baskı"}
+                                {tabLabelMap[activeTab] || "Görsel"}
                               </p>
                               <p className="text-[11px] text-gray-500 mt-0.5 truncate">
                                 {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
@@ -6460,7 +7090,7 @@ function TasarimClientContent({ isMobile }) {
                           </button>
                           <div className="text-center min-w-0 px-1">
                             <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
-                              {tabLabelMap[activeTab] || "Baskı"}
+                              {tabLabelMap[activeTab] || "Görsel"}
                             </p>
                             <p className="text-[11px] text-gray-500 mt-0.5 truncate">
                               {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
@@ -6556,3 +7186,5 @@ AVAILABLE_MODELS.forEach((modelType) => {
   const modelPath = MODEL_PATHS[modelType];
   if (modelPath) useGLTF.preload(toSafeUrl(modelPath));
 });
+
+useGLTF.preload(toSafeUrl(RUBBER_GLYPH_MODEL_PATH));
