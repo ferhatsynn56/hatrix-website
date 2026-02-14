@@ -567,7 +567,7 @@ const TEXT_LAYOUT_OPTIONS = [
 
 const HDR_ENV_DESKTOP_PATH = "/hdr/white_studio_06_4k.exr";
 const HDR_ENV_MOBILE_PATH = "/hdr/white_studio_06_4k.exr";
-const RUBBER_GLYPH_MODEL_PATH = `${NEW_MODELS_ROOT}/Harfler-isaretler.glb`;
+const RUBBER_GLYPH_MODEL_PATH = `${NEW_MODELS_ROOT}/Harfler-IsaretlerSon.glb`;
 const HDR_SOURCE_CACHE = new Map();
 
 const getHdriSourceTexture = (url) => {
@@ -629,7 +629,10 @@ const glyphTokenToChar = (tokenRaw, forceCase = null) => {
 };
 
 const glyphNodeNameToChar = (nameRaw) => {
-  const normalized = String(nameRaw || "").trim().replace(/\.\d+$/g, "");
+  const normalized = String(nameRaw || "")
+    .trim()
+    // GLTF loader bazen isimleri suffix ile degistiriyor: .001_1 / _2 / .003
+    .replace(/([._]\d+)+$/g, "");
   if (!/^glyph_/i.test(normalized)) return null;
 
   let token = normalized.replace(/^glyph_/i, "");
@@ -2331,23 +2334,16 @@ function Real3DModel({
 
     const resolveGlyphForChar = (ch) => {
       if (!ch) return null;
-      if (glyphLibrary[ch]) return glyphLibrary[ch];
-
-      const isLetter = /\p{L}/u.test(ch);
-      if (isLetter) {
-        const upper = ch.toUpperCase();
-        const lower = ch.toLowerCase();
-        if (ch === upper) {
-          // Kullanici buyuk harf girdiyse once buyuk harf geometrisini zorla.
-          return glyphLibrary[upper] || null;
-        }
-        if (ch === lower) {
-          return glyphLibrary[lower] || glyphLibrary[upper] || null;
-        }
-        return glyphLibrary[ch] || glyphLibrary[upper] || glyphLibrary[lower] || null;
-      }
-
-      return glyphLibrary[ch.toUpperCase()] || glyphLibrary[ch.toLowerCase()] || null;
+      const upperTr = ch.toLocaleUpperCase("tr-TR");
+      const lowerTr = ch.toLocaleLowerCase("tr-TR");
+      return (
+        glyphLibrary[ch] ||
+        glyphLibrary[upperTr] ||
+        glyphLibrary[lowerTr] ||
+        glyphLibrary[ch.toUpperCase()] ||
+        glyphLibrary[ch.toLowerCase()] ||
+        null
+      );
     };
 
     const entries = chars.map((ch) => {
@@ -3095,7 +3091,7 @@ function DesignModelItem({
       holdRef.current.triggered = true;
       onModelLongPress?.(design.id);
       document.body.style.cursor = "default";
-    }, 420);
+    }, 220);
   };
 
   useEffect(() => {
@@ -3151,6 +3147,7 @@ function DesignModelItem({
       }}
       onPointerOut={(e) => {
         e.stopPropagation();
+        clearHoldTimer();
         onUnhover();
         document.body.style.cursor = "default";
       }}
@@ -3238,7 +3235,7 @@ function DesignModelItem({
         backPrintTypes={printTypesBySide.back}
       />
       {showModelDeleteButton && (
-        <Html position={[0, 1.18, 0]} center transform distanceFactor={4.8} zIndexRange={[180, 240]}>
+        <Html position={[0, 0.42, 0]} center distanceFactor={6} occlude={false} zIndexRange={[180, 260]}>
           <button
             type="button"
             onPointerDown={(e) => {
@@ -3251,7 +3248,7 @@ function DesignModelItem({
               if (canDeleteModel) onDeleteModel?.(design.id);
             }}
             disabled={!canDeleteModel}
-            className={`h-9 px-3 rounded-full border text-[11px] font-black uppercase tracking-wide shadow-lg backdrop-blur-sm ${
+            className={`w-9 h-9 rounded-full border flex items-center justify-center shadow-lg backdrop-blur-sm ${
               canDeleteModel
                 ? "border-red-300 bg-red-600/90 text-white hover:bg-red-700/95"
                 : "border-zinc-400 bg-zinc-500/60 text-zinc-200 cursor-not-allowed"
@@ -3259,10 +3256,7 @@ function DesignModelItem({
             aria-label="Modeli sil"
             title={canDeleteModel ? "Modeli Sil" : "En az bir model kalmalı"}
           >
-            <span className="inline-flex items-center gap-1.5">
-              <Trash2 size={13} />
-              Sil
-            </span>
+            <X size={15} strokeWidth={3} />
           </button>
         </Html>
       )}
