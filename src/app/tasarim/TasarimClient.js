@@ -5514,6 +5514,11 @@ function TasarimClientContent({ isMobile }) {
   const togglePrintTypeFromMenu = (typeId) => {
     const opt = PRINT_TYPE_OPTIONS.find((entry) => entry.id === typeId);
     if (!opt?.available) return;
+    if (isMobile) {
+      setMobilePrimaryTab("design");
+      setMobilePanelMode("design");
+      setMobileSheetSnapIndex(1);
+    }
     const safeSide = view === "back" ? "back" : "front";
     const sideLogos = activeDesign?.sides?.[safeSide]?.logos || [];
     if (typeId === "rubber") {
@@ -6280,6 +6285,14 @@ function TasarimClientContent({ isMobile }) {
   const showPrintTypes =
     isMobile && activeBottomTab === "tasarla" && mobilePanelMode === "design" && activeTab === "print";
   const mobileBottomTabsHeight = "calc(88px + env(safe-area-inset-bottom))";
+  const showMobileBottomTabs = isMobile && flowStep === "design" && !mobilePanelCollapsed;
+  const mobileDrawerBottom = showMobileBottomTabs ? mobileBottomTabsHeight : "env(safe-area-inset-bottom)";
+  const mobilePlacementPanelBottom = showMobileBottomTabs
+    ? `calc(${mobileBottomTabsHeight} + 8px)`
+    : "calc(env(safe-area-inset-bottom) + 8px)";
+  const mobilePageBottomPadding = showMobileBottomTabs
+    ? "calc(148px + env(safe-area-inset-bottom))"
+    : "calc(68px + env(safe-area-inset-bottom))";
   const mobileDrawerExpandedHeight =
     mobileSheetRatio >= 0.85
       ? "calc(var(--app-vh, 1vh) * 64)"
@@ -6341,7 +6354,7 @@ function TasarimClientContent({ isMobile }) {
         touchAction: isMobile ? "pan-y" : "none",
         overflowX: isMobile ? "clip" : undefined,
         minHeight: isMobile ? "calc(var(--app-vh) * 100)" : undefined,
-        paddingBottom: isMobile ? "calc(148px + env(safe-area-inset-bottom))" : undefined,
+        paddingBottom: isMobile ? mobilePageBottomPadding : undefined,
       }}
     >
       {/* Top Header */}
@@ -6599,15 +6612,9 @@ function TasarimClientContent({ isMobile }) {
               maxWidth: isMobile ? "100vw" : undefined,
               top: isMobile ? "auto" : "72px",
               bottom: isMobile
-                ? hideMobileDrawerInEditor
-                  ? "calc(env(safe-area-inset-bottom) + 2px)"
-                  : `${Math.round(visibleDrawerHeight) + MOBILE_TOOLBAR_HEIGHT + 14}px`
+                ? mobilePlacementPanelBottom
                 : `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
-              maxHeight: isMobile
-                ? hideMobileDrawerInEditor
-                  ? "calc(var(--app-vh) * 48)"
-                  : "calc(var(--app-vh) * 58)"
-                : undefined,
+              maxHeight: isMobile ? "calc(var(--app-vh) * 44)" : undefined,
             }}
           >
             {isMobile && !!lockToast && (
@@ -7300,12 +7307,12 @@ function TasarimClientContent({ isMobile }) {
           const mobileCollapsed = isMobile && mobilePanelMode === "collapsed";
           const mobileScale = isPrintAreaOpen
             ? mobileCollapsed
-              ? 0.98
+              ? 1.02
               : mobileExpanded
                 ? 0.78
                 : 0.9
             : mobileCollapsed
-              ? 1.08
+              ? 1.18
               : mobileExpanded
                 ? 0.82
                 : 0.96;
@@ -7724,7 +7731,7 @@ function TasarimClientContent({ isMobile }) {
             style={
               isMobile
                 ? {
-                    bottom: mobileBottomTabsHeight,
+                    bottom: mobileDrawerBottom,
                     height: mobileDrawerHeight,
                     backgroundColor: "#eef0f4",
                     borderTop: "1px solid rgba(0,0,0,0.08)",
@@ -7795,7 +7802,24 @@ function TasarimClientContent({ isMobile }) {
                           </button>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-2 mt-3">
+                        <div className="grid grid-cols-4 gap-2 mt-3">
+                          <button
+                            type="button"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={() => {
+                              setMobilePrimaryTab("design");
+                              setMobilePanelMode("design");
+                              setMobileSheetSnapIndex(1);
+                              activateDesignTool("print");
+                            }}
+                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${
+                              activeTab === "print"
+                                ? "border-zinc-900 bg-zinc-900 text-white"
+                                : "border-gray-300 bg-white text-gray-800"
+                            }`}
+                          >
+                            Baskı Seçim
+                          </button>
                           <button
                             type="button"
                             onPointerDown={(e) => e.stopPropagation()}
@@ -7998,7 +8022,7 @@ function TasarimClientContent({ isMobile }) {
           </div>
         )}
 
-        {isMobile && flowStep === "design" && (
+        {showMobileBottomTabs && (
           <div
             className="fixed left-0 right-0 z-[70] border-t border-black/10 bg-[#e9eaee] px-3 pt-2.5"
             style={{
