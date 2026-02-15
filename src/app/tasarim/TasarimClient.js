@@ -1735,17 +1735,27 @@ function HdriEnvironment({ urls = [], enabled = true }) {
 }
 
 /* ================= KAMERA KONTROLCÜSÜ ================= */
-function CameraController({ view, count, onAnimatingChange }) {
+function CameraController({
+  view,
+  count,
+  onAnimatingChange,
+  controlsRef,
+  targetY = -0.1,
+  cameraY = 0.22,
+  baseDistance = 1.96,
+  minDistance = 1.72,
+  maxDistance = 4.6,
+}) {
   const { camera } = useThree();
   const isAnimating = useRef(false);
   const extra = Math.min(0.9, Math.max(0, (count - 1) * 0.22));
 
   const positions = useMemo(
     () => ({
-      front: new THREE.Vector3(0, 0.22, 1.72 + extra),
-      back: new THREE.Vector3(0, 0.22, 1.72 + extra),
+      front: new THREE.Vector3(0, cameraY, baseDistance + extra * 0.14),
+      back: new THREE.Vector3(0, cameraY, baseDistance + extra * 0.14),
     }),
-    [extra]
+    [extra, cameraY, baseDistance]
   );
 
   useEffect(() => {
@@ -1754,13 +1764,26 @@ function CameraController({ view, count, onAnimatingChange }) {
     const targetPos = positions[view] || positions.front;
     const startPos = camera.position.clone();
     const start = Date.now();
-    const dur = 860;
+    const dur = 520;
     const tick = () => {
       if (!isAnimating.current) return;
       const t = Math.min((Date.now() - start) / dur, 1);
-      const eased = 1 - Math.pow(1 - t, 5);
+      const eased = 1 - Math.pow(1 - t, 4);
       camera.position.lerpVectors(startPos, targetPos, eased);
-      camera.lookAt(0, -0.04, 0);
+      const controls = controlsRef?.current;
+      if (controls) {
+        const target = new THREE.Vector3(0, targetY, 0);
+        controls.target.lerp(target, 0.24);
+        controls.minDistance = minDistance;
+        controls.maxDistance = maxDistance;
+        const offset = camera.position.clone().sub(controls.target);
+        const safeDistance = clamp(offset.length(), minDistance + 0.02, maxDistance);
+        offset.setLength(safeDistance);
+        camera.position.copy(controls.target).add(offset);
+        camera.position.x = THREE.MathUtils.lerp(camera.position.x, 0, 0.5);
+        controls.update();
+      }
+      camera.lookAt(0, targetY, 0);
       if (t < 1) requestAnimationFrame(tick);
       else {
         isAnimating.current = false;
@@ -1772,7 +1795,7 @@ function CameraController({ view, count, onAnimatingChange }) {
       isAnimating.current = false;
       onAnimatingChange?.(false);
     };
-  }, [view, camera, positions, onAnimatingChange]);
+  }, [view, camera, positions, onAnimatingChange, controlsRef, targetY, minDistance, maxDistance]);
 
   return null;
 }
@@ -1793,7 +1816,10 @@ function useDesignCanvas(sideData, opts = {}) {
   const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}_${customText?.font}_${customText?.layout || "straight"}_${customText?.curve ?? 30}_${customText?.rotation ?? 0}_${customText?.z ?? 0}_${Number(Boolean(customText?.emboss))}_${customText?.embossDepth ?? 1.4}_${customText?.embossStrength ?? 1.4}_${normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER)}`;
   const posSignature = `${sideData?.textPos?.x}_${sideData?.textPos?.y}`;
 
-  const CANVAS_SIZE = 2048;
+  const requestedSize = Number(opts?.textureSize);
+  const CANVAS_SIZE = Number.isFinite(requestedSize)
+    ? clamp(Math.round(requestedSize), 1024, 4096)
+    : 2048;
   const CANVAS_UPDATE_DEBOUNCE_MS = 6;
   const textEnabled = opts?.disableText !== true;
 
@@ -1987,9 +2013,10 @@ function makeCanvasTexture(canvas) {
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   tex.needsUpdate = true;
-  tex.generateMipmaps = true;
-  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.generateMipmaps = false;
+  tex.minFilter = THREE.LinearFilter;
   tex.magFilter = THREE.LinearFilter;
+  tex.premultiplyAlpha = false;
   return tex;
 }
 
@@ -2175,6 +2202,7 @@ function Real3DModel({
   frontPrintTypes = [],
   backPrintTypes = [],
 }) {
+  const { gl } = useThree();
   const modelPathRaw = MODEL_PATHS[normalizeModelType(modelType)] || MODEL_PATHS[DEFAULT_MODEL_TYPE];
   const gltf = useGLTF(toSafeUrl(modelPathRaw));
   const glyphGltf = useGLTF(toSafeUrl(RUBBER_GLYPH_MODEL_PATH));
@@ -2353,6 +2381,15 @@ function Real3DModel({
       if (t) t.dispose();
     };
   }, [backCanvas, isMobile]);
+
+  useEffect(() => {
+    const maxAniso = gl?.capabilities?.getMaxAnisotropy?.() || 8;
+    [frontTex, backTex].forEach((tex) => {
+      if (!tex) return;
+      tex.anisotropy = Math.min(16, maxAniso);
+      tex.needsUpdate = true;
+    });
+  }, [gl, frontTex, backTex]);
 
   const decalHost = useMemo(() => pickDecalHostMesh(root, modelType), [root, modelType]);
   const decalHostRef = useMemo(() => ({ current: decalHost }), [decalHost]);
@@ -3234,10 +3271,13 @@ function DesignModelItem({
   const frontCanvas = useDesignCanvas(
     design.sides.front || EMPTY_SIDE,
     isZipper
-      ? { clearCenterStripe01: gap01, disableText: frontHasRubber }
-      : { disableText: frontHasRubber }
+      ? { clearCenterStripe01: gap01, disableText: frontHasRubber, textureSize: isMobile ? 2304 : 3072 }
+      : { disableText: frontHasRubber, textureSize: isMobile ? 2304 : 3072 }
   );
-  const backCanvas = useDesignCanvas(design.sides.back || EMPTY_SIDE, { disableText: backHasRubber });
+  const backCanvas = useDesignCanvas(design.sides.back || EMPTY_SIDE, {
+    disableText: backHasRubber,
+    textureSize: isMobile ? 2304 : 3072,
+  });
 
   if (hidden) return null;
 
@@ -5124,8 +5164,8 @@ function TasarimClientContent({ isMobile }) {
     }
     if (isMobile) {
       setMobilePrimaryTab("design");
-      setMobilePanelMode("design");
-      setMobileSheetSnapIndex(1);
+      setMobilePanelMode("collapsed");
+      setMobileSheetSnapIndex(0);
       setDrawerOpen(false);
     } else {
       setDrawerOpen(false);
@@ -5252,17 +5292,18 @@ function TasarimClientContent({ isMobile }) {
   }, []);
   const perf = useMemo(() => {
     const heavy = modelCount > 2;
+    const deviceDpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
     if (isMobile) {
       const conservative = heavy || isIOSDevice;
       return {
-        dpr: conservative ? 0.95 : 1.1,
+        dpr: Math.min(deviceDpr, conservative ? 1.15 : 1.35),
         antialias: !conservative,
         shadowMap: conservative ? 256 : 320,
         powerPreference: "default",
       };
     }
     return {
-      dpr: heavy ? 1.3 : 1.6,
+      dpr: Math.min(deviceDpr, heavy ? 1.35 : 1.7),
       antialias: !heavy,
       shadowMap: heavy ? 512 : 768,
       powerPreference: "high-performance",
@@ -5630,6 +5671,13 @@ function TasarimClientContent({ isMobile }) {
 
   useEffect(() => {
     if (!isMobile) return;
+    if (!isPrintAreaOpen || !showPlacementPanel) return;
+    setMobilePanelMode("collapsed");
+    setMobileSheetSnapIndex(0);
+  }, [isMobile, isPrintAreaOpen, showPlacementPanel]);
+
+  useEffect(() => {
+    if (!isMobile) return;
     if (mobilePanelMode === "collapsed") {
       setDrawerMenuOpen(false);
     }
@@ -5900,13 +5948,13 @@ function TasarimClientContent({ isMobile }) {
     // Capture sırasında kamerayı hedef yöne direkt koy; ön/arka mockup karışmasın.
     const extra = Math.min(1.2, Math.max(0, (designs.length - 1) * 0.3));
     const dist = 2.05 + extra;
-    const camPos = new THREE.Vector3(0, 0.24, dist);
+    const camPos = new THREE.Vector3(0, 0.22, dist);
     camera.position.copy(camPos);
-    camera.lookAt(0, -0.08, 0);
+    camera.lookAt(0, -0.1, 0);
     camera.updateProjectionMatrix();
 
     if (controlsRef.current) {
-      controlsRef.current.target.set(0, -0.08, 0);
+      controlsRef.current.target.set(0, -0.1, 0);
       controlsRef.current.update();
     }
 
@@ -6290,12 +6338,34 @@ function TasarimClientContent({ isMobile }) {
   const mobileSafeSheetIndex = clamp(mobileSheetSnapIndex, 0, MOBILE_SHEET_SNAP_RATIOS.length - 1);
   const mobileSheetRatio = MOBILE_SHEET_SNAP_RATIOS[mobileSafeSheetIndex] || 0.55;
   const mobilePanelCollapsed = isMobile && mobilePanelMode === "collapsed";
+  const cameraFit = useMemo(() => {
+    if (isMobile) {
+      const stageRatio = mobilePanelCollapsed ? 0.52 : mobileSheetRatio;
+      const fitDistance = isPlacementPanelVisible ? 2.02 : stageRatio <= 0.3 ? 1.98 : stageRatio <= 0.55 ? 1.92 : 1.86;
+      return {
+        targetY: isPlacementPanelVisible ? -0.12 : stageRatio > 0.55 ? -0.14 : -0.12,
+        cameraY: 0.22,
+        fitDistance,
+        minDistance: fitDistance - 0.06,
+        maxDistance: 4.8,
+      };
+    }
+    const fitDistance = isPlacementPanelVisible ? 2.02 : drawerOpen ? 2.16 : 2.08;
+    return {
+      targetY: -0.1,
+      cameraY: 0.22,
+      fitDistance,
+      minDistance: fitDistance - 0.08,
+      maxDistance: 4.4,
+    };
+  }, [isMobile, mobilePanelCollapsed, mobileSheetRatio, isPlacementPanelVisible, drawerOpen]);
   const activeBottomTab = mobilePrimaryTab === "design" ? "tasarla" : mobilePrimaryTab;
   const showDesignControls = isMobile && activeBottomTab === "tasarla" && mobilePanelMode === "design";
   const showPrintTypes =
     isMobile && activeBottomTab === "tasarla" && mobilePanelMode === "design" && activeTab === "print";
   const mobileBottomTabsHeight = "calc(88px + env(safe-area-inset-bottom))";
-  const showMobileBottomTabs = isMobile && flowStep === "design" && !mobilePanelCollapsed;
+  const showMobileBottomTabs =
+    isMobile && flowStep === "design" && !mobilePanelCollapsed && !isPlacementPanelVisible;
   const mobileDrawerBottom = showMobileBottomTabs ? mobileBottomTabsHeight : "env(safe-area-inset-bottom)";
   const mobilePlacementPanelBottom = showMobileBottomTabs
     ? `calc(${mobileBottomTabsHeight} + 8px)`
@@ -6317,6 +6387,53 @@ function TasarimClientContent({ isMobile }) {
   ];
   const mobileSheetTitle =
     mobilePrimaryTab === "model" ? "Model" : mobilePrimaryTab === "color" ? "Renk" : "Tasarla";
+
+  useEffect(() => {
+    const controls = controlsRef.current;
+    const camera = cameraRef.current;
+    if (!controls || !camera) return;
+    let rafId = 0;
+    const startTime = performance.now();
+    const duration = 320;
+    const startTarget = controls.target.clone();
+    const startPos = camera.position.clone();
+    const endTarget = new THREE.Vector3(0, cameraFit.targetY, 0);
+    const endPos = new THREE.Vector3(0, cameraFit.cameraY, cameraFit.fitDistance);
+
+    const tick = (now) => {
+      const t = Math.min((now - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 4);
+      controls.target.lerpVectors(startTarget, endTarget, eased);
+      camera.position.lerpVectors(startPos, endPos, eased);
+      const offset = camera.position.clone().sub(controls.target);
+      const safeDistance = clamp(offset.length(), cameraFit.minDistance + 0.02, cameraFit.maxDistance);
+      offset.setLength(safeDistance);
+      camera.position.copy(controls.target).add(offset);
+      camera.position.x = THREE.MathUtils.lerp(camera.position.x, 0, 0.65);
+      camera.lookAt(controls.target);
+      controls.minDistance = cameraFit.minDistance;
+      controls.maxDistance = cameraFit.maxDistance;
+      controls.update();
+      if (t < 1) {
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [
+    cameraFit.cameraY,
+    cameraFit.fitDistance,
+    cameraFit.maxDistance,
+    cameraFit.minDistance,
+    cameraFit.targetY,
+    activeId,
+    view,
+    mobilePanelMode,
+    mobileSheetSnapIndex,
+    isPlacementPanelVisible,
+  ]);
 
   const renderPanel = (
     <EditorPanel
@@ -6467,9 +6584,11 @@ function TasarimClientContent({ isMobile }) {
           style={
             isMobile
               ? {
-                  height: mobilePanelCollapsed
-                    ? "clamp(320px, calc(var(--app-vh) * 52), 560px)"
-                    : "clamp(280px, calc(var(--app-vh) * 40), 420px)",
+                  height: isPlacementPanelVisible
+                    ? "clamp(300px, calc(var(--app-vh) * 46), 540px)"
+                    : mobilePanelCollapsed
+                      ? "clamp(320px, calc(var(--app-vh) * 52), 560px)"
+                      : "clamp(280px, calc(var(--app-vh) * 40), 420px)",
                   overflow: "hidden",
                 }
               : undefined
@@ -6614,7 +6733,7 @@ function TasarimClientContent({ isMobile }) {
         {/* Editor Overlay - Sol Taraf */}
         {isPrintAreaOpen && showPlacementPanel && (
           <div
-            className={`absolute z-[90] backdrop-blur-md border border-gray-200 shadow-2xl overflow-hidden flex flex-col ${isMobile ? "rounded-none border-x-0 rounded-t-2xl" : "rounded-2xl"
+            className={`${isMobile ? "fixed inset-x-0" : "absolute"} z-[96] backdrop-blur-md border border-gray-200 shadow-2xl overflow-hidden flex flex-col ${isMobile ? "rounded-none border-x-0 rounded-t-2xl" : "rounded-2xl"
               }`}
             style={{
               backgroundColor: "#f7f8fa",
@@ -6626,7 +6745,7 @@ function TasarimClientContent({ isMobile }) {
               bottom: isMobile
                 ? mobilePlacementPanelBottom
                 : `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
-              maxHeight: isMobile ? "calc(var(--app-vh) * 44)" : undefined,
+              maxHeight: isMobile ? "min(calc(var(--app-vh) * 46), 420px)" : undefined,
             }}
           >
             {isMobile && !!lockToast && (
@@ -7338,16 +7457,6 @@ function TasarimClientContent({ isMobile }) {
               : mobileExpanded
                 ? "-2%"
                 : "0%";
-          const minZoomDistance = !isMobile
-            ? isPlacementPanelVisible
-              ? 1.86
-              : drawerOpen
-                ? 1.72
-                : 1.56
-            : isPlacementPanelVisible
-              ? 1.55
-              : 1.38;
-          const controlsTargetY = isMobile ? -0.04 : -0.08;
           return (
             <Canvas
               style={{
@@ -7357,7 +7466,7 @@ function TasarimClientContent({ isMobile }) {
                 transform: isMobile
                   ? `translate(-50%, -50%) translateY(${mobileShiftY}) scale(${mobileScale})`
                   : `translate(-50%, -50%) translateY(${desktopShiftY}) scale(${desktopScale})`,
-                width: isMobile ? "100%" : desktopWidth,
+                width: isMobile ? "100vw" : desktopWidth,
                 height: isMobile ? "100%" : desktopHeight,
                 display: "block",
                 backgroundColor: SCENE_BG_COLOR,
@@ -7387,6 +7496,7 @@ function TasarimClientContent({ isMobile }) {
                 gl.outputColorSpace = THREE.SRGBColorSpace;
                 gl.toneMapping = THREE.ACESFilmicToneMapping;
                 gl.toneMappingExposure = 0.60;
+                gl.setPixelRatio(Math.min(window.devicePixelRatio || 1, perf.dpr));
                 if (gl?.domElement) {
                   gl.domElement.style.touchAction = "none";
                   gl.domElement.style.overscrollBehavior = "contain";
@@ -7414,7 +7524,17 @@ function TasarimClientContent({ isMobile }) {
               <pointLight position={[0, 2.6, 2.2]} intensity={0.05} />
               {!isMobile && <ContactShadows position={[0, -1.4, 0]} opacity={0.16} scale={7} blur={2.2} far={3.2} />}
 
-              <CameraController view={effectiveView} count={designs.length} onAnimatingChange={setCamAnimating} />
+              <CameraController
+                view={effectiveView}
+                count={designs.length}
+                controlsRef={controlsRef}
+                targetY={cameraFit.targetY}
+                cameraY={cameraFit.cameraY}
+                baseDistance={cameraFit.fitDistance}
+                minDistance={cameraFit.minDistance}
+                maxDistance={cameraFit.maxDistance}
+                onAnimatingChange={setCamAnimating}
+              />
 
               <Suspense fallback={<ThreeDotsLoader />}>
                 {designs.map((design) => {
@@ -7458,11 +7578,11 @@ function TasarimClientContent({ isMobile }) {
                 enableDamping
                 dampingFactor={isMobile ? 0.12 : 0.08}
                 zoomSpeed={isMobile ? 0.95 : 0.7}
-                minDistance={minZoomDistance}
-                maxDistance={isMobile ? 4.6 : 4.2}
+                minDistance={cameraFit.minDistance}
+                maxDistance={cameraFit.maxDistance}
                 zoomToCursor={false}
                 enabled={!camAnimating}
-                target={[0, controlsTargetY, 0]}
+                target={[0, cameraFit.targetY, 0]}
                 mouseButtons={{ LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null }}
                 touches={{ ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY }}
               />
