@@ -7288,9 +7288,28 @@ function TasarimClientContent({ isMobile }) {
                 : "-12%"
             : "0%";
           const mobileExpanded = mobileSheetRatio >= 0.55;
-          const mobileScale = isPrintAreaOpen ? (mobileExpanded ? 0.78 : 0.9) : mobileExpanded ? 0.82 : 0.96;
+          const mobileCollapsed = isMobile && mobilePanelMode === "collapsed";
+          const mobileScale = isPrintAreaOpen
+            ? mobileCollapsed
+              ? 0.98
+              : mobileExpanded
+                ? 0.78
+                : 0.9
+            : mobileCollapsed
+              ? 1.08
+              : mobileExpanded
+                ? 0.82
+                : 0.96;
           const mobileLeft = isPlacementPanelVisible ? "60%" : mobileExpanded ? "54%" : "57%";
-          const mobileShiftY = isPlacementPanelVisible ? (mobileExpanded ? "-22%" : "-18%") : mobileExpanded ? "-10%" : "-4%";
+          const mobileShiftY = isPlacementPanelVisible
+            ? mobileExpanded
+              ? "-22%"
+              : "-18%"
+            : mobileCollapsed
+              ? "0%"
+              : mobileExpanded
+                ? "-10%"
+                : "-4%";
           const minZoomDistance = !isMobile
             ? isPlacementPanelVisible
               ? 1.86
@@ -7723,10 +7742,7 @@ function TasarimClientContent({ isMobile }) {
                     }`}
                   >
                     <button
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                        onDrawerPointerDown(e);
-                      }}
+                      onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         handleMobileDrawerHandleClick(e);
                       }}
@@ -7802,8 +7818,20 @@ function TasarimClientContent({ isMobile }) {
                     )}
                   </div>
 
-                  {!mobilePanelCollapsed && (
-                    <div className="relative z-[15] max-h-[calc(var(--app-vh,1vh)*52)] overflow-y-auto overscroll-contain">
+                  <div
+                    className="relative z-[15] overflow-hidden transition-[max-height,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                    style={{
+                      maxHeight: mobilePanelCollapsed
+                        ? "0px"
+                        : mobileSheetRatio >= 0.85
+                          ? "calc(var(--app-vh,1vh)*62)"
+                          : mobileSheetRatio >= 0.55
+                            ? "calc(var(--app-vh,1vh)*54)"
+                            : "calc(var(--app-vh,1vh)*44)",
+                      opacity: mobilePanelCollapsed ? 0 : 1,
+                    }}
+                  >
+                    <div className="max-h-[calc(var(--app-vh,1vh)*58)] overflow-y-auto overscroll-contain">
                       {showPrintTypes && (
                         <div className="mx-4 mt-[10px] rounded-2xl border border-gray-200 bg-white shadow-sm">
                           <div className="p-3 space-y-2">
@@ -7867,7 +7895,7 @@ function TasarimClientContent({ isMobile }) {
                         )}
                       </div>
                     </div>
-                  )}
+                  </div>
                 </>
               ) : (
                 <>
