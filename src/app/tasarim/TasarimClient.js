@@ -720,8 +720,8 @@ function PrintTypePickerCards({ selectedIds = [], onSelect, sourceLabel = "Sec",
               className={`rounded-xl border px-2 py-2 text-left transition overflow-hidden ${disabled
                 ? "cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400"
                 : selected
-                  ? "border-black bg-black text-white"
-                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+                  ? "border-black bg-white text-gray-900"
+                  : "border-white bg-white text-gray-700 hover:border-zinc-300"
                 }`}
             >
               <p className="text-[11px] font-black uppercase tracking-wide">{opt.label}</p>
@@ -3853,8 +3853,6 @@ function EditorPanel({
 
   const previewRef = useRef(null);
   const uploadSlotRefs = useRef([]);
-  const pdfInputRef = useRef(null);
-  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
 
   const sizes = ["S", "M", "L", "XL"];
   const colorPresets = BRAND_COLORS;
@@ -3879,14 +3877,6 @@ function EditorPanel({
   const cm = CM_LABELS[design.modelType]?.[currentSide] || { w: 0, h: 0 };
 
   const t = sideData?.customText || {};
-  const hasPdf = Boolean(design?.hasPdf && design?.pdfFileUrl);
-  const pdfPlacement = normalizePdfPlacement(design?.pdfPlacement, currentSide);
-  const updatePdfPlacement = (patch) => {
-    updateDesign({
-      hasPdf: true,
-      pdfPlacement: normalizePdfPlacement({ ...pdfPlacement, ...patch }, patch?.side || pdfPlacement.side || currentSide),
-    });
-  };
   const setCurrentSidePrintTypes = (nextTypes) => {
     const bySide = normalizePrintTypesBySide(design.printTypesBySide, design.printTypes);
     const safeSide = currentSide === "back" ? "back" : "front";
@@ -4041,35 +4031,6 @@ function EditorPanel({
     const opt = PRINT_TYPE_OPTIONS.find((entry) => entry.id === id);
     if (!opt?.available) return;
     togglePrintType(id);
-  };
-
-  const handlePdfUpload = async (file) => {
-    if (!file) return;
-    try {
-      setIsUploadingPdf(true);
-      const ext = String(file.name || "").toLowerCase();
-      if (!ext.endsWith(".pdf")) {
-        throw new Error("Lütfen PDF dosyası seçin.");
-      }
-      const dataUrl = await fileToDataUrl(file);
-      const fallbackPlacement = normalizePdfPlacement(design.pdfPlacement, currentSide);
-      updateDesign({
-        hasPdf: true,
-        pdfFileUrl: dataUrl,
-        pdfOriginalName: file.name || "dosya.pdf",
-        pdfPlacement: {
-          ...fallbackPlacement,
-          side: currentSide,
-        },
-      });
-      setActiveTab("text");
-      onRequestDrawerExpand?.();
-    } catch (err) {
-      console.error("PDF yukleme hatasi:", err);
-      alert(err?.message || "PDF yuklenemedi.");
-    } finally {
-      setIsUploadingPdf(false);
-    }
   };
 
   const handleDeleteActiveImage = () => {
@@ -4600,15 +4561,10 @@ function EditorPanel({
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-start justify-start gap-2.5") : "space-y-2.5"}`}>
             <div className={`rounded-xl border border-gray-200 bg-white p-3 space-y-3 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "w-full min-h-[188px] overflow-hidden") : ""}`}>
               <div className="flex items-center justify-between gap-2">
-                <p className={drawerHeadingClass}>Yazı / PDF</p>
-                {hasPdf ? (
-                  <span className="text-[10px] font-black uppercase text-emerald-600">Hazır</span>
-                ) : (
-                  <span className="text-[10px] font-black uppercase text-gray-500">Dosya Yok</span>
-                )}
+                <p className={drawerHeadingClass}>Yazı</p>
               </div>
 
-              <div className={`${isDrawerLayout && !isMobileDrawer ? "grid grid-cols-2 gap-3 items-start" : "space-y-3"}`}>
+              <div className="space-y-3">
                 <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Metin</p>
@@ -4747,82 +4703,6 @@ function EditorPanel({
                   >
                     <Move size={14} /> Modelde Düzenle
                   </button>
-                </div>
-
-                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 space-y-2">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">PDF</p>
-                  <button
-                    type="button"
-                    onClick={() => pdfInputRef.current?.click()}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={async (e) => {
-                      e.preventDefault();
-                      const file = e.dataTransfer?.files?.[0];
-                      await handlePdfUpload(file);
-                    }}
-                    className="w-full h-24 rounded-xl border-2 border-dashed border-gray-300 bg-white hover:bg-gray-100 text-gray-700 flex flex-col items-center justify-center gap-1.5"
-                  >
-                    <FileText size={18} />
-                    <span className="text-[11px] font-black uppercase tracking-wide">PDF Yükle</span>
-                  </button>
-                  <input
-                    ref={pdfInputRef}
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    className="hidden"
-                    onChange={async (e) => {
-                      const inputEl = e.currentTarget;
-                      const file = inputEl.files?.[0];
-                      await handlePdfUpload(file);
-                      inputEl.value = "";
-                    }}
-                  />
-
-                  <div className="rounded-lg border border-gray-200 bg-white px-3 py-2">
-                    <p className="text-xs font-semibold text-gray-700 break-all">
-                      {design.pdfOriginalName || "PDF seçilmedi"}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { id: "front", label: "Ön Yüz" },
-                      { id: "back", label: "Arka Yüz" },
-                    ].map((opt) => (
-                      <button
-                        key={`pdf-side-${opt.id}`}
-                        type="button"
-                        disabled={!hasPdf}
-                        onClick={() => updatePdfPlacement({ side: opt.id })}
-                        className={`py-2 rounded-lg text-[10px] font-black uppercase border ${(design.pdfPlacement?.side || "front") === opt.id
-                          ? "bg-black text-white border-black"
-                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                          } ${!hasPdf ? "opacity-40 cursor-not-allowed" : ""}`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={!hasPdf}
-                    onClick={() =>
-                      updateDesign({
-                        hasPdf: false,
-                        pdfFileUrl: "",
-                        pdfOriginalName: "",
-                        pdfPlacement: { ...DEFAULT_PDF_PLACEMENT, side: currentSide },
-                      })
-                    }
-                    className={`w-full py-2 rounded-lg text-[10px] font-black uppercase border ${hasPdf
-                      ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
-                      : "border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed"
-                      }`}
-                  >
-                    PDF’yi Kaldır
-                  </button>
-                  {isUploadingPdf && <p className="text-[10px] font-bold uppercase text-gray-500">PDF yükleniyor...</p>}
                 </div>
               </div>
             </div>
@@ -5551,9 +5431,16 @@ function TasarimClientContent({ isMobile }) {
   };
 
   const activateDesignTool = (toolId) => {
+    if (isMobile) {
+      setMobilePrimaryTab("design");
+      setMobilePanelMode("design");
+      setMobileSheetSnapIndex(1);
+    }
     if (toolId === "upload") {
       if (rubberActiveForSide) {
+        applyTechniqueToActiveSide(PRINT_TECHNIQUES.DTF);
         setUploadTechniqueToastOpen(true);
+        setActiveTab("upload");
         return;
       }
       if (!hasDtfForActiveSide) {
@@ -6279,13 +6166,6 @@ function TasarimClientContent({ isMobile }) {
     if (suppressDrawerHandleClickRef.current) return;
     toggleDrawer();
   };
-
-  useEffect(() => {
-    return () => {
-      window.removeEventListener("pointermove", onDrawerPointerMove);
-      window.removeEventListener("pointerup", onDrawerPointerUp);
-    };
-  }, []);
 
   const openDrawer = () => {
     if (isMobile) {
@@ -7847,7 +7727,6 @@ function TasarimClientContent({ isMobile }) {
                         e.stopPropagation();
                         onDrawerPointerDown(e);
                       }}
-                      onPointerUp={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         handleMobileDrawerHandleClick(e);
                       }}
@@ -7887,7 +7766,12 @@ function TasarimClientContent({ isMobile }) {
                           <button
                             type="button"
                             onPointerDown={(e) => e.stopPropagation()}
-                            onClick={() => activateDesignTool("upload")}
+                            onClick={() => {
+                              setMobilePrimaryTab("design");
+                              setMobilePanelMode("design");
+                              setMobileSheetSnapIndex(1);
+                              activateDesignTool("upload");
+                            }}
                             className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
                           >
                             Görsel Yükle
@@ -7895,7 +7779,12 @@ function TasarimClientContent({ isMobile }) {
                           <button
                             type="button"
                             onPointerDown={(e) => e.stopPropagation()}
-                            onClick={() => activateDesignTool("text")}
+                            onClick={() => {
+                              setMobilePrimaryTab("design");
+                              setMobilePanelMode("design");
+                              setMobileSheetSnapIndex(1);
+                              activateDesignTool("text");
+                            }}
                             className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
                           >
                             Yazı Ekle
@@ -7914,9 +7803,9 @@ function TasarimClientContent({ isMobile }) {
                   </div>
 
                   {!mobilePanelCollapsed && (
-                    <>
+                    <div className="relative z-[15] max-h-[calc(var(--app-vh,1vh)*52)] overflow-y-auto overscroll-contain">
                       {showPrintTypes && (
-                        <div className="relative z-[15] mx-4 mt-[10px] rounded-2xl border border-gray-200 bg-white shadow-sm">
+                        <div className="mx-4 mt-[10px] rounded-2xl border border-gray-200 bg-white shadow-sm">
                           <div className="p-3 space-y-2">
                             <div className="flex items-center justify-between">
                               <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-500">Baskı Tipleri</p>
@@ -7934,7 +7823,7 @@ function TasarimClientContent({ isMobile }) {
                         </div>
                       )}
 
-                      <div className="relative z-[15] px-4 pt-2 pb-2">
+                      <div className="px-4 pt-2 pb-2">
                         {mobilePrimaryTab === "model" ? (
                           <div className="space-y-2.5">
                             <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
@@ -7977,7 +7866,7 @@ function TasarimClientContent({ isMobile }) {
                           renderPanel
                         )}
                       </div>
-                    </>
+                    </div>
                   )}
                 </>
               ) : (
