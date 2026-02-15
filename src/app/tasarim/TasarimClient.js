@@ -657,54 +657,39 @@ const glyphNodeNameToChar = (nameRaw) => {
   return glyphTokenToChar(token, forceCase);
 };
 
+const PRINT_TECHNIQUES = Object.freeze({
+  DTF: "DTF",
+  RUBBER: "RUBBER",
+});
+
+const normalizePrintTechnique = (technique, fallback = PRINT_TECHNIQUES.DTF) => {
+  const raw = String(technique || "").trim().toUpperCase();
+  if (raw === PRINT_TECHNIQUES.DTF || raw === PRINT_TECHNIQUES.RUBBER) return raw;
+  return fallback;
+};
+
+const techniqueToPrintTypeId = (technique) =>
+  normalizePrintTechnique(technique, PRINT_TECHNIQUES.DTF) === PRINT_TECHNIQUES.RUBBER ? "rubber" : "dtf";
+
+const printTypeIdsToTechnique = (ids = [], fallback = PRINT_TECHNIQUES.RUBBER) => {
+  const safeIds = Array.isArray(ids) ? ids : [];
+  if (safeIds.includes("rubber")) return PRINT_TECHNIQUES.RUBBER;
+  if (safeIds.includes("dtf")) return PRINT_TECHNIQUES.DTF;
+  return fallback;
+};
+
 const PRINT_TYPE_OPTIONS = [
   {
     id: "dtf",
     label: "DTF",
     available: true,
-    info: "Tasarim ozel filme basilir, toz yapistirici uygulanir ve sicak presle kumasa aktarilir.",
+    info: "Detaylı ve renkli tasarımlar için uygun.",
   },
   {
     id: "rubber",
     label: "Rubber",
     available: true,
-    info: "Plastisol (PVC + plastiklestirici) bazli, isiyla kurlenen opak ve dayanikli baski.",
-  },
-  {
-    id: "flock",
-    label: "Flok",
-    available: true,
-    info: "Kisa lifler yapistirici kapli alana uygulanir, kadifemsi doku verir.",
-  },
-  {
-    id: "emprime",
-    label: "Emprime",
-    available: false,
-    info: "Serigrafi baskida boya kalip/screen uzerinden kumasa aktarilir; her renk icin ayri kalip gerekir.",
-  },
-  {
-    id: "nakis",
-    label: "Nakıs",
-    available: false,
-    info: "Iğne ve iplikle kumas uzerine isleme yapilarak desen olusturulur.",
-  },
-  {
-    id: "tas",
-    label: "Tas",
-    available: false,
-    info: "Kristal gorunumlu taslar isi transferiyle kumasa uygulanir.",
-  },
-  {
-    id: "enjeksiyon",
-    label: "Enjeksiyon",
-    available: false,
-    info: "Kaucuk/silikon benzeri kabartma parca isi ile kumasa sabitlenir; logo etkisi verir.",
-  },
-  {
-    id: "gofre",
-    label: "Gofre",
-    available: false,
-    info: "Isi ve basinc ile kabartmali (embossed) doku olusturma.",
+    info: "Yazı odaklı, kabartı hissi veren minimal baskı.",
   },
 ];
 
@@ -1136,6 +1121,7 @@ const createSideData = () => ({
   logos: [],
   activeLogoId: null,
   customText: {
+    technique: PRINT_TECHNIQUES.RUBBER,
     text: "",
     color: "#ffffff",
     size: 150,
@@ -1159,10 +1145,19 @@ const createSideData = () => ({
 const normalizeSideData = (sideData) => {
   const base = createSideData();
   const source = sideData && typeof sideData === "object" ? sideData : {};
-  const logos = Array.isArray(source.logos) ? source.logos.filter(Boolean) : [];
+  const logos = Array.isArray(source.logos)
+    ? source.logos.filter(Boolean).map((logo) => ({
+        ...logo,
+        technique: PRINT_TECHNIQUES.DTF,
+      }))
+    : [];
   const customText = {
     ...base.customText,
     ...(source.customText && typeof source.customText === "object" ? source.customText : {}),
+    technique: normalizePrintTechnique(
+      source?.customText?.technique,
+      printTypeIdsToTechnique(source?.printTypes || source?.printTypesBySide?.front || [], PRINT_TECHNIQUES.RUBBER)
+    ),
     rotation: clamp(Number(source?.customText?.rotation) || 0, -180, 180),
     embossDepth: clamp(Number(source?.customText?.embossDepth ?? base.customText.embossDepth), 0.6, 2.8),
     embossStrength: clamp(Number(source?.customText?.embossStrength ?? base.customText.embossStrength), 0.6, 2.4),
@@ -1211,10 +1206,10 @@ const createDesign = (type = DEFAULT_MODEL_TYPE) => {
     pdfFileUrl: "",
     pdfOriginalName: "",
     pdfPlacement: { ...DEFAULT_PDF_PLACEMENT },
-    printTypes: [],
+    printTypes: ["rubber"],
     printTypesBySide: {
-      front: [],
-      back: [],
+      front: ["rubber"],
+      back: ["rubber"],
     },
     size: "M",
     sides: {
@@ -1231,6 +1226,10 @@ const restoreDesignFromCheckoutItem = (item) => {
   const modelType = normalizeModelType(item?.modelType || details?.model || DEFAULT_MODEL_TYPE);
   const base = createDesign(modelType);
   const srcSides = details?.sides || item?.sides || {};
+  const restoredPrintTypesBySide = normalizePrintTypesBySide(
+    details?.printTypesBySide || item?.printTypesBySide,
+    details?.printTypes || item?.printTypes
+  );
   const restored = {
     ...base,
     id: item?.id || makeId(),
@@ -1245,10 +1244,28 @@ const restoreDesignFromCheckoutItem = (item) => {
     pdfOriginalName: details?.pdfOriginalName || item?.pdfOriginalName || "",
     pdfPlacement: normalizePdfPlacement(details?.pdfPlacement || item?.pdfPlacement, (details?.pdfPlacement || item?.pdfPlacement)?.side || "front"),
     printTypes: Array.isArray(details?.printTypes || item?.printTypes) ? (details?.printTypes || item?.printTypes) : [],
-    printTypesBySide: normalizePrintTypesBySide(details?.printTypesBySide || item?.printTypesBySide, details?.printTypes || item?.printTypes),
+    printTypesBySide: restoredPrintTypesBySide,
     sides: {
-      front: normalizeSideData(srcSides.front),
-      back: normalizeSideData(srcSides.back),
+      front: normalizeSideData({
+        ...srcSides.front,
+        customText: {
+          ...(srcSides?.front?.customText || {}),
+          technique: normalizePrintTechnique(
+            srcSides?.front?.customText?.technique,
+            printTypeIdsToTechnique(restoredPrintTypesBySide.front, PRINT_TECHNIQUES.RUBBER)
+          ),
+        },
+      }),
+      back: normalizeSideData({
+        ...srcSides.back,
+        customText: {
+          ...(srcSides?.back?.customText || {}),
+          technique: normalizePrintTechnique(
+            srcSides?.back?.customText?.technique,
+            printTypeIdsToTechnique(restoredPrintTypesBySide.back, PRINT_TECHNIQUES.RUBBER)
+          ),
+        },
+      }),
       left: normalizeSideData(srcSides.left),
       right: normalizeSideData(srcSides.right),
     },
@@ -1261,14 +1278,23 @@ const normalizePrintTypesBySide = (bySide, legacy = []) => {
     front: [],
     back: [],
   };
-  const legacyList = Array.isArray(legacy) ? legacy : [];
+  const legacyListRaw = Array.isArray(legacy) ? legacy : [];
+  const legacyList = legacyListRaw.filter((id) => id === "dtf" || id === "rubber");
   const raw = bySide && typeof bySide === "object" ? bySide : {};
   const next = {
     ...base,
     ...raw,
   };
-  const front = Array.from(new Set([...(Array.isArray(next.front) ? next.front : []), ...legacyList]));
-  const back = Array.from(new Set(Array.isArray(next.back) ? next.back : []));
+  const normalizeSideList = (sideList = [], fallbackTechnique = PRINT_TECHNIQUES.RUBBER) => {
+    const merged = Array.from(
+      new Set((Array.isArray(sideList) ? sideList : []).filter((id) => id === "dtf" || id === "rubber"))
+    );
+    if (!merged.length) return [];
+    const technique = printTypeIdsToTechnique(merged, fallbackTechnique);
+    return [techniqueToPrintTypeId(technique)];
+  };
+  const front = normalizeSideList([...(Array.isArray(next.front) ? next.front : []), ...legacyList], PRINT_TECHNIQUES.RUBBER);
+  const back = normalizeSideList(Array.isArray(next.back) ? next.back : [], PRINT_TECHNIQUES.RUBBER);
   return { front, back };
 };
 
@@ -1365,10 +1391,12 @@ const buildRubberSpecsBySide = (design) => {
 
   UI_SIDES.forEach((side) => {
     const sideTypes = Array.isArray(bySide?.[side]) ? bySide[side] : [];
-    if (!sideTypes.includes("rubber")) return;
-
     const sideData = design?.sides?.[side];
     const t = sideData?.customText || {};
+    const isRubberText =
+      normalizePrintTechnique(t?.technique, printTypeIdsToTechnique(sideTypes, PRINT_TECHNIQUES.RUBBER)) ===
+      PRINT_TECHNIQUES.RUBBER;
+    if (!isRubberText) return;
     const rawText = String(t?.text || "").trim();
     if (!rawText) return;
 
@@ -1415,9 +1443,14 @@ const formatMoney = (value) => {
 /* ================= PRINT CANVAS (FOR CART / EXPORT) ================= */
 async function makePrintDataUrl(sideData, opts = {}) {
   const logos = sideData?.logos || [];
-  const t = sideData?.customText || {};
+  const textTechnique = normalizePrintTechnique(sideData?.customText?.technique, PRINT_TECHNIQUES.RUBBER);
+  const t = {
+    ...(sideData?.customText || {}),
+    technique: textTechnique,
+  };
   const textPos = clampTextPos(sideData?.textPos || { x: 0.5, y: 0.85 }, t);
-  const hasContent = logos.length > 0 || (t.text || "").trim();
+  const hasTextForPrint = textTechnique === PRINT_TECHNIQUES.DTF && (t.text || "").trim();
+  const hasContent = logos.length > 0 || hasTextForPrint;
   if (!hasContent) return null;
 
   const SIZE = 2048; // baskı için yüksek tut
@@ -1463,7 +1496,7 @@ async function makePrintDataUrl(sideData, opts = {}) {
 
   const items = [
     ...logos.map((l, idx) => ({ kind: "logo", z: l?.z ?? 0, idx, payload: l })),
-    ...(t.text || "").trim()
+    ...hasTextForPrint
       ? [{ kind: "text", z: t?.z ?? 0, idx: 9999, payload: t }]
       : [],
   ].sort((a, b) => (a.z !== b.z ? a.z - b.z : a.idx - b.idx));
@@ -1710,7 +1743,7 @@ function useDesignCanvas(sideData, opts = {}) {
     )
     .join("|");
   const customText = sideData?.customText;
-  const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}_${customText?.font}_${customText?.layout || "straight"}_${customText?.curve ?? 30}_${customText?.rotation ?? 0}_${customText?.z ?? 0}_${Number(Boolean(customText?.emboss))}_${customText?.embossDepth ?? 1.4}_${customText?.embossStrength ?? 1.4}`;
+  const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}_${customText?.font}_${customText?.layout || "straight"}_${customText?.curve ?? 30}_${customText?.rotation ?? 0}_${customText?.z ?? 0}_${Number(Boolean(customText?.emboss))}_${customText?.embossDepth ?? 1.4}_${customText?.embossStrength ?? 1.4}_${normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER)}`;
   const posSignature = `${sideData?.textPos?.x}_${sideData?.textPos?.y}`;
 
   const CANVAS_SIZE = 2048;
@@ -2295,8 +2328,16 @@ function Real3DModel({
 
   const showFront = view === "front";
   const showBack = view === "back";
-  const frontHasRubber = Array.isArray(frontPrintTypes) && frontPrintTypes.includes("rubber");
-  const backHasRubber = Array.isArray(backPrintTypes) && backPrintTypes.includes("rubber");
+  const frontHasRubber =
+    normalizePrintTechnique(
+      frontSideData?.customText?.technique,
+      printTypeIdsToTechnique(frontPrintTypes, PRINT_TECHNIQUES.RUBBER)
+    ) === PRINT_TECHNIQUES.RUBBER;
+  const backHasRubber =
+    normalizePrintTechnique(
+      backSideData?.customText?.technique,
+      printTypeIdsToTechnique(backPrintTypes, PRINT_TECHNIQUES.RUBBER)
+    ) === PRINT_TECHNIQUES.RUBBER;
   const frontEmbossLogos = useMemo(
     () => (frontSideData?.logos || []).filter((l) => isEmbossSticker(l)),
     [frontSideData?.logos]
@@ -3126,8 +3167,16 @@ function DesignModelItem({
   const isZipper = hasCenterZip(design.modelType);
   const gap01 = MODEL_PRINT_BOUNDS?.[design.modelType]?.front?.zipGap01 ?? MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
   const printTypesBySide = normalizePrintTypesBySide(design.printTypesBySide, design.printTypes);
-  const frontHasRubber = (printTypesBySide.front || []).includes("rubber");
-  const backHasRubber = (printTypesBySide.back || []).includes("rubber");
+  const frontHasRubber =
+    normalizePrintTechnique(
+      design?.sides?.front?.customText?.technique,
+      printTypeIdsToTechnique(printTypesBySide.front, PRINT_TECHNIQUES.RUBBER)
+    ) === PRINT_TECHNIQUES.RUBBER;
+  const backHasRubber =
+    normalizePrintTechnique(
+      design?.sides?.back?.customText?.technique,
+      printTypeIdsToTechnique(printTypesBySide.back, PRINT_TECHNIQUES.RUBBER)
+    ) === PRINT_TECHNIQUES.RUBBER;
 
   const frontCanvas = useDesignCanvas(
     design.sides.front || EMPTY_SIDE,
@@ -3766,19 +3815,18 @@ function EditorPanel({
   const colorPresets = BRAND_COLORS;
   const stringPresets = ["#e6e6e6", "#ffffff", "#000000", "#c8b08a", "#a0a0a0"];
   const printTypes = design ? getPrintTypesForSide(design, currentSide) : [];
-  const dtfActiveForSide = printTypes.includes("dtf");
-  const rubberActiveForSide = printTypes.includes("rubber");
+  const sideHasImages = Boolean((sideData?.logos || []).length);
+  const sideTextTechnique = normalizePrintTechnique(
+    sideData?.customText?.technique,
+    printTypeIdsToTechnique(printTypes, PRINT_TECHNIQUES.RUBBER)
+  );
+  const dtfActiveForSide = printTypes.includes("dtf") || sideHasImages;
+  const rubberActiveForSide = sideTextTechnique === PRINT_TECHNIQUES.RUBBER;
 
   useEffect(() => {
     if (printTypePickerSignal <= 0) return;
     setActiveTab("print");
   }, [printTypePickerSignal, setActiveTab]);
-
-  useEffect(() => {
-    if (activeTab === "upload" && !dtfActiveForSide) {
-      setActiveTab("print");
-    }
-  }, [activeTab, dtfActiveForSide, setActiveTab]);
 
   if (!design) return null;
 
@@ -3797,7 +3845,8 @@ function EditorPanel({
   const setCurrentSidePrintTypes = (nextTypes) => {
     const bySide = normalizePrintTypesBySide(design.printTypesBySide, design.printTypes);
     const safeSide = currentSide === "back" ? "back" : "front";
-    const normalizedNext = Array.isArray(nextTypes) ? Array.from(new Set(nextTypes)) : [];
+    const normalizedNextRaw = Array.isArray(nextTypes) ? Array.from(new Set(nextTypes)) : [];
+    const normalizedNext = normalizePrintTypesBySide({ front: normalizedNextRaw, back: [] }).front;
     const nextBySide = { ...bySide, [safeSide]: normalizedNext };
     const mergedLegacy = Array.from(new Set([...(nextBySide.front || []), ...(nextBySide.back || [])]));
     updateDesign({
@@ -3815,7 +3864,32 @@ function EditorPanel({
     });
   };
 
-  const bumpText = (patch) => updateSide({ customText: { ...t, ...patch } });
+  const bumpText = (patch) => {
+    const nextTechnique = Object.prototype.hasOwnProperty.call(patch || {}, "technique")
+      ? normalizePrintTechnique(patch?.technique, t.technique || PRINT_TECHNIQUES.RUBBER)
+      : t.technique || PRINT_TECHNIQUES.RUBBER;
+    updateSide({ customText: { ...t, ...patch, technique: nextTechnique } });
+  };
+
+  const applyTextTechnique = (nextTechnique, { fromImageAction = false } = {}) => {
+    const technique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.RUBBER);
+    if (technique === PRINT_TECHNIQUES.RUBBER && (sideData?.logos || []).length > 0) {
+      const allowed = window.confirm(
+        "Rubber baskı görsel desteklemez. Görsel kaldırılıp yazı moduna geçilsin mi?"
+      );
+      if (!allowed) return false;
+      updateSide({ logos: [], activeLogoId: null, customText: { ...t, technique } });
+      setCurrentSidePrintTypes([techniqueToPrintTypeId(technique)]);
+      setActiveTab("text");
+      return true;
+    }
+    bumpText({ technique });
+    setCurrentSidePrintTypes([techniqueToPrintTypeId(technique)]);
+    if (fromImageAction && technique === PRINT_TECHNIQUES.DTF) {
+      setActiveTab("upload");
+    }
+    return true;
+  };
 
   const activeSides = getActiveSides(design);
   const totalPrice = getPrice(design);
@@ -3832,6 +3906,10 @@ function EditorPanel({
   const handleUploadFile = async (file) => {
     if (!file) return;
     try {
+      if (sideTextTechnique === PRINT_TECHNIQUES.RUBBER) {
+        alert("Görsel baskı için DTF kullanılır.");
+        return;
+      }
       if ((sideData.logos || []).length >= MAX_LOGOS_PER_SIDE) {
         alert(`Bu alanda en fazla ${MAX_LOGOS_PER_SIDE} baskı görseli yükleyebilirsin.`);
         return;
@@ -3842,6 +3920,7 @@ function EditorPanel({
       const nextLogo = {
         id,
         url: optimizedUrl,
+        technique: PRINT_TECHNIQUES.DTF,
         box: { x: 0.5, y: 0.6, w: 0.7, h: 0.45 },
         rotation: 0,
         z: 0,
@@ -3850,6 +3929,8 @@ function EditorPanel({
 
       const nextLogos = [...(sideData.logos || []), nextLogo];
       updateSide({ logos: nextLogos, activeLogoId: id });
+      bumpText({ technique: PRINT_TECHNIQUES.DTF });
+      setCurrentSidePrintTypes(["dtf"]);
       onRequestDrawerCollapse?.();
       onRequestShowEditorOverlay?.();
       setActiveTab("editor");
@@ -3861,6 +3942,10 @@ function EditorPanel({
 
   const handleAddSticker = (sticker) => {
     if (!sticker?.src) return;
+    if (sideTextTechnique === PRINT_TECHNIQUES.RUBBER) {
+      alert("Görsel baskı için DTF kullanılır.");
+      return;
+    }
     if ((sideData.logos || []).length >= MAX_LOGOS_PER_SIDE) {
       alert(`Bu alanda en fazla ${MAX_LOGOS_PER_SIDE} baskı görseli yükleyebilirsin.`);
       return;
@@ -3869,6 +3954,7 @@ function EditorPanel({
     const nextLogo = {
       id,
       url: sticker.src,
+      technique: PRINT_TECHNIQUES.DTF,
       box: { x: 0.5, y: 0.6, w: 0.62, h: 0.42 },
       rotation: 0,
       z: 0,
@@ -3878,6 +3964,8 @@ function EditorPanel({
     };
     const nextLogos = [...(sideData.logos || []), nextLogo];
     updateSide({ logos: nextLogos, activeLogoId: id });
+    bumpText({ technique: PRINT_TECHNIQUES.DTF });
+    setCurrentSidePrintTypes(["dtf"]);
     onRequestDrawerCollapse?.();
     onRequestShowEditorOverlay?.();
     setActiveTab("editor");
@@ -3889,25 +3977,19 @@ function EditorPanel({
     { id: "color", icon: Palette, label: "Renk" },
     { id: "print", icon: Layers, label: "Baskı Seçim" },
     { id: "text", icon: FileText, label: "Yazı" },
-    ...(dtfActiveForSide ? [{ id: "upload", icon: ImageIcon, label: "Görsel" }] : []),
+    { id: "upload", icon: ImageIcon, label: "Görsel" },
   ];
 
   const togglePrintType = (id) => {
-    const alreadySelected = printTypes.includes(id);
-    const next = alreadySelected ? printTypes.filter((t) => t !== id) : [...printTypes, id];
-    setCurrentSidePrintTypes(next);
-    if (!alreadySelected) {
-      if (id === "rubber" || id === "flock") {
-        setActiveTab("text");
-      } else if (id === "dtf") {
-        setActiveTab("upload");
-      }
+    if (id === "rubber") {
+      const switched = applyTextTechnique(PRINT_TECHNIQUES.RUBBER);
+      if (switched) setActiveTab("text");
+      return;
     }
-  };
-
-  const removePrintType = (id) => {
-    const next = printTypes.filter((typeId) => typeId !== id);
-    setCurrentSidePrintTypes(next);
+    if (id === "dtf") {
+      applyTextTechnique(PRINT_TECHNIQUES.DTF);
+      setActiveTab("upload");
+    }
   };
 
   const handleSelectPrintTypeFromPanel = (id) => {
@@ -4200,9 +4282,22 @@ function EditorPanel({
         {/* UPLOAD / VISUAL */}
         {activeTab === "upload" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-stretch justify-start gap-2.5") : "space-y-2.5"}`}>
+            <div className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm flex items-center justify-between">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">Baskı tipi</p>
+              <span className="px-2.5 py-1 rounded-full border border-black bg-black text-white text-[10px] font-black uppercase tracking-wide">
+                DTF
+              </span>
+            </div>
             {!dtfActiveForSide && (
-              <div className="w-full rounded-xl border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-[11px] font-semibold text-gray-600">
-                Görsel yükleme alanını açmak için DTF seç.
+              <div className="w-full rounded-xl border border-dashed border-gray-300 bg-gray-50 px-3 py-3 text-[11px] font-semibold text-gray-600 space-y-2">
+                <p>Görsel baskı için DTF kullanılır.</p>
+                <button
+                  type="button"
+                  onClick={() => applyTextTechnique(PRINT_TECHNIQUES.DTF, { fromImageAction: true })}
+                  className="h-9 px-3 rounded-full border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide"
+                >
+                  DTF’ye Geç
+                </button>
               </div>
             )}
 
@@ -4492,6 +4587,35 @@ function EditorPanel({
                       Temizle
                     </button>
                   </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => applyTextTechnique(PRINT_TECHNIQUES.DTF)}
+                      className={`h-9 rounded-lg border text-[10px] font-black uppercase tracking-wide ${
+                        t.technique === PRINT_TECHNIQUES.DTF
+                          ? "bg-black text-white border-black"
+                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                      }`}
+                    >
+                      DTF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyTextTechnique(PRINT_TECHNIQUES.RUBBER)}
+                      className={`h-9 rounded-lg border text-[10px] font-black uppercase tracking-wide ${
+                        t.technique === PRINT_TECHNIQUES.RUBBER
+                          ? "bg-black text-white border-black"
+                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                      }`}
+                    >
+                      RUBBER
+                    </button>
+                  </div>
+                  <p className="text-[11px] font-semibold text-gray-600">
+                    {t.technique === PRINT_TECHNIQUES.RUBBER
+                      ? "Yazı odaklı, kabartı hissi veren minimal baskı."
+                      : "Detaylı ve renkli tasarımlar için uygun."}
+                  </p>
                   <input
                     type="text"
                     value={t.text || ""}
@@ -4797,6 +4921,7 @@ function TasarimClientContent({ isMobile }) {
   const [activeTab, setActiveTab] = useState("print");
   const [mobilePrimaryTab, setMobilePrimaryTab] = useState("design");
   const [mobileSheetSnapIndex, setMobileSheetSnapIndex] = useState(1);
+  const [uploadTechniqueToastOpen, setUploadTechniqueToastOpen] = useState(false);
   const [forceEditorOverlay, setForceEditorOverlay] = useState(false);
   const [drawerMenuOpen, setDrawerMenuOpen] = useState(false);
   const [drawerMenuMounted, setDrawerMenuMounted] = useState(false);
@@ -4903,7 +5028,10 @@ function TasarimClientContent({ isMobile }) {
   const activePdfPlacement = normalizePdfPlacement(currentActiveDesign?.pdfPlacement, currentSide);
   const pdfVisibleOnCurrentSide = Boolean(currentActiveDesign?.hasPdf && activePdfPlacement.side === currentSide);
   const activeSidePrintTypes = getPrintTypesForSide(currentActiveDesign, currentSide);
-  const rubberActiveForSide = activeSidePrintTypes.includes("rubber");
+  const rubberActiveForSide = normalizePrintTechnique(
+    customText?.technique,
+    printTypeIdsToTechnique(activeSidePrintTypes, PRINT_TECHNIQUES.RUBBER)
+  ) === PRINT_TECHNIQUES.RUBBER;
   const snapThreshold = 0.02;
   const guideStops = [0.25, 0.5, 0.75];
   const activeVGuides = isLogoDragging
@@ -4976,7 +5104,41 @@ function TasarimClientContent({ isMobile }) {
   };
 
   const bumpCustomText = (patch) => {
-    updateSide({ customText: { ...customText, ...patch } });
+    const nextTechnique = Object.prototype.hasOwnProperty.call(patch || {}, "technique")
+      ? normalizePrintTechnique(patch?.technique, customText?.technique || PRINT_TECHNIQUES.RUBBER)
+      : normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER);
+    updateSide({ customText: { ...customText, ...patch, technique: nextTechnique } });
+  };
+
+  const applySceneTextTechnique = (nextTechnique) => {
+    const technique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.RUBBER);
+    if (technique === PRINT_TECHNIQUES.RUBBER && (sideData?.logos || []).length > 0) {
+      const allowed = window.confirm(
+        "Rubber baskı görsel desteklemez. Görsel kaldırılıp yazı moduna geçilsin mi?"
+      );
+      if (!allowed) return false;
+      updateSide({
+        logos: [],
+        activeLogoId: null,
+        customText: { ...customText, technique },
+      });
+    } else {
+      bumpCustomText({ technique });
+    }
+    setDesigns((prev) =>
+      prev.map((d) => {
+        if (d.id !== activeId) return d;
+        const safeSide = currentSide === "back" ? "back" : "front";
+        const bySide = normalizePrintTypesBySide(d.printTypesBySide, d.printTypes);
+        bySide[safeSide] = [techniqueToPrintTypeId(technique)];
+        return {
+          ...d,
+          printTypesBySide: bySide,
+          printTypes: Array.from(new Set([...(bySide.front || []), ...(bySide.back || [])])),
+        };
+      })
+    );
+    return true;
   };
 
   const setTextLayer = (layer) => {
@@ -5272,8 +5434,10 @@ function TasarimClientContent({ isMobile }) {
   }, [designs]);
 
   const activeDesign = useMemo(() => designs.find((d) => d.id === activeId) || designs[0], [designs, activeId]);
-  const hasDtfForActiveSide = getPrintTypesForSide(activeDesign, view).includes("dtf");
-  const DRAWER_TABS = hasDtfForActiveSide ? ["color", "print", "text", "upload"] : ["color", "print", "text"];
+  const hasDtfForActiveSide =
+    getPrintTypesForSide(activeDesign, view).includes("dtf") ||
+    Boolean((activeDesign?.sides?.[view === "back" ? "back" : "front"]?.logos || []).length);
+  const DRAWER_TABS = ["color", "print", "text", "upload"];
   const tabIndex = DRAWER_TABS.indexOf(activeTab);
   const tabLabelMap = {
     print: "Baskı Seçim",
@@ -5320,10 +5484,14 @@ function TasarimClientContent({ isMobile }) {
 
   const activateDesignTool = (toolId) => {
     if (toolId === "upload") {
-      if (!hasDtfForActiveSide) {
-        setActiveTab("print");
+      if (rubberActiveForSide) {
+        setUploadTechniqueToastOpen(true);
         return;
       }
+      if (!hasDtfForActiveSide) {
+        applyTechniqueToActiveSide(PRINT_TECHNIQUES.DTF);
+      }
+      setUploadTechniqueToastOpen(false);
       setActiveTab("upload");
       return;
     }
@@ -5351,46 +5519,71 @@ function TasarimClientContent({ isMobile }) {
     { id: "color", label: "Renk", icon: Palette },
     { id: "print", label: "Baskı Seçim", icon: Layers },
     { id: "text", label: "Yazı", icon: FileText },
-    ...(hasDtfForActiveSide ? [{ id: "upload", label: "Görsel", icon: ImageIcon }] : []),
+    { id: "upload", label: "Görsel", icon: ImageIcon },
   ];
   const activePrintTypes = getPrintTypesForSide(activeDesign, view);
   const selectedPrintTypeNames = activePrintTypes
     .map((typeId) => PRINT_TYPE_OPTIONS.find((opt) => opt.id === typeId)?.label || typeId)
     .join(" • ");
-  const togglePrintTypeFromMenu = (typeId) => {
-    const opt = PRINT_TYPE_OPTIONS.find((entry) => entry.id === typeId);
-    if (!opt?.available) return;
-
-    let becameSelected = false;
+  const applyTechniqueToActiveSide = (nextTechnique, { clearImagesOnRubber = false } = {}) => {
+    const safeTechnique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.RUBBER);
     const safeSide = view === "back" ? "back" : "front";
     setDesigns((prev) =>
       prev.map((d) => {
         if (d.id !== activeId) return d;
         const bySide = normalizePrintTypesBySide(d.printTypesBySide, d.printTypes);
-        const current = bySide[safeSide];
-        const has = current.includes(typeId);
-        const nextCurrent = has ? current.filter((id) => id !== typeId) : [...current, typeId];
-        becameSelected = !has;
-        const nextBySide = { ...bySide, [safeSide]: Array.from(new Set(nextCurrent)) };
+        const prevSide = normalizeSideData(d?.sides?.[safeSide]);
+        const nextSide = {
+          ...prevSide,
+          customText: {
+            ...prevSide.customText,
+            technique: safeTechnique,
+          },
+        };
+        if (safeTechnique === PRINT_TECHNIQUES.RUBBER && clearImagesOnRubber) {
+          nextSide.logos = [];
+          nextSide.activeLogoId = null;
+        }
+        bySide[safeSide] = [techniqueToPrintTypeId(safeTechnique)];
+        const mergedLegacy = Array.from(new Set([...(bySide.front || []), ...(bySide.back || [])]));
         return {
           ...d,
-          printTypesBySide: nextBySide,
-          printTypes: Array.from(new Set([...(nextBySide.front || []), ...(nextBySide.back || [])])),
+          sides: { ...d.sides, [safeSide]: nextSide },
+          printTypesBySide: bySide,
+          printTypes: mergedLegacy,
         };
       })
     );
+  };
 
-    if (becameSelected && (typeId === "rubber" || typeId === "flock")) {
+  const togglePrintTypeFromMenu = (typeId) => {
+    const opt = PRINT_TYPE_OPTIONS.find((entry) => entry.id === typeId);
+    if (!opt?.available) return;
+    const safeSide = view === "back" ? "back" : "front";
+    const sideLogos = activeDesign?.sides?.[safeSide]?.logos || [];
+    if (typeId === "rubber") {
+      if (sideLogos.length > 0) {
+        const allowed = window.confirm(
+          "Rubber baskı görsel desteklemez. Görsel kaldırılıp yazı moduna geçilsin mi?"
+        );
+        if (!allowed) return;
+      }
+      applyTechniqueToActiveSide(PRINT_TECHNIQUES.RUBBER, { clearImagesOnRubber: true });
       setActiveTab("text");
-    } else if (becameSelected && typeId === "dtf") {
-      setActiveTab("upload");
-    } else {
-      setActiveTab("print");
+      setDrawerMenuOpen(false);
+      return;
     }
+    applyTechniqueToActiveSide(PRINT_TECHNIQUES.DTF);
+    setActiveTab("upload");
     setDrawerMenuOpen(false);
   };
 
   const selectMenuTab = (id) => {
+    if (id === "upload" && rubberActiveForSide) {
+      setUploadTechniqueToastOpen(true);
+      setDrawerMenuOpen(false);
+      return;
+    }
     setActiveTab(id);
     setDrawerMenuOpen(false);
   };
@@ -5403,6 +5596,18 @@ function TasarimClientContent({ isMobile }) {
   useEffect(() => {
     if (activeTab !== "upload") setForceEditorOverlay(false);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!uploadTechniqueToastOpen) return;
+    const timer = window.setTimeout(() => setUploadTechniqueToastOpen(false), 2600);
+    return () => window.clearTimeout(timer);
+  }, [uploadTechniqueToastOpen]);
+
+  useEffect(() => {
+    if (activeTab === "upload" && rubberActiveForSide) {
+      setUploadTechniqueToastOpen(true);
+    }
+  }, [activeTab, rubberActiveForSide]);
 
   useEffect(() => {
     if (!isMobile) return;
@@ -5425,12 +5630,6 @@ function TasarimClientContent({ isMobile }) {
       setActiveTab(hasDtfForActiveSide ? "upload" : "print");
     }
   }, [isMobile, mobilePrimaryTab, activeTab, hasDtfForActiveSide]);
-
-  useEffect(() => {
-    if (activeTab === "upload" && !hasDtfForActiveSide) {
-      setActiveTab("print");
-    }
-  }, [activeTab, hasDtfForActiveSide]);
 
   useEffect(() => {
     const prev = prevActiveTabRef.current;
@@ -5745,6 +5944,24 @@ function TasarimClientContent({ isMobile }) {
       return;
     }
 
+    const invalidTechniqueDesign = designs.find((d) =>
+      UI_SIDES.some((sideKey) => {
+        const sd = d?.sides?.[sideKey] || EMPTY_SIDE;
+        const logos = Array.isArray(sd?.logos) ? sd.logos : [];
+        const textTechnique = normalizePrintTechnique(sd?.customText?.technique, PRINT_TECHNIQUES.RUBBER);
+        const hasInvalidImageTechnique = logos.some(
+          (logo) => normalizePrintTechnique(logo?.technique, PRINT_TECHNIQUES.DTF) !== PRINT_TECHNIQUES.DTF
+        );
+        if (hasInvalidImageTechnique) return true;
+        if (logos.length > 0 && textTechnique === PRINT_TECHNIQUES.RUBBER) return true;
+        return false;
+      })
+    );
+    if (invalidTechniqueDesign) {
+      alert("Görsel baskılar yalnızca DTF ile kullanılabilir. Rubber için görsel kaldırıp yazı moduna geçin.");
+      return;
+    }
+
     setLoading(true);
     try {
       const checkoutDesigns = [];
@@ -5795,6 +6012,18 @@ function TasarimClientContent({ isMobile }) {
         const launchPrice = getPrice(d);
         const listPrice = getListPriceBeforeLaunchDiscount(launchPrice);
         const rubberSpecsBySide = buildRubberSpecsBySide(d);
+        const textTechniqueBySide = {};
+        const imageTechniquesBySide = {};
+        UI_SIDES.forEach((sideKey) => {
+          const sd = d?.sides?.[sideKey] || EMPTY_SIDE;
+          textTechniqueBySide[sideKey] = normalizePrintTechnique(
+            sd?.customText?.technique,
+            PRINT_TECHNIQUES.RUBBER
+          );
+          imageTechniquesBySide[sideKey] = (sd?.logos || []).map((logo) =>
+            normalizePrintTechnique(logo?.technique, PRINT_TECHNIQUES.DTF)
+          );
+        });
         const orderItem = {
           id: `${d.id}-${Date.now()}`,
           name: MODEL_LABELS[d.modelType] || d.modelType,
@@ -5823,6 +6052,8 @@ function TasarimClientContent({ isMobile }) {
             userUploads: Array.from(userUploadsSet),
             adjustedUploads,
             rubberSpecsBySide,
+            textTechniqueBySide,
+            imageTechniquesBySide,
             sides: d.sides,
           },
         };
@@ -5853,6 +6084,8 @@ function TasarimClientContent({ isMobile }) {
           userUploads: Array.from(userUploadsSet),
           adjustedUploads,
           rubberSpecsBySide,
+          textTechniqueBySide,
+          imageTechniquesBySide,
           designDetails: orderItem.designDetails,
         });
       }
@@ -6163,6 +6396,26 @@ function TasarimClientContent({ isMobile }) {
           </>
         )}
       </div>
+
+      {uploadTechniqueToastOpen && (
+        <div
+          className="absolute left-1/2 z-[94] -translate-x-1/2 rounded-2xl border border-zinc-300 bg-white/95 text-zinc-900 shadow-xl px-3 py-2 flex items-center gap-2 pointer-events-auto"
+          style={{ top: isMobile ? "calc(env(safe-area-inset-top) + 64px)" : "82px" }}
+        >
+          <span className="text-[11px] font-semibold">Görsel baskı için DTF kullanılır.</span>
+          <button
+            type="button"
+            onClick={() => {
+              applyTechniqueToActiveSide(PRINT_TECHNIQUES.DTF);
+              setUploadTechniqueToastOpen(false);
+              setActiveTab("upload");
+            }}
+            className="h-7 px-2.5 rounded-full border border-zinc-700 bg-zinc-900 text-white text-[10px] font-black uppercase tracking-wide"
+          >
+            DTF’ye Geç
+          </button>
+        </div>
+      )}
 
       <div className="w-full h-full relative" style={{ background: SCENE_BG_COLOR }}>
         {/* Floating Controls */}
@@ -6625,6 +6878,36 @@ function TasarimClientContent({ isMobile }) {
                       </button>
                     )}
                   </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => applySceneTextTechnique(PRINT_TECHNIQUES.DTF)}
+                      className={`h-8 rounded-md border text-[10px] font-black uppercase tracking-wide ${
+                        normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER) === PRINT_TECHNIQUES.DTF
+                          ? "bg-white text-black border-white"
+                          : "bg-zinc-900/60 text-zinc-200 border-zinc-600 hover:bg-zinc-800"
+                      }`}
+                    >
+                      DTF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applySceneTextTechnique(PRINT_TECHNIQUES.RUBBER)}
+                      className={`h-8 rounded-md border text-[10px] font-black uppercase tracking-wide ${
+                        normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER) === PRINT_TECHNIQUES.RUBBER
+                          ? "bg-white text-black border-white"
+                          : "bg-zinc-900/60 text-zinc-200 border-zinc-600 hover:bg-zinc-800"
+                      }`}
+                    >
+                      RUBBER
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-zinc-300">
+                    {normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER) === PRINT_TECHNIQUES.RUBBER
+                      ? "Yazı odaklı, kabartı hissi veren minimal baskı."
+                      : "Detaylı ve renkli tasarımlar için uygun."}
+                  </p>
 
                   <div className="space-y-1">
                     <label className="text-[10px] text-zinc-400">Metin</label>
