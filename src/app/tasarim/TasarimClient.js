@@ -5367,18 +5367,22 @@ function TasarimClientContent({ isMobile }) {
   }, []);
 
   useEffect(() => {
-    const shouldLockScroll = flowStep !== "select";
+    const shouldLockScroll = flowStep !== "select" && !isMobile;
     document.body.style.overflow = shouldLockScroll ? "hidden" : "";
     document.documentElement.style.overflow = shouldLockScroll ? "hidden" : "";
+    document.body.style.overflowX = "hidden";
+    document.documentElement.style.overflowX = "hidden";
     document.body.style.overscrollBehaviorY = shouldLockScroll ? "none" : "";
     document.documentElement.style.overscrollBehaviorY = shouldLockScroll ? "none" : "";
     return () => {
       document.body.style.overflow = "";
       document.documentElement.style.overflow = "";
+      document.body.style.overflowX = "";
+      document.documentElement.style.overflowX = "";
       document.body.style.overscrollBehaviorY = "";
       document.documentElement.style.overscrollBehaviorY = "";
     };
-  }, [flowStep]);
+  }, [flowStep, isMobile]);
 
   useEffect(() => {
     setDesigns((prev) => {
@@ -6283,7 +6287,6 @@ function TasarimClientContent({ isMobile }) {
   );
   const mobileSafeSheetIndex = clamp(mobileSheetSnapIndex, 0, MOBILE_SHEET_SNAP_RATIOS.length - 1);
   const mobileSheetRatio = MOBILE_SHEET_SNAP_RATIOS[mobileSafeSheetIndex] || 0.55;
-  const mobileSheetBottomOffset = `calc(env(safe-area-inset-bottom) + ${MOBILE_TOOLBAR_HEIGHT}px)`;
   const mobileToolbarItems = [
     { id: "model", label: "Model", icon: Layers },
     { id: "design", label: "Tasarla", icon: Pencil },
@@ -6326,7 +6329,19 @@ function TasarimClientContent({ isMobile }) {
   const headerListPrice = getListPriceBeforeLaunchDiscount(headerLaunchPrice);
 
   return (
-    <div className="fixed inset-0 h-screen w-full text-white overflow-hidden font-sans" style={{ background: SCENE_BG_COLOR, overscrollBehavior: "none", touchAction: isMobile ? "pan-y" : "none" }}>
+    <div
+      className={
+        isMobile
+          ? "relative min-h-screen w-full text-white font-sans overflow-y-auto overflow-x-hidden"
+          : "fixed inset-0 h-screen w-full text-white overflow-hidden font-sans"
+      }
+      style={{
+        background: SCENE_BG_COLOR,
+        overscrollBehavior: "none",
+        touchAction: isMobile ? "pan-y" : "none",
+        paddingBottom: isMobile ? "calc(86px + env(safe-area-inset-bottom))" : undefined,
+      }}
+    >
       {/* Top Header */}
       <div
         className="absolute top-0 left-0 right-0 z-[90] px-4 pb-3 flex items-start justify-between pointer-events-none"
@@ -6417,14 +6432,27 @@ function TasarimClientContent({ isMobile }) {
         </div>
       )}
 
-      <div className="w-full h-full relative" style={{ background: SCENE_BG_COLOR }}>
+      <div className={`${isMobile ? "w-full relative" : "w-full h-full relative"}`} style={{ background: SCENE_BG_COLOR }}>
+        <div
+          className={isMobile ? "relative overflow-hidden" : "contents"}
+          style={
+            isMobile
+              ? {
+                  height: "45dvh",
+                  minHeight: "320px",
+                  maxHeight: "48dvh",
+                  overflow: "hidden",
+                }
+              : undefined
+          }
+        >
         {/* Floating Controls */}
         {(!isMobile || activeTab !== "editor" || !showPlacementPanel) && (
           <div
             className="absolute z-[90] pointer-events-none transition-all duration-300"
             style={
               isMobile
-                ? { top: "92px", right: "10px" }
+                ? { right: "14px", top: "50%", transform: "translateY(-50%)" }
                 : { bottom: controlsBottom, right: "16px" }
             }
           >
@@ -6502,7 +6530,7 @@ function TasarimClientContent({ isMobile }) {
 
         {/* Model picker modal */}
         {pickerOpen && (
-          <div className="absolute inset-0 z-[95] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[95] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
             <div className="w-full max-w-2xl bg-[#eef1f4] border border-gray-300 rounded-2xl p-4 max-h-[82vh] overflow-y-auto shadow-2xl">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-black tracking-widest uppercase text-zinc-800">Model Ekle</h3>
@@ -7629,6 +7657,7 @@ function TasarimClientContent({ isMobile }) {
             </div>
           </div>
         )}
+        </div>
 
         {/* LEFT OVERLAY EDITOR (DESKTOP ONLY) */}
         {!isMobile && forceEditorOverlay && (
@@ -7658,15 +7687,13 @@ function TasarimClientContent({ isMobile }) {
         {/* DRAWER (MOBILE + DESKTOP) */}
         {activeDesign && !hideMobileDrawerInEditor && (
           <div
-            className="fixed left-0 right-0 z-[92] pointer-events-auto transition-all duration-300"
+            className={`${isMobile ? "relative mt-3" : "fixed left-0 right-0"} z-[92] pointer-events-auto transition-all duration-300`}
             style={
               isMobile
                 ? {
-                    transform: `translateY(${drawerY}px)`,
-                    transition: dragState.current.dragging ? "none" : "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+                    transition: dragState.current.dragging ? "none" : "height 220ms cubic-bezier(0.22, 1, 0.36, 1)",
                     maxHeight: drawerHeightStyle,
-                    height: drawerHeightStyle,
-                    bottom: mobileSheetBottomOffset,
+                    height: `${Math.round(visibleDrawerHeight)}px`,
                     backgroundColor: "#ebedf0",
                     borderTopLeftRadius: "20px",
                     borderTopRightRadius: "20px",
@@ -7701,7 +7728,7 @@ function TasarimClientContent({ isMobile }) {
                         e.stopPropagation();
                         toggleDrawer();
                       }}
-                      className="absolute left-1/2 top-0 -translate-x-1/2 w-12 h-5 rounded-b-full border-2 border-zinc-700 border-t-0 bg-white text-zinc-900 flex items-center justify-center z-40 shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
+                      className="absolute left-1/2 -translate-x-1/2 -bottom-[22px] w-12 h-5 rounded-b-full border-2 border-zinc-700 border-t-0 bg-white text-zinc-900 flex items-center justify-center z-40 shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
                       aria-label="Alt panel yüksekliğini değiştir"
                     >
                       <span className="translate-y-[2px]">
