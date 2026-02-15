@@ -720,7 +720,7 @@ function PrintTypePickerCards({ selectedIds = [], onSelect, sourceLabel = "Sec",
               className={`rounded-xl border px-2 py-2 text-left transition overflow-hidden ${disabled
                 ? "cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400"
                 : selected
-                  ? "border-black bg-white text-gray-900"
+                  ? "border-black bg-black text-white"
                   : "border-white bg-white text-gray-700 hover:border-zinc-300"
                 }`}
             >
@@ -6277,7 +6277,16 @@ function TasarimClientContent({ isMobile }) {
   const mobilePanelCollapsed = isMobile && mobilePanelMode === "collapsed";
   const activeBottomTab = mobilePrimaryTab === "design" ? "tasarla" : mobilePrimaryTab;
   const showDesignControls = isMobile && activeBottomTab === "tasarla" && mobilePanelMode === "design";
-  const showPrintTypes = isMobile && activeBottomTab === "tasarla" && mobilePanelMode === "design";
+  const showPrintTypes =
+    isMobile && activeBottomTab === "tasarla" && mobilePanelMode === "design" && activeTab === "print";
+  const mobileBottomTabsHeight = "calc(88px + env(safe-area-inset-bottom))";
+  const mobileDrawerExpandedHeight =
+    mobileSheetRatio >= 0.85
+      ? "calc(var(--app-vh, 1vh) * 64)"
+      : mobileSheetRatio >= 0.55
+        ? "calc(var(--app-vh, 1vh) * 56)"
+        : "calc(var(--app-vh, 1vh) * 48)";
+  const mobileDrawerHeight = mobilePanelCollapsed ? "52px" : mobileDrawerExpandedHeight;
   const mobileToolbarItems = [
     { id: "model", label: "Model", icon: Layers },
     { id: "design", label: "Tasarla", icon: Pencil },
@@ -6332,7 +6341,7 @@ function TasarimClientContent({ isMobile }) {
         touchAction: isMobile ? "pan-y" : "none",
         overflowX: isMobile ? "clip" : undefined,
         minHeight: isMobile ? "calc(var(--app-vh) * 100)" : undefined,
-        paddingBottom: isMobile ? "calc(120px + env(safe-area-inset-bottom))" : undefined,
+        paddingBottom: isMobile ? "calc(148px + env(safe-area-inset-bottom))" : undefined,
       }}
     >
       {/* Top Header */}
@@ -7711,11 +7720,19 @@ function TasarimClientContent({ isMobile }) {
         {/* DRAWER (MOBILE + DESKTOP) */}
         {activeDesign && !hideMobileDrawerInEditor && (
           <div
-            className={`${isMobile ? "relative" : "fixed left-0 right-0"} z-[92] pointer-events-auto transition-all duration-300`}
+            className={`${isMobile ? "fixed left-0 right-0" : "fixed left-0 right-0"} z-[92] pointer-events-auto transition-all duration-300`}
             style={
               isMobile
                 ? {
+                    bottom: mobileBottomTabsHeight,
+                    height: mobileDrawerHeight,
                     backgroundColor: "#eef0f4",
+                    borderTop: "1px solid rgba(0,0,0,0.08)",
+                    boxShadow: mobilePanelCollapsed
+                      ? "0 -2px 10px rgba(0,0,0,0.08)"
+                      : "0 -10px 24px rgba(0,0,0,0.14)",
+                    overflow: "hidden",
+                    transition: "height 280ms cubic-bezier(0.22,1,0.36,1), box-shadow 200ms ease",
                   }
                 : {
                     bottom: 0,
@@ -7731,14 +7748,14 @@ function TasarimClientContent({ isMobile }) {
             }
           >
             <div
-              className={`${isMobile ? "w-full overflow-x-hidden overflow-y-visible flex flex-col pointer-events-auto" : "w-full h-full overflow-x-hidden overflow-y-visible flex flex-col pointer-events-auto"}`}
+              className={`${isMobile ? "w-full h-full min-h-0 overflow-x-hidden flex flex-col pointer-events-auto" : "w-full h-full overflow-x-hidden overflow-y-visible flex flex-col pointer-events-auto"}`}
               style={{ backgroundColor: "#eef1f4" }}
             >
               {isMobile ? (
                 <>
                   <div
-                    className={`relative z-[20] mt-[10px] bg-[#eef0f4] border-t border-black/10 ${
-                      mobilePanelCollapsed ? "px-4 pt-[6px] pb-[4px]" : "px-4 pt-[14px] pb-[12px]"
+                    className={`relative z-[20] bg-[#eef0f4] ${
+                      mobilePanelCollapsed ? "px-4 pt-1.5 pb-1.5" : "px-4 pt-3 pb-2 border-b border-black/10"
                     }`}
                   >
                     <button
@@ -7788,7 +7805,11 @@ function TasarimClientContent({ isMobile }) {
                               setMobileSheetSnapIndex(1);
                               activateDesignTool("upload");
                             }}
-                            className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
+                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${
+                              activeTab === "upload"
+                                ? "border-zinc-900 bg-zinc-900 text-white"
+                                : "border-gray-300 bg-white text-gray-800"
+                            }`}
                           >
                             Görsel Yükle
                           </button>
@@ -7801,15 +7822,28 @@ function TasarimClientContent({ isMobile }) {
                               setMobileSheetSnapIndex(1);
                               activateDesignTool("text");
                             }}
-                            className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
+                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${
+                              activeTab === "text"
+                                ? "border-zinc-900 bg-zinc-900 text-white"
+                                : "border-gray-300 bg-white text-gray-800"
+                            }`}
                           >
                             Yazı Ekle
                           </button>
                           <button
                             type="button"
                             onPointerDown={(e) => e.stopPropagation()}
-                            onClick={() => activateDesignTool("editor")}
-                            className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
+                            onClick={() => {
+                              setMobilePrimaryTab("design");
+                              setMobilePanelMode("design");
+                              setMobileSheetSnapIndex(1);
+                              activateDesignTool("editor");
+                            }}
+                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${
+                              activeTab === "editor"
+                                ? "border-zinc-900 bg-zinc-900 text-white"
+                                : "border-gray-300 bg-white text-gray-800"
+                            }`}
                           >
                             Yerleşim
                           </button>
@@ -7819,19 +7853,11 @@ function TasarimClientContent({ isMobile }) {
                   </div>
 
                   <div
-                    className="relative z-[15] overflow-hidden transition-[max-height,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
-                    style={{
-                      maxHeight: mobilePanelCollapsed
-                        ? "0px"
-                        : mobileSheetRatio >= 0.85
-                          ? "calc(var(--app-vh,1vh)*62)"
-                          : mobileSheetRatio >= 0.55
-                            ? "calc(var(--app-vh,1vh)*54)"
-                            : "calc(var(--app-vh,1vh)*44)",
-                      opacity: mobilePanelCollapsed ? 0 : 1,
-                    }}
+                    className={`relative z-[15] flex-1 min-h-0 transition-opacity duration-200 ${
+                      mobilePanelCollapsed ? "opacity-0 pointer-events-none" : "opacity-100"
+                    }`}
                   >
-                    <div className="max-h-[calc(var(--app-vh,1vh)*58)] overflow-y-auto overscroll-contain">
+                    <div className="h-full overflow-y-auto overscroll-contain">
                       {showPrintTypes && (
                         <div className="mx-4 mt-[10px] rounded-2xl border border-gray-200 bg-white shadow-sm">
                           <div className="p-3 space-y-2">
@@ -7974,14 +8000,14 @@ function TasarimClientContent({ isMobile }) {
 
         {isMobile && flowStep === "design" && (
           <div
-            className="fixed left-0 right-0 z-[70] border-t border-black/10 bg-[#e9eaee] px-3 pt-2"
+            className="fixed left-0 right-0 z-[70] border-t border-black/10 bg-[#e9eaee] px-3 pt-2.5"
             style={{
               bottom: 0,
-              height: "calc(88px + env(safe-area-inset-bottom))",
-              paddingBottom: "env(safe-area-inset-bottom)",
+              height: "calc(92px + env(safe-area-inset-bottom))",
+              paddingBottom: "calc(env(safe-area-inset-bottom) + 4px)",
             }}
           >
-            <div className="grid grid-cols-3 gap-2 h-[56px]">
+            <div className="grid grid-cols-3 gap-2 h-[58px]">
               {mobileToolbarItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = mobilePrimaryTab === item.id;
@@ -7990,7 +8016,7 @@ function TasarimClientContent({ isMobile }) {
                     key={`mobile-primary-tab-${item.id}`}
                     type="button"
                     onClick={() => handleSelectMobilePrimaryTab(item.id)}
-                    className={`h-11 rounded-xl border text-[11px] font-black uppercase tracking-wide transition-transform duration-150 active:scale-[0.985] ${
+                    className={`h-12 rounded-xl border text-[11px] font-black uppercase tracking-wide transition-transform duration-150 active:scale-[0.985] ${
                       isActive
                         ? "border-zinc-900 bg-zinc-900 text-white"
                         : "border-zinc-300 bg-white text-zinc-700"
