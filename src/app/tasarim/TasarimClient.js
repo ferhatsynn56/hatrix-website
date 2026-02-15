@@ -5389,9 +5389,15 @@ function TasarimClientContent({ isMobile }) {
   }, [designs]);
 
   const activeDesign = useMemo(() => designs.find((d) => d.id === activeId) || designs[0], [designs, activeId]);
+  const activeSideKeyForFlow = view === "back" ? "back" : "front";
+  const activeSideTechniqueForFlow = normalizePrintTechnique(
+    activeDesign?.sides?.[activeSideKeyForFlow]?.customText?.technique,
+    printTypeIdsToTechnique(getPrintTypesForSide(activeDesign, activeSideKeyForFlow), PRINT_TECHNIQUES.RUBBER)
+  );
   const hasDtfForActiveSide =
-    getPrintTypesForSide(activeDesign, view).includes("dtf") ||
-    Boolean((activeDesign?.sides?.[view === "back" ? "back" : "front"]?.logos || []).length);
+    getPrintTypesForSide(activeDesign, activeSideKeyForFlow).includes("dtf") ||
+    Boolean((activeDesign?.sides?.[activeSideKeyForFlow]?.logos || []).length) ||
+    activeSideTechniqueForFlow === PRINT_TECHNIQUES.DTF;
   const DRAWER_TABS = ["color", "print", "text", "upload"];
   const tabIndex = DRAWER_TABS.indexOf(activeTab);
   const tabLabelMap = {
@@ -7361,10 +7367,10 @@ function TasarimClientContent({ isMobile }) {
             <Canvas
               style={{
                 position: "absolute",
-                left: isMobile ? 0 : isPlacementPanelVisible ? "63%" : "50%",
-                top: isMobile ? 0 : desktopTop,
+                left: isMobile ? mobileLeft : isPlacementPanelVisible ? "63%" : "50%",
+                top: isMobile ? "50%" : desktopTop,
                 transform: isMobile
-                  ? "none"
+                  ? `translate(-50%, -50%) translateY(${mobileShiftY}) scale(${mobileScale})`
                   : `translate(-50%, -50%) translateY(${desktopShiftY}) scale(${desktopScale})`,
                 width: isMobile ? "100%" : desktopWidth,
                 height: isMobile ? "100%" : desktopHeight,
