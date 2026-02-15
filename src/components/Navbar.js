@@ -221,7 +221,7 @@ export default function Navbar() {
   return (
     <>
       {/* TOP INFO BAR */}
-      <div className="fixed top-0 left-0 w-full z-[60] h-[24px] bg-white text-black border-b border-zinc-200">
+      <div className="fixed top-0 left-0 w-full z-[60] h-[24px] bg-black text-white border-b border-zinc-800">
         <div className="relative h-full overflow-hidden">
           {TOP_INFO_MESSAGES.map((message, idx) => (
             <div
@@ -317,12 +317,9 @@ export default function Navbar() {
                 <li><Link href="/tum-urunler?kategori=sweatshirt" className="block px-6 py-4 text-zinc-300 font-bold text-sm hover:bg-zinc-900 hover:text-white transition-all uppercase tracking-wider">SWEATSHIRTS</Link></li>
                 <li><Link href="/tum-urunler?kategori=hoodie" className="block px-6 py-4 text-zinc-300 font-bold text-sm hover:bg-zinc-900 hover:text-white transition-all uppercase tracking-wider">HOODIES</Link></li>
                 <li><Link href="/tum-urunler?kategori=ikonik" className="block px-6 py-4 text-yellow-500 font-bold text-sm hover:bg-zinc-900 hover:text-yellow-400 transition-all uppercase tracking-wider">İKONİK ÜRÜNLER</Link></li>
-                <li><button onClick={() => { setMobilMenuAcik(false); router.push('/bilimsel'); }} className="block w-full text-left px-6 py-4 font-bold text-sm hover:bg-zinc-900 transition-all uppercase tracking-wider bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">SENTIST LAB (BİLİMSEL)</button></li>
+                <li><button onClick={() => { setMobilMenuAcik(false); router.push('/bilimsel'); }} className="block w-full text-left px-6 py-4 text-zinc-300 font-bold text-sm hover:bg-zinc-900 hover:text-white transition-all uppercase tracking-wider">BİLİMSEL</button></li>
                 <li><a href={iletisimMaili} className="block px-6 py-4 text-zinc-300 font-bold text-sm hover:bg-zinc-900 hover:text-white transition-all uppercase tracking-wider">İLETİŞİM</a></li>
               </ul>
-            </div>
-            <div className="p-6 border-t border-zinc-900 bg-zinc-900/50">
-              <Link href="/tasarim" className="flex items-center justify-center w-full bg-red-600 text-white font-black uppercase text-xs p-4 rounded-lg tracking-widest hover:bg-red-500 transition">STÜDYOYU BAŞLAT</Link>
             </div>
           </div>
         </div>

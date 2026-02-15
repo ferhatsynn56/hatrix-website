@@ -333,6 +333,13 @@ function PrintTechSection() {
                 >
                     Teknolojiyi İncele
                 </a>
+                <div className="mt-6 rounded-[20px] overflow-hidden border border-zinc-800 bg-zinc-900">
+                    <img
+                        src="/urungorsel/1920x850/concept-black-hoodie-front-v2.jpg"
+                        alt="Print Technology Görseli"
+                        className="w-full h-[220px] object-cover"
+                    />
+                </div>
             </div>
         </section>
     );
@@ -399,18 +406,9 @@ function SteniTabContent({ heroIndex, goPrevHero, goNextHero, onExplore, onNavig
     );
 }
 
-function OzelTabContent({ activeTab, onTabChange }) {
+function OzelTabContent() {
     return (
         <div className="ozelScope relative">
-            <div
-                className="sticky z-[35] px-4"
-                style={{ top: "calc(24px + env(safe-area-inset-top) + 8px)" }}
-            >
-                <div className="py-2">
-                    <HomeTabSwitcher activeTab={activeTab} onChange={onTabChange} />
-                </div>
-            </div>
-
             <HeroSection />
 
             <section className="max-w-[760px] mx-auto" style={{ padding: "56px var(--s-4)" }}>
@@ -463,6 +461,15 @@ function MobileHomeShell({ activeTab, onTabChange, heroIndex, onHeroPrev, onHero
                     scrollPaddingTop: "calc(var(--sticky-offset) + var(--safe-top))",
                 }}
             >
+                <div
+                    className="sticky z-[45] border-b border-zinc-900 bg-[#050608]/95 backdrop-blur px-4"
+                    style={{ top: "calc(24px + env(safe-area-inset-top))" }}
+                >
+                    <div className="max-w-[760px] mx-auto py-2">
+                        <HomeTabSwitcher activeTab={activeTab} onChange={onTabChange} />
+                    </div>
+                </div>
+
                 {activeTab === "steni" ? (
                     <SteniTabContent
                         heroIndex={heroIndex}
@@ -472,7 +479,7 @@ function MobileHomeShell({ activeTab, onTabChange, heroIndex, onHeroPrev, onHero
                         onNavigate={onCategoryNavigate}
                     />
                 ) : (
-                    <OzelTabContent activeTab={activeTab} onTabChange={onTabChange} />
+                    <OzelTabContent />
                 )}
                 <Footer />
             </main>
