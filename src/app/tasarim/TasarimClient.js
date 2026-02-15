@@ -1140,7 +1140,7 @@ const createSideData = () => ({
   logos: [],
   activeLogoId: null,
   customText: {
-    technique: PRINT_TECHNIQUES.RUBBER,
+    technique: PRINT_TECHNIQUES.DTF,
     text: "",
     color: "#ffffff",
     size: 150,
@@ -1175,7 +1175,7 @@ const normalizeSideData = (sideData) => {
     ...(source.customText && typeof source.customText === "object" ? source.customText : {}),
     technique: normalizePrintTechnique(
       source?.customText?.technique,
-      printTypeIdsToTechnique(source?.printTypes || source?.printTypesBySide?.front || [], PRINT_TECHNIQUES.RUBBER)
+      printTypeIdsToTechnique(source?.printTypes || source?.printTypesBySide?.front || [], PRINT_TECHNIQUES.DTF)
     ),
     rotation: clamp(Number(source?.customText?.rotation) || 0, -180, 180),
     embossDepth: clamp(Number(source?.customText?.embossDepth ?? base.customText.embossDepth), 0.6, 2.8),
@@ -1225,10 +1225,10 @@ const createDesign = (type = DEFAULT_MODEL_TYPE) => {
     pdfFileUrl: "",
     pdfOriginalName: "",
     pdfPlacement: { ...DEFAULT_PDF_PLACEMENT },
-    printTypes: ["rubber"],
+    printTypes: [],
     printTypesBySide: {
-      front: ["rubber"],
-      back: ["rubber"],
+      front: [],
+      back: [],
     },
     size: "M",
     sides: {
@@ -1271,7 +1271,7 @@ const restoreDesignFromCheckoutItem = (item) => {
           ...(srcSides?.front?.customText || {}),
           technique: normalizePrintTechnique(
             srcSides?.front?.customText?.technique,
-            printTypeIdsToTechnique(restoredPrintTypesBySide.front, PRINT_TECHNIQUES.RUBBER)
+            printTypeIdsToTechnique(restoredPrintTypesBySide.front, PRINT_TECHNIQUES.DTF)
           ),
         },
       }),
@@ -1281,7 +1281,7 @@ const restoreDesignFromCheckoutItem = (item) => {
           ...(srcSides?.back?.customText || {}),
           technique: normalizePrintTechnique(
             srcSides?.back?.customText?.technique,
-            printTypeIdsToTechnique(restoredPrintTypesBySide.back, PRINT_TECHNIQUES.RUBBER)
+            printTypeIdsToTechnique(restoredPrintTypesBySide.back, PRINT_TECHNIQUES.DTF)
           ),
         },
       }),
@@ -1304,16 +1304,13 @@ const normalizePrintTypesBySide = (bySide, legacy = []) => {
     ...base,
     ...raw,
   };
-  const normalizeSideList = (sideList = [], fallbackTechnique = PRINT_TECHNIQUES.RUBBER) => {
-    const merged = Array.from(
-      new Set((Array.isArray(sideList) ? sideList : []).filter((id) => id === "dtf" || id === "rubber"))
+  const orderMap = { dtf: 0, rubber: 1 };
+  const normalizeSideList = (sideList = []) =>
+    Array.from(new Set((Array.isArray(sideList) ? sideList : []).filter((id) => id === "dtf" || id === "rubber"))).sort(
+      (a, b) => (orderMap[a] ?? 99) - (orderMap[b] ?? 99)
     );
-    if (!merged.length) return [];
-    const technique = printTypeIdsToTechnique(merged, fallbackTechnique);
-    return [techniqueToPrintTypeId(technique)];
-  };
-  const front = normalizeSideList([...(Array.isArray(next.front) ? next.front : []), ...legacyList], PRINT_TECHNIQUES.RUBBER);
-  const back = normalizeSideList(Array.isArray(next.back) ? next.back : [], PRINT_TECHNIQUES.RUBBER);
+  const front = normalizeSideList([...(Array.isArray(next.front) ? next.front : []), ...legacyList]);
+  const back = normalizeSideList(Array.isArray(next.back) ? next.back : []);
   return { front, back };
 };
 
@@ -2601,9 +2598,12 @@ function Real3DModel({
                   color="#ffffff"
                   transparent
                   alphaTest={0.02}
+                  depthTest
                   depthWrite={false}
                   polygonOffset
                   polygonOffsetFactor={-10}
+                  polygonOffsetUnits={-4}
+                  premultipliedAlpha
                   side={THREE.FrontSide}
                 />
               </Decal>
@@ -2708,9 +2708,12 @@ function Real3DModel({
                   color="#ffffff"
                   transparent
                   alphaTest={0.02}
+                  depthTest
                   depthWrite={false}
                   polygonOffset
                   polygonOffsetFactor={-10}
+                  polygonOffsetUnits={-4}
+                  premultipliedAlpha
                   side={THREE.FrontSide}
                 />
               </Decal>
@@ -3866,7 +3869,7 @@ function EditorPanel({
   const sideHasImages = Boolean((sideData?.logos || []).length);
   const sideTextTechnique = normalizePrintTechnique(
     sideData?.customText?.technique,
-    printTypeIdsToTechnique(printTypes, PRINT_TECHNIQUES.RUBBER)
+    printTypeIdsToTechnique(printTypes, PRINT_TECHNIQUES.DTF)
   );
   const dtfActiveForSide =
     printTypes.includes("dtf") || sideHasImages || sideTextTechnique === PRINT_TECHNIQUES.DTF;
@@ -3895,6 +3898,10 @@ function EditorPanel({
       printTypes: mergedLegacy,
     });
   };
+  const ensureCurrentSidePrintType = (typeId) => {
+    if (!["dtf", "rubber"].includes(typeId)) return;
+    setCurrentSidePrintTypes(Array.from(new Set([...(printTypes || []), typeId])));
+  };
 
   const updateSide = (patch) => {
     updateDesign({
@@ -3909,23 +3916,15 @@ function EditorPanel({
     const nextTechnique = Object.prototype.hasOwnProperty.call(patch || {}, "technique")
       ? normalizePrintTechnique(patch?.technique, t.technique || PRINT_TECHNIQUES.RUBBER)
       : t.technique || PRINT_TECHNIQUES.RUBBER;
-    updateSide({ customText: { ...t, ...patch, technique: nextTechnique } });
+    const nextCustomText = { ...t, ...patch, technique: nextTechnique };
+    const nextTextPos = clampTextPos(sideData?.textPos, nextCustomText);
+    updateSide({ customText: nextCustomText, textPos: nextTextPos });
   };
 
   const applyTextTechnique = (nextTechnique, { fromImageAction = false } = {}) => {
-    const technique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.RUBBER);
-    if (technique === PRINT_TECHNIQUES.RUBBER && (sideData?.logos || []).length > 0) {
-      const allowed = window.confirm(
-        "Rubber baskı görsel desteklemez. Görsel kaldırılıp yazı moduna geçilsin mi?"
-      );
-      if (!allowed) return false;
-      updateSide({ logos: [], activeLogoId: null, customText: { ...t, technique } });
-      setCurrentSidePrintTypes([techniqueToPrintTypeId(technique)]);
-      setActiveTab("text");
-      return true;
-    }
+    const technique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.DTF);
     bumpText({ technique });
-    setCurrentSidePrintTypes([techniqueToPrintTypeId(technique)]);
+    ensureCurrentSidePrintType(techniqueToPrintTypeId(technique));
     if (fromImageAction && technique === PRINT_TECHNIQUES.DTF) {
       setActiveTab("upload");
     }
@@ -3947,10 +3946,6 @@ function EditorPanel({
   const handleUploadFile = async (file) => {
     if (!file) return;
     try {
-      if (sideTextTechnique === PRINT_TECHNIQUES.RUBBER) {
-        alert("Görsel baskı için DTF kullanılır.");
-        return;
-      }
       if ((sideData.logos || []).length >= MAX_LOGOS_PER_SIDE) {
         alert(`Bu alanda en fazla ${MAX_LOGOS_PER_SIDE} baskı görseli yükleyebilirsin.`);
         return;
@@ -3970,8 +3965,7 @@ function EditorPanel({
 
       const nextLogos = [...(sideData.logos || []), nextLogo];
       updateSide({ logos: nextLogos, activeLogoId: id });
-      bumpText({ technique: PRINT_TECHNIQUES.DTF });
-      setCurrentSidePrintTypes(["dtf"]);
+      ensureCurrentSidePrintType("dtf");
       onRequestDrawerCollapse?.();
       onRequestShowEditorOverlay?.();
       setActiveTab("editor");
@@ -3983,10 +3977,6 @@ function EditorPanel({
 
   const handleAddSticker = (sticker) => {
     if (!sticker?.src) return;
-    if (sideTextTechnique === PRINT_TECHNIQUES.RUBBER) {
-      alert("Görsel baskı için DTF kullanılır.");
-      return;
-    }
     if ((sideData.logos || []).length >= MAX_LOGOS_PER_SIDE) {
       alert(`Bu alanda en fazla ${MAX_LOGOS_PER_SIDE} baskı görseli yükleyebilirsin.`);
       return;
@@ -4005,8 +3995,7 @@ function EditorPanel({
     };
     const nextLogos = [...(sideData.logos || []), nextLogo];
     updateSide({ logos: nextLogos, activeLogoId: id });
-    bumpText({ technique: PRINT_TECHNIQUES.DTF });
-    setCurrentSidePrintTypes(["dtf"]);
+    ensureCurrentSidePrintType("dtf");
     onRequestDrawerCollapse?.();
     onRequestShowEditorOverlay?.();
     setActiveTab("editor");
@@ -4028,7 +4017,7 @@ function EditorPanel({
       return;
     }
     if (id === "dtf") {
-      applyTextTechnique(PRINT_TECHNIQUES.DTF);
+      ensureCurrentSidePrintType("dtf");
       setActiveTab("upload");
     }
   };
@@ -4911,12 +4900,14 @@ function TasarimClientContent({ isMobile }) {
   const lockToastTimerRef = useRef(null);
   const previewRef = useRef(null);
   const sceneEditRef = useRef(null);
+  const sceneRootRef = useRef(null);
   const modelUserRotateRef = useRef({});
   const [isLogoDragging, setIsLogoDragging] = useState(false);
   const [sceneSelectionVisible, setSceneSelectionVisible] = useState(false);
   const [sceneFrameMode, setSceneFrameMode] = useState("resize");
   const [sceneTextSelectionVisible, setSceneTextSelectionVisible] = useState(false);
   const [sceneTextFrameMode, setSceneTextFrameMode] = useState("resize");
+  const [selectedSceneItem, setSelectedSceneItem] = useState(null);
   const [sceneModelSelectionId, setSceneModelSelectionId] = useState(null);
   const [showPlacementPanel, setShowPlacementPanel] = useState(false);
   const [scenePlaneRect, setScenePlaneRect] = useState(null);
@@ -4970,7 +4961,7 @@ function TasarimClientContent({ isMobile }) {
   const activeSidePrintTypes = getPrintTypesForSide(currentActiveDesign, currentSide);
   const rubberActiveForSide = normalizePrintTechnique(
     customText?.technique,
-    printTypeIdsToTechnique(activeSidePrintTypes, PRINT_TECHNIQUES.RUBBER)
+    printTypeIdsToTechnique(activeSidePrintTypes, PRINT_TECHNIQUES.DTF)
   ) === PRINT_TECHNIQUES.RUBBER;
   const snapThreshold = 0.02;
   const guideStops = [0.25, 0.5, 0.75];
@@ -5003,6 +4994,7 @@ function TasarimClientContent({ isMobile }) {
     setSceneTextSelectionVisible(false);
     setSceneFrameMode("resize");
     setSceneTextFrameMode("resize");
+    setSelectedSceneItem(null);
   }, [activeId, currentSide]);
 
   useEffect(() => {
@@ -5016,6 +5008,7 @@ function TasarimClientContent({ isMobile }) {
       setSceneTextSelectionVisible(false);
       setSceneFrameMode("resize");
       setSceneTextFrameMode("resize");
+      setSelectedSceneItem(null);
     }
   }, [activeId, currentSide, logos.length]);
 
@@ -5047,30 +5040,22 @@ function TasarimClientContent({ isMobile }) {
     const nextTechnique = Object.prototype.hasOwnProperty.call(patch || {}, "technique")
       ? normalizePrintTechnique(patch?.technique, customText?.technique || PRINT_TECHNIQUES.RUBBER)
       : normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER);
-    updateSide({ customText: { ...customText, ...patch, technique: nextTechnique } });
+    const nextCustomText = { ...customText, ...patch, technique: nextTechnique };
+    const nextTextPos = clampTextPos(sideData?.textPos, nextCustomText);
+    updateSide({ customText: nextCustomText, textPos: nextTextPos });
   };
 
   const applySceneTextTechnique = (nextTechnique) => {
-    const technique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.RUBBER);
-    if (technique === PRINT_TECHNIQUES.RUBBER && (sideData?.logos || []).length > 0) {
-      const allowed = window.confirm(
-        "Rubber baskı görsel desteklemez. Görsel kaldırılıp yazı moduna geçilsin mi?"
-      );
-      if (!allowed) return false;
-      updateSide({
-        logos: [],
-        activeLogoId: null,
-        customText: { ...customText, technique },
-      });
-    } else {
-      bumpCustomText({ technique });
-    }
+    const technique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.DTF);
+    bumpCustomText({ technique });
     setDesigns((prev) =>
       prev.map((d) => {
         if (d.id !== activeId) return d;
         const safeSide = currentSide === "back" ? "back" : "front";
         const bySide = normalizePrintTypesBySide(d.printTypesBySide, d.printTypes);
-        bySide[safeSide] = [techniqueToPrintTypeId(technique)];
+        bySide[safeSide] = Array.from(
+          new Set([...(bySide[safeSide] || []), techniqueToPrintTypeId(technique)])
+        );
         return {
           ...d,
           printTypesBySide: bySide,
@@ -5117,6 +5102,7 @@ function TasarimClientContent({ isMobile }) {
     setSceneFrameMode("resize");
     setSceneTextFrameMode("resize");
     setSceneModelSelectionId(null);
+    setSelectedSceneItem(null);
   };
 
   const handleDeleteActiveImage = () => {
@@ -5131,6 +5117,11 @@ function TasarimClientContent({ isMobile }) {
     setEditorControlTab(controlTab === "text" ? "text" : "logo");
     setShowPlacementPanel(true);
     setActiveTab("editor");
+    if (controlTab === "text") {
+      setSelectedSceneItem({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
+    } else if (activeLogo?.id) {
+      setSelectedSceneItem({ id: activeLogo.id, type: "logo", side: currentSide });
+    }
     if (isMobile) {
       setMobilePrimaryTab("design");
       setMobilePanelMode("design");
@@ -5154,6 +5145,7 @@ function TasarimClientContent({ isMobile }) {
       setSceneTextSelectionVisible(true);
       setSceneTextFrameMode("resize");
       setSceneSelectionVisible(false);
+      setSelectedSceneItem({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
       return;
     }
 
@@ -5161,6 +5153,7 @@ function TasarimClientContent({ isMobile }) {
       setSceneSelectionVisible(true);
       setSceneFrameMode("resize");
       setSceneTextSelectionVisible(false);
+      setSelectedSceneItem({ id: activeLogo.id, type: "logo", side: currentSide });
       return;
     }
 
@@ -5168,6 +5161,7 @@ function TasarimClientContent({ isMobile }) {
       setSceneTextSelectionVisible(true);
       setSceneTextFrameMode("resize");
       setSceneSelectionVisible(false);
+      setSelectedSceneItem({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
     }
   };
 
@@ -5411,14 +5405,9 @@ function TasarimClientContent({ isMobile }) {
 
   const activeDesign = useMemo(() => designs.find((d) => d.id === activeId) || designs[0], [designs, activeId]);
   const activeSideKeyForFlow = view === "back" ? "back" : "front";
-  const activeSideTechniqueForFlow = normalizePrintTechnique(
-    activeDesign?.sides?.[activeSideKeyForFlow]?.customText?.technique,
-    printTypeIdsToTechnique(getPrintTypesForSide(activeDesign, activeSideKeyForFlow), PRINT_TECHNIQUES.RUBBER)
-  );
   const hasDtfForActiveSide =
     getPrintTypesForSide(activeDesign, activeSideKeyForFlow).includes("dtf") ||
-    Boolean((activeDesign?.sides?.[activeSideKeyForFlow]?.logos || []).length) ||
-    activeSideTechniqueForFlow === PRINT_TECHNIQUES.DTF;
+    Boolean((activeDesign?.sides?.[activeSideKeyForFlow]?.logos || []).length);
   const DRAWER_TABS = ["color", "print", "text", "upload"];
   const tabIndex = DRAWER_TABS.indexOf(activeTab);
   const tabLabelMap = {
@@ -5471,16 +5460,9 @@ function TasarimClientContent({ isMobile }) {
       setMobileSheetSnapIndex(1);
     }
     if (toolId === "upload") {
-      if (rubberActiveForSide) {
-        applyTechniqueToActiveSide(PRINT_TECHNIQUES.DTF);
-        setUploadTechniqueToastOpen(true);
-        setActiveTab("upload");
-        return;
-      }
       if (!hasDtfForActiveSide) {
-        applyTechniqueToActiveSide(PRINT_TECHNIQUES.DTF);
+        applyTechniqueToActiveSide(PRINT_TECHNIQUES.DTF, { updateTextTechnique: false });
       }
-      setUploadTechniqueToastOpen(false);
       setActiveTab("upload");
       return;
     }
@@ -5514,32 +5496,38 @@ function TasarimClientContent({ isMobile }) {
   const activeSideData = activeDesign?.sides?.[activeSideKey];
   const activeSideTechnique = normalizePrintTechnique(
     activeSideData?.customText?.technique,
-    printTypeIdsToTechnique(getPrintTypesForSide(activeDesign, activeSideKey), PRINT_TECHNIQUES.RUBBER)
+    printTypeIdsToTechnique(getPrintTypesForSide(activeDesign, activeSideKey), PRINT_TECHNIQUES.DTF)
   );
-  const activePrintTypes = [techniqueToPrintTypeId(activeSideTechnique)];
+  const activePrintTypesBase = getPrintTypesForSide(activeDesign, activeSideKey);
+  const activePrintTypes = Array.from(
+    new Set([
+      ...activePrintTypesBase,
+      ...((activeSideData?.logos || []).length ? ["dtf"] : []),
+      ...((activeSideTechnique === PRINT_TECHNIQUES.RUBBER && (activeSideData?.customText?.text || "").trim())
+        ? ["rubber"]
+        : []),
+    ])
+  );
   const selectedPrintTypeNames = activePrintTypes
     .map((typeId) => PRINT_TYPE_OPTIONS.find((opt) => opt.id === typeId)?.label || typeId)
     .join(" • ");
-  const applyTechniqueToActiveSide = (nextTechnique, { clearImagesOnRubber = false } = {}) => {
-    const safeTechnique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.RUBBER);
+  const applyTechniqueToActiveSide = (nextTechnique, { updateTextTechnique = true } = {}) => {
+    const safeTechnique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.DTF);
     const safeSide = view === "back" ? "back" : "front";
     setDesigns((prev) =>
       prev.map((d) => {
         if (d.id !== activeId) return d;
         const bySide = normalizePrintTypesBySide(d.printTypesBySide, d.printTypes);
         const prevSide = normalizeSideData(d?.sides?.[safeSide]);
+        const mergedSideTypes = Array.from(new Set([...(bySide[safeSide] || []), techniqueToPrintTypeId(safeTechnique)]));
         const nextSide = {
           ...prevSide,
           customText: {
             ...prevSide.customText,
-            technique: safeTechnique,
+            technique: updateTextTechnique ? safeTechnique : prevSide.customText?.technique || PRINT_TECHNIQUES.DTF,
           },
         };
-        if (safeTechnique === PRINT_TECHNIQUES.RUBBER && clearImagesOnRubber) {
-          nextSide.logos = [];
-          nextSide.activeLogoId = null;
-        }
-        bySide[safeSide] = [techniqueToPrintTypeId(safeTechnique)];
+        bySide[safeSide] = mergedSideTypes;
         const mergedLegacy = Array.from(new Set([...(bySide.front || []), ...(bySide.back || [])]));
         return {
           ...d,
@@ -5559,31 +5547,18 @@ function TasarimClientContent({ isMobile }) {
       setMobilePanelMode("design");
       setMobileSheetSnapIndex(1);
     }
-    const safeSide = view === "back" ? "back" : "front";
-    const sideLogos = activeDesign?.sides?.[safeSide]?.logos || [];
     if (typeId === "rubber") {
-      if (sideLogos.length > 0) {
-        const allowed = window.confirm(
-          "Rubber baskı görsel desteklemez. Görsel kaldırılıp yazı moduna geçilsin mi?"
-        );
-        if (!allowed) return;
-      }
-      applyTechniqueToActiveSide(PRINT_TECHNIQUES.RUBBER, { clearImagesOnRubber: true });
+      applyTechniqueToActiveSide(PRINT_TECHNIQUES.RUBBER, { updateTextTechnique: true });
       setActiveTab("text");
       setDrawerMenuOpen(false);
       return;
     }
-    applyTechniqueToActiveSide(PRINT_TECHNIQUES.DTF);
+    applyTechniqueToActiveSide(PRINT_TECHNIQUES.DTF, { updateTextTechnique: false });
     setActiveTab("upload");
     setDrawerMenuOpen(false);
   };
 
   const selectMenuTab = (id) => {
-    if (id === "upload" && rubberActiveForSide) {
-      setUploadTechniqueToastOpen(true);
-      setDrawerMenuOpen(false);
-      return;
-    }
     setActiveTab(id);
     setDrawerMenuOpen(false);
   };
@@ -5602,12 +5577,6 @@ function TasarimClientContent({ isMobile }) {
     const timer = window.setTimeout(() => setUploadTechniqueToastOpen(false), 2600);
     return () => window.clearTimeout(timer);
   }, [uploadTechniqueToastOpen]);
-
-  useEffect(() => {
-    if (activeTab === "upload" && rubberActiveForSide) {
-      setUploadTechniqueToastOpen(true);
-    }
-  }, [activeTab, rubberActiveForSide]);
 
   useEffect(() => {
     if (!isMobile) return;
@@ -5838,6 +5807,7 @@ function TasarimClientContent({ isMobile }) {
       }
 
       const canvasRect = gl.domElement.getBoundingClientRect();
+      const rootRect = sceneRootRef.current?.getBoundingClientRect() || { left: 0, top: 0 };
       const layout = layoutFor(activeId);
       const sideRotY = Number(printBounds.rotY ?? (currentSide === "back" ? Math.PI : 0));
       const modelScale = (Number(layout?.scale) || 1) + 0.05;
@@ -5891,8 +5861,8 @@ function TasarimClientContent({ isMobile }) {
         Number.isFinite(maxY)
       ) {
         setScenePlaneRect({
-          left: minX,
-          top: minY,
+          left: minX - rootRect.left,
+          top: minY - rootRect.top,
           width: Math.max(1, maxX - minX),
           height: Math.max(1, maxY - minY),
         });
@@ -6491,13 +6461,15 @@ function TasarimClientContent({ isMobile }) {
         </div>
       )}
 
-      <div className={`${isMobile ? "w-full relative" : "w-full h-full relative"}`} style={{ background: SCENE_BG_COLOR }}>
+      <div ref={sceneRootRef} className={`${isMobile ? "w-full relative" : "w-full h-full relative"}`} style={{ background: SCENE_BG_COLOR }}>
         <div
           className={isMobile ? "relative mt-[6px] z-10 overflow-hidden" : "contents"}
           style={
             isMobile
               ? {
-                  height: "clamp(280px, calc(var(--app-vh) * 40), 420px)",
+                  height: mobilePanelCollapsed
+                    ? "clamp(320px, calc(var(--app-vh) * 52), 560px)"
+                    : "clamp(280px, calc(var(--app-vh) * 40), 420px)",
                   overflow: "hidden",
                 }
               : undefined
@@ -7454,9 +7426,9 @@ function TasarimClientContent({ isMobile }) {
                       isActive={design.id === activeId}
                       isHovered={design.id === hoveredId}
                       isSceneFocused={sceneModelSelectionId === design.id}
-                      showModelDeleteButton={activeTab !== "editor" && sceneModelSelectionId === design.id}
+                      showModelDeleteButton={!isPrintAreaOpen && sceneModelSelectionId === design.id}
                       canDeleteModel={designs.length > 1}
-                      enableLongPressDelete={activeTab !== "editor"}
+                      enableLongPressDelete={!isPrintAreaOpen}
                       onSelect={setActiveId}
                       onHover={setHoveredId}
                       onUnhover={() => setHoveredId(null)}
@@ -7544,6 +7516,7 @@ function TasarimClientContent({ isMobile }) {
                         setSceneSelectionVisible(true);
                         setSceneTextSelectionVisible(false);
                         setSceneFrameMode("resize");
+                        setSelectedSceneItem({ id: l.id, type: "logo", side: currentSide });
                         return;
                       }
                       setSceneFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"));
@@ -7672,6 +7645,7 @@ function TasarimClientContent({ isMobile }) {
                         setSceneTextSelectionVisible(true);
                         setSceneTextFrameMode("resize");
                         setSceneSelectionVisible(false);
+                        setSelectedSceneItem({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
                         return;
                       }
                       if (!showPlacementPanel || editorControlTab !== "text") {
