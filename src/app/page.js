@@ -110,24 +110,26 @@ function HomeTabSwitcher({ activeTab, onChange }) {
 
 function HeroSection() {
     return (
-        <section className="relative overflow-hidden border-b border-zinc-900" style={{ padding: "72px var(--s-4) 56px" }}>
-            <div className="absolute inset-0">
-                <video autoPlay loop muted playsInline className="w-full h-full object-cover opacity-45" src="https://videos.pexels.com/video-files/3163534/3163534-uhd_2560_1440_30fps.mp4" />
+        <section className="relative border-b border-zinc-900 overflow-hidden">
+            <div className="relative h-[62svh] min-h-[440px] md:min-h-[520px]">
+                <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover opacity-45" src="https://videos.pexels.com/video-files/3163534/3163534-uhd_2560_1440_30fps.mp4" />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/45 to-black/92" />
-            </div>
-            <div className="relative z-10 max-w-[760px] mx-auto">
-                <div className="inline-flex items-center min-h-[44px] px-4 rounded-full border border-white/20 bg-black/35 backdrop-blur mb-4">
-                    <span className="text-[11px] font-black uppercase tracking-[0.18em] text-white/90">Interactive Studio</span>
+                <div className="absolute inset-x-0 bottom-0 px-4 md:px-6 lg:px-8" style={{ paddingBottom: "var(--s-8)" }}>
+                    <div className="max-w-[760px]">
+                        <div className="inline-flex items-center min-h-[44px] px-4 rounded-full border border-white/20 bg-black/35 backdrop-blur mb-4">
+                            <span className="text-[11px] font-black uppercase tracking-[0.18em] text-white/90">Interactive Studio</span>
+                        </div>
+                        <h1 className="text-[42px] sm:text-[56px] md:text-[76px] font-black leading-[0.9] tracking-tight text-white">DESIGN YOURSELF</h1>
+                        <p className="text-white/90 text-sm sm:text-base max-w-xl mt-4">Modelini seç, tasarımını üretime hazırla.</p>
+                        <a
+                            href="/tasarim"
+                            className="inline-flex items-center justify-center min-h-[48px] mt-6 px-7 rounded-full bg-white text-black text-xs font-black uppercase tracking-[0.16em] shadow-[0_14px_32px_rgba(0,0,0,0.35)] active:scale-[0.985] transition-transform duration-150"
+                            style={{ transitionTimingFunction: APPLE_EASE }}
+                        >
+                            Tasarıma Başla
+                        </a>
+                    </div>
                 </div>
-                <h1 className="text-[42px] sm:text-[56px] md:text-[76px] font-black leading-[0.9] tracking-tight text-white">DESIGN YOURSELF</h1>
-                <p className="text-white/90 text-sm sm:text-base max-w-xl mt-4">Modelini seç, tasarımını üretime hazırla.</p>
-                <a
-                    href="/tasarim"
-                    className="inline-flex items-center justify-center min-h-[48px] mt-6 px-7 rounded-full bg-white text-black text-xs font-black uppercase tracking-[0.16em] shadow-[0_14px_32px_rgba(0,0,0,0.35)] active:scale-[0.985] transition-transform duration-150"
-                    style={{ transitionTimingFunction: APPLE_EASE }}
-                >
-                    Tasarıma Başla
-                </a>
             </div>
         </section>
     );
@@ -172,9 +174,9 @@ function CommunityGrid() {
         "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?q=80&w=900&auto=format&fit=crop",
     ];
     return (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 md:gap-4">
             {cards.map((src, i) => (
-                <div key={`community-${i}`} className="aspect-square rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950">
+                <div key={`community-${i}`} className="aspect-square rounded-2xl md:rounded-[24px] overflow-hidden border border-zinc-800 bg-zinc-950">
                     <img src={src} alt={`Topluluk tasarım ${i + 1}`} className="w-full h-full object-cover" />
                 </div>
             ))}
@@ -286,15 +288,15 @@ function PrimaryCTA({ onExplore }) {
 
 function CategoryGrid({ onNavigate }) {
     return (
-        <section className="max-w-[760px] mx-auto" style={{ padding: "0 var(--s-4) 56px" }}>
+        <section className="w-full px-4 md:px-6 lg:px-8" style={{ paddingBottom: "56px" }}>
             <h2 className="text-white text-2xl font-black tracking-tight mb-4">Kategoriler</h2>
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                 {STENI_CATEGORY_CARDS.map((card) => (
                     <button
                         key={card.key}
                         type="button"
                         onClick={() => onNavigate(card.href)}
-                        className="relative h-[196px] rounded-[20px] overflow-hidden border border-zinc-800 text-left group active:scale-[0.985] transition-transform duration-150"
+                        className="relative h-[196px] md:h-[420px] rounded-[20px] md:rounded-[24px] overflow-hidden border border-zinc-800 text-left group active:scale-[0.985] transition-transform duration-150"
                         style={{ transitionTimingFunction: APPLE_EASE }}
                     >
                         <img
@@ -318,7 +320,7 @@ function CategoryGrid({ onNavigate }) {
 function PrintTechSection() {
     return (
         <section className="border-y border-zinc-900 bg-zinc-950/60">
-            <div className="max-w-[760px] mx-auto" style={{ padding: "72px var(--s-4)" }}>
+            <div className="w-full px-4 md:pl-8 md:pr-8" style={{ paddingTop: "72px", paddingBottom: "72px" }}>
                 <p className="text-[11px] uppercase tracking-[0.16em] text-zinc-400 font-bold">Print Technology</p>
                 <h3 className="text-white text-2xl font-black tracking-tight mt-2">Signature Print Series</h3>
                 <div className="grid gap-2 mt-4 text-sm text-white/90">
@@ -411,9 +413,9 @@ function OzelTabContent() {
         <div className="ozelScope relative">
             <HeroSection />
 
-            <section className="max-w-[760px] mx-auto" style={{ padding: "56px var(--s-4)" }}>
+            <section className="w-full px-4 md:px-6 lg:px-8" style={{ paddingTop: "56px", paddingBottom: "56px" }}>
                 <h2 className="text-white font-black text-[24px] sm:text-[30px] leading-tight">3 adımda özel üretim</h2>
-                <div className="grid gap-3 mt-4">
+                <div className="grid gap-3 md:grid-cols-3 mt-4">
                     <StepCard index={1} title="Ürününü Seç" desc="Tshirt, Sweatshirt, Hoodie veya Polar modelini seç." Icon={MousePointer2} />
                     <StepCard index={2} title="Tasarımını Oluştur" desc="Yazı, baskı ve renk ayarlarını 3D sahnede düzenle." Icon={PenTool} />
                     <StepCard index={3} title="Kaydet & Sipariş Ver" desc="Son görünümü onayla, siparişini güvenle tamamla." Icon={Download} />
@@ -421,7 +423,7 @@ function OzelTabContent() {
             </section>
 
             <section className="border-y border-zinc-900 bg-black/60">
-                <div className="max-w-[760px] mx-auto" style={{ padding: "72px var(--s-4)" }}>
+                <div className="w-full px-4 md:px-6 lg:px-8" style={{ paddingTop: "72px", paddingBottom: "72px" }}>
                     <h3 className="text-white font-black text-[22px] sm:text-[26px]">Neden STENI Custom?</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 auto-rows-fr">
                         <TrustItem title="Ücretsiz Kargo" desc="1500 TL üzeri alışverişlerde ücretsiz gönderim." Icon={Truck} />
@@ -431,7 +433,7 @@ function OzelTabContent() {
                 </div>
             </section>
 
-            <section className="max-w-[760px] mx-auto" style={{ padding: "56px var(--s-4)" }}>
+            <section className="w-full px-4 md:px-6 lg:px-8" style={{ paddingTop: "56px", paddingBottom: "56px" }}>
                 <div className="flex items-end justify-between gap-3 mb-4">
                     <h3 className="text-white font-black text-[22px] sm:text-[26px] leading-tight">Topluluk Tasarımları</h3>
                     <a href="/tasarim" className="text-xs uppercase tracking-[0.14em] text-white/90 font-bold">Keşfet →</a>
@@ -439,8 +441,8 @@ function OzelTabContent() {
                 <CommunityGrid />
             </section>
 
-            <section className="max-w-[760px] mx-auto" style={{ padding: "0 var(--s-4) 56px" }}>
-                <div className="rounded-[20px] border border-zinc-800 bg-zinc-950/90 shadow-[0_12px_26px_rgba(0,0,0,0.28)]" style={{ padding: "20px" }}>
+            <section className="w-full px-4 md:px-6 lg:px-8" style={{ paddingBottom: "56px" }}>
+                <div className="rounded-[20px] md:rounded-[24px] border border-zinc-800 bg-zinc-950/90 shadow-[0_12px_26px_rgba(0,0,0,0.28)]" style={{ padding: "20px" }}>
                     <p className="text-sm text-white/90">Tasarım stüdyosuna geç, ürününü anında kişiselleştir.</p>
                     <a href="/tasarim" className="mt-4 inline-flex items-center min-h-[44px] px-6 rounded-full bg-white text-black text-xs font-black uppercase tracking-[0.12em] active:scale-[0.985] transition-transform duration-150" style={{ transitionTimingFunction: APPLE_EASE }}>
                         Tasarıma Başla
@@ -462,10 +464,9 @@ function MobileHomeShell({ activeTab, onTabChange, heroIndex, onHeroPrev, onHero
                 }}
             >
                 <div
-                    className="sticky z-[45] border-b border-zinc-900 bg-[#050608]/95 backdrop-blur px-4"
-                    style={{ top: "calc(24px + env(safe-area-inset-top))" }}
+                    className="sticky top-[calc(24px+env(safe-area-inset-top))] md:fixed md:top-[96px] md:left-8 z-[45] border-b border-zinc-900 bg-[#050608]/95 backdrop-blur px-4 md:px-0 md:border-0 md:bg-transparent md:backdrop-blur-0"
                 >
-                    <div className="max-w-[760px] mx-auto py-2">
+                    <div className="max-w-[760px] mx-auto py-2 md:py-0">
                         <HomeTabSwitcher activeTab={activeTab} onChange={onTabChange} />
                     </div>
                 </div>
