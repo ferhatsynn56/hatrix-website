@@ -5369,6 +5369,21 @@ function TasarimClientContent({ isMobile }) {
   }, []);
 
   useEffect(() => {
+    if (!isMobile || typeof window === "undefined") return;
+    const setAppVh = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty("--app-vh", `${vh}px`);
+    };
+    setAppVh();
+    window.addEventListener("resize", setAppVh, { passive: true });
+    window.addEventListener("orientationchange", setAppVh);
+    return () => {
+      window.removeEventListener("resize", setAppVh);
+      window.removeEventListener("orientationchange", setAppVh);
+    };
+  }, [isMobile]);
+
+  useEffect(() => {
     const shouldLockScroll = flowStep !== "select" && !isMobile;
     document.body.style.overflow = shouldLockScroll ? "hidden" : "";
     document.documentElement.style.overflow = shouldLockScroll ? "hidden" : "";
@@ -6256,13 +6271,13 @@ function TasarimClientContent({ isMobile }) {
   const drawerHeightStyle = isMobile
     ? drawerHeight
       ? `${drawerHeight}px`
-      : "72vh"
+      : "calc(var(--app-vh) * 72)"
     : `${DESKTOP_DRAWER_HEIGHT}px`;
   const drawerTopGap = isMobile && drawerHeight ? Math.max(0, drawerHeight - drawerY) : 0;
   const controlsBottom = isMobile
     ? drawerHeight
       ? `calc(${drawerTopGap}px + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
-      : `calc(72vh + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
+      : `calc((var(--app-vh) * 72) + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
     : `calc(${drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK}px + ${CONTROLS_GAP}px)`;
   const visibleDrawerHeight = isMobile
     ? Math.max(DRAWER_PEEK, drawerHeight ? drawerHeight - drawerY : DRAWER_PEEK)
@@ -6299,9 +6314,9 @@ function TasarimClientContent({ isMobile }) {
   const mobileSafeSheetIndex = clamp(mobileSheetSnapIndex, 0, MOBILE_SHEET_SNAP_RATIOS.length - 1);
   const mobileSheetRatio = MOBILE_SHEET_SNAP_RATIOS[mobileSafeSheetIndex] || 0.55;
   const mobilePanelCollapsed = isMobile && mobilePanelMode === "collapsed";
-  const activeBottomTab = mobilePrimaryTab;
-  const showDesignControls = isMobile && activeBottomTab === "design" && mobilePanelMode === "design";
-  const showPrintTypes = isMobile && activeBottomTab === "design" && mobilePanelMode === "design";
+  const activeBottomTab = mobilePrimaryTab === "design" ? "tasarla" : mobilePrimaryTab;
+  const showDesignControls = isMobile && activeBottomTab === "tasarla" && mobilePanelMode === "design";
+  const showPrintTypes = isMobile && activeBottomTab === "tasarla" && mobilePanelMode === "design";
   if (isMobile) {
     console.log("[mobile-panel]", {
       mode: mobilePanelMode,
@@ -6355,7 +6370,7 @@ function TasarimClientContent({ isMobile }) {
     <div
       className={
         isMobile
-          ? "relative min-h-[100dvh] max-w-full w-full text-white font-sans overflow-y-auto overflow-x-hidden"
+          ? "relative max-w-full w-full text-white font-sans overflow-y-auto overflow-x-hidden"
           : "fixed inset-0 h-screen w-full text-white overflow-hidden font-sans"
       }
       style={{
@@ -6363,7 +6378,8 @@ function TasarimClientContent({ isMobile }) {
         overscrollBehavior: "none",
         touchAction: isMobile ? "pan-y" : "none",
         overflowX: isMobile ? "clip" : undefined,
-        paddingBottom: isMobile ? "calc(88px + env(safe-area-inset-bottom))" : undefined,
+        minHeight: isMobile ? "calc(var(--app-vh) * 100)" : undefined,
+        paddingBottom: isMobile ? "calc(120px + env(safe-area-inset-bottom))" : undefined,
       }}
     >
       {/* Top Header */}
@@ -6466,7 +6482,7 @@ function TasarimClientContent({ isMobile }) {
           style={
             isMobile
               ? {
-                  height: "clamp(300px, 42dvh, 420px)",
+                  height: "clamp(280px, calc(var(--app-vh) * 40), 420px)",
                   overflow: "hidden",
                 }
               : undefined
@@ -6556,7 +6572,10 @@ function TasarimClientContent({ isMobile }) {
         {/* Model picker modal */}
         {pickerOpen && (
           <div className="fixed inset-0 z-[95] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
-            <div className="w-full max-w-2xl bg-[#eef1f4] border border-gray-300 rounded-2xl p-4 max-h-[82vh] overflow-y-auto shadow-2xl">
+            <div
+              className="w-full max-w-2xl bg-[#eef1f4] border border-gray-300 rounded-2xl p-4 overflow-y-auto shadow-2xl"
+              style={{ maxHeight: "calc(var(--app-vh) * 82)" }}
+            >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-black tracking-widest uppercase text-zinc-800">Model Ekle</h3>
                 <button
@@ -6622,7 +6641,11 @@ function TasarimClientContent({ isMobile }) {
                   ? "calc(env(safe-area-inset-bottom) + 2px)"
                   : `${Math.round(visibleDrawerHeight) + MOBILE_TOOLBAR_HEIGHT + 14}px`
                 : `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
-              maxHeight: isMobile ? (hideMobileDrawerInEditor ? "48vh" : "58vh") : undefined,
+              maxHeight: isMobile
+                ? hideMobileDrawerInEditor
+                  ? "calc(var(--app-vh) * 48)"
+                  : "calc(var(--app-vh) * 58)"
+                : undefined,
             }}
           >
             {isMobile && !!lockToast && (
