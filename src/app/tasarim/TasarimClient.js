@@ -6287,6 +6287,7 @@ function TasarimClientContent({ isMobile }) {
   );
   const mobileSafeSheetIndex = clamp(mobileSheetSnapIndex, 0, MOBILE_SHEET_SNAP_RATIOS.length - 1);
   const mobileSheetRatio = MOBILE_SHEET_SNAP_RATIOS[mobileSafeSheetIndex] || 0.55;
+  const mobilePanelCollapsed = isMobile && mobileSafeSheetIndex === 0;
   const mobileToolbarItems = [
     { id: "model", label: "Model", icon: Layers },
     { id: "design", label: "Tasarla", icon: Pencil },
@@ -6332,20 +6333,25 @@ function TasarimClientContent({ isMobile }) {
     <div
       className={
         isMobile
-          ? "relative min-h-screen w-full text-white font-sans overflow-y-auto overflow-x-hidden"
+          ? "relative min-h-[100dvh] max-w-full w-full text-white font-sans overflow-y-auto overflow-x-hidden"
           : "fixed inset-0 h-screen w-full text-white overflow-hidden font-sans"
       }
       style={{
         background: SCENE_BG_COLOR,
         overscrollBehavior: "none",
         touchAction: isMobile ? "pan-y" : "none",
-        paddingBottom: isMobile ? "calc(86px + env(safe-area-inset-bottom))" : undefined,
+        overflowX: isMobile ? "clip" : undefined,
+        paddingBottom: isMobile ? "calc(88px + env(safe-area-inset-bottom))" : undefined,
       }}
     >
       {/* Top Header */}
       <div
-        className="absolute top-0 left-0 right-0 z-[90] px-4 pb-3 flex items-start justify-between pointer-events-none"
-        style={{ paddingTop: isMobile ? "calc(env(safe-area-inset-top) + 8px)" : "16px" }}
+        className={
+          isMobile
+            ? "sticky top-0 left-0 right-0 z-[60] px-4 pb-2 border-b border-black/5 bg-[#e9eaee]"
+            : "absolute top-0 left-0 right-0 z-[90] px-4 pb-3 flex items-start justify-between pointer-events-none"
+        }
+        style={{ paddingTop: isMobile ? "calc(env(safe-area-inset-top) + 8px)" : "16px", background: isMobile ? SCENE_BG_COLOR : undefined }}
       >
         {isMobile ? (
           <div className="w-full pointer-events-auto grid grid-cols-[auto_1fr_auto] items-center gap-2">
@@ -6434,13 +6440,11 @@ function TasarimClientContent({ isMobile }) {
 
       <div className={`${isMobile ? "w-full relative" : "w-full h-full relative"}`} style={{ background: SCENE_BG_COLOR }}>
         <div
-          className={isMobile ? "relative overflow-hidden" : "contents"}
+          className={isMobile ? "relative mt-[6px] z-10 overflow-hidden" : "contents"}
           style={
             isMobile
               ? {
-                  height: "45dvh",
-                  minHeight: "320px",
-                  maxHeight: "48dvh",
+                  height: "clamp(300px, 42dvh, 420px)",
                   overflow: "hidden",
                 }
               : undefined
@@ -6452,7 +6456,7 @@ function TasarimClientContent({ isMobile }) {
             className="absolute z-[90] pointer-events-none transition-all duration-300"
             style={
               isMobile
-                ? { right: "14px", top: "50%", transform: "translateY(-50%)" }
+                ? { right: "12px", top: "50%", transform: "translateY(-50%)" }
                 : { bottom: controlsBottom, right: "16px" }
             }
           >
@@ -6504,9 +6508,8 @@ function TasarimClientContent({ isMobile }) {
           <div
             className="absolute z-[90] pointer-events-auto transition-all duration-300"
             style={{
-              top: "50%",
-              right: "10px",
-              transform: "translateY(-50%)",
+              right: "12px",
+              bottom: "12px",
             }}
           >
             <div className="flex flex-col gap-2 rounded-2xl border border-zinc-300 bg-white/90 backdrop-blur px-2 py-2 shadow-lg">
@@ -7271,6 +7274,7 @@ function TasarimClientContent({ isMobile }) {
 
         {/* THREE.js Canvas */}
         {/** Drawer state'e göre desktop'ta da model ölçeklenir: açıkken küçük, kapalıyken büyük */}
+        <div className={isMobile ? "absolute inset-0 grid place-items-center" : "contents"}>
         {(() => {
           const desktopClosedScale = isPlacementPanelVisible ? 0.96 : isPrintAreaOpen ? 1.1 : 1.06;
           const desktopOpenScale = isPlacementPanelVisible ? 0.86 : isPrintAreaOpen ? 1.02 : 0.95;
@@ -7311,16 +7315,18 @@ function TasarimClientContent({ isMobile }) {
             <Canvas
               style={{
                 position: "absolute",
-                left: isMobile ? mobileLeft : isPlacementPanelVisible ? "63%" : "50%",
-                top: isMobile ? "50%" : desktopTop,
-                transform: `translate(-50%, -50%) translateY(${isMobile ? mobileShiftY : desktopShiftY}) scale(${isMobile ? mobileScale : desktopScale})`,
-                width: isMobile ? "100vw" : desktopWidth,
-                height: isMobile ? "100vh" : desktopHeight,
+                left: isMobile ? 0 : isPlacementPanelVisible ? "63%" : "50%",
+                top: isMobile ? 0 : desktopTop,
+                transform: isMobile
+                  ? "none"
+                  : `translate(-50%, -50%) translateY(${desktopShiftY}) scale(${desktopScale})`,
+                width: isMobile ? "100%" : desktopWidth,
+                height: isMobile ? "100%" : desktopHeight,
                 display: "block",
                 backgroundColor: SCENE_BG_COLOR,
                 willChange: "transform",
                 transformOrigin: "center center",
-                transition: isMobile ? "transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1)" : "transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1)",
+                transition: isMobile ? "none" : "transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1)",
                 zIndex: 10,
                 touchAction: "none",
               }}
@@ -7426,6 +7432,7 @@ function TasarimClientContent({ isMobile }) {
             </Canvas>
           );
         })()}
+        </div>
 
         {/* MODEL ÜZERİ DİREKT YERLEŞİM (Panel değişmeden) */}
         {isPrintAreaOpen && (
@@ -7687,17 +7694,11 @@ function TasarimClientContent({ isMobile }) {
         {/* DRAWER (MOBILE + DESKTOP) */}
         {activeDesign && !hideMobileDrawerInEditor && (
           <div
-            className={`${isMobile ? "relative mt-3" : "fixed left-0 right-0"} z-[92] pointer-events-auto transition-all duration-300`}
+            className={`${isMobile ? "relative" : "fixed left-0 right-0"} z-[92] pointer-events-auto transition-all duration-300`}
             style={
               isMobile
                 ? {
-                    transition: dragState.current.dragging ? "none" : "height 220ms cubic-bezier(0.22, 1, 0.36, 1)",
-                    maxHeight: drawerHeightStyle,
-                    height: `${Math.round(visibleDrawerHeight)}px`,
-                    backgroundColor: "#ebedf0",
-                    borderTopLeftRadius: "20px",
-                    borderTopRightRadius: "20px",
-                    boxShadow: "0 -8px 28px rgba(0,0,0,0.18)",
+                    backgroundColor: "#eef0f4",
                   }
                 : {
                     bottom: 0,
@@ -7713,13 +7714,13 @@ function TasarimClientContent({ isMobile }) {
             }
           >
             <div
-              className="w-full h-full overflow-x-hidden overflow-y-visible flex flex-col pointer-events-auto"
+              className={`${isMobile ? "w-full overflow-x-hidden overflow-y-visible flex flex-col pointer-events-auto" : "w-full h-full overflow-x-hidden overflow-y-visible flex flex-col pointer-events-auto"}`}
               style={{ backgroundColor: "#eef1f4" }}
             >
               {isMobile ? (
                 <>
                   <div
-                    className="relative px-3 pt-2 pb-2 border-b border-gray-300/80 bg-[#eceff3]"
+                    className="relative z-[20] mt-[10px] px-4 pt-[14px] pb-[12px] bg-[#eef0f4] border-t border-black/10"
                     onPointerDown={onDrawerPointerDown}
                   >
                     <button
@@ -7728,118 +7729,121 @@ function TasarimClientContent({ isMobile }) {
                         e.stopPropagation();
                         toggleDrawer();
                       }}
-                      className="absolute left-1/2 -translate-x-1/2 -bottom-[22px] w-12 h-5 rounded-b-full border-2 border-zinc-700 border-t-0 bg-white text-zinc-900 flex items-center justify-center z-40 shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
+                      className="absolute left-1/2 top-[-18px] -translate-x-1/2 w-11 h-9 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 flex items-center justify-center z-[30] shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
                       aria-label="Alt panel yüksekliğini değiştir"
                     >
-                      <span className="translate-y-[2px]">
-                        {mobileSafeSheetIndex === MOBILE_SHEET_SNAP_RATIOS.length - 1 ? (
-                          <ChevronDown size={14} strokeWidth={2.5} />
-                        ) : (
-                          <ChevronUp size={14} strokeWidth={2.5} />
-                        )}
-                      </span>
+                      {mobilePanelCollapsed ? (
+                        <ChevronUp size={14} strokeWidth={2.5} />
+                      ) : (
+                        <ChevronDown size={14} strokeWidth={2.5} />
+                      )}
                     </button>
 
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-600">{mobileSheetTitle}</p>
-                      <div className="flex items-center gap-1.5">
-                        {mobilePrimaryTab === "model" && (
-                          <button
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={() => setPickerOpen(true)}
-                            className="h-8 px-3 rounded-full border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide"
-                            aria-label="Model ekle"
-                          >
-                            + Model
-                          </button>
-                        )}
-                        {mobilePrimaryTab === "design" && (
-                          <button
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={openDrawerMenu}
-                            className="h-8 px-3 rounded-full border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center gap-1"
-                            aria-label="Kategori menüsünü aç"
-                          >
-                            <Menu size={12} />
-                            Menü
-                          </button>
-                        )}
-                      </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[12px] font-black uppercase tracking-[0.14em] text-gray-700">Tasarla</p>
+                      <button
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={openDrawerMenu}
+                        className="h-9 px-3 rounded-full border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center gap-1"
+                        aria-label="Kategori menüsünü aç"
+                      >
+                        <Menu size={12} />
+                        Menü
+                      </button>
                     </div>
 
-                    {mobilePrimaryTab === "design" && (
-                      <div className="grid grid-cols-3 gap-2 mt-2">
-                        <button
-                          type="button"
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onClick={() => activateDesignTool("upload")}
-                          className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
-                        >
-                          Görsel Yükle
-                        </button>
-                        <button
-                          type="button"
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onClick={() => activateDesignTool("text")}
-                          className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
-                        >
-                          Yazı Ekle
-                        </button>
-                        <button
-                          type="button"
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onClick={() => activateDesignTool("editor")}
-                          className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
-                        >
-                          Yerleşim
-                        </button>
-                      </div>
-                    )}
+                    <div className="grid grid-cols-3 gap-2 mt-3">
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={() => activateDesignTool("upload")}
+                        className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
+                      >
+                        Görsel Yükle
+                      </button>
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={() => activateDesignTool("text")}
+                        className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
+                      >
+                        Yazı Ekle
+                      </button>
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={() => activateDesignTool("editor")}
+                        className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
+                      >
+                        Yerleşim
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-                    {mobilePrimaryTab === "model" ? (
-                      <div className="p-2.5 pb-3 space-y-2.5">
-                        <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-500">Seçili Modeller</p>
-                            <span className="text-[10px] font-black uppercase text-gray-500">{designs.length} model</span>
+                  {!mobilePanelCollapsed && (
+                    <>
+                      <div className="relative z-[15] mx-4 mt-[10px] rounded-2xl border border-gray-200 bg-white shadow-sm">
+                        <div className="p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-500">Baskı Tipleri</p>
+                            <span className="text-[10px] font-black uppercase text-gray-500">
+                              {activePrintTypes.length} seçili
+                            </span>
                           </div>
-                          <div className="space-y-2">
-                            {designs.map((designItem) => {
-                              const isCurrent = designItem.id === activeId;
-                              return (
-                                <button
-                                  key={`mobile-sheet-model-${designItem.id}`}
-                                  type="button"
-                                  onClick={() => setActiveId(designItem.id)}
-                                  className={`w-full flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left ${
-                                    isCurrent ? "border-black bg-black text-white" : "border-gray-300 bg-white text-gray-800"
-                                  }`}
-                                >
-                                  <span className="text-[11px] font-black uppercase tracking-wide truncate">
-                                    {MODEL_LABELS[designItem.modelType] || designItem.modelType}
-                                  </span>
-                                  {isCurrent && <Check size={14} />}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                        <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-                          <button
-                            type="button"
-                            onClick={() => setPickerOpen(true)}
-                            className="w-full h-11 rounded-lg border border-zinc-300 bg-zinc-900 text-white text-[11px] font-black uppercase tracking-wide"
-                          >
-                            + Model Ekle
-                          </button>
+                          <PrintTypePickerCards
+                            selectedIds={activePrintTypes}
+                            onSelect={togglePrintTypeFromMenu}
+                            sourceLabel="Mobil panel sec"
+                            isMobile
+                          />
                         </div>
                       </div>
-                    ) : (
-                      renderPanel
-                    )}
-                  </div>
+
+                      <div className="relative z-[15] px-4 pt-2 pb-2">
+                        {mobilePrimaryTab === "model" ? (
+                          <div className="space-y-2.5">
+                            <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-500">Seçili Modeller</p>
+                                <span className="text-[10px] font-black uppercase text-gray-500">{designs.length} model</span>
+                              </div>
+                              <div className="space-y-2">
+                                {designs.map((designItem) => {
+                                  const isCurrent = designItem.id === activeId;
+                                  return (
+                                    <button
+                                      key={`mobile-sheet-model-${designItem.id}`}
+                                      type="button"
+                                      onClick={() => setActiveId(designItem.id)}
+                                      className={`w-full flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left ${
+                                        isCurrent ? "border-black bg-black text-white" : "border-gray-300 bg-white text-gray-800"
+                                      }`}
+                                    >
+                                      <span className="text-[11px] font-black uppercase tracking-wide truncate">
+                                        {MODEL_LABELS[designItem.modelType] || designItem.modelType}
+                                      </span>
+                                      {isCurrent && <Check size={14} />}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                              <button
+                                type="button"
+                                onClick={() => setPickerOpen(true)}
+                                className="w-full h-11 rounded-lg border border-zinc-300 bg-zinc-900 text-white text-[11px] font-black uppercase tracking-wide"
+                              >
+                                + Model Ekle
+                              </button>
+                            </div>
+                          </div>
+                        ) : mobilePrimaryTab === "design" && activeTab === "print" ? null : (
+                          renderPanel
+                        )}
+                      </div>
+                    </>
+                  )}
                 </>
               ) : (
                 <>
@@ -7918,10 +7922,14 @@ function TasarimClientContent({ isMobile }) {
 
         {isMobile && flowStep === "design" && (
           <div
-            className="fixed left-0 right-0 z-[94] border-t border-zinc-300 bg-[#f6f7fa]/95 backdrop-blur-md px-2 pt-2"
-            style={{ bottom: 0, paddingBottom: "calc(env(safe-area-inset-bottom) + 8px)" }}
+            className="fixed left-0 right-0 z-[70] border-t border-black/10 bg-[#e9eaee] px-3 pt-2"
+            style={{
+              bottom: 0,
+              height: "calc(88px + env(safe-area-inset-bottom))",
+              paddingBottom: "env(safe-area-inset-bottom)",
+            }}
           >
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2 h-[56px]">
               {mobileToolbarItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = mobilePrimaryTab === item.id;
