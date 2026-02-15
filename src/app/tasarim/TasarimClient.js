@@ -405,11 +405,16 @@ const estimateTextHalfBounds01 = (textState = {}) => {
   const size = clamp(Number(textState?.size) || 150, 30, 420);
   const scaleX = clamp(Number(textState?.scaleX) || 1, 0.3, 3);
   const scaleY = clamp(Number(textState?.scaleY) || 1, 0.3, 3);
+  const technique = normalizePrintTechnique(textState?.technique, PRINT_TECHNIQUES.RUBBER);
+  const rubberSpacingMul =
+    technique === PRINT_TECHNIQUES.RUBBER
+      ? clamp(Number(textState?.rubberLetterSpacing ?? 1), 0.2, 3)
+      : 1;
   const layout = String(textState?.layout || "straight");
   const curve = getTextCurveValue(textState);
 
   const avgGlyphW = size * 0.58 * scaleX;
-  const spacing = size * 0.03 * scaleX;
+  const spacing = size * 0.03 * scaleX * rubberSpacingMul;
   const baseW = Math.max(size * 0.75 * scaleX, charCount * avgGlyphW + (charCount - 1) * spacing);
   let boxW = baseW;
   let boxH = size * 1.15 * scaleY;
@@ -1736,12 +1741,12 @@ function HdriEnvironment({ urls = [], enabled = true }) {
 function CameraController({ view, count, onAnimatingChange }) {
   const { camera } = useThree();
   const isAnimating = useRef(false);
-  const extra = Math.min(1.2, Math.max(0, (count - 1) * 0.3));
+  const extra = Math.min(0.9, Math.max(0, (count - 1) * 0.22));
 
   const positions = useMemo(
     () => ({
-      front: new THREE.Vector3(0, 0.24, 2.05 + extra),
-      back: new THREE.Vector3(0, 0.24, 2.05 + extra),
+      front: new THREE.Vector3(0, 0.22, 1.72 + extra),
+      back: new THREE.Vector3(0, 0.22, 1.72 + extra),
     }),
     [extra]
   );
@@ -1752,13 +1757,13 @@ function CameraController({ view, count, onAnimatingChange }) {
     const targetPos = positions[view] || positions.front;
     const startPos = camera.position.clone();
     const start = Date.now();
-    const dur = 2400;
+    const dur = 860;
     const tick = () => {
       if (!isAnimating.current) return;
       const t = Math.min((Date.now() - start) / dur, 1);
       const eased = 1 - Math.pow(1 - t, 5);
       camera.position.lerpVectors(startPos, targetPos, eased);
-      camera.lookAt(0, -0.08, 0);
+      camera.lookAt(0, -0.04, 0);
       if (t < 1) requestAnimationFrame(tick);
       else {
         isAnimating.current = false;
@@ -3252,12 +3257,12 @@ function DesignModelItem({
         onSelect(design.id);
         armHoldTimer(e);
         if (!isActive) {
-          if (!enableLongPressDelete) onModelTap?.(design.id);
+          onModelTap?.(design.id);
           return;
         }
         if (holdRef.current.triggered) return;
         if (disableDrag) {
-          if (!enableLongPressDelete) onModelTap?.(design.id);
+          onModelTap?.(design.id);
           return;
         }
 
@@ -3305,7 +3310,7 @@ function DesignModelItem({
         dragRef.current.active = false;
         document.body.style.cursor = "grab";
         if (e.target?.releasePointerCapture) e.target.releasePointerCapture(e.pointerId);
-        if (tapped && !holdTriggered && !enableLongPressDelete) onModelTap?.(design.id);
+        if (tapped && !holdTriggered) onModelTap?.(design.id);
       }}
       onPointerCancel={(e) => {
         if (holdRef.current.pid === e.pointerId) clearHoldTimer();
@@ -4956,7 +4961,8 @@ function TasarimClientContent({ isMobile }) {
   const logoControlsLocked = lockAspect;
   const imageControlDisabled = logoControlsLocked || !activeLogo;
   const sizeControlDisabled = imageControlDisabled || activeLogoIsEmboss;
-  const isPrintAreaOpen = activeTab === "editor";
+  const isEditorActive = activeTab === "editor";
+  const isPrintAreaOpen = flowStep === "design" && activeTab !== "color";
   const activeLogoBox = activeLogo?.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
   const activeLogoFx = getLogoStyle(activeLogo);
   const activePdfPlacement = normalizePdfPlacement(currentActiveDesign?.pdfPlacement, currentSide);
@@ -5121,12 +5127,27 @@ function TasarimClientContent({ isMobile }) {
     clearSceneSelection();
   };
 
+  const openPlacementPanelFromScene = (controlTab = "logo") => {
+    setEditorControlTab(controlTab === "text" ? "text" : "logo");
+    setShowPlacementPanel(true);
+    setActiveTab("editor");
+    if (isMobile) {
+      setMobilePrimaryTab("design");
+      setMobilePanelMode("design");
+      setMobileSheetSnapIndex(1);
+      setDrawerOpen(false);
+    } else {
+      setDrawerOpen(false);
+    }
+  };
+
   const handleSceneModelTap = (designId) => {
     if (!designId) return;
-    if (activeTab !== "editor") return;
     setSceneModelSelectionId(null);
-    if (designId !== activeId) return;
-    if (showPlacementPanel) return;
+    if (designId !== activeId) {
+      setActiveId(designId);
+      return;
+    }
 
     const preferText = editorControlTab === "text" || rubberActiveForSide;
     if (preferText && hasSceneText) {
@@ -5151,7 +5172,7 @@ function TasarimClientContent({ isMobile }) {
   };
 
   const handleSceneModelLongPress = (designId) => {
-    if (!designId || activeTab === "editor") return;
+    if (!designId || isEditorActive) return;
     setActiveId(designId);
     setSceneModelSelectionId(designId);
     setSceneSelectionVisible(false);
@@ -5674,14 +5695,14 @@ function TasarimClientContent({ isMobile }) {
 
   // Desktop'ta baskı alanı açıldığında drawer otomatik aşağı (kapalı) konuma geçer.
   useEffect(() => {
-    if (!isMobile && isPrintAreaOpen) setDrawerOpen(false);
-  }, [isMobile, isPrintAreaOpen]);
+    if (!isMobile && isEditorActive) setDrawerOpen(false);
+  }, [isMobile, isEditorActive]);
 
   useEffect(() => {
-    if (isMobile && isPrintAreaOpen) {
+    if (isMobile && isEditorActive) {
       setDrawerOpen(false);
     }
-  }, [isMobile, isPrintAreaOpen]);
+  }, [isMobile, isEditorActive]);
 
   const updateActive = (patch) => {
     if (patch?.__setView) {
@@ -7326,25 +7347,25 @@ function TasarimClientContent({ isMobile }) {
           const mobileCollapsed = isMobile && mobilePanelMode === "collapsed";
           const mobileScale = isPrintAreaOpen
             ? mobileCollapsed
-              ? 1.18
+              ? 1.24
               : mobileExpanded
-                ? 0.78
-                : 0.9
+                ? 0.98
+                : 1.06
             : mobileCollapsed
-              ? 1.28
+              ? 1.34
               : mobileExpanded
-                ? 0.82
-                : 0.96;
-          const mobileLeft = isPlacementPanelVisible ? "60%" : mobileExpanded ? "54%" : "57%";
+                ? 1.02
+                : 1.08;
+          const mobileLeft = "50%";
           const mobileShiftY = isPlacementPanelVisible
             ? mobileExpanded
-              ? "-22%"
-              : "-18%"
+              ? "-6%"
+              : "-3%"
             : mobileCollapsed
-              ? "0%"
+              ? "4%"
               : mobileExpanded
-                ? "-10%"
-                : "-4%";
+                ? "-2%"
+                : "0%";
           const minZoomDistance = !isMobile
             ? isPlacementPanelVisible
               ? 1.86
@@ -7352,17 +7373,9 @@ function TasarimClientContent({ isMobile }) {
                 ? 1.72
                 : 1.56
             : isPlacementPanelVisible
-              ? 1.9
-              : 1.72;
-          const controlsTargetY = !isMobile
-            ? isPlacementPanelVisible
-              ? -0.12
-              : drawerOpen
-                ? -0.2
-                : -0.1
-            : isPlacementPanelVisible
-              ? -0.05
-              : -0.1;
+              ? 1.55
+              : 1.38;
+          const controlsTargetY = isMobile ? -0.04 : -0.08;
           return (
             <Canvas
               style={{
@@ -7378,7 +7391,7 @@ function TasarimClientContent({ isMobile }) {
                 backgroundColor: SCENE_BG_COLOR,
                 willChange: "transform",
                 transformOrigin: "center center",
-                transition: isMobile ? "none" : "transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1)",
+                transition: "transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1)",
                 zIndex: 10,
                 touchAction: "none",
               }}
@@ -7409,7 +7422,7 @@ function TasarimClientContent({ isMobile }) {
                   gl.domElement.style.webkitTouchCallout = "none";
                 }
               }}
-              camera={{ position: [0, 0.36, 2.34], fov: isMobile ? (isPlacementPanelVisible ? 38 : 34) : 30 }}
+              camera={{ position: [0, 0.24, 1.92], fov: isMobile ? (isPlacementPanelVisible ? 33 : 31) : 30 }}
               shadows={!isMobile}
             >
               <SceneBackgroundLock />
@@ -7474,7 +7487,7 @@ function TasarimClientContent({ isMobile }) {
                 dampingFactor={isMobile ? 0.12 : 0.08}
                 zoomSpeed={isMobile ? 0.95 : 0.7}
                 minDistance={minZoomDistance}
-                maxDistance={isMobile ? 4.8 : 4.2}
+                maxDistance={isMobile ? 4.6 : 4.2}
                 zoomToCursor={false}
                 enabled={!camAnimating}
                 target={[0, controlsTargetY, 0]}
@@ -7520,7 +7533,7 @@ function TasarimClientContent({ isMobile }) {
                       top: `${(box.y - box.h / 2) * 100}%`,
                       width: `${box.w * 100}%`,
                       height: `${box.h * 100}%`,
-                      pointerEvents: textEditingMode ? "none" : "auto",
+                      pointerEvents: "auto",
                       touchAction: "none",
                     }}
                     onPointerDown={(e) => {
@@ -7622,8 +7635,7 @@ function TasarimClientContent({ isMobile }) {
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setEditorControlTab("logo");
-                      setShowPlacementPanel(true);
+                      openPlacementPanelFromScene("logo");
                     }}
                     className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${
                       isMobile ? "w-9 h-9" : "w-8 h-8"
@@ -7663,8 +7675,7 @@ function TasarimClientContent({ isMobile }) {
                         return;
                       }
                       if (!showPlacementPanel || editorControlTab !== "text") {
-                        setEditorControlTab("text");
-                        setShowPlacementPanel(true);
+                        openPlacementPanelFromScene("text");
                       }
                       setSceneTextFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"));
                     }}
@@ -7702,8 +7713,27 @@ function TasarimClientContent({ isMobile }) {
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setEditorControlTab("text");
-                          setShowPlacementPanel(true);
+                          bumpCustomText({ text: "" });
+                          setSceneTextSelectionVisible(false);
+                          setSceneTextFrameMode("resize");
+                        }}
+                        className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${
+                          isMobile ? "w-9 h-9" : "w-8 h-8"
+                        }`}
+                        aria-label="Yazıyı sil"
+                        title="Yazıyı Sil"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openPlacementPanelFromScene("text");
                         }}
                         className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${
                           isMobile ? "w-9 h-9" : "w-8 h-8"
