@@ -4920,6 +4920,8 @@ function TasarimClientContent({ isMobile }) {
   // ✅ activeTab artık burada (hata bitti)
   const [activeTab, setActiveTab] = useState("print");
   const [mobilePrimaryTab, setMobilePrimaryTab] = useState("design");
+  /** @type {"collapsed" | "design"} */
+  const [mobilePanelMode, setMobilePanelMode] = useState("design");
   const [mobileSheetSnapIndex, setMobileSheetSnapIndex] = useState(1);
   const [uploadTechniqueToastOpen, setUploadTechniqueToastOpen] = useState(false);
   const [forceEditorOverlay, setForceEditorOverlay] = useState(false);
@@ -5416,6 +5418,7 @@ function TasarimClientContent({ isMobile }) {
     setFlowStep("design");
     setActiveTab("print");
     setMobilePrimaryTab("design");
+    setMobilePanelMode("design");
     setMobileSheetSnapIndex(1);
     setForceEditorOverlay(false);
     setPickerOpen(false);
@@ -5765,6 +5768,7 @@ function TasarimClientContent({ isMobile }) {
     setView("front");
     setActiveTab("print");
     setMobilePrimaryTab("design");
+    setMobilePanelMode("design");
     setMobileSheetSnapIndex(1);
     setForceEditorOverlay(false);
     setPickerOpen(false);
@@ -6189,6 +6193,7 @@ function TasarimClientContent({ isMobile }) {
 
   const openDrawer = () => {
     if (isMobile) {
+      setMobilePanelMode("design");
       setMobileSheetSnapIndex(1);
       return;
     }
@@ -6197,6 +6202,7 @@ function TasarimClientContent({ isMobile }) {
 
   const closeDrawer = () => {
     if (isMobile) {
+      setMobilePanelMode("collapsed");
       setMobileSheetSnapIndex(0);
       return;
     }
@@ -6208,7 +6214,11 @@ function TasarimClientContent({ isMobile }) {
     window.removeEventListener("pointermove", onDrawerPointerMove);
     window.removeEventListener("pointerup", onDrawerPointerUp);
     if (isMobile) {
-      setMobileSheetSnapIndex((prev) => (prev + 1) % MOBILE_SHEET_SNAP_RATIOS.length);
+      setMobilePanelMode((prev) => {
+        const next = prev === "collapsed" ? "design" : "collapsed";
+        setMobileSheetSnapIndex(next === "collapsed" ? 0 : 1);
+        return next;
+      });
       return;
     }
     if (drawerOpen) {
@@ -6234,6 +6244,7 @@ function TasarimClientContent({ isMobile }) {
     if (nextSide !== "front" && nextSide !== "back") return;
     setView(nextSide);
     setMobilePrimaryTab("design");
+    setMobilePanelMode("design");
     setMobileSheetSnapIndex(1);
     setActiveTab("print");
     setDrawerOpen(true);
@@ -6287,7 +6298,18 @@ function TasarimClientContent({ isMobile }) {
   );
   const mobileSafeSheetIndex = clamp(mobileSheetSnapIndex, 0, MOBILE_SHEET_SNAP_RATIOS.length - 1);
   const mobileSheetRatio = MOBILE_SHEET_SNAP_RATIOS[mobileSafeSheetIndex] || 0.55;
-  const mobilePanelCollapsed = isMobile && mobileSafeSheetIndex === 0;
+  const mobilePanelCollapsed = isMobile && mobilePanelMode === "collapsed";
+  const activeBottomTab = mobilePrimaryTab;
+  const showDesignControls = isMobile && activeBottomTab === "design" && mobilePanelMode === "design";
+  const showPrintTypes = isMobile && activeBottomTab === "design" && mobilePanelMode === "design";
+  if (isMobile) {
+    console.log("[mobile-panel]", {
+      mode: mobilePanelMode,
+      activeBottomTab,
+      showDesignControls,
+      showPrintTypes,
+    });
+  }
   const mobileToolbarItems = [
     { id: "model", label: "Model", icon: Layers },
     { id: "design", label: "Tasarla", icon: Pencil },
@@ -7721,7 +7743,6 @@ function TasarimClientContent({ isMobile }) {
                 <>
                   <div
                     className="relative z-[20] mt-[10px] px-4 pt-[14px] pb-[12px] bg-[#eef0f4] border-t border-black/10"
-                    onPointerDown={onDrawerPointerDown}
                   >
                     <button
                       onPointerDown={(e) => e.stopPropagation()}
@@ -7739,65 +7760,71 @@ function TasarimClientContent({ isMobile }) {
                       )}
                     </button>
 
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-[12px] font-black uppercase tracking-[0.14em] text-gray-700">Tasarla</p>
-                      <button
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={openDrawerMenu}
-                        className="h-9 px-3 rounded-full border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center gap-1"
-                        aria-label="Kategori menüsünü aç"
-                      >
-                        <Menu size={12} />
-                        Menü
-                      </button>
-                    </div>
+                    {showDesignControls && (
+                      <>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[12px] font-black uppercase tracking-[0.14em] text-gray-700">Tasarla</p>
+                          <button
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={openDrawerMenu}
+                            className="h-9 px-3 rounded-full border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center gap-1"
+                            aria-label="Kategori menüsünü aç"
+                          >
+                            <Menu size={12} />
+                            Menü
+                          </button>
+                        </div>
 
-                    <div className="grid grid-cols-3 gap-2 mt-3">
-                      <button
-                        type="button"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={() => activateDesignTool("upload")}
-                        className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
-                      >
-                        Görsel Yükle
-                      </button>
-                      <button
-                        type="button"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={() => activateDesignTool("text")}
-                        className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
-                      >
-                        Yazı Ekle
-                      </button>
-                      <button
-                        type="button"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={() => activateDesignTool("editor")}
-                        className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
-                      >
-                        Yerleşim
-                      </button>
-                    </div>
+                        <div className="grid grid-cols-3 gap-2 mt-3">
+                          <button
+                            type="button"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={() => activateDesignTool("upload")}
+                            className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
+                          >
+                            Görsel Yükle
+                          </button>
+                          <button
+                            type="button"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={() => activateDesignTool("text")}
+                            className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
+                          >
+                            Yazı Ekle
+                          </button>
+                          <button
+                            type="button"
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={() => activateDesignTool("editor")}
+                            className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
+                          >
+                            Yerleşim
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {!mobilePanelCollapsed && (
                     <>
-                      <div className="relative z-[15] mx-4 mt-[10px] rounded-2xl border border-gray-200 bg-white shadow-sm">
-                        <div className="p-3 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-500">Baskı Tipleri</p>
-                            <span className="text-[10px] font-black uppercase text-gray-500">
-                              {activePrintTypes.length} seçili
-                            </span>
+                      {showPrintTypes && (
+                        <div className="relative z-[15] mx-4 mt-[10px] rounded-2xl border border-gray-200 bg-white shadow-sm">
+                          <div className="p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-500">Baskı Tipleri</p>
+                              <span className="text-[10px] font-black uppercase text-gray-500">
+                                {activePrintTypes.length} seçili
+                              </span>
+                            </div>
+                            <PrintTypePickerCards
+                              selectedIds={activePrintTypes}
+                              onSelect={togglePrintTypeFromMenu}
+                              sourceLabel="Mobil panel sec"
+                              isMobile
+                            />
                           </div>
-                          <PrintTypePickerCards
-                            selectedIds={activePrintTypes}
-                            onSelect={togglePrintTypeFromMenu}
-                            sourceLabel="Mobil panel sec"
-                            isMobile
-                          />
                         </div>
-                      </div>
+                      )}
 
                       <div className="relative z-[15] px-4 pt-2 pb-2">
                         {mobilePrimaryTab === "model" ? (
