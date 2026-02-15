@@ -1487,7 +1487,7 @@ const formatMoney = (value) => {
 
 /* ================= PRINT CANVAS (FOR CART / EXPORT) ================= */
 async function makePrintDataUrl(sideData, opts = {}) {
-  const logos = sideData?.logos || [];
+  const logos = (sideData?.logos || []).filter((layer) => Boolean(layer?.url));
   const textTechnique = normalizePrintTechnique(sideData?.customText?.technique, PRINT_TECHNIQUES.RUBBER);
   const t = {
     ...(sideData?.customText || {}),
@@ -3863,7 +3863,8 @@ function EditorPanel({
     sideData?.customText?.technique,
     printTypeIdsToTechnique(printTypes, PRINT_TECHNIQUES.RUBBER)
   );
-  const dtfActiveForSide = printTypes.includes("dtf") || sideHasImages;
+  const dtfActiveForSide =
+    printTypes.includes("dtf") || sideHasImages || sideTextTechnique === PRINT_TECHNIQUES.DTF;
   const rubberActiveForSide = sideTextTechnique === PRINT_TECHNIQUES.RUBBER;
 
   useEffect(() => {
@@ -3933,7 +3934,7 @@ function EditorPanel({
   const baseModelListPrice = getListPriceBeforeLaunchDiscount(baseModelPrice);
   const largePrintSummary = getLargePrintChargeSummary(design);
 
-  const logos = sideData?.logos || [];
+  const logos = (sideData?.logos || []).filter((layer) => Boolean(layer?.url));
   const activeLogo = logos.find((l) => l.id === sideData.activeLogoId) || logos[0] || null;
   const logoCount = logos.length;
   const canUploadMoreLogos = logoCount < MAX_LOGOS_PER_SIDE;
@@ -4295,115 +4296,121 @@ function EditorPanel({
               </span>
             </div>
             {!dtfActiveForSide && (
-              <div className="w-full rounded-xl border border-dashed border-gray-300 bg-gray-50 px-3 py-3 text-[11px] font-semibold text-gray-600 space-y-2">
+              <div className="w-full rounded-xl border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-[11px] font-semibold text-gray-600 space-y-1.5">
                 <p>Görsel baskı için DTF kullanılır.</p>
                 <button
                   type="button"
                   onClick={() => applyTextTechnique(PRINT_TECHNIQUES.DTF, { fromImageAction: true })}
-                  className="h-9 px-3 rounded-full border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide"
+                  className="h-8 px-3 rounded-full border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide"
                 >
                   DTF’ye Geç
                 </button>
               </div>
             )}
 
-            {dtfActiveForSide && (
-              <div className={`${isDrawerLayout ? "w-full" : "grid grid-cols-1 gap-2"}`}>
-                <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "h-full min-h-[206px]") : ""}`}>
-                  <div className="flex items-center justify-between">
-                    <p className={drawerHeadingClass}>Dosya</p>
-                    <p className="text-[10px] text-gray-500">{logoCount}/{MAX_LOGOS_PER_SIDE} katman</p>
-                  </div>
+            <div className={`${isDrawerLayout ? "w-full" : "grid grid-cols-1 gap-2"}`}>
+              <div className={`rounded-xl border border-gray-200 bg-white p-2 space-y-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "h-full min-h-[206px]") : ""}`}>
+                <div className="flex items-center justify-between">
+                  <p className={drawerHeadingClass}>Dosya</p>
+                  <p className="text-[10px] text-gray-500">{logoCount}/{MAX_LOGOS_PER_SIDE} katman</p>
+                </div>
 
-                  <div className="grid grid-cols-3 gap-2">
-                    {Array.from({ length: MAX_LOGOS_PER_SIDE }).map((_, slotIdx) => {
-                      const layer = sideData.logos?.[slotIdx] || null;
-                      const selected = layer && (sideData.activeLogoId || sideData.logos?.[0]?.id) === layer.id;
+                <div className="grid grid-cols-3 gap-2">
+                  {Array.from({ length: MAX_LOGOS_PER_SIDE }).map((_, slotIdx) => {
+                    const layer = logos?.[slotIdx] || null;
+                    const selected = layer && (sideData.activeLogoId || logos?.[0]?.id) === layer.id;
 
-                      if (layer) {
-                        return (
-                          <div
-                            key={`slot-layer-${layer.id}`}
-                            onClick={() => updateSide({ activeLogoId: layer.id })}
-                            role="button"
-                            className={`relative h-28 rounded-lg border overflow-hidden transition cursor-pointer ${selected ? "border-black ring-1 ring-black/20" : "border-gray-300 hover:border-gray-400"
-                              }`}
-                          >
-                            <div className="absolute left-1.5 top-1.5 z-10 px-1.5 py-0.5 rounded bg-white/90 border border-gray-200 text-[9px] text-gray-700 font-black uppercase tracking-wide flex items-center gap-1">
-                              <ImageIcon size={10} />
-                              Dosya {slotIdx + 1}
-                            </div>
-                            <img src={layer.url} alt="" className="w-full h-full object-cover" />
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const next = (sideData.logos || []).filter((l) => l.id !== layer.id);
-                                updateSide({ logos: next, activeLogoId: next[0]?.id || null });
-                              }}
-                              className="absolute right-1.5 top-1.5 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center"
-                              aria-label="Katmanı sil"
-                            >
-                              <X size={11} />
-                            </button>
-                          </div>
-                        );
-                      }
-
+                    if (layer) {
                       return (
-                        <div key={`slot-empty-${slotIdx}`} className="relative h-28 rounded-lg border border-dashed border-gray-300 bg-gray-50">
+                        <div
+                          key={`slot-layer-${layer.id}`}
+                          onClick={() => updateSide({ activeLogoId: layer.id })}
+                          role="button"
+                          className={`relative h-28 rounded-lg border overflow-hidden transition cursor-pointer ${selected ? "border-black ring-1 ring-black/20" : "border-gray-300 hover:border-gray-400"
+                            }`}
+                        >
+                          <div className="absolute left-1.5 top-1.5 z-10 px-1.5 py-0.5 rounded bg-white/90 border border-gray-200 text-[9px] text-gray-700 font-black uppercase tracking-wide flex items-center gap-1">
+                            <ImageIcon size={10} />
+                            Dosya {slotIdx + 1}
+                          </div>
+                          <img src={layer.url} alt="" className="w-full h-full object-cover" />
                           <button
-                            onClick={() => uploadSlotRefs.current?.[slotIdx]?.click()}
-                            disabled={!canUploadMoreLogos}
-                            className={`w-full h-full flex flex-col items-start justify-center pl-4 gap-1 ${canUploadMoreLogos ? "text-gray-600 hover:bg-gray-100" : "text-gray-400 cursor-not-allowed"
-                              }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const next = logos.filter((l) => l.id !== layer.id);
+                              updateSide({ logos: next, activeLogoId: next[0]?.id || null });
+                            }}
+                            className="absolute right-1.5 top-1.5 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center"
+                            aria-label="Katmanı sil"
                           >
-                            <Plus size={26} strokeWidth={2.8} />
-                            <span className="text-[11px] font-bold uppercase">Dosya Ekle</span>
+                            <X size={11} />
                           </button>
-                          <input
-                            ref={(el) => {
-                              uploadSlotRefs.current[slotIdx] = el;
-                            }}
-                            type="file"
-                            className="hidden"
-                            accept="image/*"
-                            disabled={!canUploadMoreLogos}
-                            onChange={async (e) => {
-                              const inputEl = e.currentTarget;
-                              const file = inputEl.files?.[0];
-                              await handleUploadFile(file);
-                              inputEl.value = "";
-                            }}
-                          />
                         </div>
                       );
-                    })}
-                  </div>
-                  <button
-                    onClick={() => {
-                      setActiveTab("editor");
-                      if (isMobileDrawer) onRequestDrawerCollapse?.();
-                    }}
-                    className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2"
-                  >
-                    <Move size={14} /> Yerleşim Paneli
-                  </button>
-                  <button
-                    onClick={handleDeleteActiveImage}
-                    disabled={!activeLogo}
-                    className={`w-full py-1.5 rounded-lg text-[10px] font-bold uppercase border flex items-center justify-center gap-2 ${activeLogo
-                      ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
-                      : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                      }`}
-                  >
-                    <Trash2 size={13} /> Seçili Dosyayı Sil
-                  </button>
-                  {!canUploadMoreLogos && (
-                    <p className="text-[10px] text-gray-500 font-semibold">Maksimum 3 görsel yüklendi.</p>
-                  )}
+                    }
+
+                    return (
+                      <div key={`slot-empty-${slotIdx}`} className="relative h-28 rounded-lg border border-dashed border-gray-300 bg-gray-50">
+                        <button
+                          onClick={() => {
+                            if (!canUploadMoreLogos) return;
+                            if (!dtfActiveForSide) {
+                              applyTextTechnique(PRINT_TECHNIQUES.DTF, { fromImageAction: true });
+                              window.setTimeout(() => uploadSlotRefs.current?.[slotIdx]?.click(), 0);
+                              return;
+                            }
+                            uploadSlotRefs.current?.[slotIdx]?.click();
+                          }}
+                          disabled={!canUploadMoreLogos}
+                          className={`w-full h-full flex flex-col items-start justify-center pl-4 gap-1 ${canUploadMoreLogos ? "text-gray-600 hover:bg-gray-100" : "text-gray-400 cursor-not-allowed"
+                            }`}
+                        >
+                          <Plus size={26} strokeWidth={2.8} />
+                          <span className="text-[11px] font-bold uppercase">Dosya Ekle</span>
+                        </button>
+                        <input
+                          ref={(el) => {
+                            uploadSlotRefs.current[slotIdx] = el;
+                          }}
+                          type="file"
+                          className="hidden"
+                          accept="image/*"
+                          disabled={!canUploadMoreLogos}
+                          onChange={async (e) => {
+                            const inputEl = e.currentTarget;
+                            const file = inputEl.files?.[0];
+                            await handleUploadFile(file);
+                            inputEl.value = "";
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
+                <button
+                  onClick={() => {
+                    setActiveTab("editor");
+                    if (isMobileDrawer) onRequestDrawerCollapse?.();
+                  }}
+                  className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2"
+                >
+                  <Move size={14} /> Yerleşim Paneli
+                </button>
+                <button
+                  onClick={handleDeleteActiveImage}
+                  disabled={!activeLogo}
+                  className={`w-full py-1.5 rounded-lg text-[10px] font-bold uppercase border flex items-center justify-center gap-2 ${activeLogo
+                    ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                    : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    }`}
+                >
+                  <Trash2 size={13} /> Seçili Dosyayı Sil
+                </button>
+                {!canUploadMoreLogos && (
+                  <p className="text-[10px] text-gray-500 font-semibold">Maksimum 3 görsel yüklendi.</p>
+                )}
               </div>
-            )}
+            </div>
           </div>
         )}
 
@@ -5476,7 +5483,13 @@ function TasarimClientContent({ isMobile }) {
     { id: "text", label: "Yazı", icon: FileText },
     { id: "upload", label: "Görsel", icon: ImageIcon },
   ];
-  const activePrintTypes = getPrintTypesForSide(activeDesign, view);
+  const activeSideKey = view === "back" ? "back" : "front";
+  const activeSideData = activeDesign?.sides?.[activeSideKey];
+  const activeSideTechnique = normalizePrintTechnique(
+    activeSideData?.customText?.technique,
+    printTypeIdsToTechnique(getPrintTypesForSide(activeDesign, activeSideKey), PRINT_TECHNIQUES.RUBBER)
+  );
+  const activePrintTypes = [techniqueToPrintTypeId(activeSideTechnique)];
   const selectedPrintTypeNames = activePrintTypes
     .map((typeId) => PRINT_TYPE_OPTIONS.find((opt) => opt.id === typeId)?.label || typeId)
     .join(" • ");
@@ -7307,12 +7320,12 @@ function TasarimClientContent({ isMobile }) {
           const mobileCollapsed = isMobile && mobilePanelMode === "collapsed";
           const mobileScale = isPrintAreaOpen
             ? mobileCollapsed
-              ? 1.02
+              ? 1.18
               : mobileExpanded
                 ? 0.78
                 : 0.9
             : mobileCollapsed
-              ? 1.18
+              ? 1.28
               : mobileExpanded
                 ? 0.82
                 : 0.96;
@@ -7642,6 +7655,10 @@ function TasarimClientContent({ isMobile }) {
                         setSceneTextFrameMode("resize");
                         setSceneSelectionVisible(false);
                         return;
+                      }
+                      if (!showPlacementPanel || editorControlTab !== "text") {
+                        setEditorControlTab("text");
+                        setShowPlacementPanel(true);
                       }
                       setSceneTextFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"));
                     }}
