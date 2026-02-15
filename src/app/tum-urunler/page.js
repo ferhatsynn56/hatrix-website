@@ -3,36 +3,12 @@
 import React, { useEffect, useMemo, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Filter, Check, X, Search, Plus } from "lucide-react";
+import { ArrowLeft, Filter, Plus } from "lucide-react";
 
 // --- FIREBASE IMPORTS ---
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, collection, onSnapshot, query } from "firebase/firestore";
-import { getAuth, signInAnonymously } from "firebase/auth";
-
-// --- FIREBASE AYARLARI ---
-const firebaseConfig = {
-  apiKey: "AIzaSyDcTJHnK55GBqOuxUNtb7toIOpPffjiyc4",
-  authDomain: "hatrix-db.firebaseapp.com",
-  projectId: "hatrix-db",
-  storageBucket: "hatrix-db.firebasestorage.app",
-  messagingSenderId: "903710965804",
-  appId: "1:903710965804:web:5dc754a337a1d9d7951189",
-  measurementId: "G-C03LWY68K7",
-};
-
-function getFirebaseServicesSafe() {
-  try {
-    if (typeof window === "undefined") return { app: null, db: null, auth: null };
-    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-    return { app, db, auth };
-  } catch (e) {
-    console.error("Firebase init hatası:", e);
-    return { app: null, db: null, auth: null };
-  }
-}
+import { collection, getDocs, query } from "firebase/firestore";
+import { signInAnonymously } from "firebase/auth";
+import { db, auth } from "@/lib/firebase";
 
 // Basit kategori tahmin fonksiyonu
 function inferKategori(urun) {
@@ -83,30 +59,31 @@ function UrunlerIcerik() {
 
   // --- FIREBASE VERİ ÇEKME ---
   useEffect(() => {
-    const { db, auth } = getFirebaseServicesSafe();
-    let unsubscribe = null;
-
     async function veriCek() {
       if (!db || !auth) return;
       try {
-        await signInAnonymously(auth);
+        if (!auth.currentUser) await signInAnonymously(auth);
         const q = query(collection(db, "urunler"));
-        
-        unsubscribe = onSnapshot(q, (snapshot) => {
-          const veriler = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          setTumUrunler(veriler);
-          setYukleniyor(false);
-        });
+        const snapshot = await getDocs(q);
+        const veriler = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setTumUrunler(veriler);
+        try {
+          localStorage.setItem("tum_urunler_cache", JSON.stringify(veriler));
+        } catch {}
+        setYukleniyor(false);
       } catch (error) {
         console.error("Hata:", error);
-        setYukleniyor(false); // <--- BU SATIRI EKLEYİN
+        try {
+          const cached = JSON.parse(localStorage.getItem("tum_urunler_cache") || "[]");
+          if (Array.isArray(cached) && cached.length) setTumUrunler(cached);
+        } catch {}
+        setYukleniyor(false);
       }
     }
     veriCek();
-    return () => { if (unsubscribe) unsubscribe(); };
   }, []);
 
   // --- FİLTRELEME ---

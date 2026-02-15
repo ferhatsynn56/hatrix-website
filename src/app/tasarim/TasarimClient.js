@@ -683,13 +683,15 @@ const PRINT_TYPE_OPTIONS = [
     id: "dtf",
     label: "DTF",
     available: true,
-    info: "Detaylı ve renkli tasarımlar için uygun.",
+    previewSrc: "/urungorsel/Dosya_000.png",
+    previewAlt: "DTF örnek baskı",
   },
   {
     id: "rubber",
     label: "Rubber",
     available: true,
-    info: "Yazı odaklı, kabartı hissi veren minimal baskı.",
+    previewSrc: "/urungorsel/E4480C49-9DA3-4E0F-A0E3-2E687F51836A.PNG",
+    previewAlt: "Rubber örnek baskı",
   },
 ];
 
@@ -715,7 +717,7 @@ function PrintTypePickerCards({ selectedIds = [], onSelect, sourceLabel = "Sec",
                 if (!disabled) onSelect?.(opt.id);
               }}
               disabled={disabled}
-              className={`rounded-xl border px-2 py-2 text-left transition ${disabled
+              className={`rounded-xl border px-2 py-2 text-left transition overflow-hidden ${disabled
                 ? "cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400"
                 : selected
                   ? "border-black bg-black text-white"
@@ -723,12 +725,24 @@ function PrintTypePickerCards({ selectedIds = [], onSelect, sourceLabel = "Sec",
                 }`}
             >
               <p className="text-[11px] font-black uppercase tracking-wide">{opt.label}</p>
-              <p
-                className={`mt-1 text-[12px] font-bold leading-snug ${disabled ? "text-zinc-400" : selected ? "text-zinc-200" : "text-gray-700"
-                  }`}
-              >
-                {disabled ? "Yakinda" : opt.info}
-              </p>
+              <div className="mt-2 rounded-lg overflow-hidden border border-black/10 bg-white/70">
+                {opt.previewSrc ? (
+                  <img
+                    src={opt.previewSrc}
+                    alt={opt.previewAlt || `${opt.label} örnek`}
+                    className="w-full h-20 object-cover"
+                    loading="lazy"
+                    draggable={false}
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <div className="h-20 flex items-center justify-center text-[10px] font-bold uppercase text-zinc-500">
+                    Görsel Yok
+                  </div>
+                )}
+              </div>
             </button>
           );
         })}
@@ -1339,25 +1353,56 @@ const getModelBasePrice = (modelType) => {
   return MODEL_BASE_PRICES[safe] ?? MODEL_BASE_PRICES[DEFAULT_MODEL_TYPE] ?? 350;
 };
 
-const isChargeableLargeLogo = (logo) => {
-  if (!logo || isEmbossSticker(logo)) return false;
+const getLogoArea01 = (logo) => {
+  if (!logo) return 0;
   const box = logo.box || {};
   const w = Number(box.w);
   const h = Number(box.h);
-  if (!Number.isFinite(w) || !Number.isFinite(h)) return false;
-  return w * h >= LARGE_PRINT_AREA_THRESHOLD_01;
+  if (!Number.isFinite(w) || !Number.isFinite(h)) return 0;
+  return clamp(w * h, 0, 1);
+};
+
+const getTextArea01 = (sideData) => {
+  const t = sideData?.customText || {};
+  const rawText = String(t?.text || "").trim();
+  if (!rawText) return 0;
+  const { halfW01, halfH01 } = estimateTextHalfBounds01(t);
+  return clamp(halfW01 * 2 * halfH01 * 2, 0, 1);
+};
+
+const getPdfArea01 = (design, sideKey) => {
+  if (!design?.hasPdf || !design?.pdfFileUrl) return 0;
+  const placement = normalizePdfPlacement(design?.pdfPlacement, design?.pdfPlacement?.side || "front");
+  if ((placement?.side || "front") !== sideKey) return 0;
+  const w = Number(placement?.w);
+  const h = Number(placement?.h);
+  if (!Number.isFinite(w) || !Number.isFinite(h)) return 0;
+  return clamp(w * h, 0, 1);
+};
+
+const getSideCoverage01 = (design, sideKey) => {
+  const sideData = design?.sides?.[sideKey] || EMPTY_SIDE;
+  const logos = Array.isArray(sideData?.logos) ? sideData.logos : [];
+  const logosArea = logos.reduce((sum, logo) => sum + getLogoArea01(logo), 0);
+  const textArea = getTextArea01(sideData);
+  const pdfArea = getPdfArea01(design, sideKey);
+  return clamp(logosArea + textArea + pdfArea, 0, 1);
 };
 
 const getLargePrintChargeSummary = (design) => {
-  const sides = design?.sides || {};
+  const sideCoverage = {};
   let count = 0;
+
   UI_SIDES.forEach((sideKey) => {
-    const logos = Array.isArray(sides?.[sideKey]?.logos) ? sides[sideKey].logos : [];
-    count += logos.filter(isChargeableLargeLogo).length;
+    const coverage01 = getSideCoverage01(design, sideKey);
+    sideCoverage[sideKey] = coverage01;
+    if (coverage01 >= LARGE_PRINT_AREA_THRESHOLD_01) count += 1;
   });
+
   return {
     count,
     amount: count * LARGE_PRINT_EXTRA_PRICE,
+    sideCoverage,
   };
 };
 
@@ -4861,7 +4906,7 @@ function EditorPanel({
             {largePrintSummary.count > 0 && (
               <div className="flex justify-between items-center mt-1">
                 <span className="text-[10px] font-bold uppercase text-zinc-500">
-                  Büyük Baskı ({largePrintSummary.count}×)
+                  Baskı Alanı Ekstra ({largePrintSummary.count}×)
                 </span>
                 <span className="text-xs font-mono text-zinc-300">+{formatMoney(largePrintSummary.amount)} ₺</span>
               </div>
@@ -5332,6 +5377,7 @@ function TasarimClientContent({ isMobile }) {
   const [drawerMaxClosed, setDrawerMaxClosed] = useState(500);
   const drawerYRef = useRef(0);
   const dragState = useRef({ dragging: false, moved: false, startY: 0, startDrawerY: 0 });
+  const suppressDrawerHandleClickRef = useRef(false);
   const getMobileSnapYs = React.useCallback(
     (sheetHeight, viewportHeight) => {
       const vh = viewportHeight || (typeof window !== "undefined" ? window.innerHeight : 0);
@@ -5680,6 +5726,13 @@ function TasarimClientContent({ isMobile }) {
       setDrawerMenuOpen(false);
     }
   }, [mobilePrimaryTab]);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    if (mobilePanelMode === "collapsed") {
+      setDrawerMenuOpen(false);
+    }
+  }, [isMobile, mobilePanelMode]);
 
   useEffect(() => {
     if (drawerMenuOpen) {
@@ -6032,7 +6085,9 @@ function TasarimClientContent({ isMobile }) {
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
         const previewMockup = mockupFiles.front || mockupFiles[activeSides[0][0]] || null;
-        const launchPrice = getPrice(d);
+        const pricingSummary = getLargePrintChargeSummary(d);
+        const basePrice = getModelBasePrice(d.modelType);
+        const launchPrice = basePrice + pricingSummary.amount;
         const listPrice = getListPriceBeforeLaunchDiscount(launchPrice);
         const rubberSpecsBySide = buildRubberSpecsBySide(d);
         const textTechniqueBySide = {};
@@ -6078,6 +6133,13 @@ function TasarimClientContent({ isMobile }) {
             textTechniqueBySide,
             imageTechniquesBySide,
             sides: d.sides,
+            pricing: {
+              basePrice,
+              largePrintCharge: pricingSummary.amount,
+              largePrintCount: pricingSummary.count,
+              sideCoverage: pricingSummary.sideCoverage,
+              finalPrice: launchPrice,
+            },
           },
         };
 
@@ -6169,6 +6231,8 @@ function TasarimClientContent({ isMobile }) {
   }, [drawerY]);
 
   const onDrawerPointerDown = (e) => {
+    if (!isMobile) return;
+    e.preventDefault();
     dragState.current.dragging = true;
     dragState.current.moved = false;
     dragState.current.startY = e.clientY;
@@ -6193,6 +6257,10 @@ function TasarimClientContent({ isMobile }) {
     window.removeEventListener("pointermove", onDrawerPointerMove);
     window.removeEventListener("pointerup", onDrawerPointerUp);
     if (!moved) {
+      suppressDrawerHandleClickRef.current = true;
+      window.setTimeout(() => {
+        suppressDrawerHandleClickRef.current = false;
+      }, 180);
       toggleDrawer();
       return;
     }
@@ -6205,6 +6273,19 @@ function TasarimClientContent({ isMobile }) {
     setMobileSheetSnapIndex(nearestIndex);
     setDrawerOpen(nearestIndex > 0);
   };
+
+  const handleMobileDrawerHandleClick = (e) => {
+    e.stopPropagation();
+    if (suppressDrawerHandleClickRef.current) return;
+    toggleDrawer();
+  };
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener("pointermove", onDrawerPointerMove);
+      window.removeEventListener("pointerup", onDrawerPointerUp);
+    };
+  }, []);
 
   const openDrawer = () => {
     if (isMobile) {
@@ -6317,14 +6398,6 @@ function TasarimClientContent({ isMobile }) {
   const activeBottomTab = mobilePrimaryTab === "design" ? "tasarla" : mobilePrimaryTab;
   const showDesignControls = isMobile && activeBottomTab === "tasarla" && mobilePanelMode === "design";
   const showPrintTypes = isMobile && activeBottomTab === "tasarla" && mobilePanelMode === "design";
-  if (isMobile) {
-    console.log("[mobile-panel]", {
-      mode: mobilePanelMode,
-      activeBottomTab,
-      showDesignControls,
-      showPrintTypes,
-    });
-  }
   const mobileToolbarItems = [
     { id: "model", label: "Model", icon: Layers },
     { id: "design", label: "Tasarla", icon: Pencil },
@@ -7765,16 +7838,28 @@ function TasarimClientContent({ isMobile }) {
               {isMobile ? (
                 <>
                   <div
-                    className="relative z-[20] mt-[10px] px-4 pt-[14px] pb-[12px] bg-[#eef0f4] border-t border-black/10"
+                    className={`relative z-[20] mt-[10px] bg-[#eef0f4] border-t border-black/10 ${
+                      mobilePanelCollapsed ? "px-4 pt-[6px] pb-[4px]" : "px-4 pt-[14px] pb-[12px]"
+                    }`}
                   >
                     <button
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
+                      onPointerDown={(e) => {
                         e.stopPropagation();
-                        toggleDrawer();
+                        onDrawerPointerDown(e);
+                      }}
+                      onPointerUp={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        handleMobileDrawerHandleClick(e);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleMobileDrawerHandleClick(e);
+                        }
                       }}
                       className="absolute left-1/2 top-[-18px] -translate-x-1/2 w-11 h-9 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 flex items-center justify-center z-[30] shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
                       aria-label="Alt panel yüksekliğini değiştir"
+                      style={{ touchAction: "none" }}
                     >
                       {mobilePanelCollapsed ? (
                         <ChevronUp size={14} strokeWidth={2.5} />
@@ -7783,7 +7868,7 @@ function TasarimClientContent({ isMobile }) {
                       )}
                     </button>
 
-                    {showDesignControls && (
+                    {showDesignControls && !mobilePanelCollapsed && (
                       <>
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-[12px] font-black uppercase tracking-[0.14em] text-gray-700">Tasarla</p>

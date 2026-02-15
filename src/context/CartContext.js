@@ -149,12 +149,26 @@ const stripHeavyItemForStorage = (item) => {
   return safe;
 };
 
+const normalizeCartItem = (item, index = 0) => {
+  const safe = item || {};
+  return {
+    ...safe,
+    id: safe.id || `cart_${Date.now()}_${index}`,
+    name: safe.name || safe.isim || `Urun ${index + 1}`,
+    price: Number(safe.price ?? safe.fiyat ?? 0),
+    image: safe.image || safe.resim || safe.preview || null,
+    size: safe.size || safe.beden || "M",
+    color: safe.color || safe.renk || "Standart",
+    quantity: Math.max(1, Number(safe.quantity || 1)),
+  };
+};
+
 export function CartProvider({ children }) {
   const [cart, setCart] = useState([]);
 
   useEffect(() => {
     const saved = safeParse(localStorage.getItem("cart") || "[]", []);
-    setCart(Array.isArray(saved) ? saved : []);
+    setCart(Array.isArray(saved) ? saved.map((item, idx) => normalizeCartItem(item, idx)) : []);
   }, []);
 
   useEffect(() => {
@@ -172,7 +186,7 @@ export function CartProvider({ children }) {
   }, [cart]);
 
   const addToCart = (item) => {
-    setCart((prev) => [...prev, { ...item, quantity: item.quantity || 1 }]);
+    setCart((prev) => [...prev, normalizeCartItem(item, prev.length)]);
   };
 
   const removeFromCart = (id) => setCart((prev) => prev.filter((i) => i.id !== id));
@@ -191,12 +205,21 @@ export function CartProvider({ children }) {
     // Upload + normalize items
     const normalizedItems = [];
     for (let idx = 0; idx < itemsToProcess.length; idx++) {
-      const item = itemsToProcess[idx];
+      const item = itemsToProcess[idx] || {};
+      const normalizedBase = {
+        id: item.id || `item_${idx + 1}`,
+        name: item.name || item.isim || `Urun ${idx + 1}`,
+        price: Number(item.price ?? item.fiyat ?? 0),
+        size: item.size || item.beden || "M",
+        color: item.color || item.renk || "Standart",
+        quantity: Math.max(1, Number(item.quantity || 1)),
+        image: item.image || item.resim || item.preview || null,
+      };
       const dd = item.designDetails || {};
 
       // 1) upload preview image (item.image)
-      const uploadedPreview = item.image
-        ? await uploadDataUrl(item.image, `orders/${orderIdSeed}/items/${idx}/preview`)
+      const uploadedPreview = normalizedBase.image
+        ? await uploadDataUrl(normalizedBase.image, `orders/${orderIdSeed}/items/${idx}/preview`)
         : null;
 
       // 2) upload printFiles
@@ -271,13 +294,15 @@ export function CartProvider({ children }) {
 
       normalizedItems.push({
         ...item,
-        image: uploadedPreview || item.image || null,
+        ...normalizedBase,
+        image: uploadedPreview || normalizedBase.image || null,
         designDetails: compactDesignDetails,
       });
     }
 
     const orderDoc = {
       createdAt: serverTimestamp(),
+      createdAtClient: Date.now(),
       status: "Hazırlanıyor",
       customer: customer || {},
       items: normalizedItems,
@@ -305,6 +330,7 @@ export function CartProvider({ children }) {
       value={{
         cart,
         total,
+        totalPrice: total,
         addToCart,
         removeFromCart,
         clearCart,

@@ -74,8 +74,18 @@ export default function OdemeSayfasi() {
   }, [cart, user, router]);
 
   const sourceItems = cart.length > 0 ? cart : checkoutItems;
+  const normalizedSourceItems = sourceItems.map((item, index) => ({
+    id: item?.id || `itm_${index}`,
+    name: item?.name || item?.isim || `Ürün ${index + 1}`,
+    price: Number(item?.price ?? item?.fiyat ?? 0),
+    size: item?.size || item?.beden || "M",
+    color: item?.color || item?.renk || "Standart",
+    quantity: Math.max(1, Number(item?.quantity || 1)),
+    image: item?.image || item?.resim || item?.preview || "https://placehold.co/100x100",
+    designDetails: item?.designDetails,
+  }));
 
-  const sepetToplami = sourceItems.reduce(
+  const sepetToplami = normalizedSourceItems.reduce(
     (total, item) => total + Number(item.price || 0) * Number(item.quantity || 1),
     0
   );
@@ -97,39 +107,75 @@ export default function OdemeSayfasi() {
 
   // ÖDEME İŞLEMİ
   const odemeyiTamamla = async () => {
-    if(!form.adSoyad || !form.adres || !form.kartNo) {
-        setHataMesaji("Lütfen tüm alanları doldurunuz.");
-        return;
+    if (!form.adSoyad || !form.adres || !form.sehir || !form.telefon || !form.kartNo || !form.skt || !form.cvv) {
+      setHataMesaji("Lütfen tüm alanları doldurunuz.");
+      return;
+    }
+
+    if (normalizedSourceItems.length === 0) {
+      setHataMesaji("Sepetiniz boş.");
+      return;
     }
 
     setIslemSuruyor(true);
     setHataMesaji('');
 
     try {
-        // 1. ÖDEME SİMÜLASYONU (Burası banka API'sine gider)
-        await new Promise(resolve => setTimeout(resolve, 2000)); // 2 saniye bekle
+      const paymentPayload = {
+        kartBilgileri: {
+          adSoyad: form.adSoyad,
+          kartNo: form.kartNo,
+          skt: form.skt,
+          cvv: form.cvv,
+        },
+        sepet: normalizedSourceItems.map((item, index) => ({
+          id: item.id || `itm-${index + 1}`,
+          name: item.name || `Urun ${index + 1}`,
+          price: Number(item.price || 0),
+          quantity: Math.max(1, Number(item.quantity || 1)),
+          modelType: item?.designDetails?.model || item?.designDetails?.modelType || item?.modelType || null,
+          designDetails: item?.designDetails || null,
+        })),
+        tutar: Number(orderTotal.toFixed(2)),
+        musteri: {
+          adSoyad: form.adSoyad,
+          adres: form.adres,
+          sehir: form.sehir,
+          telefon: form.telefon,
+          email: user?.email || "",
+        },
+      };
 
-        // 2. SİPARİŞİ KAYDET (Context üzerinden - GÜVENLİ)
-        const musteriBilgileri = {
-            adSoyad: form.adSoyad,
-            adres: form.adres,
-            sehir: form.sehir,
-            telefon: form.telefon,
-            odemeYontemi: "Kredi Kartı"
-        };
+      const paymentResponse = await fetch("/api/odeme", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(paymentPayload),
+      });
 
-        const usingCheckoutFlow = cart.length === 0 && checkoutItems.length > 0;
-        const sonuc = usingCheckoutFlow
-          ? await completeOrderWithItems(checkoutItems, musteriBilgileri)
-          : await completeOrder(musteriBilgileri);
+      const paymentJson = await paymentResponse.json();
+      if (!paymentResponse.ok || !paymentJson?.success) {
+        throw new Error(paymentJson?.message || "Ödeme işlemi başarısız.");
+      }
 
-        if (usingCheckoutFlow) setCheckoutItems([]);
-        clearCheckoutData();
-        clearCart();
+      const musteriBilgileri = {
+        adSoyad: form.adSoyad,
+        adres: form.adres,
+        sehir: form.sehir,
+        telefon: form.telefon,
+        odemeYontemi: "Kredi Kartı",
+      };
 
-        
-        console.log("completeOrder sonucu:", sonuc);
-        router.push('/');
+      const usingCheckoutFlow = cart.length === 0 && checkoutItems.length > 0;
+      const sonuc = usingCheckoutFlow
+        ? await completeOrderWithItems(checkoutItems, musteriBilgileri)
+        : await completeOrder(musteriBilgileri);
+
+      if (usingCheckoutFlow) setCheckoutItems([]);
+      clearCheckoutData();
+      clearCart();
+
+      console.log("completeOrder sonucu:", sonuc);
+      router.push('/');
 
     } catch (error) {
         console.error("Ödeme hatası:", error);
@@ -253,10 +299,10 @@ export default function OdemeSayfasi() {
                     </h2>
                     
                     <div className="space-y-4 mb-6 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
-                        {sourceItems.length === 0 ? (
+                        {normalizedSourceItems.length === 0 ? (
                             <p className="text-sm text-gray-400 text-center py-4">Sepetiniz boş.</p>
                         ) : (
-                            sourceItems.map((urun, index) => (
+                            normalizedSourceItems.map((urun, index) => (
                                 <div key={index} className="flex gap-3">
                                     <div className="w-14 h-14 rounded-lg bg-gray-100 overflow-hidden border border-gray-200 flex-shrink-0">
                                         <img src={urun.image || "https://placehold.co/100x100"} className="w-full h-full object-cover" alt=""/>
@@ -300,7 +346,7 @@ export default function OdemeSayfasi() {
 
                     <button 
                         onClick={odemeyiTamamla}
-                        disabled={islemSuruyor || sourceItems.length === 0}
+                        disabled={islemSuruyor || normalizedSourceItems.length === 0}
                         className="w-full bg-black text-white py-4 rounded-xl font-bold shadow-lg hover:bg-gray-800 transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                         {islemSuruyor ? (

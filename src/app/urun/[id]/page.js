@@ -149,9 +149,17 @@ export default function UrunDetayPage() {
         try {
             await addToCart({
                 id: product.id,
+                name: product.isim,
                 isim: product.isim,
+                price: Number(product.fiyat || 0),
                 fiyat: product.fiyat,
+                image: product.resim,
                 resim: product.resim,
+                size: selectedSize || "M",
+                beden: selectedSize || "M",
+                color: selectedColor?.name || selectedColor?.hex || product.renk || "Standart",
+                renk: selectedColor?.name || selectedColor?.hex || product.renk || "Standart",
+                quantity: 1,
                 kategori: product.kategori,
                 koleksiyon: product.koleksiyon,
                 modelKodu: product.modelKodu,

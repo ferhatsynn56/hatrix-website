@@ -4,14 +4,17 @@ import React from 'react';
 import { useCart } from '@/context/CartContext'; // Context'i çekiyoruz
 import { Trash2, ArrowLeft, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 const FREE_SHIPPING_THRESHOLD = 1500;
 const SHIPPING_FEE = 70;
 
 export default function SepetSayfasi() {
-    const { cart, removeFromCart, totalPrice } = useCart();
-    const shippingPrice = totalPrice >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
-    const finalTotal = totalPrice + shippingPrice;
+    const router = useRouter();
+    const { cart, removeFromCart, totalPrice, total } = useCart();
+    const safeTotal = Number(totalPrice ?? total ?? 0);
+    const shippingPrice = safeTotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+    const finalTotal = safeTotal + shippingPrice;
 
     // --- BOŞ SEPET GÖRÜNÜMÜ ---
     if (cart.length === 0) {
@@ -63,7 +66,7 @@ export default function SepetSayfasi() {
 
                             {/* Sil Butonu */}
                             <button
-                                onClick={() => removeFromCart(item.id, item.size)}
+                                onClick={() => removeFromCart(item.id)}
                                 className="p-3 bg-zinc-800 rounded-full text-zinc-400 hover:text-red-500 hover:bg-zinc-700 transition"
                             >
                                 <Trash2 size={18} />
@@ -79,7 +82,7 @@ export default function SepetSayfasi() {
 
                         <div className="flex justify-between items-center mb-4 text-sm text-zinc-400">
                             <span>Ara Toplam</span>
-                            <span className="text-white font-mono">₺{totalPrice.toFixed(2)}</span>
+                            <span className="text-white font-mono">₺{safeTotal.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between items-center mb-6 text-sm text-zinc-400">
                             <span>Kargo</span>
@@ -95,7 +98,10 @@ export default function SepetSayfasi() {
                             <span className="text-red-500 font-mono">₺{finalTotal.toFixed(2)}</span>
                         </div>
 
-                        <button className="w-full bg-white text-black py-4 rounded-xl font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+                        <button
+                            onClick={() => router.push('/odeme')}
+                            className="w-full bg-white text-black py-4 rounded-xl font-black uppercase tracking-[0.2em] hover:bg-zinc-200 transition shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+                        >
                             Ödemeye Geç
                         </button>
 

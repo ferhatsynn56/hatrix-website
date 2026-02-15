@@ -48,7 +48,7 @@ export default function UrunYonetimi() {
     isim: '',
     fiyat: '',
     kategori: 'tshirt', // Küçük harf (URL uyumu için)
-    koleksiyon: 'steni',
+    koleksiyon: 'ozel',
     modelKodu: '',
     renk: '',
     stok: 0,
@@ -62,7 +62,7 @@ export default function UrunYonetimi() {
       isim: urun?.isim || '',
       fiyat: String(urun?.fiyat ?? ''),
       kategori: urun?.kategori || 'tshirt',
-      koleksiyon: urun?.koleksiyon || 'steni',
+      koleksiyon: urun?.koleksiyon || 'ozel',
       modelKodu: baseModel,
       renk: '',
       stok: Number(urun?.stok ?? 0),
@@ -129,7 +129,7 @@ export default function UrunYonetimi() {
         isim: yeniUrun.isim,
         fiyat: Number(yeniUrun.fiyat),
         kategori: yeniUrun.kategori,
-        koleksiyon: yeniUrun.koleksiyon,
+        koleksiyon: "ozel",
         modelKodu: finalModelKodu,
         renk: String(yeniUrun.renk || '').trim(),
         stok: Number(yeniUrun.stok || 0),
@@ -139,7 +139,7 @@ export default function UrunYonetimi() {
       });
 
       alert("Ürün Başarıyla Eklendi!");
-      setYeniUrun({ isim: '', fiyat: '', kategori: 'tshirt', koleksiyon: 'steni', modelKodu: '', renk: '', stok: 0, aktif: true, resim: '' }); // Formu temizle
+      setYeniUrun({ isim: '', fiyat: '', kategori: 'tshirt', koleksiyon: 'ozel', modelKodu: '', renk: '', stok: 0, aktif: true, resim: '' }); // Formu temizle
       verileriGetir(); // Listeyi yenile
     } catch (error) {
       if (error?.code === 'permission-denied') {
@@ -166,6 +166,28 @@ export default function UrunYonetimi() {
     }
   };
 
+  const steniUrunleriniTemizle = async () => {
+    const steniDocs = urunler.filter((u) => String(u?.koleksiyon || "").toLowerCase() === "steni");
+    if (!steniDocs.length) {
+      alert("Silinecek STENI ürünü yok.");
+      return;
+    }
+    if (!confirm(`Toplam ${steniDocs.length} adet STENI ürünü kalıcı olarak silinecek. Emin misin?`)) return;
+    try {
+      for (const urun of steniDocs) {
+        // eslint-disable-next-line no-await-in-loop
+        await deleteDoc(doc(db, "urunler", urun.id));
+      }
+      alert(`${steniDocs.length} adet STENI ürünü silindi.`);
+      verileriGetir();
+    } catch (error) {
+      console.error(error);
+      if (error?.code === 'permission-denied') {
+        setHataMesaji("Firestore izin hatası: STENI ürünlerini silme yetkisi yok. (Rules)");
+      }
+    }
+  };
+
   // --- GÜNCELLEME ---
   const urunGuncelle = async (id) => {
     const isimEl = document.getElementById(`edit-isim-${id}`);
@@ -186,7 +208,7 @@ export default function UrunYonetimi() {
     const isim = isimEl.value;
     const fiyat = fiyatEl.value;
     const kategori = kategoriEl.value;
-    const koleksiyon = koleksiyonEl.value;
+    const koleksiyon = "ozel";
     const modelKodu = modelKoduEl.value;
     const renk = renkEl.value;
     const stok = stokEl.value;
@@ -219,6 +241,23 @@ export default function UrunYonetimi() {
   return (
     <AdminShell title="Ürün Yönetimi">
       <div className="max-w-7xl mx-auto">
+        {(() => {
+          const steniCount = urunler.filter((u) => String(u?.koleksiyon || "").toLowerCase() === "steni").length;
+          return steniCount > 0 ? (
+            <div className="mb-4 p-3 rounded-xl border border-red-900/30 bg-red-950/20 flex items-center justify-between gap-3">
+              <p className="text-xs text-red-200">
+                {steniCount} adet STENI ürün bulundu. Sadece tasarım akışı kullanılacaksa temizleyebilirsin.
+              </p>
+              <button
+                type="button"
+                onClick={steniUrunleriniTemizle}
+                className="px-3 py-2 rounded-lg border border-red-500/50 bg-red-600/20 text-red-100 text-[10px] font-black uppercase tracking-widest hover:bg-red-600/35 transition"
+              >
+                STENI Ürünlerini Sil
+              </button>
+            </div>
+          ) : null;
+        })()}
         {hataMesaji && (
           <div className="mb-6 p-4 rounded-2xl border border-red-900/40 bg-red-950/20 text-red-200 text-xs leading-relaxed">
             {hataMesaji}
@@ -283,14 +322,9 @@ export default function UrunYonetimi() {
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-zinc-500 mb-1 uppercase tracking-widest">Koleksiyon</label>
-                  <select
-                    className="w-full bg-black border border-zinc-700 rounded-lg p-3 text-sm focus:border-white outline-none transition text-white"
-                    value={yeniUrun.koleksiyon}
-                    onChange={e => setYeniUrun({ ...yeniUrun, koleksiyon: e.target.value })}
-                  >
-                    <option value="steni">STENI (Mağaza)</option>
-                    <option value="ozel">ÖZEL (Tasarım)</option>
-                  </select>
+                  <div className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-3 text-sm text-zinc-300">
+                    ÖZEL (Tasarım)
+                  </div>
                 </div>
               </div>
 
@@ -389,8 +423,7 @@ export default function UrunYonetimi() {
                         <input type="url" defaultValue={urun.resim || ''} id={`edit-resim-${urun.id}`} className="bg-black border border-zinc-600 rounded px-3 py-2 text-xs text-white sm:col-span-2 col-span-1" placeholder="Resim Linki" />
                         <input type="number" defaultValue={urun.fiyat} id={`edit-fiyat-${urun.id}`} className="bg-black border border-zinc-600 rounded px-3 py-2 text-xs text-white" placeholder="Fiyat" />
                         <input type="number" defaultValue={urun.stok ?? 0} id={`edit-stok-${urun.id}`} className="bg-black border border-zinc-600 rounded px-3 py-2 text-xs text-white" placeholder="Stok" />
-                        <select defaultValue={urun.koleksiyon} id={`edit-koleksiyon-${urun.id}`} className="bg-black border border-zinc-600 rounded px-3 py-2 text-xs text-white">
-                           <option value="steni">STENI</option>
+                        <select defaultValue={urun.koleksiyon} id={`edit-koleksiyon-${urun.id}`} className="bg-black border border-zinc-600 rounded px-3 py-2 text-xs text-white" disabled>
                            <option value="ozel">ÖZEL</option>
                         </select>
                         <select defaultValue={urun.kategori} id={`edit-kategori-${urun.id}`} className="bg-black border border-zinc-600 rounded px-3 py-2 text-xs text-white">

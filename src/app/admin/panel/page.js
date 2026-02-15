@@ -62,7 +62,11 @@ const roundTo = (v, digits = 2) => {
 const formatDate = (ts) => {
   try {
     if (!ts) return "";
-    const d = ts?.toDate ? ts.toDate() : new Date(ts);
+    const asSeconds =
+      typeof ts === "object" && ts !== null && Number.isFinite(Number(ts.seconds))
+        ? Number(ts.seconds) * 1000
+        : null;
+    const d = ts?.toDate ? ts.toDate() : new Date(asSeconds || ts);
     return d.toLocaleString("tr-TR", {
       day: "numeric",
       month: "long",
@@ -78,6 +82,9 @@ const formatDate = (ts) => {
 const getMillis = (ts) => {
   try {
     if (!ts) return 0;
+    if (typeof ts === "object" && ts !== null && Number.isFinite(Number(ts.seconds))) {
+      return Number(ts.seconds) * 1000;
+    }
     if (typeof ts.toMillis === "function") return ts.toMillis();
     if (typeof ts.toDate === "function") return ts.toDate().getTime();
     const d = new Date(ts);
@@ -87,6 +94,15 @@ const getMillis = (ts) => {
     return 0;
   }
 };
+
+const resolveOrderDateValue = (order) =>
+  order?.createdAt ||
+  order?.createdAtClient ||
+  order?.paymentDate ||
+  order?.updatedAt ||
+  order?.tarih ||
+  order?.date ||
+  null;
 
 const safeFileName = (name) => {
   return String(name || "dosya")
@@ -273,7 +289,7 @@ export default function AdminOrdersPage() {
         const q = query(collection(db, "siparisler"), orderBy("createdAt", "desc"));
         const snapshot = await getDocs(q);
         const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-        list.sort((a, b) => getMillis(b.createdAt) - getMillis(a.createdAt));
+        list.sort((a, b) => getMillis(resolveOrderDateValue(b)) - getMillis(resolveOrderDateValue(a)));
         setOrders(list);
       } catch (error) {
         console.error("Siparişler çekilemedi:", error);
@@ -337,7 +353,7 @@ export default function AdminOrdersPage() {
           {orders.map((order) => {
             const items = order.items || [];
             const totalPrice = items.reduce(
-              (sum, it) => sum + Number(it.price || 0) * Number(it.quantity || 1),
+              (sum, it) => sum + Number(it.price ?? it.fiyat ?? 0) * Number(it.quantity || 1),
               0
             );
             const isExpanded = expandedOrderId === order.id;
@@ -360,7 +376,7 @@ export default function AdminOrdersPage() {
                         {order.id.slice(0, 8)}...
                       </span>
                       <span className="text-xs font-bold text-zinc-300">
-                        Tarih: {formatDate(order.createdAt) || "-"}
+                        Tarih: {formatDate(resolveOrderDateValue(order)) || "-"}
                       </span>
                     </div>
                     <h2 className="text-lg font-bold text-white">
@@ -402,6 +418,10 @@ export default function AdminOrdersPage() {
                           TESLİMAT BİLGİLERİ
                         </h3>
                         <div className="space-y-2 text-sm text-zinc-300">
+                          <p>
+                            <span className="text-zinc-500 block text-xs mb-0.5">Sipariş Tarihi:</span>{" "}
+                            {formatDate(resolveOrderDateValue(order)) || "-"}
+                          </p>
                           <p>
                             <span className="text-zinc-500 block text-xs mb-0.5">Müşteri:</span>{" "}
                             {order.customer?.adSoyad || "-"}
@@ -465,9 +485,10 @@ export default function AdminOrdersPage() {
                               : extractUserUploadsFromSides(dd);
 
                           // ✅ ana görsel: front mockup > herhangi mockup > item.image
-                          const mainPreview = mockupFiles.front || pickAny(mockupFiles) || item.image || null;
+                          const mainPreview =
+                            mockupFiles.front || pickAny(mockupFiles) || item.image || item.resim || null;
 
-                          const itemName = safeFileName(item.name || `urun_${idx + 1}`);
+                          const itemName = safeFileName(item.name || item.isim || `urun_${idx + 1}`);
                           const orderShort = order.id.slice(0, 8);
 
                           return (
@@ -504,13 +525,13 @@ export default function AdminOrdersPage() {
                                     )}
                                   </div>
 
-                                  <h4 className="text-lg font-bold text-white">{item.name}</h4>
+                                  <h4 className="text-lg font-bold text-white">{item.name || item.isim || `Ürün ${idx + 1}`}</h4>
                                   <div className="flex gap-4 text-xs text-zinc-400 mt-1">
                                     <span>
-                                      Beden: <b className="text-white">{item.size}</b>
+                                      Beden: <b className="text-white">{item.size || item.beden || "-"}</b>
                                     </span>
                                     <span>
-                                      Renk: <b className="text-white">{item.color}</b>
+                                      Renk: <b className="text-white">{item.color || item.renk || "-"}</b>
                                     </span>
                                     <span>
                                       Adet: <b className="text-white">{item.quantity}</b>
