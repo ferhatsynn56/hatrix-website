@@ -508,6 +508,8 @@ const PANEL_BG_COLOR = "#e8e8e8";
 const PANEL_BORDER_COLOR = "#d0d0d0";
 const DESKTOP_DRAWER_HEIGHT = 312;
 const DESKTOP_DRAWER_PEEK = 82;
+const MOBILE_TOOLBAR_HEIGHT = 76;
+const MOBILE_SHEET_SNAP_RATIOS = Object.freeze([0.28, 0.55, 0.85]);
 const MAX_LOGOS_PER_SIDE = 3;
 const LEFT_PRINT_AREA_WIDTH = 420;
 const LEFT_PRINT_AREA_GAP = 0;
@@ -4792,7 +4794,9 @@ function TasarimClientContent({ isMobile }) {
   const router = useRouter();
 
   // ✅ activeTab artık burada (hata bitti)
-  const [activeTab, setActiveTab] = useState("color");
+  const [activeTab, setActiveTab] = useState("print");
+  const [mobilePrimaryTab, setMobilePrimaryTab] = useState("design");
+  const [mobileSheetSnapIndex, setMobileSheetSnapIndex] = useState(1);
   const [forceEditorOverlay, setForceEditorOverlay] = useState(false);
   const [drawerMenuOpen, setDrawerMenuOpen] = useState(false);
   const [drawerMenuMounted, setDrawerMenuMounted] = useState(false);
@@ -5164,6 +5168,31 @@ function TasarimClientContent({ isMobile }) {
   const [drawerMaxClosed, setDrawerMaxClosed] = useState(500);
   const drawerYRef = useRef(0);
   const dragState = useRef({ dragging: false, moved: false, startY: 0, startDrawerY: 0 });
+  const getMobileSnapYs = React.useCallback(
+    (sheetHeight, viewportHeight) => {
+      const vh = viewportHeight || (typeof window !== "undefined" ? window.innerHeight : 0);
+      const h = sheetHeight || drawerHeight;
+      const maxY = Math.max(0, h - DRAWER_PEEK);
+      return MOBILE_SHEET_SNAP_RATIOS.map((ratio) => clamp(h - vh * ratio, MAX_OPEN, maxY));
+    },
+    [DRAWER_PEEK, MAX_OPEN, MOBILE_SHEET_SNAP_RATIOS, drawerHeight]
+  );
+  const resolveNearestMobileSnapIndex = React.useCallback(
+    (nextY, snapYs) => {
+      if (!Array.isArray(snapYs) || !snapYs.length) return 1;
+      let nearest = 0;
+      let minDiff = Number.POSITIVE_INFINITY;
+      snapYs.forEach((snapY, idx) => {
+        const diff = Math.abs(snapY - nextY);
+        if (diff < minDiff) {
+          minDiff = diff;
+          nearest = idx;
+        }
+      });
+      return nearest;
+    },
+    []
+  );
 
   useEffect(() => {
     document.documentElement.style.backgroundColor = SCENE_BG_COLOR;
@@ -5219,7 +5248,9 @@ function TasarimClientContent({ isMobile }) {
     setSelectedModelType(restored[0].modelType);
     setView("front");
     setFlowStep("design");
-    setActiveTab("upload");
+    setActiveTab("print");
+    setMobilePrimaryTab("design");
+    setMobileSheetSnapIndex(1);
     setForceEditorOverlay(false);
     setPickerOpen(false);
     setDrawerMenuOpen(false);
@@ -5267,6 +5298,46 @@ function TasarimClientContent({ isMobile }) {
     }
     setActiveTab(DRAWER_TABS[(tabIndex + 1) % DRAWER_TABS.length]);
   };
+  const handleSelectMobilePrimaryTab = (tabId) => {
+    if (!isMobile) return;
+    if (tabId === "model") {
+      setMobilePrimaryTab("model");
+      setMobileSheetSnapIndex(1);
+      return;
+    }
+    if (tabId === "color") {
+      setMobilePrimaryTab("color");
+      setActiveTab("color");
+      setMobileSheetSnapIndex(1);
+      return;
+    }
+    setMobilePrimaryTab("design");
+    if (activeTab === "color") {
+      setActiveTab(hasDtfForActiveSide ? "upload" : "print");
+    }
+    setMobileSheetSnapIndex(1);
+  };
+
+  const activateDesignTool = (toolId) => {
+    if (toolId === "upload") {
+      if (!hasDtfForActiveSide) {
+        setActiveTab("print");
+        return;
+      }
+      setActiveTab("upload");
+      return;
+    }
+    if (toolId === "text") {
+      setActiveTab("text");
+      return;
+    }
+    if (toolId === "editor") {
+      setActiveTab("editor");
+      return;
+    }
+    setActiveTab("print");
+  };
+
   const openPrintTypePickerFromHeader = () => {
     setSelectedModelType(activeDesign?.modelType || selectedModelType || safeInitial);
     setFlowStep("select");
@@ -5334,6 +5405,28 @@ function TasarimClientContent({ isMobile }) {
   }, [activeTab]);
 
   useEffect(() => {
+    if (!isMobile) return;
+    if (activeTab === "color") {
+      setMobilePrimaryTab((prev) => (prev === "color" ? prev : "color"));
+      return;
+    }
+    if (["print", "text", "upload", "editor"].includes(activeTab)) {
+      setMobilePrimaryTab((prev) => (prev === "design" ? prev : "design"));
+    }
+  }, [isMobile, activeTab]);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    if (mobilePrimaryTab === "color" && activeTab !== "color") {
+      setActiveTab("color");
+      return;
+    }
+    if (mobilePrimaryTab === "design" && activeTab === "color") {
+      setActiveTab(hasDtfForActiveSide ? "upload" : "print");
+    }
+  }, [isMobile, mobilePrimaryTab, activeTab, hasDtfForActiveSide]);
+
+  useEffect(() => {
     if (activeTab === "upload" && !hasDtfForActiveSide) {
       setActiveTab("print");
     }
@@ -5360,6 +5453,12 @@ function TasarimClientContent({ isMobile }) {
   useEffect(() => {
     if (!drawerOpen) setDrawerMenuOpen(false);
   }, [drawerOpen]);
+
+  useEffect(() => {
+    if (mobilePrimaryTab !== "design") {
+      setDrawerMenuOpen(false);
+    }
+  }, [mobilePrimaryTab]);
 
   useEffect(() => {
     if (drawerMenuOpen) {
@@ -5461,7 +5560,9 @@ function TasarimClientContent({ isMobile }) {
     setDesigns([next]);
     setActiveId(next.id);
     setView("front");
-    setActiveTab("color");
+    setActiveTab("print");
+    setMobilePrimaryTab("design");
+    setMobileSheetSnapIndex(1);
     setForceEditorOverlay(false);
     setPickerOpen(false);
     setDrawerMenuOpen(false);
@@ -5778,29 +5879,34 @@ function TasarimClientContent({ isMobile }) {
   useEffect(() => {
     if (!isMobile) return;
     const calc = () => {
-      const zoomButtonTop = activeTab === "editor" ? 182 : 238;
-      const zoomButtonApproxHeight = 86;
-      const extraOffset = isPrintAreaOpen ? 30 : 10;
-      const drawerTopLimit = zoomButtonTop + zoomButtonApproxHeight + 8;
-      const maxByZoomReference = Math.max(280, window.innerHeight - drawerTopLimit - extraOffset);
-      const h = clamp(Math.min(window.innerHeight * 0.72, 560), 280, maxByZoomReference);
-      const maxClosed = Math.max(0, h - DRAWER_PEEK);
+      const topReserved = 156;
+      const minSheetHeight = 260;
+      const maxByViewport = Math.max(minSheetHeight, window.innerHeight - topReserved - MOBILE_TOOLBAR_HEIGHT - 16);
+      const h = clamp(window.innerHeight * 0.85, minSheetHeight, maxByViewport);
+      const snapYs = getMobileSnapYs(h, window.innerHeight);
+      const maxClosed = Math.max(...snapYs);
+      const safeSnapIndex = clamp(mobileSheetSnapIndex, 0, snapYs.length - 1);
       setDrawerHeight(h);
       setDrawerMaxClosed(maxClosed);
-      setDrawerY((y) => clamp(y, MAX_OPEN, maxClosed));
+      setDrawerY(clamp(snapYs[safeSnapIndex], MAX_OPEN, maxClosed));
+      drawerYRef.current = clamp(snapYs[safeSnapIndex], MAX_OPEN, maxClosed);
     };
     calc();
     window.addEventListener("resize", calc);
     return () => window.removeEventListener("resize", calc);
-  }, [isMobile, activeTab]);
+  }, [isMobile, getMobileSnapYs, mobileSheetSnapIndex, MAX_OPEN, DRAWER_PEEK, MOBILE_TOOLBAR_HEIGHT]);
 
   // drawer behavior
   useEffect(() => {
     if (!isMobile) return;
-    const nextY = drawerOpen ? MAX_OPEN : drawerMaxClosed;
+    const snapYs = getMobileSnapYs(drawerHeight);
+    if (!snapYs.length) return;
+    const safeIndex = clamp(mobileSheetSnapIndex, 0, snapYs.length - 1);
+    const nextY = clamp(snapYs[safeIndex], MAX_OPEN, drawerMaxClosed);
     drawerYRef.current = nextY;
     setDrawerY(nextY);
-  }, [drawerOpen, isMobile, drawerMaxClosed]);
+    setDrawerOpen(safeIndex > 0);
+  }, [isMobile, drawerHeight, drawerMaxClosed, MAX_OPEN, mobileSheetSnapIndex, getMobileSnapYs]);
 
   useEffect(() => {
     drawerYRef.current = drawerY;
@@ -5826,7 +5932,6 @@ function TasarimClientContent({ isMobile }) {
 
   const onDrawerPointerUp = () => {
     const moved = dragState.current.moved;
-    const movedUpEnough = drawerYRef.current < dragState.current.startDrawerY - 20;
     dragState.current.dragging = false;
     dragState.current.moved = false;
     window.removeEventListener("pointermove", onDrawerPointerMove);
@@ -5835,28 +5940,28 @@ function TasarimClientContent({ isMobile }) {
       toggleDrawer();
       return;
     }
-    const mid = (drawerMaxClosed - MAX_OPEN) * 0.55;
-    const shouldOpen = movedUpEnough || drawerYRef.current < mid;
-    if (shouldOpen) {
-      openDrawer();
-    } else {
-      closeDrawer();
-    }
+    const snapYs = getMobileSnapYs(drawerHeight);
+    if (!snapYs.length) return;
+    const nearestIndex = resolveNearestMobileSnapIndex(drawerYRef.current, snapYs);
+    const snappedY = clamp(snapYs[nearestIndex], MAX_OPEN, drawerMaxClosed);
+    drawerYRef.current = snappedY;
+    setDrawerY(snappedY);
+    setMobileSheetSnapIndex(nearestIndex);
+    setDrawerOpen(nearestIndex > 0);
   };
 
   const openDrawer = () => {
-    // Editor modunda drawer'ı açarken tab'ı değiştirme
     if (isMobile) {
-      drawerYRef.current = MAX_OPEN;
-      setDrawerY(MAX_OPEN);
+      setMobileSheetSnapIndex(1);
+      return;
     }
     setDrawerOpen(true);
   };
 
   const closeDrawer = () => {
     if (isMobile) {
-      drawerYRef.current = drawerMaxClosed;
-      setDrawerY(drawerMaxClosed);
+      setMobileSheetSnapIndex(0);
+      return;
     }
     setDrawerOpen(false);
   };
@@ -5865,6 +5970,10 @@ function TasarimClientContent({ isMobile }) {
     dragState.current.dragging = false;
     window.removeEventListener("pointermove", onDrawerPointerMove);
     window.removeEventListener("pointerup", onDrawerPointerUp);
+    if (isMobile) {
+      setMobileSheetSnapIndex((prev) => (prev + 1) % MOBILE_SHEET_SNAP_RATIOS.length);
+      return;
+    }
     if (drawerOpen) {
       closeDrawer();
       return;
@@ -5887,6 +5996,8 @@ function TasarimClientContent({ isMobile }) {
   const switchSideAndOpenPrintPicker = (nextSide) => {
     if (nextSide !== "front" && nextSide !== "back") return;
     setView(nextSide);
+    setMobilePrimaryTab("design");
+    setMobileSheetSnapIndex(1);
     setActiveTab("print");
     setDrawerOpen(true);
     setDrawerMenuOpen(false);
@@ -5937,6 +6048,16 @@ function TasarimClientContent({ isMobile }) {
   const selectedModelTypesSet = new Set(
     (designs || []).map((d) => normalizeModelType(d?.modelType))
   );
+  const mobileSafeSheetIndex = clamp(mobileSheetSnapIndex, 0, MOBILE_SHEET_SNAP_RATIOS.length - 1);
+  const mobileSheetRatio = MOBILE_SHEET_SNAP_RATIOS[mobileSafeSheetIndex] || 0.55;
+  const mobileSheetBottomOffset = `calc(env(safe-area-inset-bottom) + ${MOBILE_TOOLBAR_HEIGHT}px)`;
+  const mobileToolbarItems = [
+    { id: "model", label: "Model", icon: Layers },
+    { id: "design", label: "Tasarla", icon: Pencil },
+    { id: "color", label: "Renk", icon: Palette },
+  ];
+  const mobileSheetTitle =
+    mobilePrimaryTab === "model" ? "Model" : mobilePrimaryTab === "color" ? "Renk" : "Tasarla";
 
   const renderPanel = (
     <EditorPanel
@@ -5947,8 +6068,8 @@ function TasarimClientContent({ isMobile }) {
       activeTab={activeTab}
       setActiveTab={setActiveTab}
       layout="drawer"
-      onRequestDrawerCollapse={() => setDrawerOpen(false)}
-      onRequestDrawerExpand={() => setDrawerOpen(true)}
+      onRequestDrawerCollapse={closeDrawer}
+      onRequestDrawerExpand={openDrawer}
       onRequestShowEditorOverlay={() => setForceEditorOverlay(true)}
       forceShowEditorOverlay={forceEditorOverlay}
       suppressEditorInPanel={!isMobile && forceEditorOverlay}
@@ -5974,45 +6095,83 @@ function TasarimClientContent({ isMobile }) {
   return (
     <div className="fixed inset-0 h-screen w-full text-white overflow-hidden font-sans" style={{ background: SCENE_BG_COLOR, overscrollBehavior: "none", touchAction: isMobile ? "pan-y" : "none" }}>
       {/* Top Header */}
-      <div className="absolute top-0 left-0 right-0 z-[90] px-4 pt-4 pb-3 flex items-start justify-between pointer-events-none">
-        <div className="flex items-start gap-3 pointer-events-auto">
-          <button
-            onClick={openPrintTypePickerFromHeader}
-            className="mt-0.5 h-8 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
-            aria-label="Model secimine don"
-          >
-            Geri
-          </button>
-          <div>
-            <p className="text-sm font-bold text-black">{MODEL_LABELS[headerDesign.modelType] || headerDesign.modelType}</p>
-            <div className="flex items-center gap-2">
-              <p className="text-[10px] text-zinc-500 line-through">{formatMoney(headerListPrice)} ₺</p>
-              <p className="text-xs font-black text-zinc-700">{formatMoney(headerLaunchPrice)} ₺</p>
-            </div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">Açılışa Özel %20 İndirim</p>
-          </div>
-        </div>
+      <div
+        className="absolute top-0 left-0 right-0 z-[90] px-4 pb-3 flex items-start justify-between pointer-events-none"
+        style={{ paddingTop: isMobile ? "calc(env(safe-area-inset-top) + 8px)" : "16px" }}
+      >
+        {isMobile ? (
+          <div className="w-full pointer-events-auto grid grid-cols-[auto_1fr_auto] items-center gap-2">
+            <button
+              onClick={openPrintTypePickerFromHeader}
+              className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
+              aria-label="Model secimine don"
+            >
+              Geri
+            </button>
 
-        <div className="flex items-center gap-2 pointer-events-auto">
-          <button
-            onClick={handleFinishCheckout}
-            disabled={loading}
-            className={`px-4 py-2 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
+            <div className="text-center min-w-0 px-1">
+              <p className="text-sm font-bold text-black truncate">
+                {MODEL_LABELS[headerDesign.modelType] || headerDesign.modelType}
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                <p className="text-[10px] text-zinc-500 line-through">{formatMoney(headerListPrice)} ₺</p>
+                <p className="text-xs font-black text-zinc-700">{formatMoney(headerLaunchPrice)} ₺</p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleFinishCheckout}
+              disabled={loading}
+              className={`h-9 px-4 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${
+                loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
               }`}
-          >
-            {loading ? "HAZIRLANIYOR..." : "BİTTİ"}
-          </button>
-        </div>
+            >
+              {loading ? "HAZIR..." : "BİTTİ"}
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-start gap-3 pointer-events-auto">
+              <button
+                onClick={openPrintTypePickerFromHeader}
+                className="mt-0.5 h-8 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
+                aria-label="Model secimine don"
+              >
+                Geri
+              </button>
+              <div>
+                <p className="text-sm font-bold text-black">{MODEL_LABELS[headerDesign.modelType] || headerDesign.modelType}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] text-zinc-500 line-through">{formatMoney(headerListPrice)} ₺</p>
+                  <p className="text-xs font-black text-zinc-700">{formatMoney(headerLaunchPrice)} ₺</p>
+                </div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">Açılışa Özel %20 İndirim</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pointer-events-auto">
+              <button
+                onClick={handleFinishCheckout}
+                disabled={loading}
+                className={`px-4 py-2 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${
+                  loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
+                }`}
+              >
+                {loading ? "HAZIRLANIYOR..." : "BİTTİ"}
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="w-full h-full relative" style={{ background: SCENE_BG_COLOR }}>
         {/* Floating Controls */}
-        {activeTab !== "editor" && (
+        {(!isMobile || activeTab !== "editor" || !showPlacementPanel) && (
           <div
             className="absolute z-[90] pointer-events-none transition-all duration-300"
             style={
               isMobile
-                ? { top: "110px", right: "4px" }
+                ? { top: "92px", right: "10px" }
                 : { bottom: controlsBottom, right: "16px" }
             }
           >
@@ -6063,7 +6222,11 @@ function TasarimClientContent({ isMobile }) {
         {isMobile && (
           <div
             className="absolute z-[90] pointer-events-auto transition-all duration-300"
-            style={{ top: activeTab === "editor" ? "182px" : "238px", right: "10px" }}
+            style={{
+              top: "50%",
+              right: "10px",
+              transform: "translateY(-50%)",
+            }}
           >
             <div className="flex flex-col gap-2 rounded-2xl border border-zinc-300 bg-white/90 backdrop-blur px-2 py-2 shadow-lg">
               <button
@@ -6151,7 +6314,7 @@ function TasarimClientContent({ isMobile }) {
               bottom: isMobile
                 ? hideMobileDrawerInEditor
                   ? "calc(env(safe-area-inset-bottom) + 2px)"
-                  : `${Math.round(visibleDrawerHeight) + 48}px`
+                  : `${Math.round(visibleDrawerHeight) + MOBILE_TOOLBAR_HEIGHT + 14}px`
                 : `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
               maxHeight: isMobile ? (hideMobileDrawerInEditor ? "48vh" : "58vh") : undefined,
             }}
@@ -6811,9 +6974,10 @@ function TasarimClientContent({ isMobile }) {
                 ? "-6%"
                 : "-12%"
             : "0%";
-          const mobileScale = isPrintAreaOpen ? (drawerOpen ? 0.78 : 0.92) : drawerOpen ? 0.8 : 0.96;
-          const mobileLeft = isPlacementPanelVisible ? "60%" : drawerOpen ? "55%" : "57%";
-          const mobileShiftY = isPlacementPanelVisible ? (drawerOpen ? "-22%" : "-18%") : drawerOpen ? "-9%" : "-4%";
+          const mobileExpanded = mobileSheetRatio >= 0.55;
+          const mobileScale = isPrintAreaOpen ? (mobileExpanded ? 0.78 : 0.9) : mobileExpanded ? 0.82 : 0.96;
+          const mobileLeft = isPlacementPanelVisible ? "60%" : mobileExpanded ? "54%" : "57%";
+          const mobileShiftY = isPlacementPanelVisible ? (mobileExpanded ? "-22%" : "-18%") : mobileExpanded ? "-10%" : "-4%";
           const minZoomDistance = !isMobile
             ? isPlacementPanelVisible
               ? 1.86
@@ -7208,65 +7372,181 @@ function TasarimClientContent({ isMobile }) {
           </div>
         )}
 
-        {/* DRAWER (MOBILE + DESKTOP) - Nike Style */}
+        {/* DRAWER (MOBILE + DESKTOP) */}
         {activeDesign && !hideMobileDrawerInEditor && (
           <div
-            className={`fixed left-0 right-0 z-[92] pointer-events-auto transition-all duration-300 ${isMobile ? "bottom-0" : "bottom-0"
-              }`}
-            style={{
-              transform: isMobile
-                ? `translateY(${drawerY}px)`
-                : drawerOpen
-                  ? "translateY(0)"
-                  : `translateY(${DESKTOP_DRAWER_HEIGHT - DESKTOP_DRAWER_PEEK}px)`,
-              transition: isMobile && dragState.current.dragging ? "none" : "transform 220ms ease",
-              maxHeight: drawerHeightStyle,
-              height: drawerHeightStyle,
-              paddingBottom: "env(safe-area-inset-bottom)",
-              backgroundColor: "#ebedf0",
-              borderTopLeftRadius: isMobile ? "24px" : "0",
-              borderTopRightRadius: isMobile ? "24px" : "0",
-              boxShadow: isMobile ? "0 -4px 20px rgba(0,0,0,0.15)" : drawerOpen ? "0 -2px 10px rgba(0,0,0,0.1)" : "none",
-            }}
+            className="fixed left-0 right-0 z-[92] pointer-events-auto transition-all duration-300"
+            style={
+              isMobile
+                ? {
+                    transform: `translateY(${drawerY}px)`,
+                    transition: dragState.current.dragging ? "none" : "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+                    maxHeight: drawerHeightStyle,
+                    height: drawerHeightStyle,
+                    bottom: mobileSheetBottomOffset,
+                    backgroundColor: "#ebedf0",
+                    borderTopLeftRadius: "20px",
+                    borderTopRightRadius: "20px",
+                    boxShadow: "0 -8px 28px rgba(0,0,0,0.18)",
+                  }
+                : {
+                    bottom: 0,
+                    transform: drawerOpen
+                      ? "translateY(0)"
+                      : `translateY(${DESKTOP_DRAWER_HEIGHT - DESKTOP_DRAWER_PEEK}px)`,
+                    transition: "transform 220ms ease",
+                    maxHeight: drawerHeightStyle,
+                    height: drawerHeightStyle,
+                    backgroundColor: "#ebedf0",
+                    boxShadow: drawerOpen ? "0 -2px 10px rgba(0,0,0,0.1)" : "none",
+                  }
+            }
           >
             <div
               className="w-full h-full overflow-x-hidden overflow-y-visible flex flex-col pointer-events-auto"
               style={{ backgroundColor: "#eef1f4" }}
             >
-              {/* Drawer Tab Navigation */}
-              <div
-                className={`relative px-3 border-b border-gray-300/80 bg-[#eceff3] ${drawerOpen ? "pt-9 pb-2" : "pt-7 pb-3"
-                  }`}
-                onPointerDown={(e) => {
-                  if (!isMobile || drawerOpen) return;
-                  onDrawerPointerDown(e);
-                }}
-                onClick={(e) => {
-                  if (!isMobile || drawerOpen) return;
-                  if (e.target?.closest?.("button")) return;
-                  openDrawer();
-                }}
-              >
-                <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-gray-400/80" />
+              {isMobile ? (
+                <>
+                  <div
+                    className="relative px-3 pt-2 pb-2 border-b border-gray-300/80 bg-[#eceff3]"
+                    onPointerDown={onDrawerPointerDown}
+                  >
+                    <button
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleDrawer();
+                      }}
+                      className="absolute left-1/2 top-0 -translate-x-1/2 w-12 h-5 rounded-b-full border-2 border-zinc-700 border-t-0 bg-white text-zinc-900 flex items-center justify-center z-40 shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
+                      aria-label="Alt panel yüksekliğini değiştir"
+                    >
+                      <span className="translate-y-[2px]">
+                        {mobileSafeSheetIndex === MOBILE_SHEET_SNAP_RATIOS.length - 1 ? (
+                          <ChevronDown size={14} strokeWidth={2.5} />
+                        ) : (
+                          <ChevronUp size={14} strokeWidth={2.5} />
+                        )}
+                      </span>
+                    </button>
 
-                <button
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleDrawer();
-                  }}
-                  className="absolute left-1/2 top-0 -translate-x-1/2 w-10 h-5 rounded-b-full border-2 border-zinc-700 border-t-0 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center z-40 shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
-                  aria-label="Paneli aç/kapa"
-                >
-                  <span className="translate-y-[3px]">
-                    {drawerOpen ? <ChevronDown size={14} strokeWidth={2.5} /> : <ChevronUp size={14} strokeWidth={2.5} />}
-                  </span>
-                </button>
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-600">{mobileSheetTitle}</p>
+                      <div className="flex items-center gap-1.5">
+                        {mobilePrimaryTab === "model" && (
+                          <button
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={() => setPickerOpen(true)}
+                            className="h-8 px-3 rounded-full border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide"
+                            aria-label="Model ekle"
+                          >
+                            + Model
+                          </button>
+                        )}
+                        {mobilePrimaryTab === "design" && (
+                          <button
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={openDrawerMenu}
+                            className="h-8 px-3 rounded-full border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center gap-1"
+                            aria-label="Kategori menüsünü aç"
+                          >
+                            <Menu size={12} />
+                            Menü
+                          </button>
+                        )}
+                      </div>
+                    </div>
 
-                {drawerOpen && (
-                  <div className="relative flex items-center justify-center min-h-[46px] w-full">
-                    {!isMobile ? (
-                      <>
+                    {mobilePrimaryTab === "design" && (
+                      <div className="grid grid-cols-3 gap-2 mt-2">
+                        <button
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={() => activateDesignTool("upload")}
+                          className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
+                        >
+                          Görsel Yükle
+                        </button>
+                        <button
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={() => activateDesignTool("text")}
+                          className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
+                        >
+                          Yazı Ekle
+                        </button>
+                        <button
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={() => activateDesignTool("editor")}
+                          className="h-10 rounded-xl border border-gray-300 bg-white text-[10px] font-black uppercase tracking-wide text-gray-800"
+                        >
+                          Yerleşim
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+                    {mobilePrimaryTab === "model" ? (
+                      <div className="p-2.5 pb-3 space-y-2.5">
+                        <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-500">Seçili Modeller</p>
+                            <span className="text-[10px] font-black uppercase text-gray-500">{designs.length} model</span>
+                          </div>
+                          <div className="space-y-2">
+                            {designs.map((designItem) => {
+                              const isCurrent = designItem.id === activeId;
+                              return (
+                                <button
+                                  key={`mobile-sheet-model-${designItem.id}`}
+                                  type="button"
+                                  onClick={() => setActiveId(designItem.id)}
+                                  className={`w-full flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left ${
+                                    isCurrent ? "border-black bg-black text-white" : "border-gray-300 bg-white text-gray-800"
+                                  }`}
+                                >
+                                  <span className="text-[11px] font-black uppercase tracking-wide truncate">
+                                    {MODEL_LABELS[designItem.modelType] || designItem.modelType}
+                                  </span>
+                                  {isCurrent && <Check size={14} />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                          <button
+                            type="button"
+                            onClick={() => setPickerOpen(true)}
+                            className="w-full h-11 rounded-lg border border-zinc-300 bg-zinc-900 text-white text-[11px] font-black uppercase tracking-wide"
+                          >
+                            + Model Ekle
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      renderPanel
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className={`relative px-3 border-b border-gray-300/80 bg-[#eceff3] ${drawerOpen ? "pt-9 pb-2" : "pt-7 pb-3"}`}>
+                    <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-gray-400/80" />
+                    <button
+                      onClick={toggleDrawer}
+                      className="absolute left-1/2 top-0 -translate-x-1/2 w-10 h-5 rounded-b-full border-2 border-zinc-700 border-t-0 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center z-40 shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
+                      aria-label="Paneli aç/kapa"
+                    >
+                      <span className="translate-y-[3px]">
+                        {drawerOpen ? <ChevronDown size={14} strokeWidth={2.5} /> : <ChevronUp size={14} strokeWidth={2.5} />}
+                      </span>
+                    </button>
+
+                    {drawerOpen && (
+                      <div className="relative flex items-center justify-center min-h-[46px] w-full">
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
                           <div
                             className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm max-w-[250px] truncate"
@@ -7277,9 +7557,7 @@ function TasarimClientContent({ isMobile }) {
                         </div>
                         <div className="flex items-center gap-4">
                           <button
-                            onClick={() => {
-                              setPickerOpen(true);
-                            }}
+                            onClick={() => setPickerOpen(true)}
                             className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[11px] font-black uppercase tracking-wide shadow-sm"
                             aria-label="Model ekle"
                           >
@@ -7318,59 +7596,44 @@ function TasarimClientContent({ isMobile }) {
                             Menü
                           </button>
                         </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-full flex items-center justify-between gap-2">
-                          <button
-                            onClick={() => {
-                              setPickerOpen(true);
-                            }}
-                            className="h-8 px-2.5 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
-                            aria-label="Model ekle"
-                          >
-                            + Model
-                          </button>
-                          <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-center">
-                            <button
-                              onClick={goPrevTab}
-                              className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
-                              aria-label="Önceki adım"
-                            >
-                              <ChevronLeft size={18} strokeWidth={2.6} />
-                            </button>
-                            <div className="text-center min-w-0 max-w-[140px] px-0.5">
-                              <p className="text-[15px] leading-none font-black uppercase tracking-wide text-gray-900 truncate">
-                                {tabLabelMap[activeTab] || "Görsel"}
-                              </p>
-                              <p className="text-[10px] text-gray-500 mt-0.5 truncate">
-                                {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
-                              </p>
-                            </div>
-                            <button
-                              onClick={goNextTab}
-                              className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
-                              aria-label="Sonraki adım"
-                            >
-                              <ChevronRight size={18} strokeWidth={2.6} />
-                            </button>
-                          </div>
-                          <button
-                            onClick={openDrawerMenu}
-                            className="h-8 px-2.5 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wide shadow-sm"
-                            aria-label="Kategori menüsünü aç"
-                          >
-                            <Menu size={12} />
-                            Menü
-                          </button>
-                        </div>
-                      </>
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
+                  {drawerOpen && renderPanel}
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
-              {drawerOpen && renderPanel}
+        {isMobile && flowStep === "design" && (
+          <div
+            className="fixed left-0 right-0 z-[94] border-t border-zinc-300 bg-[#f6f7fa]/95 backdrop-blur-md px-2 pt-2"
+            style={{ bottom: 0, paddingBottom: "calc(env(safe-area-inset-bottom) + 8px)" }}
+          >
+            <div className="grid grid-cols-3 gap-2">
+              {mobileToolbarItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = mobilePrimaryTab === item.id;
+                return (
+                  <button
+                    key={`mobile-primary-tab-${item.id}`}
+                    type="button"
+                    onClick={() => handleSelectMobilePrimaryTab(item.id)}
+                    className={`h-11 rounded-xl border text-[11px] font-black uppercase tracking-wide transition-transform duration-150 active:scale-[0.985] ${
+                      isActive
+                        ? "border-zinc-900 bg-zinc-900 text-white"
+                        : "border-zinc-300 bg-white text-zinc-700"
+                    }`}
+                    aria-label={`${item.label} sekmesini aç`}
+                  >
+                    <span className="flex items-center justify-center gap-1.5">
+                      <Icon size={14} />
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
