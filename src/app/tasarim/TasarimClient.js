@@ -514,7 +514,6 @@ const PANEL_BORDER_COLOR = "#d0d0d0";
 const DESKTOP_DRAWER_HEIGHT = 312;
 const DESKTOP_DRAWER_PEEK = 82;
 const MOBILE_TOOLBAR_HEIGHT = 76;
-const MOBILE_SHEET_SNAP_RATIOS = Object.freeze([0.28, 0.55, 0.85]);
 const MAX_LOGOS_PER_SIDE = 3;
 const LEFT_PRINT_AREA_WIDTH = 420;
 const LEFT_PRINT_AREA_GAP = 0;
@@ -573,7 +572,7 @@ const TEXT_LAYOUT_OPTIONS = [
 ];
 
 const HDR_ENV_DESKTOP_PATH = "/hdr/white_studio_06_4k.exr";
-const HDR_ENV_MOBILE_PATH = "/hdr/white_studio_06_4k.exr";
+const HDR_ENV_MOBILE_PATH = "/hdr/studio_small_03_2k.exr";
 const RUBBER_GLYPH_MODEL_PATH = `${NEW_MODELS_ROOT}/Harfler-IsaretlerSon.glb`;
 const HDR_SOURCE_CACHE = new Map();
 
@@ -3536,6 +3535,9 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
       models: group.models.filter((modelType) => AVAILABLE_MODELS.includes(modelType)),
     })).filter((group) => group.models.length > 0);
   }, []);
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 1024 : true
+  );
   const [pressedModel, setPressedModel] = useState(null);
   const [cardTransition, setCardTransition] = useState(null);
   const transitionLockRef = useRef(false);
@@ -3552,6 +3554,13 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
       clearTransitionHandles();
       transitionLockRef.current = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => setIsMobileViewport(window.innerWidth < 1024);
+    onResize();
+    window.addEventListener("resize", onResize, { passive: true });
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   const runSelectionTransition = (modelType) => {
@@ -3753,6 +3762,7 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                   const transitionActive = Boolean(cardTransition);
                   const transitionSelected = cardTransition?.modelType === modelType;
                   const isPressed = pressedModel === modelType;
+                  const previewShouldAnimate = isPressed || transitionSelected;
                   let cardScale = 1;
                   if (isPressed) cardScale = 0.96;
                   if (transitionSelected) cardScale = cardTransition?.phase === "expand" ? 1.04 : 1.04;
@@ -3795,9 +3805,14 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                     >
                       <div data-model-preview className="aspect-square rounded-[20px] overflow-hidden border border-zinc-200 bg-[#F7F7F7]">
                         <Canvas
-                          dpr={[1, 1.2]}
+                          frameloop={isMobileViewport && !previewShouldAnimate ? "demand" : "always"}
+                          dpr={isMobileViewport ? [0.8, 1] : [1, 1.2]}
                           camera={{ position: [0, 0.28, 2.12], fov: 30 }}
-                          gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+                          gl={{
+                            antialias: !isMobileViewport,
+                            alpha: false,
+                            powerPreference: isMobileViewport ? "default" : "high-performance",
+                          }}
                           onCreated={({ gl }) => {
                             gl.outputColorSpace = THREE.SRGBColorSpace;
                             gl.toneMapping = THREE.ACESFilmicToneMapping;
@@ -3812,7 +3827,7 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                           <Suspense fallback={null}>
                             <ModelSelectionPreview3D
                               modelType={modelType}
-                              paused={isPressed || transitionSelected}
+                              paused={isMobileViewport ? !previewShouldAnimate : isPressed || transitionSelected}
                             />
                           </Suspense>
                         </Canvas>
@@ -4399,15 +4414,17 @@ function EditorPanel({
                     );
                   })}
                 </div>
-                <button
-                  onClick={() => {
-                    setActiveTab("editor");
-                    if (isMobileDrawer) onRequestDrawerCollapse?.();
-                  }}
-                  className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2"
-                >
-                  <Move size={14} /> Yerleşim Paneli
-                </button>
+                {!isMobileDrawer && (
+                  <button
+                    onClick={() => {
+                      setActiveTab("editor");
+                      if (isMobileDrawer) onRequestDrawerCollapse?.();
+                    }}
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-2"
+                  >
+                    <Move size={14} /> Yerleşim Paneli
+                  </button>
+                )}
                 <button
                   onClick={handleDeleteActiveImage}
                   disabled={!activeLogo}
@@ -4864,9 +4881,8 @@ function TasarimClientContent({ isMobile }) {
   // ✅ activeTab artık burada (hata bitti)
   const [activeTab, setActiveTab] = useState("print");
   const [mobilePrimaryTab, setMobilePrimaryTab] = useState("design");
-  /** @type {"collapsed" | "design"} */
-  const [mobilePanelMode, setMobilePanelMode] = useState("collapsed");
-  const [mobileSheetSnapIndex, setMobileSheetSnapIndex] = useState(0);
+  // Unified bottom-sheet state: 0=open, 1=collapsed.
+  const [panelProgress, setPanelProgress] = useState(0);
   const [uploadTechniqueToastOpen, setUploadTechniqueToastOpen] = useState(false);
   const [forceEditorOverlay, setForceEditorOverlay] = useState(false);
   const [drawerMenuOpen, setDrawerMenuOpen] = useState(false);
@@ -4912,6 +4928,7 @@ function TasarimClientContent({ isMobile }) {
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
   const controlsRef = useRef(null);
+  const panelCameraAnimRef = useRef(0);
   const [captureView, setCaptureView] = useState(null);
   const [captureId, setCaptureId] = useState(null);
   const [camAnimating, setCamAnimating] = useState(false);
@@ -4931,6 +4948,7 @@ function TasarimClientContent({ isMobile }) {
   const [scenePlaneRect, setScenePlaneRect] = useState(null);
   const logoCountTrackRef = useRef({});
   const prevActiveTabRef = useRef("upload");
+  const placementPanelIntentRef = useRef(false);
 
   const toggleLockAspect = () => {
     setLockAspect((prev) => {
@@ -5123,6 +5141,16 @@ function TasarimClientContent({ isMobile }) {
     setSelectedSceneItem(null);
   };
 
+  const handlePlacementDone = () => {
+    placementPanelIntentRef.current = false;
+    setShowPlacementPanel(false);
+    clearSceneSelection();
+    if (!isMobile) return;
+    setPanelProgress(0);
+    setMobilePrimaryTab("design");
+    setActiveTab(editorControlTab === "text" ? "text" : "upload");
+  };
+
   const handleDeleteActiveImage = () => {
     const currentId = sideData.activeLogoId || sideData.logos?.[0]?.id;
     if (!currentId) return;
@@ -5132,6 +5160,7 @@ function TasarimClientContent({ isMobile }) {
   };
 
   const openPlacementPanelFromScene = (controlTab = "logo") => {
+    placementPanelIntentRef.current = true;
     setEditorControlTab(controlTab === "text" ? "text" : "logo");
     setShowPlacementPanel(true);
     setActiveTab("editor");
@@ -5142,8 +5171,7 @@ function TasarimClientContent({ isMobile }) {
     }
     if (isMobile) {
       setMobilePrimaryTab("design");
-      setMobilePanelMode("design");
-      setMobileSheetSnapIndex(1);
+      setPanelProgress(0);
       setDrawerOpen(false);
     } else {
       setDrawerOpen(false);
@@ -5288,43 +5316,14 @@ function TasarimClientContent({ isMobile }) {
   }, [isMobile, modelCount, isIOSDevice]);
 
   // Mobile drawer
-  const DRAWER_PEEK = 74;
+  const DRAWER_PEEK = 56;
   const CONTROLS_GAP = 56;
-  const MAX_OPEN = 0;
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerY, setDrawerY] = useState(() =>
-    typeof window !== "undefined" ? Math.max(320, Math.round(window.innerHeight * 0.52)) : 420
-  );
   const [drawerHeight, setDrawerHeight] = useState(0);
-  const [drawerMaxClosed, setDrawerMaxClosed] = useState(500);
-  const drawerYRef = useRef(drawerY);
-  const dragState = useRef({ dragging: false, moved: false, startY: 0, startDrawerY: 0 });
+  const [drawerMaxTravel, setDrawerMaxTravel] = useState(0);
+  const panelProgressRef = useRef(panelProgress);
+  const dragState = useRef({ dragging: false, moved: false, startY: 0, startProgress: panelProgress });
   const suppressDrawerHandleClickRef = useRef(false);
-  const getMobileSnapYs = React.useCallback(
-    (sheetHeight, viewportHeight) => {
-      const vh = viewportHeight || (typeof window !== "undefined" ? window.innerHeight : 0);
-      const h = sheetHeight || drawerHeight;
-      const maxY = Math.max(0, h - DRAWER_PEEK);
-      return MOBILE_SHEET_SNAP_RATIOS.map((ratio) => clamp(h - vh * ratio, MAX_OPEN, maxY));
-    },
-    [DRAWER_PEEK, MAX_OPEN, MOBILE_SHEET_SNAP_RATIOS, drawerHeight]
-  );
-  const resolveNearestMobileSnapIndex = React.useCallback(
-    (nextY, snapYs) => {
-      if (!Array.isArray(snapYs) || !snapYs.length) return 1;
-      let nearest = 0;
-      let minDiff = Number.POSITIVE_INFINITY;
-      snapYs.forEach((snapY, idx) => {
-        const diff = Math.abs(snapY - nextY);
-        if (diff < minDiff) {
-          minDiff = diff;
-          nearest = idx;
-        }
-      });
-      return nearest;
-    },
-    []
-  );
 
   useEffect(() => {
     document.documentElement.style.backgroundColor = SCENE_BG_COLOR;
@@ -5401,14 +5400,13 @@ function TasarimClientContent({ isMobile }) {
     setFlowStep("design");
     setActiveTab("print");
     setMobilePrimaryTab("design");
-    setMobilePanelMode("collapsed");
-    setMobileSheetSnapIndex(0);
+    setPanelProgress(0);
     setForceEditorOverlay(false);
     setPickerOpen(false);
     setDrawerMenuOpen(false);
-    setDrawerOpen(false);
+    setDrawerOpen(isMobile);
     router.replace(`/tasarim?model=${restored[0].modelType}`, { scroll: false });
-  }, [resumeRequested, router]);
+  }, [resumeRequested, router, isMobile]);
 
   useEffect(() => {
     if (!activeId && designs[0]) setActiveId(designs[0].id);
@@ -5480,27 +5478,26 @@ function TasarimClientContent({ isMobile }) {
     if (!isMobile) return;
     if (tabId === "model") {
       setMobilePrimaryTab("model");
-      setMobileSheetSnapIndex(1);
+      setPanelProgress(0);
       return;
     }
     if (tabId === "color") {
       setMobilePrimaryTab("color");
       setActiveTab("color");
-      setMobileSheetSnapIndex(1);
+      setPanelProgress(0);
       return;
     }
     setMobilePrimaryTab("design");
     if (activeTab === "color") {
       setActiveTab(hasDtfForActiveSide ? "upload" : "print");
     }
-    setMobileSheetSnapIndex(1);
+    setPanelProgress(0);
   };
 
   const activateDesignTool = (toolId) => {
     if (isMobile) {
       setMobilePrimaryTab("design");
-      setMobilePanelMode("design");
-      setMobileSheetSnapIndex(1);
+      setPanelProgress(0);
     }
     if (toolId === "upload") {
       if (!hasDtfForActiveSide) {
@@ -5587,8 +5584,7 @@ function TasarimClientContent({ isMobile }) {
     if (!opt?.available) return;
     if (isMobile) {
       setMobilePrimaryTab("design");
-      setMobilePanelMode("design");
-      setMobileSheetSnapIndex(1);
+      setPanelProgress(0);
     }
     if (typeId === "rubber") {
       applyTechniqueToActiveSide(PRINT_TECHNIQUES.RUBBER, { updateTextTechnique: true });
@@ -5645,18 +5641,23 @@ function TasarimClientContent({ isMobile }) {
 
   useEffect(() => {
     const prev = prevActiveTabRef.current;
+    const requestedPlacementOpen = placementPanelIntentRef.current;
     if (activeTab !== "editor") {
+      placementPanelIntentRef.current = false;
       setShowPlacementPanel(false);
       clearSceneSelection();
     } else if (prev !== "editor") {
-      setShowPlacementPanel(false);
-      clearSceneSelection();
-      const enteringFromText = prev === "text";
-      setEditorControlTab(enteringFromText ? "text" : "logo");
-      if (enteringFromText && hasSceneText) {
-        setSceneTextSelectionVisible(true);
-        setSceneTextFrameMode("resize");
+      if (!requestedPlacementOpen) {
+        setShowPlacementPanel(false);
+        clearSceneSelection();
+        const enteringFromText = prev === "text";
+        setEditorControlTab(enteringFromText ? "text" : "logo");
+        if (enteringFromText && hasSceneText) {
+          setSceneTextSelectionVisible(true);
+          setSceneTextFrameMode("resize");
+        }
       }
+      placementPanelIntentRef.current = false;
     }
     prevActiveTabRef.current = activeTab;
   }, [activeTab, hasSceneText]);
@@ -5673,10 +5674,10 @@ function TasarimClientContent({ isMobile }) {
 
   useEffect(() => {
     if (!isMobile) return;
-    if (mobilePanelMode === "collapsed") {
+    if (panelProgress >= 0.98) {
       setDrawerMenuOpen(false);
     }
-  }, [isMobile, mobilePanelMode]);
+  }, [isMobile, panelProgress]);
 
   useEffect(() => {
     if (drawerMenuOpen) {
@@ -5780,12 +5781,11 @@ function TasarimClientContent({ isMobile }) {
     setView("front");
     setActiveTab("print");
     setMobilePrimaryTab("design");
-    setMobilePanelMode("collapsed");
-    setMobileSheetSnapIndex(0);
+    setPanelProgress(0);
     setForceEditorOverlay(false);
     setPickerOpen(false);
     setDrawerMenuOpen(false);
-    setDrawerOpen(false);
+    setDrawerOpen(isMobile);
     setFlowStep("design");
     router.replace(`/tasarim?model=${resolvedType}`, { scroll: false });
   };
@@ -6142,43 +6142,29 @@ function TasarimClientContent({ isMobile }) {
   useEffect(() => {
     if (!isMobile) return;
     const calc = () => {
-      const topReserved = 156;
-      const minSheetHeight = 260;
-      const maxByViewport = Math.max(minSheetHeight, window.innerHeight - topReserved - MOBILE_TOOLBAR_HEIGHT - 16);
-      const h = clamp(window.innerHeight * 0.85, minSheetHeight, maxByViewport);
-      const snapYs = getMobileSnapYs(h, window.innerHeight);
-      const maxClosed = Math.max(...snapYs);
-      const safeSnapIndex = clamp(mobileSheetSnapIndex, 0, snapYs.length - 1);
+      const viewportH = window.innerHeight;
+      const minSheetHeight = 210;
+      const maxSheetHeight = 340;
+      const topReserved = 240;
+      const maxByViewport = Math.max(minSheetHeight, viewportH - topReserved - MOBILE_TOOLBAR_HEIGHT);
+      const h = clamp(viewportH * 0.46, minSheetHeight, Math.min(maxSheetHeight, maxByViewport));
       setDrawerHeight(h);
-      setDrawerMaxClosed(maxClosed);
-      setDrawerY(clamp(snapYs[safeSnapIndex], MAX_OPEN, maxClosed));
-      drawerYRef.current = clamp(snapYs[safeSnapIndex], MAX_OPEN, maxClosed);
+      setDrawerMaxTravel(Math.max(0, h - DRAWER_PEEK));
+      setPanelProgress((prev) => clamp(prev, 0, 1));
     };
     calc();
     window.addEventListener("resize", calc);
     return () => window.removeEventListener("resize", calc);
-  }, [isMobile, getMobileSnapYs, mobileSheetSnapIndex, MAX_OPEN, DRAWER_PEEK, MOBILE_TOOLBAR_HEIGHT]);
+  }, [isMobile, DRAWER_PEEK, MOBILE_TOOLBAR_HEIGHT]);
 
-  // drawer behavior
+  useEffect(() => {
+    panelProgressRef.current = panelProgress;
+  }, [panelProgress]);
+
   useEffect(() => {
     if (!isMobile) return;
-    if (!drawerHeight) return;
-    const snapYs = getMobileSnapYs(drawerHeight);
-    if (!snapYs.length) return;
-    const safeIndex = clamp(mobileSheetSnapIndex, 0, snapYs.length - 1);
-    const nextY = clamp(snapYs[safeIndex], MAX_OPEN, drawerMaxClosed);
-    drawerYRef.current = nextY;
-    setDrawerY(nextY);
-    setDrawerOpen(safeIndex > 0);
-    setMobilePanelMode((prev) => {
-      const nextMode = safeIndex === 0 ? "collapsed" : "design";
-      return prev === nextMode ? prev : nextMode;
-    });
-  }, [isMobile, drawerHeight, drawerMaxClosed, MAX_OPEN, mobileSheetSnapIndex, getMobileSnapYs]);
-
-  useEffect(() => {
-    drawerYRef.current = drawerY;
-  }, [drawerY]);
+    setDrawerOpen(panelProgress < 0.98);
+  }, [isMobile, panelProgress]);
 
   const onDrawerPointerDown = (e) => {
     if (!isMobile) return;
@@ -6186,7 +6172,7 @@ function TasarimClientContent({ isMobile }) {
     dragState.current.dragging = true;
     dragState.current.moved = false;
     dragState.current.startY = e.clientY;
-    dragState.current.startDrawerY = drawerYRef.current;
+    dragState.current.startProgress = panelProgressRef.current;
     window.addEventListener("pointermove", onDrawerPointerMove);
     window.addEventListener("pointerup", onDrawerPointerUp);
   };
@@ -6195,9 +6181,9 @@ function TasarimClientContent({ isMobile }) {
     if (!dragState.current.dragging) return;
     const dy = e.clientY - dragState.current.startY;
     if (Math.abs(dy) > 2) dragState.current.moved = true;
-    const next = clamp(dragState.current.startDrawerY + dy, MAX_OPEN, drawerMaxClosed);
-    drawerYRef.current = next;
-    setDrawerY(next);
+    if (!drawerMaxTravel) return;
+    const nextProgress = clamp(dragState.current.startProgress + dy / drawerMaxTravel, 0, 1);
+    setPanelProgress(nextProgress);
   };
 
   const onDrawerPointerUp = () => {
@@ -6214,15 +6200,7 @@ function TasarimClientContent({ isMobile }) {
       toggleDrawer();
       return;
     }
-    const snapYs = getMobileSnapYs(drawerHeight);
-    if (!snapYs.length) return;
-    const nearestIndex = resolveNearestMobileSnapIndex(drawerYRef.current, snapYs);
-    const snappedY = clamp(snapYs[nearestIndex], MAX_OPEN, drawerMaxClosed);
-    drawerYRef.current = snappedY;
-    setDrawerY(snappedY);
-    setMobileSheetSnapIndex(nearestIndex);
-    setDrawerOpen(nearestIndex > 0);
-    setMobilePanelMode(nearestIndex === 0 ? "collapsed" : "design");
+    setPanelProgress((prev) => (prev > 0.54 ? 1 : 0));
   };
 
   const handleMobileDrawerHandleClick = (e) => {
@@ -6233,8 +6211,7 @@ function TasarimClientContent({ isMobile }) {
 
   const openDrawer = () => {
     if (isMobile) {
-      setMobilePanelMode("design");
-      setMobileSheetSnapIndex(1);
+      setPanelProgress(0);
       return;
     }
     setDrawerOpen(true);
@@ -6242,8 +6219,7 @@ function TasarimClientContent({ isMobile }) {
 
   const closeDrawer = () => {
     if (isMobile) {
-      setMobilePanelMode("collapsed");
-      setMobileSheetSnapIndex(0);
+      setPanelProgress(1);
       return;
     }
     setDrawerOpen(false);
@@ -6254,11 +6230,7 @@ function TasarimClientContent({ isMobile }) {
     window.removeEventListener("pointermove", onDrawerPointerMove);
     window.removeEventListener("pointerup", onDrawerPointerUp);
     if (isMobile) {
-      setMobilePanelMode((prev) => {
-        const next = prev === "collapsed" ? "design" : "collapsed";
-        setMobileSheetSnapIndex(next === "collapsed" ? 0 : 1);
-        return next;
-      });
+      setPanelProgress((prev) => (prev > 0.5 ? 0 : 1));
       return;
     }
     if (drawerOpen) {
@@ -6284,8 +6256,7 @@ function TasarimClientContent({ isMobile }) {
     if (nextSide !== "front" && nextSide !== "back") return;
     setView(nextSide);
     setMobilePrimaryTab("design");
-    setMobilePanelMode("design");
-    setMobileSheetSnapIndex(1);
+    setPanelProgress(0);
     setActiveTab("print");
     setDrawerOpen(true);
     setDrawerMenuOpen(false);
@@ -6296,13 +6267,14 @@ function TasarimClientContent({ isMobile }) {
   const drawerHeightStyle = isMobile
     ? drawerHeight
       ? `${drawerHeight}px`
-      : "calc(var(--app-vh) * 72)"
+      : "calc(var(--app-vh) * 46)"
     : `${DESKTOP_DRAWER_HEIGHT}px`;
-  const drawerTopGap = isMobile && drawerHeight ? Math.max(0, drawerHeight - drawerY) : 0;
+  const drawerTranslateY = isMobile ? panelProgress * drawerMaxTravel : 0;
+  const drawerTopGap = isMobile && drawerHeight ? Math.max(DRAWER_PEEK, drawerHeight - drawerTranslateY) : 0;
   const controlsBottom = isMobile
     ? drawerHeight
       ? `calc(${drawerTopGap}px + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
-      : `calc((var(--app-vh) * 72) + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
+      : `calc((var(--app-vh) * 46) + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
     : `calc(${drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK}px + ${CONTROLS_GAP}px)`;
   const isPlacementPanelVisible = isPrintAreaOpen && showPlacementPanel;
   const hideMobileDrawerInEditor = isMobile && isPlacementPanelVisible;
@@ -6315,7 +6287,7 @@ function TasarimClientContent({ isMobile }) {
       ? "43%"
       : "47%";
   const hdrEnvUrls = useMemo(
-    () => (isMobile ? [HDR_ENV_MOBILE_PATH, HDR_ENV_DESKTOP_PATH] : [HDR_ENV_DESKTOP_PATH, HDR_ENV_MOBILE_PATH]),
+    () => [isMobile ? HDR_ENV_MOBILE_PATH : HDR_ENV_DESKTOP_PATH],
     [isMobile]
   );
   const pickerGroups = MODEL_SELECTION_GROUPS.map((group) => ({
@@ -6325,39 +6297,99 @@ function TasarimClientContent({ isMobile }) {
   const selectedModelTypesSet = new Set(
     (designs || []).map((d) => normalizeModelType(d?.modelType))
   );
-  const mobileSafeSheetIndex = clamp(mobileSheetSnapIndex, 0, MOBILE_SHEET_SNAP_RATIOS.length - 1);
-  const mobileSheetRatio = MOBILE_SHEET_SNAP_RATIOS[mobileSafeSheetIndex] || 0.55;
-  const mobilePanelCollapsed = isMobile && mobilePanelMode === "collapsed";
+  const mobilePanelCollapsed = isMobile && panelProgress >= 0.98;
   const activeBottomTab = mobilePrimaryTab === "design" ? "tasarla" : mobilePrimaryTab;
-  const showDesignControls = isMobile && activeBottomTab === "tasarla" && mobilePanelMode === "design";
+  const showDesignControls = isMobile && activeBottomTab === "tasarla" && !mobilePanelCollapsed;
   const showPrintTypes =
-    isMobile && activeBottomTab === "tasarla" && mobilePanelMode === "design" && activeTab === "print";
-  const mobileBottomTabsHeight = "calc(88px + env(safe-area-inset-bottom))";
-  const showMobileBottomTabs = isMobile && flowStep === "design" && !mobilePanelCollapsed;
-  const mobileDrawerBottom = showMobileBottomTabs ? mobileBottomTabsHeight : "0px";
+    isMobile && activeBottomTab === "tasarla" && !mobilePanelCollapsed && activeTab === "print";
+  const mobileDrawerVisibilityRatio = clamp(1 - panelProgress, 0, 1);
+  const showMobileBottomTabs = isMobile && flowStep === "design" && !isPlacementPanelVisible;
+  const mobileBottomTabsOpacity = clamp((mobileDrawerVisibilityRatio - 0.04) / 0.96, 0, 1);
+  const mobileDrawerBottom = showMobileBottomTabs
+    ? `calc(${(mobileBottomTabsOpacity * 92).toFixed(2)}px + env(safe-area-inset-bottom))`
+    : "0px";
   const mobilePlacementPanelBottom = showMobileBottomTabs
-    ? `calc(${mobileBottomTabsHeight} + 8px)`
+    ? `calc(${(mobileBottomTabsOpacity * 92).toFixed(2)}px + env(safe-area-inset-bottom) + 8px)`
     : "calc(env(safe-area-inset-bottom) + 8px)";
-  const mobilePageBottomPadding = showMobileBottomTabs
-    ? "calc(104px + env(safe-area-inset-bottom))"
-    : mobilePanelCollapsed
-      ? "env(safe-area-inset-bottom)"
-      : "calc(40px + env(safe-area-inset-bottom))";
-  const mobileDrawerVisibilityRatio =
-    isMobile && drawerMaxClosed > 0
-      ? clamp(1 - drawerY / drawerMaxClosed, 0, 1)
-      : mobilePanelCollapsed
-        ? 0
-        : clamp(mobileSheetRatio, 0, 1);
-  const mobileSceneHeightVh = clamp(56 - mobileDrawerVisibilityRatio * 10, 44, 58);
-  const mobileSceneHeight = `clamp(300px, calc(var(--app-vh) * ${mobileSceneHeightVh.toFixed(3)}), 560px)`;
   const mobileToolbarItems = [
     { id: "model", label: "Model", icon: Layers },
     { id: "design", label: "Tasarla", icon: Pencil },
     { id: "color", label: "Renk", icon: Palette },
   ];
-  const mobileSheetTitle =
-    mobilePrimaryTab === "model" ? "Model" : mobilePrimaryTab === "color" ? "Renk" : "Tasarla";
+
+  useEffect(() => {
+    if (!isMobile || flowStep !== "design") return;
+    const camera = cameraRef.current;
+    if (!camera) return;
+    const controls = controlsRef.current;
+    if (panelCameraAnimRef.current) cancelAnimationFrame(panelCameraAnimRef.current);
+
+    const startPos = camera.position.clone();
+    const startTarget = controls
+      ? controls.target.clone()
+      : new THREE.Vector3(0, isPlacementPanelVisible ? -0.11 : -0.1, 0);
+    const targetPos = new THREE.Vector3(
+      0,
+      THREE.MathUtils.lerp(0.255, 0.225, panelProgress),
+      THREE.MathUtils.lerp(
+        isPlacementPanelVisible ? 2.26 : 2.34,
+        isPlacementPanelVisible ? 2.08 : 2.16,
+        panelProgress
+      )
+    );
+    const targetTarget = new THREE.Vector3(
+      0,
+      THREE.MathUtils.lerp(
+        isPlacementPanelVisible ? -0.11 : -0.1,
+        isPlacementPanelVisible ? -0.125 : -0.12,
+        panelProgress
+      ),
+      0
+    );
+    if (dragState.current.dragging) {
+      camera.position.copy(targetPos);
+      camera.position.x = 0;
+      if (controls) {
+        controls.target.copy(targetTarget);
+        controls.target.x = 0;
+        controls.target.z = 0;
+        controls.update();
+      } else {
+        camera.lookAt(targetTarget);
+      }
+      return undefined;
+    }
+    const durationMs = 280;
+    const startTime = performance.now();
+
+    const tick = (now) => {
+      const t = clamp((now - startTime) / durationMs, 0, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      camera.position.lerpVectors(startPos, targetPos, eased);
+      camera.position.x = 0;
+
+      if (controls) {
+        controls.target.lerpVectors(startTarget, targetTarget, eased);
+        controls.target.x = 0;
+        controls.target.z = 0;
+        controls.update();
+      } else {
+        camera.lookAt(targetTarget);
+      }
+
+      if (t < 1) {
+        panelCameraAnimRef.current = requestAnimationFrame(tick);
+      } else {
+        panelCameraAnimRef.current = 0;
+      }
+    };
+
+    panelCameraAnimRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (panelCameraAnimRef.current) cancelAnimationFrame(panelCameraAnimRef.current);
+      panelCameraAnimRef.current = 0;
+    };
+  }, [isMobile, flowStep, panelProgress, isPlacementPanelVisible, drawerHeight]);
 
   const renderPanel = (
     <EditorPanel
@@ -6396,16 +6428,16 @@ function TasarimClientContent({ isMobile }) {
     <div
       className={
         isMobile
-          ? "relative max-w-full w-full text-white font-sans overflow-y-auto overflow-x-hidden"
+          ? "fixed inset-0 max-w-full w-full text-white font-sans overflow-hidden flex flex-col"
           : "fixed inset-0 h-screen w-full text-white overflow-hidden font-sans"
       }
       style={{
         background: SCENE_BG_COLOR,
         overscrollBehavior: "none",
         touchAction: isMobile ? "pan-y" : "none",
-        overflowX: isMobile ? "clip" : undefined,
-        minHeight: isMobile ? "calc(var(--app-vh) * 100)" : undefined,
-        paddingBottom: isMobile ? mobilePageBottomPadding : undefined,
+        overflowX: "hidden",
+        minHeight: isMobile ? "100dvh" : undefined,
+        height: isMobile ? "100dvh" : undefined,
       }}
     >
       {/* Top Header */}
@@ -6502,15 +6534,18 @@ function TasarimClientContent({ isMobile }) {
         </div>
       )}
 
-      <div ref={sceneRootRef} className={`${isMobile ? "w-full relative" : "w-full h-full relative"}`} style={{ background: SCENE_BG_COLOR }}>
+      <div
+        ref={sceneRootRef}
+        className={`${isMobile ? "w-full relative flex-1 min-h-0" : "w-full h-full relative"}`}
+        style={{ background: SCENE_BG_COLOR }}
+      >
         <div
-          className={isMobile ? "relative mt-[6px] z-10 overflow-hidden" : "contents"}
+          className={isMobile ? "relative z-10 h-full overflow-hidden" : "contents"}
           style={
             isMobile
               ? {
-                  height: mobileSceneHeight,
+                  height: "100%",
                   overflow: "hidden",
-                  transition: "height 280ms cubic-bezier(0.22, 0.61, 0.36, 1)",
                 }
               : undefined
           }
@@ -6654,19 +6689,27 @@ function TasarimClientContent({ isMobile }) {
         {/* Editor Overlay - Sol Taraf */}
         {isPrintAreaOpen && showPlacementPanel && (
           <div
-            className={`absolute z-[90] backdrop-blur-md border border-gray-200 shadow-2xl overflow-hidden flex flex-col ${isMobile ? "rounded-none border-x-0 rounded-t-2xl" : "rounded-2xl"
-              }`}
+            className={`z-[90] backdrop-blur-md border border-gray-200 shadow-2xl overflow-hidden flex flex-col ${
+              isMobile ? "fixed left-0 right-0 rounded-none border-x-0 rounded-t-2xl" : "absolute rounded-2xl"
+            }`}
             style={{
               backgroundColor: "#f7f8fa",
-              left: isMobile ? "0" : `${LEFT_PRINT_AREA_GAP}px`,
-              right: isMobile ? "0" : undefined,
+              left: isMobile ? 0 : `${LEFT_PRINT_AREA_GAP}px`,
+              right: isMobile ? 0 : undefined,
               width: isMobile ? "auto" : `${LEFT_PRINT_AREA_WIDTH}px`,
               maxWidth: isMobile ? "100vw" : undefined,
               top: isMobile ? "auto" : "72px",
               bottom: isMobile
                 ? mobilePlacementPanelBottom
                 : `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
-              maxHeight: isMobile ? "calc(var(--app-vh) * 44)" : undefined,
+              minHeight: isMobile ? "220px" : undefined,
+              maxHeight: isMobile ? "min(38dvh, 320px)" : undefined,
+              transform: isMobile ? "translateY(0px)" : undefined,
+              transition: isMobile
+                ? dragState.current.dragging
+                  ? "none"
+                  : "bottom 220ms ease, opacity 180ms ease"
+                : undefined,
             }}
           >
             {isMobile && !!lockToast && (
@@ -6680,14 +6723,28 @@ function TasarimClientContent({ isMobile }) {
                   <h3 className="text-xs font-black uppercase tracking-widest text-gray-900">Yerleşim Ayarı</h3>
                   <p className="text-[10px] text-gray-500 mt-1">{sideLabel}</p>
                 </div>
-                <button
-                  onClick={() => setShowPlacementPanel(false)}
-                  className="w-8 h-8 rounded-full border border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 flex items-center justify-center"
-                  aria-label="Yerleşim panelini kapat"
-                  title="Kapat"
-                >
-                  <X size={14} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handlePlacementDone}
+                    className="h-8 px-3 rounded-full border border-emerald-600 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wide flex items-center justify-center gap-1"
+                    aria-label="Yerleşim düzenlemesini tamamla"
+                    title="Tamam"
+                  >
+                    <Check size={12} />
+                    Tamam
+                  </button>
+                  <button
+                    onClick={() => {
+                      placementPanelIntentRef.current = false;
+                      setShowPlacementPanel(false);
+                    }}
+                    className="w-8 h-8 rounded-full border border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 flex items-center justify-center"
+                    aria-label="Yerleşim panelini kapat"
+                    title="Kapat"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -7360,22 +7417,28 @@ function TasarimClientContent({ isMobile }) {
                 ? "-3%"
                 : "-5%";
           const mobilePanelProgress = clamp(mobileDrawerVisibilityRatio, 0, 1);
-          const mobileScaleClosed = isPrintAreaOpen ? 1.12 : 1.18;
-          const mobileScaleOpen = isPrintAreaOpen ? 1 : 1.04;
+          const mobileScaleClosed = isPrintAreaOpen ? 1.1 : 1.14;
+          const mobileScaleOpen = isPrintAreaOpen ? 0.94 : 0.98;
           const mobileScale = THREE.MathUtils.lerp(mobileScaleClosed, mobileScaleOpen, mobilePanelProgress);
-          const mobileShiftClosed = isPlacementPanelVisible ? -2 : 2.5;
-          const mobileShiftOpen = isPlacementPanelVisible ? -6 : -2.5;
+          const mobileShiftClosed = isPlacementPanelVisible ? -7.5 : -4.5;
+          const mobileShiftOpen = isPlacementPanelVisible ? -13 : -14;
           const mobileShiftY = THREE.MathUtils.lerp(mobileShiftClosed, mobileShiftOpen, mobilePanelProgress);
+          const mobileMinZoomOpen = isPlacementPanelVisible ? 1.84 : 1.78;
+          const mobileMinZoomClosed = isPlacementPanelVisible ? 1.56 : 1.5;
           const minZoomDistance = !isMobile
             ? isPlacementPanelVisible
               ? 1.98
               : drawerOpen
                 ? 1.8
                 : 1.72
-            : isPlacementPanelVisible
-              ? 1.68
-              : 1.58;
-          const controlsTargetY = isMobile ? -0.1 : -0.1;
+            : THREE.MathUtils.lerp(mobileMinZoomOpen, mobileMinZoomClosed, panelProgress);
+          const controlsTargetY = isMobile
+            ? THREE.MathUtils.lerp(
+                isPlacementPanelVisible ? -0.11 : -0.1,
+                isPlacementPanelVisible ? -0.125 : -0.12,
+                panelProgress
+              )
+            : -0.1;
           return (
             <Canvas
               style={{
@@ -7495,7 +7558,7 @@ function TasarimClientContent({ isMobile }) {
                 enabled={!camAnimating}
                 target={[0, controlsTargetY, 0]}
                 mouseButtons={{ LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null }}
-                touches={{ ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY }}
+                touches={{ ONE: THREE.TOUCH.NONE, TWO: THREE.TOUCH.DOLLY }}
               />
             </Canvas>
           );
@@ -7792,7 +7855,7 @@ function TasarimClientContent({ isMobile }) {
                     bottom: mobileDrawerBottom,
                     maxHeight: drawerHeightStyle,
                     height: drawerHeightStyle,
-                    transform: `translateY(${Math.max(0, drawerY)}px)`,
+                    transform: `translateY(${Math.max(0, drawerTranslateY)}px)`,
                     backgroundColor: "#eef0f4",
                     borderTop: "1px solid rgba(0,0,0,0.08)",
                     boxShadow: mobilePanelCollapsed
@@ -7825,7 +7888,7 @@ function TasarimClientContent({ isMobile }) {
                 <>
                   <div
                     className={`relative z-[20] bg-[#eef0f4] ${
-                      mobilePanelCollapsed ? "px-4 pt-1.5 pb-1.5" : "px-4 pt-3 pb-2 border-b border-black/10"
+                      mobilePanelCollapsed ? "px-4 pt-0.5 pb-0.5" : "px-4 pt-3 pb-2 border-b border-black/10"
                     }`}
                   >
                     <button
@@ -7874,8 +7937,7 @@ function TasarimClientContent({ isMobile }) {
                             onPointerDown={(e) => e.stopPropagation()}
                             onClick={() => {
                               setMobilePrimaryTab("design");
-                              setMobilePanelMode("design");
-                              setMobileSheetSnapIndex(1);
+                              setPanelProgress(0);
                               activateDesignTool("print");
                             }}
                             className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${
@@ -7891,8 +7953,7 @@ function TasarimClientContent({ isMobile }) {
                             onPointerDown={(e) => e.stopPropagation()}
                             onClick={() => {
                               setMobilePrimaryTab("design");
-                              setMobilePanelMode("design");
-                              setMobileSheetSnapIndex(1);
+                              setPanelProgress(0);
                               activateDesignTool("upload");
                             }}
                             className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${
@@ -7908,8 +7969,7 @@ function TasarimClientContent({ isMobile }) {
                             onPointerDown={(e) => e.stopPropagation()}
                             onClick={() => {
                               setMobilePrimaryTab("design");
-                              setMobilePanelMode("design");
-                              setMobileSheetSnapIndex(1);
+                              setPanelProgress(0);
                               activateDesignTool("text");
                             }}
                             className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${
@@ -8078,6 +8138,12 @@ function TasarimClientContent({ isMobile }) {
               bottom: 0,
               height: "calc(92px + env(safe-area-inset-bottom))",
               paddingBottom: "calc(env(safe-area-inset-bottom) + 4px)",
+              opacity: mobileBottomTabsOpacity,
+              transform: `translateY(${((1 - mobileBottomTabsOpacity) * 10).toFixed(2)}px)`,
+              pointerEvents: mobileBottomTabsOpacity < 0.08 ? "none" : "auto",
+              transition: dragState.current.dragging
+                ? "none"
+                : "opacity 180ms ease, transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1)",
             }}
           >
             <div className="grid grid-cols-3 gap-2 h-[58px]">
