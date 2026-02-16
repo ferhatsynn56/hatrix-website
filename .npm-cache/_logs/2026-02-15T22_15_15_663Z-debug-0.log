@@ -1,0 +1,1398 @@
+0 verbose cli /usr/local/bin/node /usr/local/bin/npm
+1 info using npm@11.8.0
+2 info using node@v24.13.1
+3 silly config load:file:/usr/local/lib/node_modules/npm/npmrc
+4 silly config load:file:/Users/hakan/Downloads/hatrix-website-main/.npmrc
+5 silly config load:file:/Users/hakan/.npmrc
+6 silly config load:file:/usr/local/etc/npmrc
+7 verbose title npm install
+8 verbose argv "install" "--cache" ".npm-cache"
+9 verbose logfile logs-max:10 dir:/Users/hakan/Downloads/hatrix-website-main/.npm-cache/_logs/2026-02-15T22_15_15_663Z-
+10 verbose logfile /Users/hakan/Downloads/hatrix-website-main/.npm-cache/_logs/2026-02-15T22_15_15_663Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:4496293888 maxSize:1124073472 maxEntrySize:562036736
+13 http fetch GET https://registry.npmjs.org/npm attempt 1 failed with ENOTFOUND
+14 silly idealTree buildDeps
+15 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/acorn' ]
+16 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/acorn-jsx' ]
+17 silly reify mark retired [
+17 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/agent-base'
+17 silly reify ]
+18 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/ajv' ]
+19 silly reify mark retired [
+19 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/ansi-regex'
+19 silly reify ]
+20 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/argparse' ]
+21 silly reify mark retired [
+21 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/ansi-styles'
+21 silly reify ]
+22 silly reify mark retired [
+22 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/aria-query'
+22 silly reify ]
+23 silly reify mark retired [
+23 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/array-buffer-byte-length'
+23 silly reify ]
+24 silly reify mark retired [
+24 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/array-includes'
+24 silly reify ]
+25 silly reify mark retired [
+25 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/array.prototype.findlast'
+25 silly reify ]
+26 silly reify mark retired [
+26 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/array.prototype.findlastindex'
+26 silly reify ]
+27 silly reify mark retired [
+27 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/array.prototype.flat'
+27 silly reify ]
+28 silly reify mark retired [
+28 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/array.prototype.flatmap'
+28 silly reify ]
+29 silly reify mark retired [
+29 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/array.prototype.tosorted'
+29 silly reify ]
+30 silly reify mark retired [
+30 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/arraybuffer.prototype.slice'
+30 silly reify ]
+31 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/asn1' ]
+32 silly reify mark retired [
+32 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/assert-plus'
+32 silly reify ]
+33 silly reify mark retired [
+33 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/ast-types-flow'
+33 silly reify ]
+34 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/asynckit' ]
+35 silly reify mark retired [
+35 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/async-function'
+35 silly reify ]
+36 silly reify mark retired [
+36 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/available-typed-arrays'
+36 silly reify ]
+37 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/aws4' ]
+38 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/aws-sign2' ]
+39 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/axe-core' ]
+40 silly reify mark retired [
+40 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/axobject-query'
+40 silly reify ]
+41 silly reify mark retired [
+41 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/babel-plugin-react-compiler'
+41 silly reify ]
+42 silly reify mark retired [
+42 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/balanced-match'
+42 silly reify ]
+43 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/base64-js' ]
+44 silly reify mark retired [
+44 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/baseline-browser-mapping'
+44 silly reify ]
+45 silly reify mark retired [
+45 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/bcrypt-pbkdf'
+45 silly reify ]
+46 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/bidi-js' ]
+47 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/bluebird' ]
+48 silly reify mark retired [
+48 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/brace-expansion'
+48 silly reify ]
+49 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/braces' ]
+50 silly reify mark retired [
+50 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/browserslist'
+50 silly reify ]
+51 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/buffer' ]
+52 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/call-bind' ]
+53 silly reify mark retired [
+53 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/call-bind-apply-helpers'
+53 silly reify ]
+54 silly reify mark retired [
+54 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/call-bound'
+54 silly reify ]
+55 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/callsites' ]
+56 silly reify mark retired [
+56 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/camera-controls'
+56 silly reify ]
+57 silly reify mark retired [
+57 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/caniuse-lite'
+57 silly reify ]
+58 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/caseless' ]
+59 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/chalk' ]
+60 silly reify mark retired [
+60 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/client-only'
+60 silly reify ]
+61 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/cliui' ]
+62 silly reify mark retired [
+62 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/color-convert'
+62 silly reify ]
+63 silly reify mark retired [
+63 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/color-name'
+63 silly reify ]
+64 silly reify mark retired [
+64 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/combined-stream'
+64 silly reify ]
+65 silly reify mark retired [
+65 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/concat-map'
+65 silly reify ]
+66 silly reify mark retired [
+66 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/core-util-is'
+66 silly reify ]
+67 silly reify mark retired [
+67 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/convert-source-map'
+67 silly reify ]
+68 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/cross-env' ]
+69 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/csstype' ]
+70 silly reify mark retired [
+70 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/cross-spawn'
+70 silly reify ]
+71 silly reify mark retired [
+71 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/damerau-levenshtein'
+71 silly reify ]
+72 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/dashdash' ]
+73 silly reify mark retired [
+73 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/data-view-byte-length'
+73 silly reify ]
+74 silly reify mark retired [
+74 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/data-view-byte-offset'
+74 silly reify ]
+75 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/debug' ]
+76 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/deep-is' ]
+77 silly reify mark retired [
+77 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/data-view-buffer'
+77 silly reify ]
+78 silly reify mark retired [
+78 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/define-data-property'
+78 silly reify ]
+79 silly reify mark retired [
+79 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/define-properties'
+79 silly reify ]
+80 silly reify mark retired [
+80 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/delayed-stream'
+80 silly reify ]
+81 silly reify mark retired [
+81 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/detect-gpu'
+81 silly reify ]
+82 silly reify mark retired [
+82 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/detect-libc'
+82 silly reify ]
+83 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/doctrine' ]
+84 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/draco3d' ]
+85 silly reify mark retired [
+85 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/dunder-proto'
+85 silly reify ]
+86 silly reify mark retired [
+86 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/electron-to-chromium'
+86 silly reify ]
+87 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/ecc-jsbn' ]
+88 silly reify mark retired [
+88 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/emoji-regex'
+88 silly reify ]
+89 silly reify mark retired [
+89 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/enhanced-resolve'
+89 silly reify ]
+90 silly reify mark retired [
+90 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/es-abstract'
+90 silly reify ]
+91 silly reify mark retired [
+91 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/es-iterator-helpers'
+91 silly reify ]
+92 silly reify mark retired [
+92 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/eslint-import-resolver-node'
+92 silly reify ]
+93 silly reify mark retired [
+93 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/eslint-plugin-import'
+93 silly reify ]
+94 silly reify mark retired [
+94 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/eslint-plugin-react-hooks'
+94 silly reify ]
+95 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/hls.js' ]
+96 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/next' ]
+97 silly reify mark retired [ '/Users/hakan/Downloads/hatrix-website-main/node_modules/react-dom' ]
+98 silly reify mark retired [
+98 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/typescript'
+98 silly reify ]
+99 silly reify mark retired [
+99 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/eslint',
+99 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/eslint'
+99 silly reify ]
+100 silly reify mark retired [
+100 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/eslint-config-next/node_modules/globals'
+100 silly reify ]
+101 silly reify mark retired [
+101 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/eslint-module-utils/node_modules/debug'
+101 silly reify ]
+102 silly reify mark retired [
+102 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/eslint-plugin-react/node_modules/resolve'
+102 silly reify ]
+103 silly reify mark retired [
+103 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/fast-glob/node_modules/glob-parent'
+103 silly reify ]
+104 silly reify mark retired [
+104 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/is-bun-module/node_modules/semver'
+104 silly reify ]
+105 silly reify mark retired [
+105 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/its-fine/node_modules/@types/react-reconciler'
+105 silly reify ]
+106 silly reify mark retired [
+106 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/js-yaml',
+106 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/js-yaml'
+106 silly reify ]
+107 silly reify mark retired [
+107 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/jiti',
+107 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/jiti'
+107 silly reify ]
+108 silly reify mark retired [
+108 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/jsesc',
+108 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/jsesc'
+108 silly reify ]
+109 silly reify mark retired [
+109 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/json5',
+109 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/json5'
+109 silly reify ]
+110 silly reify mark retired [
+110 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/loose-envify',
+110 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/loose-envify'
+110 silly reify ]
+111 silly reify mark retired [
+111 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/nanoid',
+111 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/nanoid'
+111 silly reify ]
+112 silly reify mark retired [
+112 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/napi-postinstall',
+112 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/napi-postinstall'
+112 silly reify ]
+113 silly reify mark retired [
+113 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/resolve',
+113 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/resolve'
+113 silly reify ]
+114 silly reify mark retired [
+114 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/semver',
+114 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/semver'
+114 silly reify ]
+115 silly reify mark retired [
+115 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/sharp/node_modules/semver'
+115 silly reify ]
+116 silly reify mark retired [
+116 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/stats-gl/node_modules/three'
+116 silly reify ]
+117 silly reify mark retired [
+117 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/string-width/node_modules/emoji-regex'
+117 silly reify ]
+118 silly reify mark retired [
+118 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/tinyglobby/node_modules/fdir'
+118 silly reify ]
+119 silly reify mark retired [
+119 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/tinyglobby/node_modules/picomatch'
+119 silly reify ]
+120 silly reify mark retired [
+120 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/tsconfig-paths/node_modules/json5'
+120 silly reify ]
+121 silly reify mark retired [
+121 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/tunnel-rat/node_modules/zustand'
+121 silly reify ]
+122 silly reify mark retired [
+122 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/uuid',
+122 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/uuid'
+122 silly reify ]
+123 silly reify mark retired [
+123 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/update-browserslist-db',
+123 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/update-browserslist-db'
+123 silly reify ]
+124 silly reify mark retired [
+124 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/three-stdlib/node_modules/fflate'
+124 silly reify ]
+125 silly reify mark retired [
+125 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/which',
+125 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/node-which'
+125 silly reify ]
+126 silly reify mark retired [
+126 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/@babel/parser',
+126 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/parser'
+126 silly reify ]
+127 silly reify mark retired [
+127 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/@eslint-community/eslint-utils/node_modules/eslint-visitor-keys'
+127 silly reify ]
+128 silly reify mark retired [
+128 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/@grpc/proto-loader',
+128 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/proto-loader-gen-types'
+128 silly reify ]
+129 silly reify mark retired [
+129 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/@react-three/drei/node_modules/three-mesh-bvh'
+129 silly reify ]
+130 silly reify mark retired [
+130 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/@typescript-eslint/eslint-plugin/node_modules/ignore'
+130 silly reify ]
+131 silly reify mark retired [
+131 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/@typescript-eslint/typescript-estree/node_modules/brace-expansion'
+131 silly reify ]
+132 silly reify mark retired [
+132 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/@typescript-eslint/typescript-estree/node_modules/minimatch'
+132 silly reify ]
+133 silly reify mark retired [
+133 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/@typescript-eslint/typescript-estree/node_modules/semver'
+133 silly reify ]
+134 silly reify mark retired [
+134 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/sshpk',
+134 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/sshpk-verify',
+134 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/sshpk-sign',
+134 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/sshpk-conv'
+134 silly reify ]
+135 silly reify moves {
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/acorn': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.acorn-ju950rJl',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/acorn-jsx': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.acorn-jsx-HKx9Ov1i',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/agent-base': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.agent-base-fOFErkgp',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/ajv': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.ajv-FFKQvOD1',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/ansi-regex': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.ansi-regex-eq3Wygo1',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/argparse': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.argparse-0wVAanTh',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/ansi-styles': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.ansi-styles-nbQYMXP7',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/aria-query': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.aria-query-B4NzVhf5',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/array-buffer-byte-length': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.array-buffer-byte-length-XzjlAV6J',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/array-includes': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.array-includes-MDjUgfWq',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/array.prototype.findlast': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.array.prototype.findlast-YLx39R0w',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/array.prototype.findlastindex': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.array.prototype.findlastindex-Db1G4QSv',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/array.prototype.flat': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.array.prototype.flat-g8JJTNDj',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/array.prototype.flatmap': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.array.prototype.flatmap-1CS07UUj',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/array.prototype.tosorted': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.array.prototype.tosorted-ThfKv2iD',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/arraybuffer.prototype.slice': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.arraybuffer.prototype.slice-Rigv7U1b',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/asn1': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.asn1-JRSvEy09',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/assert-plus': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.assert-plus-GuXzQtPa',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/ast-types-flow': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.ast-types-flow-TI1g2iY8',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/asynckit': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.asynckit-HayXBIAy',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/async-function': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.async-function-ps78M5nV',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/available-typed-arrays': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.available-typed-arrays-VuDeOhgh',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/aws4': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.aws4-dOHFIjQn',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/aws-sign2': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.aws-sign2-icOFX8Rk',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/axe-core': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.axe-core-0K6gsByX',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/axobject-query': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.axobject-query-dxKZGRyd',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/babel-plugin-react-compiler': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.babel-plugin-react-compiler-J3iFDvll',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/balanced-match': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.balanced-match-tQt2vUXY',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/base64-js': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.base64-js-elnuI3QM',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/baseline-browser-mapping': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.baseline-browser-mapping-DFJFDH4g',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/bcrypt-pbkdf': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bcrypt-pbkdf-uFfE5RLy',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/bidi-js': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bidi-js-tkshsm31',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/bluebird': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bluebird-hrRswz7R',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/brace-expansion': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.brace-expansion-y4xEBkLx',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/braces': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.braces-uGssiGpu',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/browserslist': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.browserslist-ajfS2nOU',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/buffer': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.buffer-bKwKstSY',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/call-bind': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.call-bind-Y5IozngO',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/call-bind-apply-helpers': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.call-bind-apply-helpers-vb7Wj71F',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/call-bound': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.call-bound-u574EAcn',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/callsites': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.callsites-aWf6HPtT',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/camera-controls': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.camera-controls-zS2kPTe8',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/caniuse-lite': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.caniuse-lite-Lb3LOxyc',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/caseless': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.caseless-KiCiJh8I',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/chalk': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.chalk-caCsrCMa',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/client-only': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.client-only-B8UH1tH4',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/cliui': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.cliui-vtHSN6tN',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/color-convert': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.color-convert-WKLcOoZM',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/color-name': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.color-name-cxjFKFFx',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/combined-stream': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.combined-stream-UdfkaP9P',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/concat-map': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.concat-map-PwTLeneM',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/core-util-is': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.core-util-is-BERcDG3L',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/convert-source-map': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.convert-source-map-Btdl2fGO',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/cross-env': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.cross-env-GsBK2PLs',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/csstype': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.csstype-lYkWY3Bo',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/cross-spawn': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.cross-spawn-JX29L1lA',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/damerau-levenshtein': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.damerau-levenshtein-HFTkdBGr',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/dashdash': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.dashdash-O4Ft2ei4',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/data-view-byte-length': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.data-view-byte-length-RxM08EjS',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/data-view-byte-offset': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.data-view-byte-offset-OD8nRmkF',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/debug': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.debug-Xt3lx1zd',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/deep-is': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.deep-is-RCMdxT65',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/data-view-buffer': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.data-view-buffer-j0Q80jay',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/define-data-property': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.define-data-property-xG09t0dR',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/define-properties': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.define-properties-o2iOQFHb',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/delayed-stream': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.delayed-stream-unyfkSqC',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/detect-gpu': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.detect-gpu-niqYpWRk',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/detect-libc': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.detect-libc-HHyul48G',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/doctrine': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.doctrine-u8zpCw22',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/draco3d': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.draco3d-py2QpyYN',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/dunder-proto': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.dunder-proto-wpRdnmIJ',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/electron-to-chromium': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.electron-to-chromium-IK8I0lYk',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/ecc-jsbn': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.ecc-jsbn-armqwi3k',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/emoji-regex': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.emoji-regex-gJtj2SoS',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/enhanced-resolve': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.enhanced-resolve-5ntRwZ91',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/es-abstract': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.es-abstract-Oyp3Olzu',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/es-iterator-helpers': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.es-iterator-helpers-9OJz3LGx',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/eslint-import-resolver-node': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.eslint-import-resolver-node-beZeR00o',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/eslint-plugin-import': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.eslint-plugin-import-crvpuoAF',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/eslint-plugin-react-hooks': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.eslint-plugin-react-hooks-6aw6kBqb',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/hls.js': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.hls.js-s80akfyg',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/next': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.next-6DIKWMs7',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/react-dom': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.react-dom-jrB1NZY7',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/typescript': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.typescript-qqVyrehM',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/eslint': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.eslint-MErPVzdW',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/eslint': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/.eslint-AKS8a9eN',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/eslint-config-next/node_modules/globals': '/Users/hakan/Downloads/hatrix-website-main/node_modules/eslint-config-next/node_modules/.globals-1yvXEbQW',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/eslint-module-utils/node_modules/debug': '/Users/hakan/Downloads/hatrix-website-main/node_modules/eslint-module-utils/node_modules/.debug-IfKAjyC9',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/eslint-plugin-react/node_modules/resolve': '/Users/hakan/Downloads/hatrix-website-main/node_modules/eslint-plugin-react/node_modules/.resolve-thGA4DJL',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/fast-glob/node_modules/glob-parent': '/Users/hakan/Downloads/hatrix-website-main/node_modules/fast-glob/node_modules/.glob-parent-mcuWbzVo',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/is-bun-module/node_modules/semver': '/Users/hakan/Downloads/hatrix-website-main/node_modules/is-bun-module/node_modules/.semver-xUQzfymB',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/its-fine/node_modules/@types/react-reconciler': '/Users/hakan/Downloads/hatrix-website-main/node_modules/its-fine/node_modules/@types/.react-reconciler-SyXcM6Cg',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/js-yaml': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.js-yaml-cj6IUUct',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/js-yaml': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/.js-yaml-UFAUT1Sn',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/jiti': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.jiti-4bOteuuG',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/jiti': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/.jiti-yvwti5Lo',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/jsesc': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.jsesc-wMVkVfzz',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/jsesc': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/.jsesc-cAhwOif1',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/json5': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.json5-CX0OSZdq',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/json5': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/.json5-BBWVJUXv',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/loose-envify': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.loose-envify-M3Xks2oF',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/loose-envify': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/.loose-envify-7i5f04Kl',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/nanoid': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.nanoid-YuNbAYPO',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/nanoid': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/.nanoid-tGl7yzeZ',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/napi-postinstall': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.napi-postinstall-hLH9pGDZ',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/napi-postinstall': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/.napi-postinstall-foH4DY0U',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/resolve': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.resolve-Vdhe3qwC',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/resolve': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/.resolve-zfnHn8DN',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/semver': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.semver-DbRGK7DA',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/semver': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/.semver-Bok02wNM',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/sharp/node_modules/semver': '/Users/hakan/Downloads/hatrix-website-main/node_modules/sharp/node_modules/.semver-veb6myh0',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/stats-gl/node_modules/three': '/Users/hakan/Downloads/hatrix-website-main/node_modules/stats-gl/node_modules/.three-UHsEl09c',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/string-width/node_modules/emoji-regex': '/Users/hakan/Downloads/hatrix-website-main/node_modules/string-width/node_modules/.emoji-regex-daocSRoa',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/tinyglobby/node_modules/fdir': '/Users/hakan/Downloads/hatrix-website-main/node_modules/tinyglobby/node_modules/.fdir-SpkvM91e',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/tinyglobby/node_modules/picomatch': '/Users/hakan/Downloads/hatrix-website-main/node_modules/tinyglobby/node_modules/.picomatch-GgI6O6pK',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/tsconfig-paths/node_modules/json5': '/Users/hakan/Downloads/hatrix-website-main/node_modules/tsconfig-paths/node_modules/.json5-qJU0eTbb',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/tunnel-rat/node_modules/zustand': '/Users/hakan/Downloads/hatrix-website-main/node_modules/tunnel-rat/node_modules/.zustand-v7z1078h',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/uuid': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.uuid-TelKKzdc',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/uuid': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/.uuid-MWzcxTxK',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/update-browserslist-db': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.update-browserslist-db-FOcytRyT',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/update-browserslist-db': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/.update-browserslist-db-6D9DsrEN',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/three-stdlib/node_modules/fflate': '/Users/hakan/Downloads/hatrix-website-main/node_modules/three-stdlib/node_modules/.fflate-6dpWUE7j',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/which': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.which-brTp3NsI',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/node-which': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/.node-which-gepLETDX',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/@babel/parser': '/Users/hakan/Downloads/hatrix-website-main/node_modules/@babel/.parser-LUR0Osuf',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/parser': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/.parser-cKTgZoVM',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/@eslint-community/eslint-utils/node_modules/eslint-visitor-keys': '/Users/hakan/Downloads/hatrix-website-main/node_modules/@eslint-community/eslint-utils/node_modules/.eslint-visitor-keys-wX714ghk',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/@grpc/proto-loader': '/Users/hakan/Downloads/hatrix-website-main/node_modules/@grpc/.proto-loader-ivXNjIIA',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/proto-loader-gen-types': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/.proto-loader-gen-types-R11k6RxX',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/@react-three/drei/node_modules/three-mesh-bvh': '/Users/hakan/Downloads/hatrix-website-main/node_modules/@react-three/drei/node_modules/.three-mesh-bvh-j5KQXaLX',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/@typescript-eslint/eslint-plugin/node_modules/ignore': '/Users/hakan/Downloads/hatrix-website-main/node_modules/@typescript-eslint/eslint-plugin/node_modules/.ignore-ZVp4rWNf',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/@typescript-eslint/typescript-estree/node_modules/brace-expansion': '/Users/hakan/Downloads/hatrix-website-main/node_modules/@typescript-eslint/typescript-estree/node_modules/.brace-expansion-LYnEl1fU',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/@typescript-eslint/typescript-estree/node_modules/minimatch': '/Users/hakan/Downloads/hatrix-website-main/node_modules/@typescript-eslint/typescript-estree/node_modules/.minimatch-SolEKvO1',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/@typescript-eslint/typescript-estree/node_modules/semver': '/Users/hakan/Downloads/hatrix-website-main/node_modules/@typescript-eslint/typescript-estree/node_modules/.semver-Na5iAtsq',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/sshpk': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.sshpk-VD5I23un',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/sshpk-verify': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/.sshpk-verify-B59IsSvm',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/sshpk-sign': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/.sshpk-sign-GGKEBQL4',
+135 silly reify   '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/sshpk-conv': '/Users/hakan/Downloads/hatrix-website-main/node_modules/.bin/.sshpk-conv-qtTS09qJ'
+135 silly reify }
+136 silly audit bulk request {
+136 silly audit   '@alloc/quick-lru': [ '5.2.0' ],
+136 silly audit   '@babel/code-frame': [ '7.27.1' ],
+136 silly audit   '@babel/compat-data': [ '7.28.5' ],
+136 silly audit   '@babel/core': [ '7.28.5' ],
+136 silly audit   '@babel/generator': [ '7.28.5' ],
+136 silly audit   '@babel/helper-compilation-targets': [ '7.27.2' ],
+136 silly audit   '@babel/helper-globals': [ '7.28.0' ],
+136 silly audit   '@babel/helper-module-imports': [ '7.27.1' ],
+136 silly audit   '@babel/helper-module-transforms': [ '7.28.3' ],
+136 silly audit   '@babel/helper-string-parser': [ '7.27.1' ],
+136 silly audit   '@babel/helper-validator-identifier': [ '7.28.5' ],
+136 silly audit   '@babel/helper-validator-option': [ '7.27.1' ],
+136 silly audit   '@babel/helpers': [ '7.28.4' ],
+136 silly audit   '@babel/parser': [ '7.28.5' ],
+136 silly audit   '@babel/runtime': [ '7.28.4' ],
+136 silly audit   '@babel/template': [ '7.27.2' ],
+136 silly audit   '@babel/traverse': [ '7.28.5' ],
+136 silly audit   '@babel/types': [ '7.28.5' ],
+136 silly audit   '@dimforge/rapier3d-compat': [ '0.12.0' ],
+136 silly audit   '@emnapi/core': [ '1.7.1' ],
+136 silly audit   '@emnapi/runtime': [ '1.7.1' ],
+136 silly audit   '@emnapi/wasi-threads': [ '1.1.0' ],
+136 silly audit   '@eslint-community/eslint-utils': [ '4.9.0' ],
+136 silly audit   'eslint-visitor-keys': [ '3.4.3', '4.2.1' ],
+136 silly audit   '@eslint-community/regexpp': [ '4.12.2' ],
+136 silly audit   '@eslint/config-array': [ '0.21.1' ],
+136 silly audit   '@eslint/config-helpers': [ '0.4.2' ],
+136 silly audit   '@eslint/core': [ '0.17.0' ],
+136 silly audit   '@eslint/eslintrc': [ '3.3.3' ],
+136 silly audit   '@eslint/js': [ '9.39.2' ],
+136 silly audit   '@eslint/object-schema': [ '2.1.7' ],
+136 silly audit   '@eslint/plugin-kit': [ '0.4.1' ],
+136 silly audit   '@firebase/ai': [ '2.6.1' ],
+136 silly audit   '@firebase/analytics': [ '0.10.19' ],
+136 silly audit   '@firebase/analytics-compat': [ '0.2.25' ],
+136 silly audit   '@firebase/analytics-types': [ '0.8.3' ],
+136 silly audit   '@firebase/app': [ '0.14.6' ],
+136 silly audit   '@firebase/app-check': [ '0.11.0' ],
+136 silly audit   '@firebase/app-check-compat': [ '0.4.0' ],
+136 silly audit   '@firebase/app-check-interop-types': [ '0.3.3' ],
+136 silly audit   '@firebase/app-check-types': [ '0.5.3' ],
+136 silly audit   '@firebase/app-compat': [ '0.5.6' ],
+136 silly audit   '@firebase/app-types': [ '0.9.3' ],
+136 silly audit   '@firebase/auth': [ '1.12.0' ],
+136 silly audit   '@firebase/auth-compat': [ '0.6.2' ],
+136 silly audit   '@firebase/auth-interop-types': [ '0.2.4' ],
+136 silly audit   '@firebase/auth-types': [ '0.13.0' ],
+136 silly audit   '@firebase/component': [ '0.7.0' ],
+136 silly audit   '@firebase/data-connect': [ '0.3.12' ],
+136 silly audit   '@firebase/database': [ '1.1.0' ],
+136 silly audit   '@firebase/database-compat': [ '2.1.0' ],
+136 silly audit   '@firebase/database-types': [ '1.0.16' ],
+136 silly audit   '@firebase/firestore': [ '4.9.3' ],
+136 silly audit   '@firebase/firestore-compat': [ '0.4.3' ],
+136 silly audit   '@firebase/firestore-types': [ '3.0.3' ],
+136 silly audit   '@firebase/functions': [ '0.13.1' ],
+136 silly audit   '@firebase/functions-compat': [ '0.4.1' ],
+136 silly audit   '@firebase/functions-types': [ '0.6.3' ],
+136 silly audit   '@firebase/installations': [ '0.6.19' ],
+136 silly audit   '@firebase/installations-compat': [ '0.2.19' ],
+136 silly audit   '@firebase/installations-types': [ '0.5.3' ],
+136 silly audit   '@firebase/logger': [ '0.5.0' ],
+136 silly audit   '@firebase/messaging': [ '0.12.23' ],
+136 silly audit   '@firebase/messaging-compat': [ '0.2.23' ],
+136 silly audit   '@firebase/messaging-interop-types': [ '0.2.3' ],
+136 silly audit   '@firebase/performance': [ '0.7.9' ],
+136 silly audit   '@firebase/performance-compat': [ '0.2.22' ],
+136 silly audit   '@firebase/performance-types': [ '0.2.3' ],
+136 silly audit   '@firebase/remote-config': [ '0.7.0' ],
+136 silly audit   '@firebase/remote-config-compat': [ '0.2.20' ],
+136 silly audit   '@firebase/remote-config-types': [ '0.5.0' ],
+136 silly audit   '@firebase/storage': [ '0.14.0' ],
+136 silly audit   '@firebase/storage-compat': [ '0.4.0' ],
+136 silly audit   '@firebase/storage-types': [ '0.8.3' ],
+136 silly audit   '@firebase/util': [ '1.13.0' ],
+136 silly audit   '@firebase/webchannel-wrapper': [ '1.0.5' ],
+136 silly audit   '@grpc/grpc-js': [ '1.9.15' ],
+136 silly audit   '@grpc/proto-loader': [ '0.7.15' ],
+136 silly audit   '@humanfs/core': [ '0.19.1' ],
+136 silly audit   '@humanfs/node': [ '0.16.7' ],
+136 silly audit   '@humanwhocodes/module-importer': [ '1.0.1' ],
+136 silly audit   '@humanwhocodes/retry': [ '0.4.3' ],
+136 silly audit   '@img/colour': [ '1.0.0' ],
+136 silly audit   '@img/sharp-darwin-arm64': [ '0.34.5' ],
+136 silly audit   '@img/sharp-darwin-x64': [ '0.34.5' ],
+136 silly audit   '@img/sharp-libvips-darwin-arm64': [ '1.2.4' ],
+136 silly audit   '@img/sharp-libvips-darwin-x64': [ '1.2.4' ],
+136 silly audit   '@img/sharp-libvips-linux-arm': [ '1.2.4' ],
+136 silly audit   '@img/sharp-libvips-linux-arm64': [ '1.2.4' ],
+136 silly audit   '@img/sharp-libvips-linux-ppc64': [ '1.2.4' ],
+136 silly audit   '@img/sharp-libvips-linux-riscv64': [ '1.2.4' ],
+136 silly audit   '@img/sharp-libvips-linux-s390x': [ '1.2.4' ],
+136 silly audit   '@img/sharp-libvips-linux-x64': [ '1.2.4' ],
+136 silly audit   '@img/sharp-libvips-linuxmusl-arm64': [ '1.2.4' ],
+136 silly audit   '@img/sharp-libvips-linuxmusl-x64': [ '1.2.4' ],
+136 silly audit   '@img/sharp-linux-arm': [ '0.34.5' ],
+136 silly audit   '@img/sharp-linux-arm64': [ '0.34.5' ],
+136 silly audit   '@img/sharp-linux-ppc64': [ '0.34.5' ],
+136 silly audit   '@img/sharp-linux-riscv64': [ '0.34.5' ],
+136 silly audit   '@img/sharp-linux-s390x': [ '0.34.5' ],
+136 silly audit   '@img/sharp-linux-x64': [ '0.34.5' ],
+136 silly audit   '@img/sharp-linuxmusl-arm64': [ '0.34.5' ],
+136 silly audit   '@img/sharp-linuxmusl-x64': [ '0.34.5' ],
+136 silly audit   '@img/sharp-wasm32': [ '0.34.5' ],
+136 silly audit   '@img/sharp-win32-arm64': [ '0.34.5' ],
+136 silly audit   '@img/sharp-win32-ia32': [ '0.34.5' ],
+136 silly audit   '@img/sharp-win32-x64': [ '0.34.5' ],
+136 silly audit   '@jridgewell/gen-mapping': [ '0.3.13' ],
+136 silly audit   '@jridgewell/remapping': [ '2.3.5' ],
+136 silly audit   '@jridgewell/resolve-uri': [ '3.1.2' ],
+136 silly audit   '@jridgewell/sourcemap-codec': [ '1.5.5' ],
+136 silly audit   '@jridgewell/trace-mapping': [ '0.3.31' ],
+136 silly audit   '@mediapipe/tasks-vision': [ '0.10.17' ],
+136 silly audit   '@monogrid/gainmap-js': [ '3.4.0' ],
+136 silly audit   '@napi-rs/wasm-runtime': [ '0.2.12' ],
+136 silly audit   '@next/env': [ '16.1.0' ],
+136 silly audit   '@next/eslint-plugin-next': [ '16.1.0' ],
+136 silly audit   '@next/swc-darwin-arm64': [ '16.1.0' ],
+136 silly audit   '@next/swc-darwin-x64': [ '16.1.0' ],
+136 silly audit   '@next/swc-linux-arm64-gnu': [ '16.1.0' ],
+136 silly audit   '@next/swc-linux-arm64-musl': [ '16.1.0' ],
+136 silly audit   '@next/swc-linux-x64-gnu': [ '16.1.0' ],
+136 silly audit   '@next/swc-linux-x64-musl': [ '16.1.0' ],
+136 silly audit   '@next/swc-win32-arm64-msvc': [ '16.1.0' ],
+136 silly audit   '@next/swc-win32-x64-msvc': [ '16.1.0' ],
+136 silly audit   '@nodelib/fs.scandir': [ '2.1.5' ],
+136 silly audit   '@nodelib/fs.stat': [ '2.0.5' ],
+136 silly audit   '@nodelib/fs.walk': [ '1.2.8' ],
+136 silly audit   '@nolyfill/is-core-module': [ '1.0.39' ],
+136 silly audit   '@postman/form-data': [ '3.1.1' ],
+136 silly audit   '@postman/tough-cookie': [ '4.1.3-postman.1' ],
+136 silly audit   '@postman/tunnel-agent': [ '0.6.8' ],
+136 silly audit   '@protobufjs/aspromise': [ '1.1.2' ],
+136 silly audit   '@protobufjs/base64': [ '1.1.2' ],
+136 silly audit   '@protobufjs/codegen': [ '2.0.4' ],
+136 silly audit   '@protobufjs/eventemitter': [ '1.1.0' ],
+136 silly audit   '@protobufjs/fetch': [ '1.1.0' ],
+136 silly audit   '@protobufjs/float': [ '1.0.2' ],
+136 silly audit   '@protobufjs/inquire': [ '1.1.0' ],
+136 silly audit   '@protobufjs/path': [ '1.1.2' ],
+136 silly audit   '@protobufjs/pool': [ '1.1.0' ],
+136 silly audit   '@protobufjs/utf8': [ '1.1.0' ],
+136 silly audit   '@react-three/drei': [ '10.7.7' ],
+136 silly audit   'three-mesh-bvh': [ '0.8.3', '0.9.7' ],
+136 silly audit   '@react-three/fiber': [ '9.5.0' ],
+136 silly audit   '@rtsao/scc': [ '1.1.0' ],
+136 silly audit   '@swc/helpers': [ '0.5.15' ],
+136 silly audit   '@tailwindcss/node': [ '4.1.18' ],
+136 silly audit   '@tailwindcss/oxide': [ '4.1.18' ],
+136 silly audit   '@tailwindcss/oxide-android-arm64': [ '4.1.18' ],
+136 silly audit   '@tailwindcss/oxide-darwin-arm64': [ '4.1.18' ],
+136 silly audit   '@tailwindcss/oxide-darwin-x64': [ '4.1.18' ],
+136 silly audit   '@tailwindcss/oxide-freebsd-x64': [ '4.1.18' ],
+136 silly audit   '@tailwindcss/oxide-linux-arm-gnueabihf': [ '4.1.18' ],
+136 silly audit   '@tailwindcss/oxide-linux-arm64-gnu': [ '4.1.18' ],
+136 silly audit   '@tailwindcss/oxide-linux-arm64-musl': [ '4.1.18' ],
+136 silly audit   '@tailwindcss/oxide-linux-x64-gnu': [ '4.1.18' ],
+136 silly audit   '@tailwindcss/oxide-linux-x64-musl': [ '4.1.18' ],
+136 silly audit   '@tailwindcss/oxide-wasm32-wasi': [ '4.1.18' ],
+136 silly audit   '@tailwindcss/oxide-win32-arm64-msvc': [ '4.1.18' ],
+136 silly audit   '@tailwindcss/oxide-win32-x64-msvc': [ '4.1.18' ],
+136 silly audit   '@tailwindcss/postcss': [ '4.1.18' ],
+136 silly audit   '@tweenjs/tween.js': [ '23.1.3' ],
+136 silly audit   '@tybys/wasm-util': [ '0.10.1' ],
+136 silly audit   '@types/draco3d': [ '1.4.10' ],
+136 silly audit   '@types/estree': [ '1.0.8' ],
+136 silly audit   '@types/json-schema': [ '7.0.15' ],
+136 silly audit   '@types/json5': [ '0.0.29' ],
+136 silly audit   '@types/node': [ '25.0.3' ],
+136 silly audit   '@types/offscreencanvas': [ '2019.7.3' ],
+136 silly audit   '@types/react': [ '19.2.7' ],
+136 silly audit   '@types/stats.js': [ '0.17.4' ],
+136 silly audit   '@types/three': [ '0.182.0' ],
+136 silly audit   '@types/webxr': [ '0.5.24' ],
+136 silly audit   '@typescript-eslint/eslint-plugin': [ '8.50.0' ],
+136 silly audit   ignore: [ '7.0.5', '5.3.2' ],
+136 silly audit   '@typescript-eslint/parser': [ '8.50.0' ],
+136 silly audit   '@typescript-eslint/project-service': [ '8.50.0' ],
+136 silly audit   '@typescript-eslint/scope-manager': [ '8.50.0' ],
+136 silly audit   '@typescript-eslint/tsconfig-utils': [ '8.50.0' ],
+136 silly audit   '@typescript-eslint/type-utils': [ '8.50.0' ],
+136 silly audit   '@typescript-eslint/types': [ '8.50.0' ],
+136 silly audit   '@typescript-eslint/typescript-estree': [ '8.50.0' ],
+136 silly audit   'brace-expansion': [ '2.0.2', '1.1.12' ],
+136 silly audit   minimatch: [ '9.0.5', '3.1.2' ],
+136 silly audit   semver: [ '7.7.3', '6.3.1' ],
+136 silly audit   '@typescript-eslint/utils': [ '8.50.0' ],
+136 silly audit   '@typescript-eslint/visitor-keys': [ '8.50.0' ],
+136 silly audit   '@unrs/resolver-binding-android-arm-eabi': [ '1.11.1' ],
+136 silly audit   '@unrs/resolver-binding-android-arm64': [ '1.11.1' ],
+136 silly audit   '@unrs/resolver-binding-darwin-arm64': [ '1.11.1' ],
+136 silly audit   '@unrs/resolver-binding-darwin-x64': [ '1.11.1' ],
+136 silly audit   '@unrs/resolver-binding-freebsd-x64': [ '1.11.1' ],
+136 silly audit   '@unrs/resolver-binding-linux-arm-gnueabihf': [ '1.11.1' ],
+136 silly audit   '@unrs/resolver-binding-linux-arm-musleabihf': [ '1.11.1' ],
+136 silly audit   '@unrs/resolver-binding-linux-arm64-gnu': [ '1.11.1' ],
+136 silly audit   '@unrs/resolver-binding-linux-arm64-musl': [ '1.11.1' ],
+136 silly audit   '@unrs/resolver-binding-linux-ppc64-gnu': [ '1.11.1' ],
+136 silly audit   '@unrs/resolver-binding-linux-riscv64-gnu': [ '1.11.1' ],
+136 silly audit   '@unrs/resolver-binding-linux-riscv64-musl': [ '1.11.1' ],
+136 silly audit   '@unrs/resolver-binding-linux-s390x-gnu': [ '1.11.1' ],
+136 silly audit   '@unrs/resolver-binding-linux-x64-gnu': [ '1.11.1' ],
+136 silly audit   '@unrs/resolver-binding-linux-x64-musl': [ '1.11.1' ],
+136 silly audit   '@unrs/resolver-binding-wasm32-wasi': [ '1.11.1' ],
+136 silly audit   '@unrs/resolver-binding-win32-arm64-msvc': [ '1.11.1' ],
+136 silly audit   '@unrs/resolver-binding-win32-ia32-msvc': [ '1.11.1' ],
+136 silly audit   '@unrs/resolver-binding-win32-x64-msvc': [ '1.11.1' ],
+136 silly audit   '@use-gesture/core': [ '10.3.1' ],
+136 silly audit   '@use-gesture/react': [ '10.3.1' ],
+136 silly audit   '@webgpu/types': [ '0.1.68' ],
+136 silly audit   acorn: [ '8.15.0' ],
+136 silly audit   'acorn-jsx': [ '5.3.2' ],
+136 silly audit   'agent-base': [ '7.1.4' ],
+136 silly audit   ajv: [ '6.12.6' ],
+136 silly audit   'ansi-regex': [ '5.0.1' ],
+136 silly audit   'ansi-styles': [ '4.3.0' ],
+136 silly audit   argparse: [ '2.0.1' ],
+136 silly audit   'aria-query': [ '5.3.2' ],
+136 silly audit   'array-buffer-byte-length': [ '1.0.2' ],
+136 silly audit   'array-includes': [ '3.1.9' ],
+136 silly audit   'array.prototype.findlast': [ '1.2.5' ],
+136 silly audit   'array.prototype.findlastindex': [ '1.2.6' ],
+136 silly audit   'array.prototype.flat': [ '1.3.3' ],
+136 silly audit   'array.prototype.flatmap': [ '1.3.3' ],
+136 silly audit   'array.prototype.tosorted': [ '1.1.4' ],
+136 silly audit   'arraybuffer.prototype.slice': [ '1.0.4' ],
+136 silly audit   asn1: [ '0.2.6' ],
+136 silly audit   'assert-plus': [ '1.0.0' ],
+136 silly audit   'ast-types-flow': [ '0.0.8' ],
+136 silly audit   'async-function': [ '1.0.0' ],
+136 silly audit   asynckit: [ '0.4.0' ],
+136 silly audit   'available-typed-arrays': [ '1.0.7' ],
+136 silly audit   'aws-sign2': [ '0.7.0' ],
+136 silly audit   aws4: [ '1.13.2' ],
+136 silly audit   'axe-core': [ '4.11.0' ],
+136 silly audit   'axobject-query': [ '4.1.0' ],
+136 silly audit   'babel-plugin-react-compiler': [ '1.0.0' ],
+136 silly audit   'balanced-match': [ '1.0.2' ],
+136 silly audit   'base64-js': [ '1.5.1' ],
+136 silly audit   'baseline-browser-mapping': [ '2.9.11' ],
+136 silly audit   'bcrypt-pbkdf': [ '1.0.2' ],
+136 silly audit   'bidi-js': [ '1.0.3' ],
+136 silly audit   bluebird: [ '2.11.0' ],
+136 silly audit   braces: [ '3.0.3' ],
+136 silly audit   browserslist: [ '4.28.1' ],
+136 silly audit   buffer: [ '6.0.3' ],
+136 silly audit   'call-bind': [ '1.0.8' ],
+136 silly audit   'call-bind-apply-helpers': [ '1.0.2' ],
+136 silly audit   'call-bound': [ '1.0.4' ],
+136 silly audit   callsites: [ '3.1.0' ],
+136 silly audit   'camera-controls': [ '3.1.2' ],
+136 silly audit   'caniuse-lite': [ '1.0.30001761' ],
+136 silly audit   caseless: [ '0.12.0' ],
+136 silly audit   chalk: [ '4.1.2' ],
+136 silly audit   'client-only': [ '0.0.1' ],
+136 silly audit   cliui: [ '8.0.1' ],
+136 silly audit   'color-convert': [ '2.0.1' ],
+136 silly audit   'color-name': [ '1.1.4' ],
+136 silly audit   'combined-stream': [ '1.0.8' ],
+136 silly audit   'concat-map': [ '0.0.1' ],
+136 silly audit   'convert-source-map': [ '2.0.0' ],
+136 silly audit   'core-util-is': [ '1.0.2' ],
+136 silly audit   'cross-env': [ '7.0.3' ],
+136 silly audit   'cross-spawn': [ '7.0.6' ],
+136 silly audit   csstype: [ '3.2.3' ],
+136 silly audit   'damerau-levenshtein': [ '1.0.8' ],
+136 silly audit   dashdash: [ '1.14.1' ],
+136 silly audit   'data-view-buffer': [ '1.0.2' ],
+136 silly audit   'data-view-byte-length': [ '1.0.2' ],
+136 silly audit   'data-view-byte-offset': [ '1.0.1' ],
+136 silly audit   debug: [ '4.4.3', '3.2.7' ],
+136 silly audit   'deep-is': [ '0.1.4' ],
+136 silly audit   'define-data-property': [ '1.1.4' ],
+136 silly audit   'define-properties': [ '1.2.1' ],
+136 silly audit   'delayed-stream': [ '1.0.0' ],
+136 silly audit   'detect-gpu': [ '5.0.70' ],
+136 silly audit   'detect-libc': [ '2.1.2' ],
+136 silly audit   doctrine: [ '2.1.0' ],
+136 silly audit   draco3d: [ '1.5.7' ],
+136 silly audit   'dunder-proto': [ '1.0.1' ],
+136 silly audit   'ecc-jsbn': [ '0.1.2' ],
+136 silly audit   'electron-to-chromium': [ '1.5.267' ],
+136 silly audit   'emoji-regex': [ '9.2.2', '8.0.0' ],
+136 silly audit   'enhanced-resolve': [ '5.18.4' ],
+136 silly audit   'es-abstract': [ '1.24.1' ],
+136 silly audit   'es-define-property': [ '1.0.1' ],
+136 silly audit   'es-errors': [ '1.3.0' ],
+136 silly audit   'es-iterator-helpers': [ '1.2.2' ],
+136 silly audit   'es-object-atoms': [ '1.1.1' ],
+136 silly audit   'es-set-tostringtag': [ '2.1.0' ],
+136 silly audit   'es-shim-unscopables': [ '1.1.0' ],
+136 silly audit   'es-to-primitive': [ '1.3.0' ],
+136 silly audit   escalade: [ '3.2.0' ],
+136 silly audit   'escape-string-regexp': [ '4.0.0' ],
+136 silly audit   eslint: [ '9.39.2' ],
+136 silly audit   'eslint-config-next': [ '16.1.0' ],
+136 silly audit   globals: [ '16.4.0', '14.0.0' ],
+136 silly audit   'eslint-import-resolver-node': [ '0.3.9' ],
+136 silly audit   'eslint-import-resolver-typescript': [ '3.10.1' ],
+136 silly audit   'eslint-module-utils': [ '2.12.1' ],
+136 silly audit   'eslint-plugin-import': [ '2.32.0' ],
+136 silly audit   'eslint-plugin-jsx-a11y': [ '6.10.2' ],
+136 silly audit   'eslint-plugin-react': [ '7.37.5' ],
+136 silly audit   'eslint-plugin-react-hooks': [ '7.0.1' ],
+136 silly audit   resolve: [ '2.0.0-next.5', '1.22.11' ],
+136 silly audit   'eslint-scope': [ '8.4.0' ],
+136 silly audit   espree: [ '10.4.0' ],
+136 silly audit   esquery: [ '1.6.0' ],
+136 silly audit   esrecurse: [ '4.3.0' ],
+136 silly audit   estraverse: [ '5.3.0' ],
+136 silly audit   esutils: [ '2.0.3' ],
+136 silly audit   extend: [ '3.0.2' ],
+136 silly audit   extsprintf: [ '1.3.0' ],
+136 silly audit   'fast-deep-equal': [ '3.1.3' ],
+136 silly audit   'fast-glob': [ '3.3.1' ],
+136 silly audit   'glob-parent': [ '5.1.2', '6.0.2' ],
+136 silly audit   'fast-json-stable-stringify': [ '2.1.0' ],
+136 silly audit   'fast-levenshtein': [ '2.0.6' ],
+136 silly audit   fastq: [ '1.19.1' ],
+136 silly audit   'faye-websocket': [ '0.11.4' ],
+136 silly audit   fflate: [ '0.8.2', '0.6.10' ],
+136 silly audit   'file-entry-cache': [ '8.0.0' ],
+136 silly audit   'fill-range': [ '7.1.1' ],
+136 silly audit   'find-up': [ '5.0.0' ],
+136 silly audit   firebase: [ '12.7.0' ],
+136 silly audit   'flat-cache': [ '4.0.1' ],
+136 silly audit   flatted: [ '3.3.3' ],
+136 silly audit   'for-each': [ '0.3.5' ],
+136 silly audit   'forever-agent': [ '0.6.1' ],
+136 silly audit   'framer-motion': [ '12.25.0' ],
+136 silly audit   'function-bind': [ '1.1.2' ],
+136 silly audit   'function.prototype.name': [ '1.1.8' ],
+136 silly audit   'functions-have-names': [ '1.2.3' ],
+136 silly audit   'generator-function': [ '2.0.1' ],
+136 silly audit   gensync: [ '1.0.0-beta.2' ],
+136 silly audit   'get-caller-file': [ '2.0.5' ],
+136 silly audit   'get-intrinsic': [ '1.3.0' ],
+136 silly audit   'get-proto': [ '1.0.1' ],
+136 silly audit   'get-symbol-description': [ '1.1.0' ],
+136 silly audit   'get-tsconfig': [ '4.13.0' ],
+136 silly audit   getpass: [ '0.1.7' ],
+136 silly audit   globalthis: [ '1.0.4' ],
+136 silly audit   'glsl-noise': [ '0.0.0' ],
+136 silly audit   gopd: [ '1.2.0' ],
+136 silly audit   'graceful-fs': [ '4.2.11' ],
+136 silly audit   'has-bigints': [ '1.1.0' ],
+136 silly audit   'has-flag': [ '4.0.0' ],
+136 silly audit   'has-property-descriptors': [ '1.0.2' ],
+136 silly audit   'has-proto': [ '1.2.0' ],
+136 silly audit   'has-symbols': [ '1.1.0' ],
+136 silly audit   'has-tostringtag': [ '1.0.2' ],
+136 silly audit   hasown: [ '2.0.2' ],
+136 silly audit   'hermes-estree': [ '0.25.1' ],
+136 silly audit   'hermes-parser': [ '0.25.1' ],
+136 silly audit   'hls.js': [ '1.6.15' ],
+136 silly audit   'http-parser-js': [ '0.5.10' ],
+136 silly audit   'http-signature': [ '1.4.0' ],
+136 silly audit   idb: [ '7.1.1' ],
+136 silly audit   ieee754: [ '1.2.1' ],
+136 silly audit   immediate: [ '3.0.6' ],
+136 silly audit   'import-fresh': [ '3.3.1' ],
+136 silly audit   imurmurhash: [ '0.1.4' ],
+136 silly audit   'internal-slot': [ '1.1.0' ],
+136 silly audit   'ip-address': [ '10.1.0' ],
+136 silly audit   'is-array-buffer': [ '3.0.5' ],
+136 silly audit   'is-async-function': [ '2.1.1' ],
+136 silly audit   'is-bigint': [ '1.1.0' ],
+136 silly audit   'is-boolean-object': [ '1.2.2' ],
+136 silly audit   'is-bun-module': [ '2.0.0' ],
+136 silly audit   'is-callable': [ '1.2.7' ],
+136 silly audit   'is-core-module': [ '2.16.1' ],
+136 silly audit   'is-data-view': [ '1.0.2' ],
+136 silly audit   'is-date-object': [ '1.1.0' ],
+136 silly audit   'is-extglob': [ '2.1.1' ],
+136 silly audit   'is-finalizationregistry': [ '1.1.1' ],
+136 silly audit   'is-fullwidth-code-point': [ '3.0.0' ],
+136 silly audit   'is-generator-function': [ '1.1.2' ],
+136 silly audit   'is-glob': [ '4.0.3' ],
+136 silly audit   'is-map': [ '2.0.3' ],
+136 silly audit   'is-negative-zero': [ '2.0.3' ],
+136 silly audit   'is-number': [ '7.0.0' ],
+136 silly audit   'is-number-object': [ '1.1.1' ],
+136 silly audit   'is-promise': [ '2.2.2' ],
+136 silly audit   'is-regex': [ '1.2.1' ],
+136 silly audit   'is-set': [ '2.0.3' ],
+136 silly audit   'is-shared-array-buffer': [ '1.0.4' ],
+136 silly audit   'is-string': [ '1.1.1' ],
+136 silly audit   'is-symbol': [ '1.1.1' ],
+136 silly audit   'is-typed-array': [ '1.1.15' ],
+136 silly audit   'is-typedarray': [ '1.0.0' ],
+136 silly audit   'is-weakmap': [ '2.0.2' ],
+136 silly audit   'is-weakref': [ '1.1.1' ],
+136 silly audit   'is-weakset': [ '2.0.4' ],
+136 silly audit   isarray: [ '2.0.5' ],
+136 silly audit   isexe: [ '2.0.0' ],
+136 silly audit   isstream: [ '0.1.2' ],
+136 silly audit   'iterator.prototype': [ '1.1.5' ],
+136 silly audit   'its-fine': [ '2.0.0' ],
+136 silly audit   '@types/react-reconciler': [ '0.28.9' ],
+136 silly audit   iyzipay: [ '2.0.64' ],
+136 silly audit   jiti: [ '2.6.1' ],
+136 silly audit   'js-tokens': [ '4.0.0' ],
+136 silly audit   'js-yaml': [ '4.1.1' ],
+136 silly audit   jsbn: [ '0.1.1' ],
+136 silly audit   jsesc: [ '3.1.0' ],
+136 silly audit   'json-buffer': [ '3.0.1' ],
+136 silly audit   'json-schema': [ '0.4.0' ],
+136 silly audit   'json-schema-traverse': [ '0.4.1' ],
+136 silly audit   'json-stable-stringify-without-jsonify': [ '1.0.1' ],
+136 silly audit   'json-stringify-safe': [ '5.0.1' ],
+136 silly audit   json5: [ '2.2.3', '1.0.2' ],
+136 silly audit   jsprim: [ '2.0.2' ],
+136 silly audit   'jsx-ast-utils': [ '3.3.5' ],
+136 silly audit   keyv: [ '4.5.4' ],
+136 silly audit   'language-subtag-registry': [ '0.3.23' ],
+136 silly audit   'language-tags': [ '1.0.9' ],
+136 silly audit   levn: [ '0.4.1' ],
+136 silly audit   lie: [ '3.3.0' ],
+136 silly audit   lightningcss: [ '1.30.2' ],
+136 silly audit   'lightningcss-android-arm64': [ '1.30.2' ],
+136 silly audit   'lightningcss-darwin-arm64': [ '1.30.2' ],
+136 silly audit   'lightningcss-darwin-x64': [ '1.30.2' ],
+136 silly audit   'lightningcss-freebsd-x64': [ '1.30.2' ],
+136 silly audit   'lightningcss-linux-arm-gnueabihf': [ '1.30.2' ],
+136 silly audit   'lightningcss-linux-arm64-gnu': [ '1.30.2' ],
+136 silly audit   'lightningcss-linux-arm64-musl': [ '1.30.2' ],
+136 silly audit   'lightningcss-linux-x64-gnu': [ '1.30.2' ],
+136 silly audit   'lightningcss-linux-x64-musl': [ '1.30.2' ],
+136 silly audit   'lightningcss-win32-arm64-msvc': [ '1.30.2' ],
+136 silly audit   'lightningcss-win32-x64-msvc': [ '1.30.2' ],
+136 silly audit   'locate-path': [ '6.0.0' ],
+136 silly audit   'lodash.camelcase': [ '4.3.0' ],
+136 silly audit   'lodash.merge': [ '4.6.2' ],
+136 silly audit   long: [ '5.3.2' ],
+136 silly audit   'loose-envify': [ '1.4.0' ],
+136 silly audit   'lru-cache': [ '5.1.1' ],
+136 silly audit   'lucide-react': [ '0.562.0' ],
+136 silly audit   maath: [ '0.10.8' ],
+136 silly audit   'magic-string': [ '0.30.21' ],
+136 silly audit   'math-intrinsics': [ '1.1.0' ],
+136 silly audit   merge2: [ '1.4.1' ],
+136 silly audit   meshline: [ '3.3.1' ],
+136 silly audit   meshoptimizer: [ '0.22.0' ],
+136 silly audit   micromatch: [ '4.0.8' ],
+136 silly audit   'mime-db': [ '1.52.0' ],
+136 silly audit   'mime-types': [ '2.1.35' ],
+136 silly audit   minimist: [ '1.2.8' ],
+136 silly audit   'motion-dom': [ '12.24.11' ],
+136 silly audit   'motion-utils': [ '12.24.10' ],
+136 silly audit   ms: [ '2.1.3' ],
+136 silly audit   nanoid: [ '3.3.11' ],
+136 silly audit   'napi-postinstall': [ '0.3.4' ],
+136 silly audit   'natural-compare': [ '1.4.0' ],
+136 silly audit   next: [ '16.1.0' ],
+136 silly audit   postcss: [ '8.4.31', '8.5.6' ],
+136 silly audit   'node-releases': [ '2.0.27' ],
+136 silly audit   'oauth-sign': [ '0.9.0' ],
+136 silly audit   'object-assign': [ '4.1.1' ],
+136 silly audit   'object-inspect': [ '1.13.4' ],
+136 silly audit   'object-keys': [ '1.1.1' ],
+136 silly audit   'object.assign': [ '4.1.7' ],
+136 silly audit   'object.entries': [ '1.1.9' ],
+136 silly audit   'object.fromentries': [ '2.0.8' ],
+136 silly audit   'object.groupby': [ '1.0.3' ],
+136 silly audit   'object.values': [ '1.2.1' ],
+136 silly audit   optionator: [ '0.9.4' ],
+136 silly audit   'own-keys': [ '1.0.1' ],
+136 silly audit   'p-limit': [ '3.1.0' ],
+136 silly audit   'p-locate': [ '5.0.0' ],
+136 silly audit   'parent-module': [ '1.0.1' ],
+136 silly audit   'path-exists': [ '4.0.0' ],
+136 silly audit   'path-key': [ '3.1.1' ],
+136 silly audit   'path-parse': [ '1.0.7' ],
+136 silly audit   picocolors: [ '1.1.1' ],
+136 silly audit   picomatch: [ '2.3.1', '4.0.3' ],
+136 silly audit   'possible-typed-array-names': [ '1.1.0' ],
+136 silly audit   'postman-request': [ '2.88.1-postman.47' ],
+136 silly audit   potpack: [ '1.0.2' ],
+136 silly audit   'prelude-ls': [ '1.2.1' ],
+136 silly audit   'promise-worker-transferable': [ '1.0.4' ],
+136 silly audit   'prop-types': [ '15.8.1' ],
+136 silly audit   protobufjs: [ '7.5.4' ],
+136 silly audit   psl: [ '1.15.0' ],
+136 silly audit   punycode: [ '2.3.1' ],
+136 silly audit   qs: [ '6.5.3' ],
+136 silly audit   querystringify: [ '2.2.0' ],
+136 silly audit   'queue-microtask': [ '1.2.3' ],
+136 silly audit   react: [ '19.2.3' ],
+136 silly audit   'react-dom': [ '19.2.3' ],
+136 silly audit   'react-is': [ '16.13.1' ],
+136 silly audit   'react-use-measure': [ '2.1.7' ],
+136 silly audit   'reflect.getprototypeof': [ '1.0.10' ],
+136 silly audit   'regexp.prototype.flags': [ '1.5.4' ],
+136 silly audit   'require-directory': [ '2.1.1' ],
+136 silly audit   'require-from-string': [ '2.0.2' ],
+136 silly audit   'requires-port': [ '1.0.0' ],
+136 silly audit   'resolve-from': [ '4.0.0' ],
+136 silly audit   'resolve-pkg-maps': [ '1.0.0' ],
+136 silly audit   reusify: [ '1.1.0' ],
+136 silly audit   'run-parallel': [ '1.2.0' ],
+136 silly audit   'safe-array-concat': [ '1.1.3' ],
+136 silly audit   'safe-buffer': [ '5.2.1' ],
+136 silly audit   'safe-push-apply': [ '1.0.0' ],
+136 silly audit   'safe-regex-test': [ '1.1.0' ],
+136 silly audit   'safer-buffer': [ '2.1.2' ],
+136 silly audit   scheduler: [ '0.27.0' ],
+136 silly audit   'set-function-length': [ '1.2.2' ],
+136 silly audit   'set-function-name': [ '2.0.2' ],
+136 silly audit   'set-proto': [ '1.0.0' ],
+136 silly audit   sharp: [ '0.34.5' ],
+136 silly audit   'shebang-command': [ '2.0.0' ],
+136 silly audit   'shebang-regex': [ '3.0.0' ],
+136 silly audit   'side-channel': [ '1.1.0' ],
+136 silly audit   'side-channel-list': [ '1.0.0' ],
+136 silly audit   'side-channel-map': [ '1.0.1' ],
+136 silly audit   'side-channel-weakmap': [ '1.0.2' ],
+136 silly audit   'smart-buffer': [ '4.2.0' ],
+136 silly audit   socks: [ '2.8.7' ],
+136 silly audit   'socks-proxy-agent': [ '8.0.5' ],
+136 silly audit   'source-map-js': [ '1.2.1' ],
+136 silly audit   sshpk: [ '1.18.0' ],
+136 silly audit   'stable-hash': [ '0.0.5' ],
+136 silly audit   'stats-gl': [ '2.4.2' ],
+136 silly audit   three: [ '0.170.0', '0.182.0' ],
+136 silly audit   'stats.js': [ '0.17.0' ],
+136 silly audit   'stop-iteration-iterator': [ '1.1.0' ],
+136 silly audit   'stream-length': [ '1.0.2' ],
+136 silly audit   'string-width': [ '4.2.3' ],
+136 silly audit   'string.prototype.includes': [ '2.0.1' ],
+136 silly audit   'string.prototype.matchall': [ '4.0.12' ],
+136 silly audit   'string.prototype.repeat': [ '1.0.0' ],
+136 silly audit   'string.prototype.trim': [ '1.2.10' ],
+136 silly audit   'string.prototype.trimend': [ '1.0.9' ],
+136 silly audit   'string.prototype.trimstart': [ '1.0.8' ],
+136 silly audit   'strip-ansi': [ '6.0.1' ],
+136 silly audit   'strip-bom': [ '3.0.0' ],
+136 silly audit   'strip-json-comments': [ '3.1.1' ],
+136 silly audit   'styled-jsx': [ '5.1.6' ],
+136 silly audit   'supports-color': [ '7.2.0' ],
+136 silly audit   'supports-preserve-symlinks-flag': [ '1.0.0' ],
+136 silly audit   'suspend-react': [ '0.1.3' ],
+136 silly audit   tailwindcss: [ '4.1.18' ],
+136 silly audit   tapable: [ '2.3.0' ],
+136 silly audit   'three-stdlib': [ '2.36.1' ],
+136 silly audit   tinyglobby: [ '0.2.15' ],
+136 silly audit   fdir: [ '6.5.0' ],
+136 silly audit   'to-regex-range': [ '5.0.1' ],
+136 silly audit   'troika-three-text': [ '0.52.4' ],
+136 silly audit   'troika-three-utils': [ '0.52.4' ],
+136 silly audit   'troika-worker-utils': [ '0.52.0' ],
+136 silly audit   'ts-api-utils': [ '2.1.0' ],
+136 silly audit   'tsconfig-paths': [ '3.15.0' ],
+136 silly audit   tslib: [ '2.8.1' ],
+136 silly audit   'tunnel-rat': [ '0.1.2' ],
+136 silly audit   zustand: [ '4.5.7', '5.0.9' ],
+136 silly audit   tweetnacl: [ '0.14.5' ],
+136 silly audit   'type-check': [ '0.4.0' ],
+136 silly audit   'typed-array-buffer': [ '1.0.3' ],
+136 silly audit   'typed-array-byte-length': [ '1.0.3' ],
+136 silly audit   'typed-array-byte-offset': [ '1.0.4' ],
+136 silly audit   'typed-array-length': [ '1.0.7' ],
+136 silly audit   typescript: [ '5.9.3' ],
+136 silly audit   'typescript-eslint': [ '8.50.0' ],
+136 silly audit   'unbox-primitive': [ '1.1.0' ],
+136 silly audit   'undici-types': [ '7.16.0' ],
+136 silly audit   universalify: [ '0.2.0' ],
+136 silly audit   'unrs-resolver': [ '1.11.1' ],
+136 silly audit   'update-browserslist-db': [ '1.2.3' ],
+136 silly audit   'uri-js': [ '4.4.1' ],
+136 silly audit   'url-parse': [ '1.5.10' ],
+136 silly audit   'use-sync-external-store': [ '1.6.0' ],
+136 silly audit   'utility-types': [ '3.11.0' ],
+136 silly audit   uuid: [ '8.3.2' ],
+136 silly audit   verror: [ '1.10.0' ],
+136 silly audit   'web-vitals': [ '4.2.4' ],
+136 silly audit   'webgl-constants': [ '1.1.1' ],
+136 silly audit   'webgl-sdf-generator': [ '1.1.1' ],
+136 silly audit   'websocket-driver': [ '0.7.4' ],
+136 silly audit   'websocket-extensions': [ '0.1.4' ],
+136 silly audit   which: [ '2.0.2' ],
+136 silly audit   'which-boxed-primitive': [ '1.1.1' ],
+136 silly audit   'which-builtin-type': [ '1.2.1' ],
+136 silly audit   'which-collection': [ '1.0.2' ],
+136 silly audit   'which-typed-array': [ '1.1.19' ],
+136 silly audit   'word-wrap': [ '1.2.5' ],
+136 silly audit   'wrap-ansi': [ '7.0.0' ],
+136 silly audit   y18n: [ '5.0.8' ],
+136 silly audit   yallist: [ '3.1.1' ],
+136 silly audit   yargs: [ '17.7.2' ],
+136 silly audit   'yargs-parser': [ '21.1.1' ],
+136 silly audit   'yocto-queue': [ '0.1.0' ],
+136 silly audit   zod: [ '4.2.1' ],
+136 silly audit   'zod-validation-error': [ '4.0.2' ]
+136 silly audit }
+137 verbose audit error FetchError: request to https://registry.npmjs.org/-/npm/v1/security/advisories/bulk failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org
+137 verbose audit error     at ClientRequest.<anonymous> (/usr/local/lib/node_modules/npm/node_modules/minipass-fetch/lib/index.js:130:14)
+137 verbose audit error     at ClientRequest.emit (node:events:508:28)
+137 verbose audit error     at emitErrorEvent (node:_http_client:108:11)
+137 verbose audit error     at _destroy (node:_http_client:963:9)
+137 verbose audit error     at onSocketNT (node:_http_client:983:5)
+137 verbose audit error     at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+137 verbose audit error   code: 'ENOTFOUND',
+137 verbose audit error   errno: 'ENOTFOUND',
+137 verbose audit error   syscall: 'getaddrinfo',
+137 verbose audit error   hostname: 'registry.npmjs.org',
+137 verbose audit error   type: 'system'
+137 verbose audit error }
+138 silly audit error undefined
+139 silly audit report null
+140 http cache @grpc/proto-loader@https://registry.npmjs.org/@grpc/proto-loader/-/proto-loader-0.7.15.tgz 0ms (cache hit)
+141 http cache sshpk@https://registry.npmjs.org/sshpk/-/sshpk-1.18.0.tgz 0ms (cache hit)
+142 http cache which@https://registry.npmjs.org/which/-/which-2.0.2.tgz 0ms (cache hit)
+143 http cache @babel/parser@https://registry.npmjs.org/@babel/parser/-/parser-7.28.5.tgz 0ms (cache hit)
+144 http cache semver@https://registry.npmjs.org/semver/-/semver-6.3.1.tgz 0ms (cache hit)
+145 http cache napi-postinstall@https://registry.npmjs.org/napi-postinstall/-/napi-postinstall-0.3.4.tgz 0ms (cache hit)
+146 http cache resolve@https://registry.npmjs.org/resolve/-/resolve-1.22.11.tgz 0ms (cache hit)
+147 http cache uuid@https://registry.npmjs.org/uuid/-/uuid-8.3.2.tgz 0ms (cache hit)
+148 http cache loose-envify@https://registry.npmjs.org/loose-envify/-/loose-envify-1.4.0.tgz 0ms (cache hit)
+149 http cache update-browserslist-db@https://registry.npmjs.org/update-browserslist-db/-/update-browserslist-db-1.2.3.tgz 0ms (cache hit)
+150 http cache jiti@https://registry.npmjs.org/jiti/-/jiti-2.6.1.tgz 0ms (cache hit)
+151 http cache json5@https://registry.npmjs.org/json5/-/json5-2.2.3.tgz 0ms (cache hit)
+152 http cache js-yaml@https://registry.npmjs.org/js-yaml/-/js-yaml-4.1.1.tgz 0ms (cache hit)
+153 http cache typescript@https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz 0ms (cache hit)
+154 http cache jsesc@https://registry.npmjs.org/jsesc/-/jsesc-3.1.0.tgz 0ms (cache hit)
+155 http cache eslint@https://registry.npmjs.org/eslint/-/eslint-9.39.2.tgz 0ms (cache hit)
+156 http cache react-dom@https://registry.npmjs.org/react-dom/-/react-dom-19.2.3.tgz 0ms (cache hit)
+157 http cache hls.js@https://registry.npmjs.org/hls.js/-/hls.js-1.6.15.tgz 0ms (cache hit)
+158 http cache eslint-plugin-import@https://registry.npmjs.org/eslint-plugin-import/-/eslint-plugin-import-2.32.0.tgz 0ms (cache hit)
+159 http cache eslint-plugin-react-hooks@https://registry.npmjs.org/eslint-plugin-react-hooks/-/eslint-plugin-react-hooks-7.0.1.tgz 0ms (cache hit)
+160 http cache emoji-regex@https://registry.npmjs.org/emoji-regex/-/emoji-regex-9.2.2.tgz 0ms (cache hit)
+161 http cache enhanced-resolve@https://registry.npmjs.org/enhanced-resolve/-/enhanced-resolve-5.18.4.tgz 0ms (cache hit)
+162 http cache es-abstract@https://registry.npmjs.org/es-abstract/-/es-abstract-1.24.1.tgz 0ms (cache hit)
+163 http cache ecc-jsbn@https://registry.npmjs.org/ecc-jsbn/-/ecc-jsbn-0.1.2.tgz 0ms (cache hit)
+164 http cache es-iterator-helpers@https://registry.npmjs.org/es-iterator-helpers/-/es-iterator-helpers-1.2.2.tgz 0ms (cache hit)
+165 http cache eslint-import-resolver-node@https://registry.npmjs.org/eslint-import-resolver-node/-/eslint-import-resolver-node-0.3.9.tgz 0ms (cache hit)
+166 http cache dunder-proto@https://registry.npmjs.org/dunder-proto/-/dunder-proto-1.0.1.tgz 0ms (cache hit)
+167 http cache nanoid@https://registry.npmjs.org/nanoid/-/nanoid-3.3.11.tgz 0ms (cache hit)
+168 http cache draco3d@https://registry.npmjs.org/draco3d/-/draco3d-1.5.7.tgz 0ms (cache hit)
+169 http cache doctrine@https://registry.npmjs.org/doctrine/-/doctrine-2.1.0.tgz 0ms (cache hit)
+170 http cache detect-gpu@https://registry.npmjs.org/detect-gpu/-/detect-gpu-5.0.70.tgz 0ms (cache hit)
+171 http cache delayed-stream@https://registry.npmjs.org/delayed-stream/-/delayed-stream-1.0.0.tgz 0ms (cache hit)
+172 http cache detect-libc@https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz 0ms (cache hit)
+173 http cache define-data-property@https://registry.npmjs.org/define-data-property/-/define-data-property-1.1.4.tgz 0ms (cache hit)
+174 http cache electron-to-chromium@https://registry.npmjs.org/electron-to-chromium/-/electron-to-chromium-1.5.267.tgz 0ms (cache hit)
+175 http cache data-view-buffer@https://registry.npmjs.org/data-view-buffer/-/data-view-buffer-1.0.2.tgz 0ms (cache hit)
+176 http cache dashdash@https://registry.npmjs.org/dashdash/-/dashdash-1.14.1.tgz 0ms (cache hit)
+177 http cache define-properties@https://registry.npmjs.org/define-properties/-/define-properties-1.2.1.tgz 0ms (cache hit)
+178 http cache data-view-byte-length@https://registry.npmjs.org/data-view-byte-length/-/data-view-byte-length-1.0.2.tgz 0ms (cache hit)
+179 http cache cross-spawn@https://registry.npmjs.org/cross-spawn/-/cross-spawn-7.0.6.tgz 0ms (cache hit)
+180 http cache debug@https://registry.npmjs.org/debug/-/debug-4.4.3.tgz 0ms (cache hit)
+181 http cache damerau-levenshtein@https://registry.npmjs.org/damerau-levenshtein/-/damerau-levenshtein-1.0.8.tgz 0ms (cache hit)
+182 http cache concat-map@https://registry.npmjs.org/concat-map/-/concat-map-0.0.1.tgz 0ms (cache hit)
+183 http cache data-view-byte-offset@https://registry.npmjs.org/data-view-byte-offset/-/data-view-byte-offset-1.0.1.tgz 0ms (cache hit)
+184 http cache convert-source-map@https://registry.npmjs.org/convert-source-map/-/convert-source-map-2.0.0.tgz 0ms (cache hit)
+185 http cache core-util-is@https://registry.npmjs.org/core-util-is/-/core-util-is-1.0.2.tgz 0ms (cache hit)
+186 http cache cross-env@https://registry.npmjs.org/cross-env/-/cross-env-7.0.3.tgz 0ms (cache hit)
+187 http cache csstype@https://registry.npmjs.org/csstype/-/csstype-3.2.3.tgz 0ms (cache hit)
+188 http cache color-convert@https://registry.npmjs.org/color-convert/-/color-convert-2.0.1.tgz 0ms (cache hit)
+189 http cache deep-is@https://registry.npmjs.org/deep-is/-/deep-is-0.1.4.tgz 0ms (cache hit)
+190 http cache cliui@https://registry.npmjs.org/cliui/-/cliui-8.0.1.tgz 0ms (cache hit)
+191 http cache color-name@https://registry.npmjs.org/color-name/-/color-name-1.1.4.tgz 0ms (cache hit)
+192 http cache caseless@https://registry.npmjs.org/caseless/-/caseless-0.12.0.tgz 0ms (cache hit)
+193 http cache call-bound@https://registry.npmjs.org/call-bound/-/call-bound-1.0.4.tgz 0ms (cache hit)
+194 http cache camera-controls@https://registry.npmjs.org/camera-controls/-/camera-controls-3.1.2.tgz 0ms (cache hit)
+195 http cache caniuse-lite@https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001761.tgz 0ms (cache hit)
+196 http cache callsites@https://registry.npmjs.org/callsites/-/callsites-3.1.0.tgz 0ms (cache hit)
+197 http cache combined-stream@https://registry.npmjs.org/combined-stream/-/combined-stream-1.0.8.tgz 0ms (cache hit)
+198 http cache client-only@https://registry.npmjs.org/client-only/-/client-only-0.0.1.tgz 0ms (cache hit)
+199 http cache braces@https://registry.npmjs.org/braces/-/braces-3.0.3.tgz 0ms (cache hit)
+200 http cache call-bind@https://registry.npmjs.org/call-bind/-/call-bind-1.0.8.tgz 0ms (cache hit)
+201 http cache bidi-js@https://registry.npmjs.org/bidi-js/-/bidi-js-1.0.3.tgz 0ms (cache hit)
+202 http cache buffer@https://registry.npmjs.org/buffer/-/buffer-6.0.3.tgz 0ms (cache hit)
+203 http cache brace-expansion@https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.12.tgz 0ms (cache hit)
+204 http cache balanced-match@https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz 0ms (cache hit)
+205 http cache browserslist@https://registry.npmjs.org/browserslist/-/browserslist-4.28.1.tgz 0ms (cache hit)
+206 http cache bcrypt-pbkdf@https://registry.npmjs.org/bcrypt-pbkdf/-/bcrypt-pbkdf-1.0.2.tgz 0ms (cache hit)
+207 http cache base64-js@https://registry.npmjs.org/base64-js/-/base64-js-1.5.1.tgz 0ms (cache hit)
+208 http cache call-bind-apply-helpers@https://registry.npmjs.org/call-bind-apply-helpers/-/call-bind-apply-helpers-1.0.2.tgz 0ms (cache hit)
+209 http cache babel-plugin-react-compiler@https://registry.npmjs.org/babel-plugin-react-compiler/-/babel-plugin-react-compiler-1.0.0.tgz 0ms (cache hit)
+210 http cache aws-sign2@https://registry.npmjs.org/aws-sign2/-/aws-sign2-0.7.0.tgz 0ms (cache hit)
+211 http cache axe-core@https://registry.npmjs.org/axe-core/-/axe-core-4.11.0.tgz 0ms (cache hit)
+212 http cache baseline-browser-mapping@https://registry.npmjs.org/baseline-browser-mapping/-/baseline-browser-mapping-2.9.11.tgz 0ms (cache hit)
+213 http cache aws4@https://registry.npmjs.org/aws4/-/aws4-1.13.2.tgz 0ms (cache hit)
+214 http cache axobject-query@https://registry.npmjs.org/axobject-query/-/axobject-query-4.1.0.tgz 0ms (cache hit)
+215 http cache available-typed-arrays@https://registry.npmjs.org/available-typed-arrays/-/available-typed-arrays-1.0.7.tgz 0ms (cache hit)
+216 http cache asynckit@https://registry.npmjs.org/asynckit/-/asynckit-0.4.0.tgz 0ms (cache hit)
+217 http cache async-function@https://registry.npmjs.org/async-function/-/async-function-1.0.0.tgz 0ms (cache hit)
+218 http cache assert-plus@https://registry.npmjs.org/assert-plus/-/assert-plus-1.0.0.tgz 0ms (cache hit)
+219 http cache chalk@https://registry.npmjs.org/chalk/-/chalk-4.1.2.tgz 0ms (cache hit)
+220 http cache asn1@https://registry.npmjs.org/asn1/-/asn1-0.2.6.tgz 0ms (cache hit)
+221 http cache bluebird@https://registry.npmjs.org/bluebird/-/bluebird-2.11.0.tgz 0ms (cache hit)
+222 http cache arraybuffer.prototype.slice@https://registry.npmjs.org/arraybuffer.prototype.slice/-/arraybuffer.prototype.slice-1.0.4.tgz 0ms (cache hit)
+223 http cache array.prototype.flat@https://registry.npmjs.org/array.prototype.flat/-/array.prototype.flat-1.3.3.tgz 0ms (cache hit)
+224 http cache ast-types-flow@https://registry.npmjs.org/ast-types-flow/-/ast-types-flow-0.0.8.tgz 0ms (cache hit)
+225 http cache array.prototype.flatmap@https://registry.npmjs.org/array.prototype.flatmap/-/array.prototype.flatmap-1.3.3.tgz 0ms (cache hit)
+226 http cache aria-query@https://registry.npmjs.org/aria-query/-/aria-query-5.3.2.tgz 0ms (cache hit)
+227 http cache array.prototype.findlastindex@https://registry.npmjs.org/array.prototype.findlastindex/-/array.prototype.findlastindex-1.2.6.tgz 0ms (cache hit)
+228 http cache array-buffer-byte-length@https://registry.npmjs.org/array-buffer-byte-length/-/array-buffer-byte-length-1.0.2.tgz 0ms (cache hit)
+229 http cache array.prototype.findlast@https://registry.npmjs.org/array.prototype.findlast/-/array.prototype.findlast-1.2.5.tgz 0ms (cache hit)
+230 http cache array-includes@https://registry.npmjs.org/array-includes/-/array-includes-3.1.9.tgz 0ms (cache hit)
+231 http cache ajv@https://registry.npmjs.org/ajv/-/ajv-6.12.6.tgz 0ms (cache hit)
+232 http cache array.prototype.tosorted@https://registry.npmjs.org/array.prototype.tosorted/-/array.prototype.tosorted-1.1.4.tgz 0ms (cache hit)
+233 http cache ansi-styles@https://registry.npmjs.org/ansi-styles/-/ansi-styles-4.3.0.tgz 0ms (cache hit)
+234 http cache argparse@https://registry.npmjs.org/argparse/-/argparse-2.0.1.tgz 0ms (cache hit)
+235 http cache acorn@https://registry.npmjs.org/acorn/-/acorn-8.15.0.tgz 0ms (cache hit)
+236 http cache agent-base@https://registry.npmjs.org/agent-base/-/agent-base-7.1.4.tgz 0ms (cache hit)
+237 http cache acorn-jsx@https://registry.npmjs.org/acorn-jsx/-/acorn-jsx-5.3.2.tgz 0ms (cache hit)
+238 http cache ansi-regex@https://registry.npmjs.org/ansi-regex/-/ansi-regex-5.0.1.tgz 0ms (cache hit)
+239 http cache brace-expansion@https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.0.2.tgz 0ms (cache hit)
+240 http cache eslint-visitor-keys@https://registry.npmjs.org/eslint-visitor-keys/-/eslint-visitor-keys-3.4.3.tgz 0ms (cache hit)
+241 http cache three-mesh-bvh@https://registry.npmjs.org/three-mesh-bvh/-/three-mesh-bvh-0.8.3.tgz 0ms (cache hit)
+242 http cache semver@https://registry.npmjs.org/semver/-/semver-7.7.3.tgz 0ms (cache hit)
+243 http cache ignore@https://registry.npmjs.org/ignore/-/ignore-7.0.5.tgz 0ms (cache hit)
+244 http cache minimatch@https://registry.npmjs.org/minimatch/-/minimatch-9.0.5.tgz 0ms (cache hit)
+245 http cache fflate@https://registry.npmjs.org/fflate/-/fflate-0.6.10.tgz 0ms (cache hit)
+246 http cache fdir@https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz 0ms (cache hit)
+247 http cache zustand@https://registry.npmjs.org/zustand/-/zustand-4.5.7.tgz 0ms (cache hit)
+248 http cache three@https://registry.npmjs.org/three/-/three-0.170.0.tgz 0ms (cache hit)
+249 http cache emoji-regex@https://registry.npmjs.org/emoji-regex/-/emoji-regex-8.0.0.tgz 0ms (cache hit)
+250 http cache @types/react-reconciler@https://registry.npmjs.org/@types/react-reconciler/-/react-reconciler-0.28.9.tgz 0ms (cache hit)
+251 http cache json5@https://registry.npmjs.org/json5/-/json5-1.0.2.tgz 0ms (cache hit)
+252 http cache picomatch@https://registry.npmjs.org/picomatch/-/picomatch-4.0.3.tgz 0ms (cache hit)
+253 http cache semver@https://registry.npmjs.org/semver/-/semver-7.7.3.tgz 0ms (cache hit)
+254 http cache debug@https://registry.npmjs.org/debug/-/debug-3.2.7.tgz 0ms (cache hit)
+255 http cache glob-parent@https://registry.npmjs.org/glob-parent/-/glob-parent-5.1.2.tgz 0ms (cache hit)
+256 http cache debug@https://registry.npmjs.org/debug/-/debug-3.2.7.tgz 0ms (cache hit)
+257 http cache semver@https://registry.npmjs.org/semver/-/semver-7.7.3.tgz 0ms (cache hit)
+258 http cache globals@https://registry.npmjs.org/globals/-/globals-16.4.0.tgz 0ms (cache hit)
+259 silly tarball no local data for @grpc/proto-loader@https://registry.npmjs.org/@grpc/proto-loader/-/proto-loader-0.7.15.tgz. Extracting by manifest.
+260 silly tarball no local data for sshpk@https://registry.npmjs.org/sshpk/-/sshpk-1.18.0.tgz. Extracting by manifest.
+261 silly tarball no local data for which@https://registry.npmjs.org/which/-/which-2.0.2.tgz. Extracting by manifest.
+262 silly tarball no local data for @babel/parser@https://registry.npmjs.org/@babel/parser/-/parser-7.28.5.tgz. Extracting by manifest.
+263 http cache debug@https://registry.npmjs.org/debug/-/debug-3.2.7.tgz 0ms (cache hit)
+264 silly tarball no local data for semver@https://registry.npmjs.org/semver/-/semver-6.3.1.tgz. Extracting by manifest.
+265 silly tarball no local data for napi-postinstall@https://registry.npmjs.org/napi-postinstall/-/napi-postinstall-0.3.4.tgz. Extracting by manifest.
+266 silly tarball no local data for resolve@https://registry.npmjs.org/resolve/-/resolve-1.22.11.tgz. Extracting by manifest.
+267 silly tarball no local data for uuid@https://registry.npmjs.org/uuid/-/uuid-8.3.2.tgz. Extracting by manifest.
+268 silly tarball no local data for loose-envify@https://registry.npmjs.org/loose-envify/-/loose-envify-1.4.0.tgz. Extracting by manifest.
+269 silly tarball no local data for update-browserslist-db@https://registry.npmjs.org/update-browserslist-db/-/update-browserslist-db-1.2.3.tgz. Extracting by manifest.
+270 silly tarball no local data for jiti@https://registry.npmjs.org/jiti/-/jiti-2.6.1.tgz. Extracting by manifest.
+271 silly tarball no local data for json5@https://registry.npmjs.org/json5/-/json5-2.2.3.tgz. Extracting by manifest.
+272 http cache postcss@https://registry.npmjs.org/postcss/-/postcss-8.4.31.tgz 0ms (cache hit)
+273 silly tarball no local data for js-yaml@https://registry.npmjs.org/js-yaml/-/js-yaml-4.1.1.tgz. Extracting by manifest.
+274 silly tarball no local data for typescript@https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz. Extracting by manifest.
+275 silly tarball no local data for jsesc@https://registry.npmjs.org/jsesc/-/jsesc-3.1.0.tgz. Extracting by manifest.
+276 http cache resolve@https://registry.npmjs.org/resolve/-/resolve-2.0.0-next.5.tgz 0ms (cache hit)
+277 silly tarball no local data for eslint@https://registry.npmjs.org/eslint/-/eslint-9.39.2.tgz. Extracting by manifest.
+278 silly tarball no local data for react-dom@https://registry.npmjs.org/react-dom/-/react-dom-19.2.3.tgz. Extracting by manifest.
+279 silly tarball no local data for hls.js@https://registry.npmjs.org/hls.js/-/hls.js-1.6.15.tgz. Extracting by manifest.
+280 silly tarball no local data for eslint-plugin-import@https://registry.npmjs.org/eslint-plugin-import/-/eslint-plugin-import-2.32.0.tgz. Extracting by manifest.
+281 silly tarball no local data for eslint-plugin-react-hooks@https://registry.npmjs.org/eslint-plugin-react-hooks/-/eslint-plugin-react-hooks-7.0.1.tgz. Extracting by manifest.
+282 silly tarball no local data for emoji-regex@https://registry.npmjs.org/emoji-regex/-/emoji-regex-9.2.2.tgz. Extracting by manifest.
+283 silly tarball no local data for enhanced-resolve@https://registry.npmjs.org/enhanced-resolve/-/enhanced-resolve-5.18.4.tgz. Extracting by manifest.
+284 silly tarball no local data for es-abstract@https://registry.npmjs.org/es-abstract/-/es-abstract-1.24.1.tgz. Extracting by manifest.
+285 silly tarball no local data for ecc-jsbn@https://registry.npmjs.org/ecc-jsbn/-/ecc-jsbn-0.1.2.tgz. Extracting by manifest.
+286 silly tarball no local data for es-iterator-helpers@https://registry.npmjs.org/es-iterator-helpers/-/es-iterator-helpers-1.2.2.tgz. Extracting by manifest.
+287 silly tarball no local data for eslint-import-resolver-node@https://registry.npmjs.org/eslint-import-resolver-node/-/eslint-import-resolver-node-0.3.9.tgz. Extracting by manifest.
+288 silly tarball no local data for dunder-proto@https://registry.npmjs.org/dunder-proto/-/dunder-proto-1.0.1.tgz. Extracting by manifest.
+289 silly tarball no local data for nanoid@https://registry.npmjs.org/nanoid/-/nanoid-3.3.11.tgz. Extracting by manifest.
+290 silly tarball no local data for draco3d@https://registry.npmjs.org/draco3d/-/draco3d-1.5.7.tgz. Extracting by manifest.
+291 silly tarball no local data for doctrine@https://registry.npmjs.org/doctrine/-/doctrine-2.1.0.tgz. Extracting by manifest.
+292 silly tarball no local data for detect-gpu@https://registry.npmjs.org/detect-gpu/-/detect-gpu-5.0.70.tgz. Extracting by manifest.
+293 silly tarball no local data for delayed-stream@https://registry.npmjs.org/delayed-stream/-/delayed-stream-1.0.0.tgz. Extracting by manifest.
+294 silly tarball no local data for detect-libc@https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz. Extracting by manifest.
+295 silly tarball no local data for define-data-property@https://registry.npmjs.org/define-data-property/-/define-data-property-1.1.4.tgz. Extracting by manifest.
+296 silly tarball no local data for electron-to-chromium@https://registry.npmjs.org/electron-to-chromium/-/electron-to-chromium-1.5.267.tgz. Extracting by manifest.
+297 silly tarball no local data for data-view-buffer@https://registry.npmjs.org/data-view-buffer/-/data-view-buffer-1.0.2.tgz. Extracting by manifest.
+298 silly tarball no local data for dashdash@https://registry.npmjs.org/dashdash/-/dashdash-1.14.1.tgz. Extracting by manifest.
+299 silly tarball no local data for define-properties@https://registry.npmjs.org/define-properties/-/define-properties-1.2.1.tgz. Extracting by manifest.
+300 silly tarball no local data for data-view-byte-length@https://registry.npmjs.org/data-view-byte-length/-/data-view-byte-length-1.0.2.tgz. Extracting by manifest.
+301 silly tarball no local data for cross-spawn@https://registry.npmjs.org/cross-spawn/-/cross-spawn-7.0.6.tgz. Extracting by manifest.
+302 silly tarball no local data for debug@https://registry.npmjs.org/debug/-/debug-4.4.3.tgz. Extracting by manifest.
+303 silly tarball no local data for damerau-levenshtein@https://registry.npmjs.org/damerau-levenshtein/-/damerau-levenshtein-1.0.8.tgz. Extracting by manifest.
+304 silly tarball no local data for concat-map@https://registry.npmjs.org/concat-map/-/concat-map-0.0.1.tgz. Extracting by manifest.
+305 silly tarball no local data for data-view-byte-offset@https://registry.npmjs.org/data-view-byte-offset/-/data-view-byte-offset-1.0.1.tgz. Extracting by manifest.
+306 silly tarball no local data for convert-source-map@https://registry.npmjs.org/convert-source-map/-/convert-source-map-2.0.0.tgz. Extracting by manifest.
+307 silly tarball no local data for core-util-is@https://registry.npmjs.org/core-util-is/-/core-util-is-1.0.2.tgz. Extracting by manifest.
+308 silly tarball no local data for cross-env@https://registry.npmjs.org/cross-env/-/cross-env-7.0.3.tgz. Extracting by manifest.
+309 silly tarball no local data for csstype@https://registry.npmjs.org/csstype/-/csstype-3.2.3.tgz. Extracting by manifest.
+310 silly tarball no local data for color-convert@https://registry.npmjs.org/color-convert/-/color-convert-2.0.1.tgz. Extracting by manifest.
+311 silly tarball no local data for deep-is@https://registry.npmjs.org/deep-is/-/deep-is-0.1.4.tgz. Extracting by manifest.
+312 silly tarball no local data for cliui@https://registry.npmjs.org/cliui/-/cliui-8.0.1.tgz. Extracting by manifest.
+313 silly tarball no local data for color-name@https://registry.npmjs.org/color-name/-/color-name-1.1.4.tgz. Extracting by manifest.
+314 silly tarball no local data for caseless@https://registry.npmjs.org/caseless/-/caseless-0.12.0.tgz. Extracting by manifest.
+315 silly tarball no local data for call-bound@https://registry.npmjs.org/call-bound/-/call-bound-1.0.4.tgz. Extracting by manifest.
+316 silly tarball no local data for camera-controls@https://registry.npmjs.org/camera-controls/-/camera-controls-3.1.2.tgz. Extracting by manifest.
+317 silly tarball no local data for caniuse-lite@https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001761.tgz. Extracting by manifest.
+318 silly tarball no local data for callsites@https://registry.npmjs.org/callsites/-/callsites-3.1.0.tgz. Extracting by manifest.
+319 silly tarball no local data for combined-stream@https://registry.npmjs.org/combined-stream/-/combined-stream-1.0.8.tgz. Extracting by manifest.
+320 silly tarball no local data for client-only@https://registry.npmjs.org/client-only/-/client-only-0.0.1.tgz. Extracting by manifest.
+321 silly tarball no local data for braces@https://registry.npmjs.org/braces/-/braces-3.0.3.tgz. Extracting by manifest.
+322 silly tarball no local data for call-bind@https://registry.npmjs.org/call-bind/-/call-bind-1.0.8.tgz. Extracting by manifest.
+323 silly tarball no local data for buffer@https://registry.npmjs.org/buffer/-/buffer-6.0.3.tgz. Extracting by manifest.
+324 silly tarball no local data for bidi-js@https://registry.npmjs.org/bidi-js/-/bidi-js-1.0.3.tgz. Extracting by manifest.
+325 silly tarball no local data for brace-expansion@https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.12.tgz. Extracting by manifest.
+326 silly tarball no local data for balanced-match@https://registry.npmjs.org/balanced-match/-/balanced-match-1.0.2.tgz. Extracting by manifest.
+327 silly tarball no local data for browserslist@https://registry.npmjs.org/browserslist/-/browserslist-4.28.1.tgz. Extracting by manifest.
+328 silly tarball no local data for bcrypt-pbkdf@https://registry.npmjs.org/bcrypt-pbkdf/-/bcrypt-pbkdf-1.0.2.tgz. Extracting by manifest.
+329 silly tarball no local data for base64-js@https://registry.npmjs.org/base64-js/-/base64-js-1.5.1.tgz. Extracting by manifest.
+330 silly tarball no local data for call-bind-apply-helpers@https://registry.npmjs.org/call-bind-apply-helpers/-/call-bind-apply-helpers-1.0.2.tgz. Extracting by manifest.
+331 silly tarball no local data for babel-plugin-react-compiler@https://registry.npmjs.org/babel-plugin-react-compiler/-/babel-plugin-react-compiler-1.0.0.tgz. Extracting by manifest.
+332 silly tarball no local data for aws-sign2@https://registry.npmjs.org/aws-sign2/-/aws-sign2-0.7.0.tgz. Extracting by manifest.
+333 silly tarball no local data for axe-core@https://registry.npmjs.org/axe-core/-/axe-core-4.11.0.tgz. Extracting by manifest.
+334 silly tarball no local data for baseline-browser-mapping@https://registry.npmjs.org/baseline-browser-mapping/-/baseline-browser-mapping-2.9.11.tgz. Extracting by manifest.
+335 silly tarball no local data for aws4@https://registry.npmjs.org/aws4/-/aws4-1.13.2.tgz. Extracting by manifest.
+336 silly tarball no local data for axobject-query@https://registry.npmjs.org/axobject-query/-/axobject-query-4.1.0.tgz. Extracting by manifest.
+337 silly tarball no local data for available-typed-arrays@https://registry.npmjs.org/available-typed-arrays/-/available-typed-arrays-1.0.7.tgz. Extracting by manifest.
+338 silly tarball no local data for asynckit@https://registry.npmjs.org/asynckit/-/asynckit-0.4.0.tgz. Extracting by manifest.
+339 silly tarball no local data for async-function@https://registry.npmjs.org/async-function/-/async-function-1.0.0.tgz. Extracting by manifest.
+340 silly tarball no local data for assert-plus@https://registry.npmjs.org/assert-plus/-/assert-plus-1.0.0.tgz. Extracting by manifest.
+341 silly tarball no local data for chalk@https://registry.npmjs.org/chalk/-/chalk-4.1.2.tgz. Extracting by manifest.
+342 silly tarball no local data for asn1@https://registry.npmjs.org/asn1/-/asn1-0.2.6.tgz. Extracting by manifest.
+343 silly tarball no local data for bluebird@https://registry.npmjs.org/bluebird/-/bluebird-2.11.0.tgz. Extracting by manifest.
+344 silly tarball no local data for arraybuffer.prototype.slice@https://registry.npmjs.org/arraybuffer.prototype.slice/-/arraybuffer.prototype.slice-1.0.4.tgz. Extracting by manifest.
+345 silly tarball no local data for array.prototype.flat@https://registry.npmjs.org/array.prototype.flat/-/array.prototype.flat-1.3.3.tgz. Extracting by manifest.
+346 silly tarball no local data for ast-types-flow@https://registry.npmjs.org/ast-types-flow/-/ast-types-flow-0.0.8.tgz. Extracting by manifest.
+347 silly tarball no local data for array.prototype.flatmap@https://registry.npmjs.org/array.prototype.flatmap/-/array.prototype.flatmap-1.3.3.tgz. Extracting by manifest.
+348 silly tarball no local data for aria-query@https://registry.npmjs.org/aria-query/-/aria-query-5.3.2.tgz. Extracting by manifest.
+349 silly tarball no local data for array.prototype.findlastindex@https://registry.npmjs.org/array.prototype.findlastindex/-/array.prototype.findlastindex-1.2.6.tgz. Extracting by manifest.
+350 silly tarball no local data for array-buffer-byte-length@https://registry.npmjs.org/array-buffer-byte-length/-/array-buffer-byte-length-1.0.2.tgz. Extracting by manifest.
+351 silly tarball no local data for array.prototype.findlast@https://registry.npmjs.org/array.prototype.findlast/-/array.prototype.findlast-1.2.5.tgz. Extracting by manifest.
+352 silly tarball no local data for array-includes@https://registry.npmjs.org/array-includes/-/array-includes-3.1.9.tgz. Extracting by manifest.
+353 silly tarball no local data for ajv@https://registry.npmjs.org/ajv/-/ajv-6.12.6.tgz. Extracting by manifest.
+354 silly tarball no local data for array.prototype.tosorted@https://registry.npmjs.org/array.prototype.tosorted/-/array.prototype.tosorted-1.1.4.tgz. Extracting by manifest.
+355 silly tarball no local data for ansi-styles@https://registry.npmjs.org/ansi-styles/-/ansi-styles-4.3.0.tgz. Extracting by manifest.
+356 silly tarball no local data for argparse@https://registry.npmjs.org/argparse/-/argparse-2.0.1.tgz. Extracting by manifest.
+357 silly tarball no local data for acorn@https://registry.npmjs.org/acorn/-/acorn-8.15.0.tgz. Extracting by manifest.
+358 silly tarball no local data for acorn-jsx@https://registry.npmjs.org/acorn-jsx/-/acorn-jsx-5.3.2.tgz. Extracting by manifest.
+359 silly tarball no local data for agent-base@https://registry.npmjs.org/agent-base/-/agent-base-7.1.4.tgz. Extracting by manifest.
+360 silly tarball no local data for ansi-regex@https://registry.npmjs.org/ansi-regex/-/ansi-regex-5.0.1.tgz. Extracting by manifest.
+361 silly tarball no local data for brace-expansion@https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.0.2.tgz. Extracting by manifest.
+362 silly tarball no local data for eslint-visitor-keys@https://registry.npmjs.org/eslint-visitor-keys/-/eslint-visitor-keys-3.4.3.tgz. Extracting by manifest.
+363 silly tarball no local data for three-mesh-bvh@https://registry.npmjs.org/three-mesh-bvh/-/three-mesh-bvh-0.8.3.tgz. Extracting by manifest.
+364 silly tarball no local data for semver@https://registry.npmjs.org/semver/-/semver-7.7.3.tgz. Extracting by manifest.
+365 silly tarball no local data for ignore@https://registry.npmjs.org/ignore/-/ignore-7.0.5.tgz. Extracting by manifest.
+366 silly tarball no local data for minimatch@https://registry.npmjs.org/minimatch/-/minimatch-9.0.5.tgz. Extracting by manifest.
+367 silly tarball no local data for fflate@https://registry.npmjs.org/fflate/-/fflate-0.6.10.tgz. Extracting by manifest.
+368 silly tarball no local data for fdir@https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz. Extracting by manifest.
+369 silly tarball no local data for zustand@https://registry.npmjs.org/zustand/-/zustand-4.5.7.tgz. Extracting by manifest.
+370 silly tarball no local data for three@https://registry.npmjs.org/three/-/three-0.170.0.tgz. Extracting by manifest.
+371 silly tarball no local data for emoji-regex@https://registry.npmjs.org/emoji-regex/-/emoji-regex-8.0.0.tgz. Extracting by manifest.
+372 silly tarball no local data for @types/react-reconciler@https://registry.npmjs.org/@types/react-reconciler/-/react-reconciler-0.28.9.tgz. Extracting by manifest.
+373 silly tarball no local data for json5@https://registry.npmjs.org/json5/-/json5-1.0.2.tgz. Extracting by manifest.
+374 silly tarball no local data for picomatch@https://registry.npmjs.org/picomatch/-/picomatch-4.0.3.tgz. Extracting by manifest.
+375 silly tarball no local data for semver@https://registry.npmjs.org/semver/-/semver-7.7.3.tgz. Extracting by manifest.
+376 silly tarball no local data for debug@https://registry.npmjs.org/debug/-/debug-3.2.7.tgz. Extracting by manifest.
+377 silly tarball no local data for glob-parent@https://registry.npmjs.org/glob-parent/-/glob-parent-5.1.2.tgz. Extracting by manifest.
+378 silly tarball no local data for debug@https://registry.npmjs.org/debug/-/debug-3.2.7.tgz. Extracting by manifest.
+379 silly tarball no local data for semver@https://registry.npmjs.org/semver/-/semver-7.7.3.tgz. Extracting by manifest.
+380 silly tarball no local data for globals@https://registry.npmjs.org/globals/-/globals-16.4.0.tgz. Extracting by manifest.
+381 silly tarball no local data for debug@https://registry.npmjs.org/debug/-/debug-3.2.7.tgz. Extracting by manifest.
+382 silly tarball no local data for postcss@https://registry.npmjs.org/postcss/-/postcss-8.4.31.tgz. Extracting by manifest.
+383 silly tarball no local data for resolve@https://registry.npmjs.org/resolve/-/resolve-2.0.0-next.5.tgz. Extracting by manifest.
+384 http fetch GET https://registry.npmjs.org/@grpc/proto-loader/-/proto-loader-0.7.15.tgz attempt 1 failed with ENOTFOUND
+385 http fetch GET https://registry.npmjs.org/sshpk/-/sshpk-1.18.0.tgz attempt 1 failed with ENOTFOUND
+386 http fetch GET https://registry.npmjs.org/which/-/which-2.0.2.tgz attempt 1 failed with ENOTFOUND
+387 http fetch GET https://registry.npmjs.org/@babel/parser/-/parser-7.28.5.tgz attempt 1 failed with ENOTFOUND
+388 http fetch GET https://registry.npmjs.org/semver/-/semver-6.3.1.tgz attempt 1 failed with ENOTFOUND
+389 http fetch GET https://registry.npmjs.org/napi-postinstall/-/napi-postinstall-0.3.4.tgz attempt 1 failed with ENOTFOUND
+390 http fetch GET https://registry.npmjs.org/resolve/-/resolve-1.22.11.tgz attempt 1 failed with ENOTFOUND
+391 http fetch GET https://registry.npmjs.org/uuid/-/uuid-8.3.2.tgz attempt 1 failed with ENOTFOUND
+392 http fetch GET https://registry.npmjs.org/loose-envify/-/loose-envify-1.4.0.tgz attempt 1 failed with ENOTFOUND
+393 http fetch GET https://registry.npmjs.org/update-browserslist-db/-/update-browserslist-db-1.2.3.tgz attempt 1 failed with ENOTFOUND
+394 http fetch GET https://registry.npmjs.org/jiti/-/jiti-2.6.1.tgz attempt 1 failed with ENOTFOUND
+395 http fetch GET https://registry.npmjs.org/json5/-/json5-2.2.3.tgz attempt 1 failed with ENOTFOUND
+396 http fetch GET https://registry.npmjs.org/js-yaml/-/js-yaml-4.1.1.tgz attempt 1 failed with ENOTFOUND
+397 http fetch GET https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz attempt 1 failed with ENOTFOUND
+398 http fetch GET https://registry.npmjs.org/jsesc/-/jsesc-3.1.0.tgz attempt 1 failed with ENOTFOUND
+399 http fetch GET https://registry.npmjs.org/debug/-/debug-3.2.7.tgz attempt 1 failed with ENOTFOUND
+400 http fetch GET https://registry.npmjs.org/postcss/-/postcss-8.4.31.tgz attempt 1 failed with ENOTFOUND
+401 http fetch GET https://registry.npmjs.org/resolve/-/resolve-2.0.0-next.5.tgz attempt 1 failed with ENOTFOUND
+402 http cache next@https://registry.npmjs.org/next/-/next-16.1.0.tgz 0ms (cache hit)
+403 silly tarball no local data for next@https://registry.npmjs.org/next/-/next-16.1.0.tgz. Extracting by manifest.
+404 http fetch GET https://registry.npmjs.org/next/-/next-16.1.0.tgz attempt 1 failed with ENOTFOUND
+405 http fetch GET https://registry.npmjs.org/npm attempt 2 failed with ENOTFOUND
+406 http fetch GET https://registry.npmjs.org/@grpc/proto-loader/-/proto-loader-0.7.15.tgz attempt 2 failed with ENOTFOUND
+407 http fetch GET https://registry.npmjs.org/sshpk/-/sshpk-1.18.0.tgz attempt 2 failed with ENOTFOUND
+408 http fetch GET https://registry.npmjs.org/which/-/which-2.0.2.tgz attempt 2 failed with ENOTFOUND
+409 http fetch GET https://registry.npmjs.org/@babel/parser/-/parser-7.28.5.tgz attempt 2 failed with ENOTFOUND
+410 http fetch GET https://registry.npmjs.org/semver/-/semver-6.3.1.tgz attempt 2 failed with ENOTFOUND
+411 http fetch GET https://registry.npmjs.org/napi-postinstall/-/napi-postinstall-0.3.4.tgz attempt 2 failed with ENOTFOUND
+412 http fetch GET https://registry.npmjs.org/resolve/-/resolve-1.22.11.tgz attempt 2 failed with ENOTFOUND
+413 http fetch GET https://registry.npmjs.org/uuid/-/uuid-8.3.2.tgz attempt 2 failed with ENOTFOUND
+414 http fetch GET https://registry.npmjs.org/loose-envify/-/loose-envify-1.4.0.tgz attempt 2 failed with ENOTFOUND
+415 http fetch GET https://registry.npmjs.org/update-browserslist-db/-/update-browserslist-db-1.2.3.tgz attempt 2 failed with ENOTFOUND
+416 http fetch GET https://registry.npmjs.org/jiti/-/jiti-2.6.1.tgz attempt 2 failed with ENOTFOUND
+417 http fetch GET https://registry.npmjs.org/json5/-/json5-2.2.3.tgz attempt 2 failed with ENOTFOUND
+418 http fetch GET https://registry.npmjs.org/js-yaml/-/js-yaml-4.1.1.tgz attempt 2 failed with ENOTFOUND
+419 http fetch GET https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz attempt 2 failed with ENOTFOUND
+420 http fetch GET https://registry.npmjs.org/jsesc/-/jsesc-3.1.0.tgz attempt 2 failed with ENOTFOUND
+421 http fetch GET https://registry.npmjs.org/debug/-/debug-3.2.7.tgz attempt 2 failed with ENOTFOUND
+422 http fetch GET https://registry.npmjs.org/postcss/-/postcss-8.4.31.tgz attempt 2 failed with ENOTFOUND
+423 http fetch GET https://registry.npmjs.org/resolve/-/resolve-2.0.0-next.5.tgz attempt 2 failed with ENOTFOUND
+424 http fetch GET https://registry.npmjs.org/next/-/next-16.1.0.tgz attempt 2 failed with ENOTFOUND
+425 http fetch GET https://registry.npmjs.org/npm attempt 3 failed with ENOTFOUND
+426 http fetch GET https://registry.npmjs.org/@grpc/proto-loader/-/proto-loader-0.7.15.tgz attempt 3 failed with ENOTFOUND
+427 http fetch GET https://registry.npmjs.org/sshpk/-/sshpk-1.18.0.tgz attempt 3 failed with ENOTFOUND
+428 http fetch GET https://registry.npmjs.org/which/-/which-2.0.2.tgz attempt 3 failed with ENOTFOUND
+429 http fetch GET https://registry.npmjs.org/@babel/parser/-/parser-7.28.5.tgz attempt 3 failed with ENOTFOUND
+430 http fetch GET https://registry.npmjs.org/semver/-/semver-6.3.1.tgz attempt 3 failed with ENOTFOUND
+431 http fetch GET https://registry.npmjs.org/napi-postinstall/-/napi-postinstall-0.3.4.tgz attempt 3 failed with ENOTFOUND
+432 http fetch GET https://registry.npmjs.org/resolve/-/resolve-1.22.11.tgz attempt 3 failed with ENOTFOUND
+433 http fetch GET https://registry.npmjs.org/uuid/-/uuid-8.3.2.tgz attempt 3 failed with ENOTFOUND
+434 http fetch GET https://registry.npmjs.org/loose-envify/-/loose-envify-1.4.0.tgz attempt 3 failed with ENOTFOUND
+435 http fetch GET https://registry.npmjs.org/update-browserslist-db/-/update-browserslist-db-1.2.3.tgz attempt 3 failed with ENOTFOUND
+436 http fetch GET https://registry.npmjs.org/jiti/-/jiti-2.6.1.tgz attempt 3 failed with ENOTFOUND
+437 http fetch GET https://registry.npmjs.org/json5/-/json5-2.2.3.tgz attempt 3 failed with ENOTFOUND
+438 http fetch GET https://registry.npmjs.org/js-yaml/-/js-yaml-4.1.1.tgz attempt 3 failed with ENOTFOUND
+439 http fetch GET https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz attempt 3 failed with ENOTFOUND
+440 http fetch GET https://registry.npmjs.org/jsesc/-/jsesc-3.1.0.tgz attempt 3 failed with ENOTFOUND
+441 http fetch GET https://registry.npmjs.org/debug/-/debug-3.2.7.tgz attempt 3 failed with ENOTFOUND
+442 http fetch GET https://registry.npmjs.org/postcss/-/postcss-8.4.31.tgz attempt 3 failed with ENOTFOUND
+443 http fetch GET https://registry.npmjs.org/resolve/-/resolve-2.0.0-next.5.tgz attempt 3 failed with ENOTFOUND
+444 http fetch GET https://registry.npmjs.org/next/-/next-16.1.0.tgz attempt 3 failed with ENOTFOUND
+445 verbose cwd /Users/hakan/Downloads/hatrix-website-main
+446 verbose os Darwin 25.0.0
+447 verbose node v24.13.1
+448 verbose npm  v11.8.0
+449 error Exit handler never called!
+450 error This is an error with npm itself. Please report this error at:
+451 error   <https://github.com/npm/cli/issues>
+452 verbose exit 1
+453 verbose code 1
+454 error A complete log of this run can be found in: /Users/hakan/Downloads/hatrix-website-main/.npm-cache/_logs/2026-02-15T22_15_15_663Z-debug-0.log
