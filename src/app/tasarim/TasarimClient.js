@@ -541,6 +541,7 @@ const FONT_OPTIONS = [
   { label: "Lucida Console", value: "Lucida Console, Monaco, monospace" },
   { label: "Brush Script", value: "Brush Script MT, Comic Sans MS, cursive" },
 ];
+const RUBBER_FONT_OPTION = FONT_OPTIONS[0];
 const HOODIE_DETAIL_OPTIONS = [
   { id: "strings", label: "İpli" },
   { id: "pocket", label: "Cepli" },
@@ -729,6 +730,9 @@ function PrintTypePickerCards({ selectedIds = [], onSelect, sourceLabel = "Sec",
                 }`}
             >
               <p className="text-[11px] font-black uppercase tracking-wide">{opt.label}</p>
+              <p className={`mt-0.5 text-[9px] font-bold uppercase tracking-wide ${selected ? "text-white/85" : "text-zinc-500"}`}>
+                {selected ? "Secili • Kaldir" : "Sec"}
+              </p>
               <div className="mt-2 rounded-lg overflow-hidden border border-black/10 bg-white/70">
                 {opt.previewSrc ? (
                   <img
@@ -3806,10 +3810,10 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                       <div data-model-preview className="aspect-square rounded-[20px] overflow-hidden border border-zinc-200 bg-[#F7F7F7]">
                         <Canvas
                           frameloop={isMobileViewport && !previewShouldAnimate ? "demand" : "always"}
-                          dpr={isMobileViewport ? [0.8, 1] : [1, 1.2]}
+                          dpr={isMobileViewport ? [1, 1.4] : [1, 1.25]}
                           camera={{ position: [0, 0.28, 2.12], fov: 30 }}
                           gl={{
-                            antialias: !isMobileViewport,
+                            antialias: true,
                             alpha: false,
                             powerPreference: isMobileViewport ? "default" : "high-performance",
                           }}
@@ -3907,6 +3911,7 @@ function EditorPanel({
   const dtfActiveForSide =
     printTypes.includes("dtf") || sideHasImages || sideTextTechnique === PRINT_TECHNIQUES.DTF;
   const rubberActiveForSide = sideTextTechnique === PRINT_TECHNIQUES.RUBBER;
+  const textFontOptions = rubberActiveForSide ? [RUBBER_FONT_OPTION] : FONT_OPTIONS;
 
   useEffect(() => {
     if (printTypePickerSignal <= 0) return;
@@ -3919,6 +3924,16 @@ function EditorPanel({
   const cm = CM_LABELS[design.modelType]?.[currentSide] || { w: 0, h: 0 };
 
   const t = sideData?.customText || {};
+  const effectivePrintTypes = Array.from(
+    new Set([
+      ...(printTypes || []),
+      ...(sideHasImages ? ["dtf"] : []),
+      ...((rubberActiveForSide && String(t?.text || "").trim()) ? ["rubber"] : []),
+    ])
+  );
+  const resolvedTextFontValue = rubberActiveForSide
+    ? RUBBER_FONT_OPTION.value
+    : (t.font || FONT_OPTIONS[0].value);
   const setCurrentSidePrintTypes = (nextTypes) => {
     const bySide = normalizePrintTypesBySide(design.printTypesBySide, design.printTypes);
     const safeSide = currentSide === "back" ? "back" : "front";
@@ -3946,17 +3961,25 @@ function EditorPanel({
   };
 
   const bumpText = (patch) => {
-    const nextTechnique = Object.prototype.hasOwnProperty.call(patch || {}, "technique")
-      ? normalizePrintTechnique(patch?.technique, t.technique || PRINT_TECHNIQUES.RUBBER)
+    const safePatch = patch && typeof patch === "object" ? { ...patch } : {};
+    const nextTechnique = Object.prototype.hasOwnProperty.call(safePatch || {}, "technique")
+      ? normalizePrintTechnique(safePatch?.technique, t.technique || PRINT_TECHNIQUES.RUBBER)
       : t.technique || PRINT_TECHNIQUES.RUBBER;
-    const nextCustomText = { ...t, ...patch, technique: nextTechnique };
+    if (nextTechnique === PRINT_TECHNIQUES.RUBBER) {
+      safePatch.font = RUBBER_FONT_OPTION.value;
+    }
+    const nextCustomText = { ...t, ...safePatch, technique: nextTechnique };
     const nextTextPos = clampTextPos(sideData?.textPos, nextCustomText);
     updateSide({ customText: nextCustomText, textPos: nextTextPos });
   };
 
   const applyTextTechnique = (nextTechnique, { fromImageAction = false } = {}) => {
     const technique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.DTF);
-    bumpText({ technique });
+    bumpText(
+      technique === PRINT_TECHNIQUES.RUBBER
+        ? { technique, font: RUBBER_FONT_OPTION.value }
+        : { technique }
+    );
     ensureCurrentSidePrintType(techniqueToPrintTypeId(technique));
     if (fromImageAction && technique === PRINT_TECHNIQUES.DTF) {
       setActiveTab("upload");
@@ -4044,15 +4067,54 @@ function EditorPanel({
   ];
 
   const togglePrintType = (id) => {
+    if (!["dtf", "rubber"].includes(id)) return;
+    const currentlySelected = effectivePrintTypes.includes(id);
+
+    if (currentlySelected) {
+      if (id === "dtf" && sideHasImages) {
+        alert("DTF baskısını kaldırmak için önce seçili görselleri silin.");
+        setActiveTab("upload");
+        return;
+      }
+
+      let nextTypes = (printTypes || []).filter((entry) => entry !== id);
+      const hasTextContent = Boolean((t.text || "").trim());
+      const currentTechnique = normalizePrintTechnique(
+        t.technique,
+        printTypeIdsToTechnique(printTypes, PRINT_TECHNIQUES.DTF)
+      );
+
+      if (id === "rubber" && hasTextContent && currentTechnique === PRINT_TECHNIQUES.RUBBER) {
+        nextTypes = Array.from(new Set([...nextTypes, "dtf"]));
+        setCurrentSidePrintTypes(nextTypes);
+        bumpText({ technique: PRINT_TECHNIQUES.DTF });
+        setActiveTab("upload");
+        return;
+      }
+
+      if (id === "dtf" && hasTextContent && currentTechnique === PRINT_TECHNIQUES.DTF) {
+        nextTypes = Array.from(new Set([...nextTypes, "rubber"]));
+        setCurrentSidePrintTypes(nextTypes);
+        bumpText({ technique: PRINT_TECHNIQUES.RUBBER, font: RUBBER_FONT_OPTION.value });
+        setActiveTab("text");
+        return;
+      }
+
+      setCurrentSidePrintTypes(nextTypes);
+      if (id === "dtf" && activeTab === "upload") {
+        setActiveTab(nextTypes.includes("rubber") ? "text" : "print");
+      }
+      return;
+    }
+
     if (id === "rubber") {
       const switched = applyTextTechnique(PRINT_TECHNIQUES.RUBBER);
       if (switched) setActiveTab("text");
       return;
     }
-    if (id === "dtf") {
-      ensureCurrentSidePrintType("dtf");
-      setActiveTab("upload");
-    }
+
+    ensureCurrentSidePrintType("dtf");
+    setActiveTab("upload");
   };
 
   const handleSelectPrintTypeFromPanel = (id) => {
@@ -4304,7 +4366,7 @@ function EditorPanel({
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-stretch justify-start gap-2.5") : "space-y-2.5"}`}>
             <div className={isDrawerLayout ? "w-full" : ""}>
               <PrintTypePickerCards
-                selectedIds={printTypes}
+                selectedIds={effectivePrintTypes}
                 onSelect={handleSelectPrintTypeFromPanel}
                 sourceLabel="Panelden sec"
                 isMobile={isMobile}
@@ -4665,11 +4727,12 @@ function EditorPanel({
                     <label className="space-y-1">
                       <span className="block text-[10px] font-black uppercase tracking-wide text-gray-500">Font</span>
                       <select
-                        value={t.font || FONT_OPTIONS[0].value}
+                        value={resolvedTextFontValue}
                         onChange={(e) => bumpText({ font: e.target.value })}
+                        disabled={rubberActiveForSide}
                         className="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-[16px] md:text-[11px] font-semibold text-gray-800"
                       >
-                        {FONT_OPTIONS.map((opt) => (
+                        {textFontOptions.map((opt) => (
                           <option key={`font-opt-${opt.value}`} value={opt.value}>
                             {opt.label}
                           </option>
@@ -4999,6 +5062,10 @@ function TasarimClientContent({ isMobile }) {
     customText?.technique,
     printTypeIdsToTechnique(activeSidePrintTypes, PRINT_TECHNIQUES.DTF)
   ) === PRINT_TECHNIQUES.RUBBER;
+  const placementFontOptions = rubberActiveForSide ? [RUBBER_FONT_OPTION] : FONT_OPTIONS;
+  const placementFontValue = rubberActiveForSide
+    ? RUBBER_FONT_OPTION.value
+    : (customText?.font || FONT_OPTIONS[0].value);
   const snapThreshold = 0.02;
   const guideStops = [0.25, 0.5, 0.75];
   const activeVGuides = isLogoDragging
@@ -5073,17 +5140,25 @@ function TasarimClientContent({ isMobile }) {
   };
 
   const bumpCustomText = (patch) => {
-    const nextTechnique = Object.prototype.hasOwnProperty.call(patch || {}, "technique")
-      ? normalizePrintTechnique(patch?.technique, customText?.technique || PRINT_TECHNIQUES.RUBBER)
+    const safePatch = patch && typeof patch === "object" ? { ...patch } : {};
+    const nextTechnique = Object.prototype.hasOwnProperty.call(safePatch || {}, "technique")
+      ? normalizePrintTechnique(safePatch?.technique, customText?.technique || PRINT_TECHNIQUES.RUBBER)
       : normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER);
-    const nextCustomText = { ...customText, ...patch, technique: nextTechnique };
+    if (nextTechnique === PRINT_TECHNIQUES.RUBBER) {
+      safePatch.font = RUBBER_FONT_OPTION.value;
+    }
+    const nextCustomText = { ...customText, ...safePatch, technique: nextTechnique };
     const nextTextPos = clampTextPos(sideData?.textPos, nextCustomText);
     updateSide({ customText: nextCustomText, textPos: nextTextPos });
   };
 
   const applySceneTextTechnique = (nextTechnique) => {
     const technique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.DTF);
-    bumpCustomText({ technique });
+    bumpCustomText(
+      technique === PRINT_TECHNIQUES.RUBBER
+        ? { technique, font: RUBBER_FONT_OPTION.value }
+        : { technique }
+    );
     setDesigns((prev) =>
       prev.map((d) => {
         if (d.id !== activeId) return d;
@@ -5586,12 +5661,84 @@ function TasarimClientContent({ isMobile }) {
       setMobilePrimaryTab("design");
       setPanelProgress(0);
     }
+    const currentlySelected = activePrintTypes.includes(typeId);
+    const hasSideLogos = Boolean((activeSideData?.logos || []).length);
+    const sideTechnique = normalizePrintTechnique(
+      activeSideData?.customText?.technique,
+      printTypeIdsToTechnique(activePrintTypesBase, PRINT_TECHNIQUES.DTF)
+    );
+    const safeSide = activeSideKey === "back" ? "back" : "front";
+
+    if (currentlySelected) {
+      if (typeId === "dtf" && hasSideLogos) {
+        alert("DTF baskısını kaldırmak için önce seçili görselleri silin.");
+        setActiveTab("upload");
+        setDrawerMenuOpen(false);
+        return;
+      }
+
+      setDesigns((prev) =>
+        prev.map((d) => {
+          if (d.id !== activeId) return d;
+          const bySide = normalizePrintTypesBySide(d.printTypesBySide, d.printTypes);
+          const prevSide = normalizeSideData(d?.sides?.[safeSide]);
+          let nextTypes = (bySide[safeSide] || []).filter((id) => id !== typeId);
+          let nextTechnique = normalizePrintTechnique(
+            prevSide?.customText?.technique,
+            printTypeIdsToTechnique(nextTypes, PRINT_TECHNIQUES.DTF)
+          );
+          const hasText = Boolean((prevSide?.customText?.text || "").trim());
+
+          if (typeId === "rubber" && hasText && nextTechnique === PRINT_TECHNIQUES.RUBBER) {
+            nextTypes = Array.from(new Set([...nextTypes, "dtf"]));
+            nextTechnique = PRINT_TECHNIQUES.DTF;
+          }
+          if (typeId === "dtf" && hasText && nextTechnique === PRINT_TECHNIQUES.DTF) {
+            nextTypes = Array.from(new Set([...nextTypes, "rubber"]));
+            nextTechnique = PRINT_TECHNIQUES.RUBBER;
+          }
+
+          bySide[safeSide] = normalizePrintTypesBySide({ front: nextTypes, back: [] }).front;
+          const mergedLegacy = Array.from(new Set([...(bySide.front || []), ...(bySide.back || [])]));
+          return {
+            ...d,
+            sides: {
+              ...d.sides,
+              [safeSide]: {
+                ...prevSide,
+                customText: {
+                  ...prevSide.customText,
+                  technique: nextTechnique,
+                  font:
+                    nextTechnique === PRINT_TECHNIQUES.RUBBER
+                      ? RUBBER_FONT_OPTION.value
+                      : prevSide?.customText?.font || FONT_OPTIONS[0].value,
+                },
+              },
+            },
+            printTypesBySide: bySide,
+            printTypes: mergedLegacy,
+          };
+        })
+      );
+
+      if (typeId === "dtf" && activeTab === "upload") {
+        setActiveTab("print");
+      }
+      if (typeId === "rubber" && activeTab === "text" && sideTechnique === PRINT_TECHNIQUES.RUBBER) {
+        setActiveTab("upload");
+      }
+      setDrawerMenuOpen(false);
+      return;
+    }
+
     if (typeId === "rubber") {
       applyTechniqueToActiveSide(PRINT_TECHNIQUES.RUBBER, { updateTextTechnique: true });
       setActiveTab("text");
       setDrawerMenuOpen(false);
       return;
     }
+
     applyTechniqueToActiveSide(PRINT_TECHNIQUES.DTF, { updateTextTechnique: false });
     setActiveTab("upload");
     setDrawerMenuOpen(false);
@@ -5680,6 +5827,12 @@ function TasarimClientContent({ isMobile }) {
   }, [isMobile, panelProgress]);
 
   useEffect(() => {
+    if (!isMobile || !pickerOpen) return;
+    setDrawerMenuOpen(false);
+    setPanelProgress(1);
+  }, [isMobile, pickerOpen]);
+
+  useEffect(() => {
     if (drawerMenuOpen) {
       setDrawerMenuMounted(true);
       return;
@@ -5705,6 +5858,31 @@ function TasarimClientContent({ isMobile }) {
       setActiveTab("print");
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!rubberActiveForSide) return;
+    if ((customText?.font || "") === RUBBER_FONT_OPTION.value) return;
+    const safeSide = currentSide === "back" ? "back" : "front";
+    setDesigns((prev) =>
+      prev.map((d) => {
+        if (d.id !== activeId) return d;
+        const prevSide = normalizeSideData(d?.sides?.[safeSide]);
+        return {
+          ...d,
+          sides: {
+            ...d.sides,
+            [safeSide]: {
+              ...prevSide,
+              customText: {
+                ...prevSide.customText,
+                font: RUBBER_FONT_OPTION.value,
+              },
+            },
+          },
+        };
+      })
+    );
+  }, [rubberActiveForSide, customText?.font, activeId, currentSide]);
 
   // Desktop'ta baskı alanı açıldığında drawer otomatik aşağı (kapalı) konuma geçer.
   useEffect(() => {
@@ -5767,6 +5945,14 @@ function TasarimClientContent({ isMobile }) {
     setDesigns((prev) => [...prev, nd]);
     setActiveId(nd.id);
     setPickerOpen(false);
+  };
+
+  const openModelPicker = () => {
+    if (isMobile) {
+      setPanelProgress(1);
+    }
+    setDrawerMenuOpen(false);
+    setPickerOpen(true);
   };
 
   const startDesignFlow = (forcedModelType = null) => {
@@ -6277,7 +6463,7 @@ function TasarimClientContent({ isMobile }) {
       : `calc((var(--app-vh) * 46) + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
     : `calc(${drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK}px + ${CONTROLS_GAP}px)`;
   const isPlacementPanelVisible = isPrintAreaOpen && showPlacementPanel;
-  const hideMobileDrawerInEditor = isMobile && isPlacementPanelVisible;
+  const hideMobileDrawerInEditor = isMobile && (isPlacementPanelVisible || pickerOpen);
   const sceneEditCenterLeft = isMobile ? "50%" : isPlacementPanelVisible ? "63%" : "50%";
   const sceneEditCenterTop = isMobile
     ? isPlacementPanelVisible
@@ -6303,7 +6489,7 @@ function TasarimClientContent({ isMobile }) {
   const showPrintTypes =
     isMobile && activeBottomTab === "tasarla" && !mobilePanelCollapsed && activeTab === "print";
   const mobileDrawerVisibilityRatio = clamp(1 - panelProgress, 0, 1);
-  const showMobileBottomTabs = isMobile && flowStep === "design" && !isPlacementPanelVisible;
+  const showMobileBottomTabs = isMobile && flowStep === "design" && !isPlacementPanelVisible && !pickerOpen;
   const mobileBottomTabsOpacity = clamp((mobileDrawerVisibilityRatio - 0.04) / 0.96, 0, 1);
   const mobileDrawerBottom = showMobileBottomTabs
     ? `calc(${(mobileBottomTabsOpacity * 92).toFixed(2)}px + env(safe-area-inset-bottom))`
@@ -6551,12 +6737,12 @@ function TasarimClientContent({ isMobile }) {
           }
         >
         {/* Floating Controls */}
-        {(!isMobile || activeTab !== "editor" || !showPlacementPanel) && (
+        {(!isMobile || activeTab !== "editor" || !showPlacementPanel) && !pickerOpen && (
           <div
             className="absolute z-[90] pointer-events-none transition-all duration-300"
             style={
               isMobile
-                ? { right: "12px", top: "50%", transform: "translateY(-50%)" }
+                ? { right: "12px", top: "43%", transform: "translateY(-50%)" }
                 : { bottom: controlsBottom, right: "16px" }
             }
           >
@@ -6578,6 +6764,24 @@ function TasarimClientContent({ isMobile }) {
                   </button>
                 ))}
               </div>
+              {isMobile && (
+                <div className="flex flex-col gap-1.5 rounded-2xl border border-zinc-300 bg-white/90 backdrop-blur px-1.5 py-1.5 shadow-lg">
+                  <button
+                    onClick={() => zoomModel("in")}
+                    className="w-9 h-9 rounded-full border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center"
+                    aria-label="Yakınlaştır"
+                  >
+                    <Plus size={16} strokeWidth={2.8} />
+                  </button>
+                  <button
+                    onClick={() => zoomModel("out")}
+                    className="w-9 h-9 rounded-full border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center"
+                    aria-label="Uzaklaştır"
+                  >
+                    <Minus size={16} strokeWidth={2.8} />
+                  </button>
+                </div>
+              )}
               {showHoodieVariantButtons && !isMobile && (
                 <div className="rounded-2xl border border-zinc-300 bg-white/95 backdrop-blur px-2 py-2 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
                   <div className="grid grid-cols-1 gap-1.5 min-w-[116px]">
@@ -6600,33 +6804,6 @@ function TasarimClientContent({ isMobile }) {
                   </div>
                 </div>
               )}
-            </div>
-          </div>
-        )}
-
-        {isMobile && (
-          <div
-            className="absolute z-[90] pointer-events-auto transition-all duration-300"
-            style={{
-              right: "12px",
-              bottom: "12px",
-            }}
-          >
-            <div className="flex flex-col gap-2 rounded-2xl border border-zinc-300 bg-white/90 backdrop-blur px-2 py-2 shadow-lg">
-              <button
-                onClick={() => zoomModel("in")}
-                className="w-9 h-9 rounded-full border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center"
-                aria-label="Yakınlaştır"
-              >
-                <Plus size={16} strokeWidth={2.8} />
-              </button>
-              <button
-                onClick={() => zoomModel("out")}
-                className="w-9 h-9 rounded-full border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center"
-                aria-label="Uzaklaştır"
-              >
-                <Minus size={16} strokeWidth={2.8} />
-              </button>
             </div>
           </div>
         )}
@@ -7078,11 +7255,12 @@ function TasarimClientContent({ isMobile }) {
                     <div className="space-y-1">
                       <label className="text-[10px] text-zinc-400">Font</label>
                       <select
-                        value={customText?.font || FONT_OPTIONS[0].value}
+                        value={placementFontValue}
                         onChange={(e) => bumpCustomText({ font: e.target.value })}
+                        disabled={rubberActiveForSide}
                         className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 text-white px-2 py-1 text-[16px] md:text-[11px]"
                       >
-                        {FONT_OPTIONS.map((opt) => (
+                        {placementFontOptions.map((opt) => (
                           <option key={`editor-text-font-${opt.value}`} value={opt.value}>
                             {opt.label}
                           </option>
@@ -7861,7 +8039,7 @@ function TasarimClientContent({ isMobile }) {
                     boxShadow: mobilePanelCollapsed
                       ? "0 -2px 10px rgba(0,0,0,0.08)"
                       : "0 -10px 24px rgba(0,0,0,0.14)",
-                    overflow: "hidden",
+                    overflow: "visible",
                     willChange: "transform",
                     transition: dragState.current.dragging
                       ? "none"
@@ -7905,14 +8083,14 @@ function TasarimClientContent({ isMobile }) {
                           handleMobileDrawerHandleClick(e);
                         }
                       }}
-                      className="absolute left-1/2 top-[-18px] -translate-x-1/2 w-11 h-9 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 flex items-center justify-center z-[30] shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
+                      className="absolute left-1/2 top-[-20px] -translate-x-1/2 w-12 h-10 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 flex items-center justify-center z-[30] shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
                       aria-label="Alt panel yüksekliğini değiştir"
                       style={{ touchAction: "none" }}
                     >
                       {mobilePanelCollapsed ? (
-                        <ChevronUp size={14} strokeWidth={2.5} />
+                        <ChevronUp size={17} strokeWidth={2.7} />
                       ) : (
-                        <ChevronDown size={14} strokeWidth={2.5} />
+                        <ChevronDown size={17} strokeWidth={2.7} />
                       )}
                     </button>
 
@@ -8042,7 +8220,7 @@ function TasarimClientContent({ isMobile }) {
                             <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
                               <button
                                 type="button"
-                                onClick={() => setPickerOpen(true)}
+                                onClick={openModelPicker}
                                 className="w-full h-11 rounded-lg border border-zinc-300 bg-zinc-900 text-white text-[11px] font-black uppercase tracking-wide"
                               >
                                 + Model Ekle
@@ -8082,7 +8260,7 @@ function TasarimClientContent({ isMobile }) {
                         </div>
                         <div className="flex items-center gap-4">
                           <button
-                            onClick={() => setPickerOpen(true)}
+                            onClick={openModelPicker}
                             className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[11px] font-black uppercase tracking-wide shadow-sm"
                             aria-label="Model ekle"
                           >
