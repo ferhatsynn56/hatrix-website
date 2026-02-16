@@ -9,10 +9,6 @@ import {
   ArrowRight, X, Trash2, CreditCard, Star
 } from 'lucide-react';
 
-// --- FIREBASE IMPORTS ---
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, onAuthStateChanged, signOut, signInAnonymously } from "firebase/auth";
-
 // --- FIREBASE AYARLARI ---
 const firebaseConfig = {
   apiKey: "AIzaSyDcTJHnK55GBqOuxUNtb7toIOpPffjiyc4",
@@ -23,15 +19,6 @@ const firebaseConfig = {
   appId: "1:903710965804:web:5dc754a337a1d9d7951189",
   measurementId: "G-C03LWY68K7"
 };
-
-// --- FIREBASE BAŞLATMA ---
-let auth = null;
-try {
-  if (Object.keys(firebaseConfig).length > 0) {
-    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-    auth = getAuth(app);
-  }
-} catch (e) { console.error(e); }
 
 const TOP_INFO_MESSAGES = [
   "1500 TL ve üzeri siparişlerde kargo ücretsiz.",
@@ -58,6 +45,7 @@ export default function Navbar() {
   const [topInfoIndex, setTopInfoIndex] = useState(0);
 
   const aramaInputRef = useRef(null);
+  const authRef = useRef(null);
   const iletisimMaili = "mailto:info@stenist.com";
 
   // ✅ STÜDYO SAYFALARI (BURAYA İSTEDİĞİN ROUTE'LARI EKLEYEBİLİRSİN)
@@ -74,15 +62,49 @@ export default function Navbar() {
   }, [pathname]);
 
   useEffect(() => {
-    if (!auth) return;
+    let mounted = true;
+    let unsubscribe = null;
+    let timerId = null;
+    let idleId = null;
+
     const initAuth = async () => {
-      await signInAnonymously(auth).catch(e => console.log(e));
-      onAuthStateChanged(auth, (user) => {
-        if (user && !user.isAnonymous) setKullanici(user);
-        else setKullanici(null);
-      });
+      try {
+        const [{ initializeApp, getApps, getApp }, { getAuth, onAuthStateChanged }] = await Promise.all([
+          import("firebase/app"),
+          import("firebase/auth"),
+        ]);
+
+        const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        authRef.current = auth;
+        unsubscribe = onAuthStateChanged(auth, (user) => {
+          if (!mounted) return;
+          if (user && !user.isAnonymous) setKullanici(user);
+          else setKullanici(null);
+        });
+      } catch (e) {
+        if (mounted) console.error(e);
+      }
     };
-    initAuth();
+
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(() => {
+        initAuth();
+      }, { timeout: 1200 });
+    } else {
+      timerId = window.setTimeout(() => {
+        initAuth();
+      }, 250);
+    }
+
+    return () => {
+      mounted = false;
+      if (timerId) window.clearTimeout(timerId);
+      if (idleId && typeof window !== "undefined" && "cancelIdleCallback" in window) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -98,7 +120,15 @@ export default function Navbar() {
     return () => clearInterval(timer);
   }, []);
 
-  const cikisYap = async () => { if (auth) await signOut(auth); };
+  const cikisYap = async () => {
+    if (!authRef.current) return;
+    try {
+      const { signOut } = await import("firebase/auth");
+      await signOut(authRef.current);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const aramaYap = (e) => {
     e.preventDefault();

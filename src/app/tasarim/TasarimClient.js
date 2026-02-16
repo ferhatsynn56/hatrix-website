@@ -1012,10 +1012,21 @@ const loadImg = (src) =>
       return;
     }
     const img = new Image();
+    if (!key.startsWith("data:")) {
+      img.crossOrigin = "anonymous";
+    }
+    img.decoding = "async";
     const promise = new Promise((res, rej) => {
       img.onload = () => {
-        IMAGE_CACHE.set(key, { img });
-        res(img);
+        const commitLoaded = () => {
+          IMAGE_CACHE.set(key, { img });
+          res(img);
+        };
+        if (typeof img.decode === "function") {
+          img.decode().then(commitLoaded).catch(commitLoaded);
+          return;
+        }
+        commitLoaded();
       };
       img.onerror = () => {
         IMAGE_CACHE.delete(key);
@@ -1516,29 +1527,21 @@ async function makePrintDataUrl(sideData, opts = {}) {
     const rotation = (l.rotation || 0) * (Math.PI / 180);
     const fx = getLogoStyle(l);
     const emboss = isEmbossSticker(l);
-    // eslint-disable-next-line no-await-in-loop
-    await new Promise((res) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.src = l.url;
-      img.onload = () => {
-        const bw = box.w * SIZE;
-        const bh = box.h * SIZE;
-        const cx = box.x * SIZE;
-        const cy = box.y * SIZE;
-        ctx.save();
-        ctx.translate(cx, cy);
-        if (rotation) ctx.rotate(rotation);
-        ctx.scale(fx.flipX ? -1 : 1, fx.flipY ? -1 : 1);
-        ctx.globalAlpha = fx.opacity;
-        ctx.filter = logoFilterCss(fx);
-        ctx.drawImage(img, -bw / 2, -bh / 2, bw, bh);
-        if (emboss) drawEmbossOverlay(ctx, img, bw, bh);
-        ctx.restore();
-        res();
-      };
-      img.onerror = () => res();
-    });
+    const img = await loadImg(l.url).catch(() => null);
+    if (!img) return;
+    const bw = box.w * SIZE;
+    const bh = box.h * SIZE;
+    const cx = box.x * SIZE;
+    const cy = box.y * SIZE;
+    ctx.save();
+    ctx.translate(cx, cy);
+    if (rotation) ctx.rotate(rotation);
+    ctx.scale(fx.flipX ? -1 : 1, fx.flipY ? -1 : 1);
+    ctx.globalAlpha = fx.opacity;
+    ctx.filter = logoFilterCss(fx);
+    ctx.drawImage(img, -bw / 2, -bh / 2, bw, bh);
+    if (emboss) drawEmbossOverlay(ctx, img, bw, bh);
+    ctx.restore();
   };
 
   const items = [
@@ -1550,7 +1553,6 @@ async function makePrintDataUrl(sideData, opts = {}) {
 
   for (const item of items) {
     if (item.kind === "logo") {
-      // eslint-disable-next-line no-await-in-loop
       await drawLogo(item.payload);
       continue;
     }
@@ -1640,25 +1642,17 @@ async function makeAdjustedLogoDataUrls(sideData) {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
 
-    // eslint-disable-next-line no-await-in-loop
-    await new Promise((res) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.src = l.url;
-      img.onload = () => {
-        ctx.save();
-        ctx.translate(bw / 2, bh / 2);
-        if (rotation) ctx.rotate(rotation);
-        ctx.scale(fx.flipX ? -1 : 1, fx.flipY ? -1 : 1);
-        ctx.globalAlpha = fx.opacity;
-        ctx.filter = logoFilterCss(fx);
-        ctx.drawImage(img, -bw / 2, -bh / 2, bw, bh);
-        if (emboss) drawEmbossOverlay(ctx, img, bw, bh);
-        ctx.restore();
-        res();
-      };
-      img.onerror = () => res();
-    });
+    const img = await loadImg(l.url).catch(() => null);
+    if (!img) continue;
+    ctx.save();
+    ctx.translate(bw / 2, bh / 2);
+    if (rotation) ctx.rotate(rotation);
+    ctx.scale(fx.flipX ? -1 : 1, fx.flipY ? -1 : 1);
+    ctx.globalAlpha = fx.opacity;
+    ctx.filter = logoFilterCss(fx);
+    ctx.drawImage(img, -bw / 2, -bh / 2, bw, bh);
+    if (emboss) drawEmbossOverlay(ctx, img, bw, bh);
+    ctx.restore();
 
     results.push(c.toDataURL("image/png"));
   }
@@ -1735,27 +1729,17 @@ function HdriEnvironment({ urls = [], enabled = true }) {
 }
 
 /* ================= KAMERA KONTROLCÜSÜ ================= */
-function CameraController({
-  view,
-  count,
-  onAnimatingChange,
-  controlsRef,
-  targetY = -0.1,
-  cameraY = 0.22,
-  baseDistance = 1.96,
-  minDistance = 1.72,
-  maxDistance = 4.6,
-}) {
+function CameraController({ view, count, onAnimatingChange }) {
   const { camera } = useThree();
   const isAnimating = useRef(false);
   const extra = Math.min(0.9, Math.max(0, (count - 1) * 0.22));
 
   const positions = useMemo(
     () => ({
-      front: new THREE.Vector3(0, cameraY, baseDistance + extra * 0.14),
-      back: new THREE.Vector3(0, cameraY, baseDistance + extra * 0.14),
+      front: new THREE.Vector3(0, 0.24, 1.9 + extra),
+      back: new THREE.Vector3(0, 0.24, 1.9 + extra),
     }),
-    [extra, cameraY, baseDistance]
+    [extra]
   );
 
   useEffect(() => {
@@ -1764,26 +1748,13 @@ function CameraController({
     const targetPos = positions[view] || positions.front;
     const startPos = camera.position.clone();
     const start = Date.now();
-    const dur = 520;
+    const dur = 860;
     const tick = () => {
       if (!isAnimating.current) return;
       const t = Math.min((Date.now() - start) / dur, 1);
-      const eased = 1 - Math.pow(1 - t, 4);
+      const eased = 1 - Math.pow(1 - t, 5);
       camera.position.lerpVectors(startPos, targetPos, eased);
-      const controls = controlsRef?.current;
-      if (controls) {
-        const target = new THREE.Vector3(0, targetY, 0);
-        controls.target.lerp(target, 0.24);
-        controls.minDistance = minDistance;
-        controls.maxDistance = maxDistance;
-        const offset = camera.position.clone().sub(controls.target);
-        const safeDistance = clamp(offset.length(), minDistance + 0.02, maxDistance);
-        offset.setLength(safeDistance);
-        camera.position.copy(controls.target).add(offset);
-        camera.position.x = THREE.MathUtils.lerp(camera.position.x, 0, 0.5);
-        controls.update();
-      }
-      camera.lookAt(0, targetY, 0);
+      camera.lookAt(0, -0.08, 0);
       if (t < 1) requestAnimationFrame(tick);
       else {
         isAnimating.current = false;
@@ -1795,7 +1766,7 @@ function CameraController({
       isAnimating.current = false;
       onAnimatingChange?.(false);
     };
-  }, [view, camera, positions, onAnimatingChange, controlsRef, targetY, minDistance, maxDistance]);
+  }, [view, camera, positions, onAnimatingChange]);
 
   return null;
 }
@@ -1816,9 +1787,9 @@ function useDesignCanvas(sideData, opts = {}) {
   const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}_${customText?.font}_${customText?.layout || "straight"}_${customText?.curve ?? 30}_${customText?.rotation ?? 0}_${customText?.z ?? 0}_${Number(Boolean(customText?.emboss))}_${customText?.embossDepth ?? 1.4}_${customText?.embossStrength ?? 1.4}_${normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER)}`;
   const posSignature = `${sideData?.textPos?.x}_${sideData?.textPos?.y}`;
 
-  const requestedSize = Number(opts?.textureSize);
-  const CANVAS_SIZE = Number.isFinite(requestedSize)
-    ? clamp(Math.round(requestedSize), 1024, 4096)
+  const requestedCanvasSize = Number(opts?.canvasSize);
+  const CANVAS_SIZE = Number.isFinite(requestedCanvasSize)
+    ? clamp(Math.round(requestedCanvasSize), 1024, 4096)
     : 2048;
   const CANVAS_UPDATE_DEBOUNCE_MS = 6;
   const textEnabled = opts?.disableText !== true;
@@ -1878,42 +1849,31 @@ function useDesignCanvas(sideData, opts = {}) {
         const rotation = (l.rotation || 0) * (Math.PI / 180);
         const fx = getLogoStyle(l);
         const emboss = isEmbossSticker(l);
-        // eslint-disable-next-line no-await-in-loop
-        await new Promise((res) => {
-          if (cancelled) {
-            res();
-            return;
-          }
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.src = l.url;
-          img.onload = () => {
-            if (cancelled) {
-              res();
-              return;
-            }
-            const bw = box.w * CANVAS_SIZE;
-            const bh = box.h * CANVAS_SIZE;
-            const cx = box.x * CANVAS_SIZE;
-            const cy = box.y * CANVAS_SIZE;
-            ctx.save();
-            ctx.translate(cx, cy);
-            if (rotation) ctx.rotate(rotation);
-            ctx.scale(fx.flipX ? -1 : 1, fx.flipY ? -1 : 1);
-            ctx.globalAlpha = fx.opacity;
-            ctx.filter = logoFilterCss(fx);
-            ctx.drawImage(img, -bw / 2, -bh / 2, bw, bh);
-            if (emboss) drawEmbossOverlay(ctx, img, bw, bh);
-            ctx.restore();
-            res();
-          };
-          img.onerror = () => res();
-        });
+        const img = await loadImg(l.url).catch(() => null);
+        if (!img || cancelled) return;
+        const bw = box.w * CANVAS_SIZE;
+        const bh = box.h * CANVAS_SIZE;
+        const cx = box.x * CANVAS_SIZE;
+        const cy = box.y * CANVAS_SIZE;
+        ctx.save();
+        ctx.translate(cx, cy);
+        if (rotation) ctx.rotate(rotation);
+        ctx.scale(fx.flipX ? -1 : 1, fx.flipY ? -1 : 1);
+        ctx.globalAlpha = fx.opacity;
+        ctx.filter = logoFilterCss(fx);
+        ctx.drawImage(img, -bw / 2, -bh / 2, bw, bh);
+        if (emboss) drawEmbossOverlay(ctx, img, bw, bh);
+        ctx.restore();
       };
 
       const drawAll = async () => {
         if (cancelled) return;
         ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+        const logoSources = Array.from(new Set(logosForCanvas.map((layer) => layer?.url).filter(Boolean)));
+        if (logoSources.length) {
+          await Promise.all(logoSources.map((src) => loadImg(src).catch(() => null)));
+          if (cancelled) return;
+        }
 
         const items = [
           ...logosForCanvas.map((l, idx) => ({ kind: "logo", z: l?.z ?? 0, idx, payload: l })),
@@ -1924,7 +1884,6 @@ function useDesignCanvas(sideData, opts = {}) {
 
         for (const item of items) {
           if (item.kind === "logo") {
-            // eslint-disable-next-line no-await-in-loop
             await drawLogo(item.payload);
           } else {
             drawText();
@@ -1943,7 +1902,7 @@ function useDesignCanvas(sideData, opts = {}) {
       clearTimeout(timeoutId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [logoSignature, textSignature, posSignature, opts?.clearCenterStripe01, opts?.disableText, CANVAS_SIZE, logosForCanvas, customText?.text, textEnabled]);
+  }, [logoSignature, textSignature, posSignature, opts?.clearCenterStripe01, opts?.disableText, CANVAS_SIZE, textEnabled]);
 
   return canvas;
 }
@@ -2004,19 +1963,18 @@ function pickDecalHostMesh(root, modelType) {
   return null;
 }
 
-function makeCanvasTexture(canvas) {
+function makeCanvasTexture(canvas, maxAnisotropy = 16) {
   if (!canvas) return null;
   const tex = new THREE.CanvasTexture(canvas);
-  tex.anisotropy = 16; // Netlik için yüksek değer
+  tex.anisotropy = Math.max(1, Math.round(maxAnisotropy)); // Netlik için yüksek değer
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.flipY = true; // Canvas Y ekseni ile model UV yönünü eşleştir
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   tex.needsUpdate = true;
-  tex.generateMipmaps = false;
-  tex.minFilter = THREE.LinearFilter;
+  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
   tex.magFilter = THREE.LinearFilter;
-  tex.premultiplyAlpha = false;
   return tex;
 }
 
@@ -2206,6 +2164,10 @@ function Real3DModel({
   const modelPathRaw = MODEL_PATHS[normalizeModelType(modelType)] || MODEL_PATHS[DEFAULT_MODEL_TYPE];
   const gltf = useGLTF(toSafeUrl(modelPathRaw));
   const glyphGltf = useGLTF(toSafeUrl(RUBBER_GLYPH_MODEL_PATH));
+  const maxAnisotropy = useMemo(() => {
+    const cap = gl?.capabilities?.getMaxAnisotropy?.();
+    return Number.isFinite(cap) && cap > 0 ? cap : 16;
+  }, [gl]);
 
   const hasSkinned = useMemo(() => {
     let found = false;
@@ -2363,33 +2325,24 @@ function Real3DModel({
       setFrontTex(null);
       return;
     }
-    const t = makeCanvasTexture(frontCanvas);
+    const t = makeCanvasTexture(frontCanvas, maxAnisotropy);
     setFrontTex(t);
     return () => {
       if (t) t.dispose();
     };
-  }, [frontCanvas, isMobile]);
+  }, [frontCanvas, isMobile, maxAnisotropy]);
 
   useEffect(() => {
     if (!backCanvas) {
       setBackTex(null);
       return;
     }
-    const t = makeCanvasTexture(backCanvas);
+    const t = makeCanvasTexture(backCanvas, maxAnisotropy);
     setBackTex(t);
     return () => {
       if (t) t.dispose();
     };
-  }, [backCanvas, isMobile]);
-
-  useEffect(() => {
-    const maxAniso = gl?.capabilities?.getMaxAnisotropy?.() || 8;
-    [frontTex, backTex].forEach((tex) => {
-      if (!tex) return;
-      tex.anisotropy = Math.min(16, maxAniso);
-      tex.needsUpdate = true;
-    });
-  }, [gl, frontTex, backTex]);
+  }, [backCanvas, isMobile, maxAnisotropy]);
 
   const decalHost = useMemo(() => pickDecalHostMesh(root, modelType), [root, modelType]);
   const decalHostRef = useMemo(() => ({ current: decalHost }), [decalHost]);
@@ -2440,12 +2393,36 @@ function Real3DModel({
     all.forEach((tex) => {
       if (!tex) return;
       tex.colorSpace = THREE.SRGBColorSpace;
-      tex.anisotropy = 12;
+      tex.anisotropy = maxAnisotropy;
       tex.wrapS = THREE.ClampToEdgeWrapping;
       tex.wrapT = THREE.ClampToEdgeWrapping;
+      tex.generateMipmaps = true;
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      tex.magFilter = THREE.LinearFilter;
       tex.needsUpdate = true;
     });
-  }, [frontEmbossTextures, backEmbossTextures]);
+  }, [frontEmbossTextures, backEmbossTextures, maxAnisotropy]);
+
+  const modelCenter = useMemo(() => {
+    root.updateWorldMatrix(true, true);
+    const fallbackCenter = new THREE.Vector3();
+    const box = new THREE.Box3().setFromObject(root);
+    if (!box.isEmpty()) {
+      box.getCenter(fallbackCenter);
+    }
+    const center = fallbackCenter.clone();
+
+    if (decalHost?.geometry) {
+      decalHost.geometry.computeBoundingBox?.();
+      const hostBox = decalHost.geometry.boundingBox;
+      if (hostBox) {
+        const torsoCenter = hostBox.getCenter(new THREE.Vector3()).applyMatrix4(decalHost.matrixWorld);
+        center.x = torsoCenter.x;
+        return center;
+      }
+    }
+    return center;
+  }, [root, decalHost]);
 
   const renderRubberText = (side, sideData, profile, areaW, areaH, enabled) => {
     if (!enabled) return null;
@@ -2617,7 +2594,7 @@ function Real3DModel({
 
   return (
     <group dispose={null} position={[0, -0.08, 0]}>
-      <Center>
+      <group position={[-modelCenter.x, -modelCenter.y, -modelCenter.z]}>
         <primitive object={root} />
 
         {decalHost && (
@@ -2843,7 +2820,7 @@ function Real3DModel({
               })}
           </>
         )}
-      </Center>
+      </group>
     </group>
   );
 }
@@ -3268,15 +3245,16 @@ function DesignModelItem({
       printTypeIdsToTechnique(printTypesBySide.back, PRINT_TECHNIQUES.RUBBER)
     ) === PRINT_TECHNIQUES.RUBBER;
 
+  const textureCanvasSize = isMobile ? (isActive ? 2816 : 1920) : (isActive ? 3584 : 2816);
   const frontCanvas = useDesignCanvas(
     design.sides.front || EMPTY_SIDE,
     isZipper
-      ? { clearCenterStripe01: gap01, disableText: frontHasRubber, textureSize: isMobile ? 2304 : 3072 }
-      : { disableText: frontHasRubber, textureSize: isMobile ? 2304 : 3072 }
+      ? { clearCenterStripe01: gap01, disableText: frontHasRubber, canvasSize: textureCanvasSize }
+      : { disableText: frontHasRubber, canvasSize: textureCanvasSize }
   );
   const backCanvas = useDesignCanvas(design.sides.back || EMPTY_SIDE, {
     disableText: backHasRubber,
-    textureSize: isMobile ? 2304 : 3072,
+    canvasSize: textureCanvasSize,
   });
 
   if (hidden) return null;
@@ -4887,8 +4865,8 @@ function TasarimClientContent({ isMobile }) {
   const [activeTab, setActiveTab] = useState("print");
   const [mobilePrimaryTab, setMobilePrimaryTab] = useState("design");
   /** @type {"collapsed" | "design"} */
-  const [mobilePanelMode, setMobilePanelMode] = useState("design");
-  const [mobileSheetSnapIndex, setMobileSheetSnapIndex] = useState(1);
+  const [mobilePanelMode, setMobilePanelMode] = useState("collapsed");
+  const [mobileSheetSnapIndex, setMobileSheetSnapIndex] = useState(0);
   const [uploadTechniqueToastOpen, setUploadTechniqueToastOpen] = useState(false);
   const [forceEditorOverlay, setForceEditorOverlay] = useState(false);
   const [drawerMenuOpen, setDrawerMenuOpen] = useState(false);
@@ -5164,8 +5142,8 @@ function TasarimClientContent({ isMobile }) {
     }
     if (isMobile) {
       setMobilePrimaryTab("design");
-      setMobilePanelMode("collapsed");
-      setMobileSheetSnapIndex(0);
+      setMobilePanelMode("design");
+      setMobileSheetSnapIndex(1);
       setDrawerOpen(false);
     } else {
       setDrawerOpen(false);
@@ -5292,20 +5270,19 @@ function TasarimClientContent({ isMobile }) {
   }, []);
   const perf = useMemo(() => {
     const heavy = modelCount > 2;
-    const deviceDpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
     if (isMobile) {
       const conservative = heavy || isIOSDevice;
       return {
-        dpr: Math.min(deviceDpr, conservative ? 1.15 : 1.35),
+        dpr: conservative ? 1 : 1.15,
         antialias: !conservative,
-        shadowMap: conservative ? 256 : 320,
+        shadowMap: conservative ? 224 : 288,
         powerPreference: "default",
       };
     }
     return {
-      dpr: Math.min(deviceDpr, heavy ? 1.35 : 1.7),
+      dpr: heavy ? 1.3 : 1.6,
       antialias: !heavy,
-      shadowMap: heavy ? 512 : 768,
+      shadowMap: heavy ? 448 : 640,
       powerPreference: "high-performance",
     };
   }, [isMobile, modelCount, isIOSDevice]);
@@ -5314,11 +5291,13 @@ function TasarimClientContent({ isMobile }) {
   const DRAWER_PEEK = 74;
   const CONTROLS_GAP = 56;
   const MAX_OPEN = 0;
-  const [drawerOpen, setDrawerOpen] = useState(true);
-  const [drawerY, setDrawerY] = useState(0);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerY, setDrawerY] = useState(() =>
+    typeof window !== "undefined" ? Math.max(320, Math.round(window.innerHeight * 0.52)) : 420
+  );
   const [drawerHeight, setDrawerHeight] = useState(0);
   const [drawerMaxClosed, setDrawerMaxClosed] = useState(500);
-  const drawerYRef = useRef(0);
+  const drawerYRef = useRef(drawerY);
   const dragState = useRef({ dragging: false, moved: false, startY: 0, startDrawerY: 0 });
   const suppressDrawerHandleClickRef = useRef(false);
   const getMobileSnapYs = React.useCallback(
@@ -5422,18 +5401,41 @@ function TasarimClientContent({ isMobile }) {
     setFlowStep("design");
     setActiveTab("print");
     setMobilePrimaryTab("design");
-    setMobilePanelMode("design");
-    setMobileSheetSnapIndex(1);
+    setMobilePanelMode("collapsed");
+    setMobileSheetSnapIndex(0);
     setForceEditorOverlay(false);
     setPickerOpen(false);
     setDrawerMenuOpen(false);
-    setDrawerOpen(true);
+    setDrawerOpen(false);
     router.replace(`/tasarim?model=${restored[0].modelType}`, { scroll: false });
   }, [resumeRequested, router]);
 
   useEffect(() => {
     if (!activeId && designs[0]) setActiveId(designs[0].id);
   }, [activeId, designs]);
+
+  const allLogoUrls = useMemo(() => {
+    const urls = [];
+    designs.forEach((designItem) => {
+      UI_SIDES.forEach((sideKey) => {
+        (designItem?.sides?.[sideKey]?.logos || []).forEach((layer) => {
+          if (layer?.url) urls.push(layer.url);
+        });
+      });
+    });
+    return Array.from(new Set(urls));
+  }, [designs]);
+  const allLogoUrlSignature = useMemo(() => allLogoUrls.join("|"), [allLogoUrls]);
+
+  useEffect(() => {
+    if (!allLogoUrlSignature || typeof window === "undefined") return;
+    const preloadUrls = allLogoUrlSignature.split("|").filter(Boolean);
+    preloadUrls.forEach((src, idx) => {
+      window.setTimeout(() => {
+        loadImg(src).catch(() => {});
+      }, idx * 18);
+    });
+  }, [allLogoUrlSignature]);
 
   useEffect(() => {
     const alive = new Set(designs.map((d) => d.id));
@@ -5671,13 +5673,6 @@ function TasarimClientContent({ isMobile }) {
 
   useEffect(() => {
     if (!isMobile) return;
-    if (!isPrintAreaOpen || !showPlacementPanel) return;
-    setMobilePanelMode("collapsed");
-    setMobileSheetSnapIndex(0);
-  }, [isMobile, isPrintAreaOpen, showPlacementPanel]);
-
-  useEffect(() => {
-    if (!isMobile) return;
     if (mobilePanelMode === "collapsed") {
       setDrawerMenuOpen(false);
     }
@@ -5785,12 +5780,12 @@ function TasarimClientContent({ isMobile }) {
     setView("front");
     setActiveTab("print");
     setMobilePrimaryTab("design");
-    setMobilePanelMode("design");
-    setMobileSheetSnapIndex(1);
+    setMobilePanelMode("collapsed");
+    setMobileSheetSnapIndex(0);
     setForceEditorOverlay(false);
     setPickerOpen(false);
     setDrawerMenuOpen(false);
-    setDrawerOpen(true);
+    setDrawerOpen(false);
     setFlowStep("design");
     router.replace(`/tasarim?model=${resolvedType}`, { scroll: false });
   };
@@ -5948,13 +5943,13 @@ function TasarimClientContent({ isMobile }) {
     // Capture sırasında kamerayı hedef yöne direkt koy; ön/arka mockup karışmasın.
     const extra = Math.min(1.2, Math.max(0, (designs.length - 1) * 0.3));
     const dist = 2.05 + extra;
-    const camPos = new THREE.Vector3(0, 0.22, dist);
+    const camPos = new THREE.Vector3(0, 0.24, dist);
     camera.position.copy(camPos);
-    camera.lookAt(0, -0.1, 0);
+    camera.lookAt(0, -0.08, 0);
     camera.updateProjectionMatrix();
 
     if (controlsRef.current) {
-      controlsRef.current.target.set(0, -0.1, 0);
+      controlsRef.current.target.set(0, -0.08, 0);
       controlsRef.current.update();
     }
 
@@ -6167,6 +6162,7 @@ function TasarimClientContent({ isMobile }) {
   // drawer behavior
   useEffect(() => {
     if (!isMobile) return;
+    if (!drawerHeight) return;
     const snapYs = getMobileSnapYs(drawerHeight);
     if (!snapYs.length) return;
     const safeIndex = clamp(mobileSheetSnapIndex, 0, snapYs.length - 1);
@@ -6174,6 +6170,10 @@ function TasarimClientContent({ isMobile }) {
     drawerYRef.current = nextY;
     setDrawerY(nextY);
     setDrawerOpen(safeIndex > 0);
+    setMobilePanelMode((prev) => {
+      const nextMode = safeIndex === 0 ? "collapsed" : "design";
+      return prev === nextMode ? prev : nextMode;
+    });
   }, [isMobile, drawerHeight, drawerMaxClosed, MAX_OPEN, mobileSheetSnapIndex, getMobileSnapYs]);
 
   useEffect(() => {
@@ -6222,6 +6222,7 @@ function TasarimClientContent({ isMobile }) {
     setDrawerY(snappedY);
     setMobileSheetSnapIndex(nearestIndex);
     setDrawerOpen(nearestIndex > 0);
+    setMobilePanelMode(nearestIndex === 0 ? "collapsed" : "design");
   };
 
   const handleMobileDrawerHandleClick = (e) => {
@@ -6303,20 +6304,9 @@ function TasarimClientContent({ isMobile }) {
       ? `calc(${drawerTopGap}px + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
       : `calc((var(--app-vh) * 72) + ${CONTROLS_GAP}px + env(safe-area-inset-bottom))`
     : `calc(${drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK}px + ${CONTROLS_GAP}px)`;
-  const visibleDrawerHeight = isMobile
-    ? Math.max(DRAWER_PEEK, drawerHeight ? drawerHeight - drawerY : DRAWER_PEEK)
-    : drawerOpen
-      ? DESKTOP_DRAWER_HEIGHT
-      : DESKTOP_DRAWER_PEEK;
   const isPlacementPanelVisible = isPrintAreaOpen && showPlacementPanel;
   const hideMobileDrawerInEditor = isMobile && isPlacementPanelVisible;
-  const sceneEditCenterLeft = isMobile
-    ? isPlacementPanelVisible
-      ? "60%"
-      : "56%"
-    : isPlacementPanelVisible
-      ? "63%"
-      : "50%";
+  const sceneEditCenterLeft = isMobile ? "50%" : isPlacementPanelVisible ? "63%" : "50%";
   const sceneEditCenterTop = isMobile
     ? isPlacementPanelVisible
       ? "41%"
@@ -6338,48 +6328,29 @@ function TasarimClientContent({ isMobile }) {
   const mobileSafeSheetIndex = clamp(mobileSheetSnapIndex, 0, MOBILE_SHEET_SNAP_RATIOS.length - 1);
   const mobileSheetRatio = MOBILE_SHEET_SNAP_RATIOS[mobileSafeSheetIndex] || 0.55;
   const mobilePanelCollapsed = isMobile && mobilePanelMode === "collapsed";
-  const cameraFit = useMemo(() => {
-    if (isMobile) {
-      const stageRatio = mobilePanelCollapsed ? 0.52 : mobileSheetRatio;
-      const fitDistance = isPlacementPanelVisible ? 2.02 : stageRatio <= 0.3 ? 1.98 : stageRatio <= 0.55 ? 1.92 : 1.86;
-      return {
-        targetY: isPlacementPanelVisible ? -0.12 : stageRatio > 0.55 ? -0.14 : -0.12,
-        cameraY: 0.22,
-        fitDistance,
-        minDistance: fitDistance - 0.06,
-        maxDistance: 4.8,
-      };
-    }
-    const fitDistance = isPlacementPanelVisible ? 2.02 : drawerOpen ? 2.16 : 2.08;
-    return {
-      targetY: -0.1,
-      cameraY: 0.22,
-      fitDistance,
-      minDistance: fitDistance - 0.08,
-      maxDistance: 4.4,
-    };
-  }, [isMobile, mobilePanelCollapsed, mobileSheetRatio, isPlacementPanelVisible, drawerOpen]);
   const activeBottomTab = mobilePrimaryTab === "design" ? "tasarla" : mobilePrimaryTab;
   const showDesignControls = isMobile && activeBottomTab === "tasarla" && mobilePanelMode === "design";
   const showPrintTypes =
     isMobile && activeBottomTab === "tasarla" && mobilePanelMode === "design" && activeTab === "print";
   const mobileBottomTabsHeight = "calc(88px + env(safe-area-inset-bottom))";
-  const showMobileBottomTabs =
-    isMobile && flowStep === "design" && !mobilePanelCollapsed && !isPlacementPanelVisible;
-  const mobileDrawerBottom = showMobileBottomTabs ? mobileBottomTabsHeight : "env(safe-area-inset-bottom)";
+  const showMobileBottomTabs = isMobile && flowStep === "design" && !mobilePanelCollapsed;
+  const mobileDrawerBottom = showMobileBottomTabs ? mobileBottomTabsHeight : "0px";
   const mobilePlacementPanelBottom = showMobileBottomTabs
     ? `calc(${mobileBottomTabsHeight} + 8px)`
     : "calc(env(safe-area-inset-bottom) + 8px)";
   const mobilePageBottomPadding = showMobileBottomTabs
-    ? "calc(148px + env(safe-area-inset-bottom))"
-    : "calc(68px + env(safe-area-inset-bottom))";
-  const mobileDrawerExpandedHeight =
-    mobileSheetRatio >= 0.85
-      ? "calc(var(--app-vh, 1vh) * 64)"
-      : mobileSheetRatio >= 0.55
-        ? "calc(var(--app-vh, 1vh) * 56)"
-        : "calc(var(--app-vh, 1vh) * 48)";
-  const mobileDrawerHeight = mobilePanelCollapsed ? "52px" : mobileDrawerExpandedHeight;
+    ? "calc(104px + env(safe-area-inset-bottom))"
+    : mobilePanelCollapsed
+      ? "env(safe-area-inset-bottom)"
+      : "calc(40px + env(safe-area-inset-bottom))";
+  const mobileDrawerVisibilityRatio =
+    isMobile && drawerMaxClosed > 0
+      ? clamp(1 - drawerY / drawerMaxClosed, 0, 1)
+      : mobilePanelCollapsed
+        ? 0
+        : clamp(mobileSheetRatio, 0, 1);
+  const mobileSceneHeightVh = clamp(56 - mobileDrawerVisibilityRatio * 10, 44, 58);
+  const mobileSceneHeight = `clamp(300px, calc(var(--app-vh) * ${mobileSceneHeightVh.toFixed(3)}), 560px)`;
   const mobileToolbarItems = [
     { id: "model", label: "Model", icon: Layers },
     { id: "design", label: "Tasarla", icon: Pencil },
@@ -6387,53 +6358,6 @@ function TasarimClientContent({ isMobile }) {
   ];
   const mobileSheetTitle =
     mobilePrimaryTab === "model" ? "Model" : mobilePrimaryTab === "color" ? "Renk" : "Tasarla";
-
-  useEffect(() => {
-    const controls = controlsRef.current;
-    const camera = cameraRef.current;
-    if (!controls || !camera) return;
-    let rafId = 0;
-    const startTime = performance.now();
-    const duration = 320;
-    const startTarget = controls.target.clone();
-    const startPos = camera.position.clone();
-    const endTarget = new THREE.Vector3(0, cameraFit.targetY, 0);
-    const endPos = new THREE.Vector3(0, cameraFit.cameraY, cameraFit.fitDistance);
-
-    const tick = (now) => {
-      const t = Math.min((now - startTime) / duration, 1);
-      const eased = 1 - Math.pow(1 - t, 4);
-      controls.target.lerpVectors(startTarget, endTarget, eased);
-      camera.position.lerpVectors(startPos, endPos, eased);
-      const offset = camera.position.clone().sub(controls.target);
-      const safeDistance = clamp(offset.length(), cameraFit.minDistance + 0.02, cameraFit.maxDistance);
-      offset.setLength(safeDistance);
-      camera.position.copy(controls.target).add(offset);
-      camera.position.x = THREE.MathUtils.lerp(camera.position.x, 0, 0.65);
-      camera.lookAt(controls.target);
-      controls.minDistance = cameraFit.minDistance;
-      controls.maxDistance = cameraFit.maxDistance;
-      controls.update();
-      if (t < 1) {
-        rafId = requestAnimationFrame(tick);
-      }
-    };
-    rafId = requestAnimationFrame(tick);
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, [
-    cameraFit.cameraY,
-    cameraFit.fitDistance,
-    cameraFit.maxDistance,
-    cameraFit.minDistance,
-    cameraFit.targetY,
-    activeId,
-    view,
-    mobilePanelMode,
-    mobileSheetSnapIndex,
-    isPlacementPanelVisible,
-  ]);
 
   const renderPanel = (
     <EditorPanel
@@ -6584,12 +6508,9 @@ function TasarimClientContent({ isMobile }) {
           style={
             isMobile
               ? {
-                  height: isPlacementPanelVisible
-                    ? "clamp(300px, calc(var(--app-vh) * 46), 540px)"
-                    : mobilePanelCollapsed
-                      ? "clamp(320px, calc(var(--app-vh) * 52), 560px)"
-                      : "clamp(280px, calc(var(--app-vh) * 40), 420px)",
+                  height: mobileSceneHeight,
                   overflow: "hidden",
+                  transition: "height 280ms cubic-bezier(0.22, 0.61, 0.36, 1)",
                 }
               : undefined
           }
@@ -6733,7 +6654,7 @@ function TasarimClientContent({ isMobile }) {
         {/* Editor Overlay - Sol Taraf */}
         {isPrintAreaOpen && showPlacementPanel && (
           <div
-            className={`${isMobile ? "fixed inset-x-0" : "absolute"} z-[96] backdrop-blur-md border border-gray-200 shadow-2xl overflow-hidden flex flex-col ${isMobile ? "rounded-none border-x-0 rounded-t-2xl" : "rounded-2xl"
+            className={`absolute z-[90] backdrop-blur-md border border-gray-200 shadow-2xl overflow-hidden flex flex-col ${isMobile ? "rounded-none border-x-0 rounded-t-2xl" : "rounded-2xl"
               }`}
             style={{
               backgroundColor: "#f7f8fa",
@@ -6745,7 +6666,7 @@ function TasarimClientContent({ isMobile }) {
               bottom: isMobile
                 ? mobilePlacementPanelBottom
                 : `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
-              maxHeight: isMobile ? "min(calc(var(--app-vh) * 46), 420px)" : undefined,
+              maxHeight: isMobile ? "calc(var(--app-vh) * 44)" : undefined,
             }}
           >
             {isMobile && !!lockToast && (
@@ -7421,8 +7342,8 @@ function TasarimClientContent({ isMobile }) {
         {/** Drawer state'e göre desktop'ta da model ölçeklenir: açıkken küçük, kapalıyken büyük */}
         <div className={isMobile ? "absolute inset-0 grid place-items-center" : "contents"}>
         {(() => {
-          const desktopClosedScale = isPlacementPanelVisible ? 0.96 : isPrintAreaOpen ? 1.1 : 1.06;
-          const desktopOpenScale = isPlacementPanelVisible ? 0.86 : isPrintAreaOpen ? 1.02 : 0.95;
+          const desktopClosedScale = isPlacementPanelVisible ? 0.94 : isPrintAreaOpen ? 1.02 : 0.98;
+          const desktopOpenScale = isPlacementPanelVisible ? 0.86 : isPrintAreaOpen ? 0.98 : 0.93;
           const desktopScale = drawerOpen ? desktopOpenScale : desktopClosedScale;
           const desktopWidth = isPlacementPanelVisible ? "62vw" : isPrintAreaOpen ? "74vw" : "70vw";
           const desktopHeight = isPlacementPanelVisible ? "82vh" : isPrintAreaOpen ? "90vh" : "86vh";
@@ -7433,46 +7354,47 @@ function TasarimClientContent({ isMobile }) {
               : isPrintAreaOpen
                 ? "-6%"
                 : "-12%"
-            : "0%";
-          const mobileExpanded = mobileSheetRatio >= 0.55;
-          const mobileCollapsed = isMobile && mobilePanelMode === "collapsed";
-          const mobileScale = isPrintAreaOpen
-            ? mobileCollapsed
-              ? 1.24
-              : mobileExpanded
-                ? 0.98
-                : 1.06
-            : mobileCollapsed
-              ? 1.34
-              : mobileExpanded
-                ? 1.02
-                : 1.08;
-          const mobileLeft = "50%";
-          const mobileShiftY = isPlacementPanelVisible
-            ? mobileExpanded
-              ? "-6%"
-              : "-3%"
-            : mobileCollapsed
-              ? "4%"
-              : mobileExpanded
-                ? "-2%"
-                : "0%";
+            : isPlacementPanelVisible
+              ? "-7%"
+              : isPrintAreaOpen
+                ? "-3%"
+                : "-5%";
+          const mobilePanelProgress = clamp(mobileDrawerVisibilityRatio, 0, 1);
+          const mobileScaleClosed = isPrintAreaOpen ? 1.12 : 1.18;
+          const mobileScaleOpen = isPrintAreaOpen ? 1 : 1.04;
+          const mobileScale = THREE.MathUtils.lerp(mobileScaleClosed, mobileScaleOpen, mobilePanelProgress);
+          const mobileShiftClosed = isPlacementPanelVisible ? -2 : 2.5;
+          const mobileShiftOpen = isPlacementPanelVisible ? -6 : -2.5;
+          const mobileShiftY = THREE.MathUtils.lerp(mobileShiftClosed, mobileShiftOpen, mobilePanelProgress);
+          const minZoomDistance = !isMobile
+            ? isPlacementPanelVisible
+              ? 1.98
+              : drawerOpen
+                ? 1.8
+                : 1.72
+            : isPlacementPanelVisible
+              ? 1.68
+              : 1.58;
+          const controlsTargetY = isMobile ? -0.1 : -0.1;
           return (
             <Canvas
               style={{
                 position: "absolute",
-                left: isMobile ? mobileLeft : isPlacementPanelVisible ? "63%" : "50%",
+                left: isMobile ? "50%" : isPlacementPanelVisible ? "63%" : "50%",
                 top: isMobile ? "50%" : desktopTop,
                 transform: isMobile
-                  ? `translate(-50%, -50%) translateY(${mobileShiftY}) scale(${mobileScale})`
+                  ? `translate(-50%, -50%) translateY(${mobileShiftY.toFixed(3)}%) scale(${mobileScale.toFixed(4)})`
                   : `translate(-50%, -50%) translateY(${desktopShiftY}) scale(${desktopScale})`,
-                width: isMobile ? "100vw" : desktopWidth,
+                width: isMobile ? "100%" : desktopWidth,
                 height: isMobile ? "100%" : desktopHeight,
                 display: "block",
                 backgroundColor: SCENE_BG_COLOR,
                 willChange: "transform",
                 transformOrigin: "center center",
-                transition: "transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1)",
+                transition:
+                  isMobile && dragState.current.dragging
+                    ? "none"
+                    : "transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1)",
                 zIndex: 10,
                 touchAction: "none",
               }}
@@ -7496,7 +7418,6 @@ function TasarimClientContent({ isMobile }) {
                 gl.outputColorSpace = THREE.SRGBColorSpace;
                 gl.toneMapping = THREE.ACESFilmicToneMapping;
                 gl.toneMappingExposure = 0.60;
-                gl.setPixelRatio(Math.min(window.devicePixelRatio || 1, perf.dpr));
                 if (gl?.domElement) {
                   gl.domElement.style.touchAction = "none";
                   gl.domElement.style.overscrollBehavior = "contain";
@@ -7504,7 +7425,7 @@ function TasarimClientContent({ isMobile }) {
                   gl.domElement.style.webkitTouchCallout = "none";
                 }
               }}
-              camera={{ position: [0, 0.24, 1.92], fov: isMobile ? (isPlacementPanelVisible ? 33 : 31) : 30 }}
+              camera={{ position: [0, 0.26, 2.08], fov: isMobile ? (isPlacementPanelVisible ? 34 : 33) : 31 }}
               shadows={!isMobile}
             >
               <SceneBackgroundLock />
@@ -7524,17 +7445,7 @@ function TasarimClientContent({ isMobile }) {
               <pointLight position={[0, 2.6, 2.2]} intensity={0.05} />
               {!isMobile && <ContactShadows position={[0, -1.4, 0]} opacity={0.16} scale={7} blur={2.2} far={3.2} />}
 
-              <CameraController
-                view={effectiveView}
-                count={designs.length}
-                controlsRef={controlsRef}
-                targetY={cameraFit.targetY}
-                cameraY={cameraFit.cameraY}
-                baseDistance={cameraFit.fitDistance}
-                minDistance={cameraFit.minDistance}
-                maxDistance={cameraFit.maxDistance}
-                onAnimatingChange={setCamAnimating}
-              />
+              <CameraController view={effectiveView} count={designs.length} onAnimatingChange={setCamAnimating} />
 
               <Suspense fallback={<ThreeDotsLoader />}>
                 {designs.map((design) => {
@@ -7578,11 +7489,11 @@ function TasarimClientContent({ isMobile }) {
                 enableDamping
                 dampingFactor={isMobile ? 0.12 : 0.08}
                 zoomSpeed={isMobile ? 0.95 : 0.7}
-                minDistance={cameraFit.minDistance}
-                maxDistance={cameraFit.maxDistance}
+                minDistance={minZoomDistance}
+                maxDistance={isMobile ? 4.6 : 4.2}
                 zoomToCursor={false}
                 enabled={!camAnimating}
-                target={[0, cameraFit.targetY, 0]}
+                target={[0, controlsTargetY, 0]}
                 mouseButtons={{ LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null }}
                 touches={{ ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY }}
               />
@@ -7879,14 +7790,19 @@ function TasarimClientContent({ isMobile }) {
               isMobile
                 ? {
                     bottom: mobileDrawerBottom,
-                    height: mobileDrawerHeight,
+                    maxHeight: drawerHeightStyle,
+                    height: drawerHeightStyle,
+                    transform: `translateY(${Math.max(0, drawerY)}px)`,
                     backgroundColor: "#eef0f4",
                     borderTop: "1px solid rgba(0,0,0,0.08)",
                     boxShadow: mobilePanelCollapsed
                       ? "0 -2px 10px rgba(0,0,0,0.08)"
                       : "0 -10px 24px rgba(0,0,0,0.14)",
                     overflow: "hidden",
-                    transition: "height 280ms cubic-bezier(0.22,1,0.36,1), box-shadow 200ms ease",
+                    willChange: "transform",
+                    transition: dragState.current.dragging
+                      ? "none"
+                      : "transform 280ms cubic-bezier(0.22,1,0.36,1), box-shadow 200ms ease",
                   }
                 : {
                     bottom: 0,
@@ -7913,7 +7829,10 @@ function TasarimClientContent({ isMobile }) {
                     }`}
                   >
                     <button
-                      onPointerDown={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        onDrawerPointerDown(e);
+                      }}
                       onClick={(e) => {
                         handleMobileDrawerHandleClick(e);
                       }}
@@ -7949,7 +7868,7 @@ function TasarimClientContent({ isMobile }) {
                           </button>
                         </div>
 
-                        <div className="grid grid-cols-4 gap-2 mt-3">
+                        <div className="grid grid-cols-3 gap-2 mt-3">
                           <button
                             type="button"
                             onPointerDown={(e) => e.stopPropagation()}
@@ -8000,23 +7919,6 @@ function TasarimClientContent({ isMobile }) {
                             }`}
                           >
                             Yazı Ekle
-                          </button>
-                          <button
-                            type="button"
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={() => {
-                              setMobilePrimaryTab("design");
-                              setMobilePanelMode("design");
-                              setMobileSheetSnapIndex(1);
-                              activateDesignTool("editor");
-                            }}
-                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${
-                              activeTab === "editor"
-                                ? "border-zinc-900 bg-zinc-900 text-white"
-                                : "border-gray-300 bg-white text-gray-800"
-                            }`}
-                          >
-                            Yerleşim
                           </button>
                         </div>
                       </>

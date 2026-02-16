@@ -1,36 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { 
     MousePointer2, PenTool, Download, Truck, RotateCcw, ShieldCheck, 
     ChevronLeft, ChevronRight
 } from 'lucide-react';
-import Navbar from '@/components/Navbar';
 
-// --- FIREBASE IMPORTS ---
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-
-// --- FIREBASE AYARLARI ---
-const firebaseConfig = {
-    apiKey: "AIzaSyDcTJHnK55GBqOuxUNtb7toIOpPffjiyc4",
-    authDomain: "hatrix-db.firebaseapp.com",
-    projectId: "hatrix-db",
-    storageBucket: "hatrix-db.firebasestorage.app",
-    messagingSenderId: "903710965804",
-    appId: "1:903710965804:web:5dc754a337a1d9d7951189",
-    measurementId: "G-C03LWY68K7"
-};
-
-// --- FIREBASE BAŞLATMA ---
-let db = null;
-try {
-    if (Object.keys(firebaseConfig).length > 0) {
-        const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-        db = getFirestore(app);
-    }
-} catch (e) { console.error(e); }
+const Navbar = dynamic(() => import('@/components/Navbar'), { ssr: false });
 
 const HOME_HERO_SLIDES_1920x850 = [
     {
@@ -84,6 +62,27 @@ const STENI_CATEGORY_CARDS = [
     { key: "aksesuar", name: "AKSESUAR", label: "Tamamlayıcı parça", href: "/tum-urunler?kategori=aksesuar" },
 ];
 
+const resolveInitialHomeSection = () => {
+    if (typeof window === "undefined") return null;
+
+    const modeFromQuery = new URLSearchParams(window.location.search).get("mode");
+    if (modeFromQuery === "steni" || modeFromQuery === "ozel") {
+        sessionStorage.setItem("session_bolum_tercihi", modeFromQuery);
+        return modeFromQuery;
+    }
+
+    const navEntries = typeof performance !== "undefined" && performance.getEntriesByType
+        ? performance.getEntriesByType("navigation")
+        : [];
+    const isReload = navEntries.length > 0 && navEntries[0]?.type === "reload";
+    if (isReload) {
+        sessionStorage.removeItem("session_bolum_tercihi");
+        return "intro";
+    }
+
+    return sessionStorage.getItem("session_bolum_tercihi") || "intro";
+};
+
 function HomeTabSwitcher({ activeTab, onChange }) {
     return (
         <div className="w-[170px]" style={{ transform: "translateZ(0)" }}>
@@ -112,7 +111,16 @@ function HeroSection() {
     return (
         <section className="relative border-b border-zinc-900 overflow-hidden">
             <div className="relative h-[62svh] min-h-[440px] md:min-h-[520px]">
-                <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover opacity-45" src="https://videos.pexels.com/video-files/3163534/3163534-uhd_2560_1440_30fps.mp4" />
+                <video
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="none"
+                    poster="/urungorsel/1920x850/concept-black-hoodie-front-v2.jpg"
+                    className="absolute inset-0 w-full h-full object-cover opacity-45"
+                    src="https://videos.pexels.com/video-files/3163534/3163534-uhd_2560_1440_30fps.mp4"
+                />
                 <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/45 to-black/92" />
                 <div className="absolute inset-x-0 bottom-0 px-4 md:px-6 lg:px-8" style={{ paddingBottom: "var(--s-8)" }}>
                     <div className="max-w-[760px]">
@@ -177,7 +185,7 @@ function CommunityGrid() {
         <div className="grid grid-cols-2 gap-3 md:gap-4">
             {cards.map((src, i) => (
                 <div key={`community-${i}`} className="aspect-square rounded-2xl md:rounded-[24px] overflow-hidden border border-zinc-800 bg-zinc-950">
-                    <img src={src} alt={`Topluluk tasarım ${i + 1}`} className="w-full h-full object-cover" />
+                    <img src={src} alt={`Topluluk tasarım ${i + 1}`} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 </div>
             ))}
         </div>
@@ -224,6 +232,9 @@ function HeroCarousel({ heroIndex, goPrevHero, goNextHero }) {
                         key={item.src}
                         src={encodeURI(item.src)}
                         alt={item.title}
+                        loading={i === 0 ? "eager" : "lazy"}
+                        decoding="async"
+                        fetchPriority={i === 0 ? "high" : "auto"}
                         className={`absolute inset-0 w-full h-full object-cover object-[52%_18%] transition-opacity duration-700 ${i === heroIndex ? "opacity-100" : "opacity-0"}`}
                     />
                 ))}
@@ -302,6 +313,8 @@ function CategoryGrid({ onNavigate }) {
                         <img
                             src={encodeURI(HOME_CATEGORY_IMAGES_800x800[card.key])}
                             alt={card.name}
+                            loading="lazy"
+                            decoding="async"
                             className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/86 via-black/32 to-black/18" />
@@ -339,6 +352,8 @@ function PrintTechSection() {
                     <img
                         src="/urungorsel/1920x850/concept-black-hoodie-front-v2.jpg"
                         alt="Print Technology Görseli"
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-[220px] object-cover"
                     />
                 </div>
@@ -492,7 +507,9 @@ export default function HomePage() {
     const router = useRouter();
 
     // --- STATE'LER ---
-    const [aktifBolum, setAktifBolum] = useState(null);
+    const [aktifBolum, setAktifBolum] = useState(() => (
+        typeof window !== "undefined" ? resolveInitialHomeSection() : "intro"
+    ));
     const [heroIndex, setHeroIndex] = useState(0);
     const [introPressedCard, setIntroPressedCard] = useState(null);
     const [introTransitionCard, setIntroTransitionCard] = useState(null);
@@ -502,33 +519,16 @@ export default function HomePage() {
 
     // --- AKILLI NAVİGASYON KONTROLÜ ---
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const modeFromQuery = new URLSearchParams(window.location.search).get('mode');
-            if (modeFromQuery === 'steni' || modeFromQuery === 'ozel') {
-                sessionStorage.setItem('session_bolum_tercihi', modeFromQuery);
-                setAktifBolum(modeFromQuery);
-                return;
-            }
-
-            const navEntries = performance.getEntriesByType("navigation");
-            let isReload = false;
-            if (navEntries.length > 0 && navEntries[0]?.type === 'reload') {
-                isReload = true;
-            }
-
-            if (isReload) {
-                sessionStorage.removeItem('session_bolum_tercihi');
-                setAktifBolum('intro');
-            } else {
-                const kayitliTercih = sessionStorage.getItem('session_bolum_tercihi');
-                if (kayitliTercih) {
-                    setAktifBolum(kayitliTercih);
-                } else {
-                    setAktifBolum('intro');
-                }
-            }
-        }
-    }, []);
+        if (typeof window === "undefined") return;
+        const resolved = resolveInitialHomeSection();
+        if (resolved === aktifBolum) return;
+        const rafId = window.requestAnimationFrame(() => {
+            setAktifBolum((prev) => (prev === resolved ? prev : resolved));
+        });
+        return () => {
+            window.cancelAnimationFrame(rafId);
+        };
+    }, [aktifBolum]);
 
     useEffect(() => {
         return () => {
@@ -664,6 +664,9 @@ export default function HomePage() {
                         <img
                             src="/urungorsel/girisFoto1.png"
                             alt="STENI Ready to Wear"
+                            loading="eager"
+                            decoding="async"
+                            fetchPriority="high"
                             className="absolute inset-0 w-full h-full object-cover object-center md:object-[50%_8%] lg:object-[50%_6%]"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/48 to-black/18" />
@@ -708,6 +711,8 @@ export default function HomePage() {
                         <img
                             src="/urungorsel/800x800/conceptttt.jpg"
                             alt="ÖZEL Design Studio"
+                            loading="lazy"
+                            decoding="async"
                             className="absolute inset-0 w-full h-full object-cover object-center md:object-[50%_12%] lg:object-[50%_10%]"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/48 to-black/18" />
