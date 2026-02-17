@@ -6700,8 +6700,13 @@ function TasarimClientContent({ isMobile }) {
       setPanelProgress(0);
     }
     if (toolId === "upload") {
+      // Always switch tab, try to apply technique but don't block
       if (!hasDtfForActiveSide) {
-        applyTechniqueToActiveSide(PRINT_TECHNIQUES.DTF, { updateTextTechnique: false });
+        try {
+          applyTechniqueToActiveSide(PRINT_TECHNIQUES.DTF, { updateTextTechnique: false });
+        } catch (e) {
+          console.error("Auto-apply DTF failed", e);
+        }
       }
       setActiveTab("upload");
       return;
@@ -8099,6 +8104,8 @@ function TasarimClientContent({ isMobile }) {
                   enableZoom
                   enablePan={false}
                   enableRotate={false}
+                  autoRotate={true}
+                  autoRotateSpeed={isMobile ? 2.0 : 1.5}
                   enableDamping
                   dampingFactor={isMobile ? 0.12 : 0.08}
                   zoomSpeed={isMobile ? 0.95 : 0.7}
@@ -9315,66 +9322,7 @@ function TasarimClientContent({ isMobile }) {
                         </span>
                       </button>
 
-                      {/* Buttons moved back to scroll flow */}
-                      {showDesignControls && !mobilePanelCollapsed && (
-                        <div className="mx-4 mt-3 grid grid-cols-4 gap-2 mb-2 pointer-events-auto">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setMobilePrimaryTab("design");
-                              setPanelProgress(0);
-                              activateDesignTool("print");
-                            }}
-                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "print"
-                              ? "border-zinc-900 bg-zinc-900 text-white"
-                              : "border-gray-300 bg-white text-gray-800"
-                              }`}
-                          >
-                            Baskı<br />Seçim
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setMobilePrimaryTab("design");
-                              setPanelProgress(0);
-                              activateDesignTool("upload");
-                            }}
-                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "upload"
-                              ? "border-zinc-900 bg-zinc-900 text-white"
-                              : "border-gray-300 bg-white text-gray-800"
-                              }`}
-                          >
-                            Görsel<br />Yükle
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setMobilePrimaryTab("design");
-                              setPanelProgress(0);
-                              activateDesignTool("text");
-                            }}
-                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "text"
-                              ? "border-zinc-900 bg-zinc-900 text-white"
-                              : "border-gray-300 bg-white text-gray-800"
-                              }`}
-                          >
-                            Yazı<br />Ekle
-                          </button>
-                          <button type="button"
-                            onClick={openDrawerMenu}
-                            className="h-10 rounded-xl border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center justify-center gap-1"
-                          >
-                            <Menu size={14} />
-                            Menü
-                          </button>
-                        </div>
-                      )}
-
-                      {showDesignControls && !mobilePanelCollapsed && (
-                        <div className="flex items-center justify-between gap-2 border-b border-black/5 pb-2 mx-4 pointer-events-auto">
-                          <p className="text-[12px] font-black uppercase tracking-[0.14em] text-gray-700">Tasarla</p>
-                        </div>
-                      )}
+                      {/* Header and Buttons moved to scrollable area */}
                     </div>
 
                     <div
@@ -9382,6 +9330,64 @@ function TasarimClientContent({ isMobile }) {
                         }`}
                     >
                       <div className="h-full overflow-y-auto overscroll-contain">
+                        {showDesignControls && !mobilePanelCollapsed && (
+                          <div className="pb-2 mx-4 mt-4 pointer-events-auto">
+                            <div className="flex items-center justify-between gap-2 border-b border-black/5 pb-2 mb-3">
+                              <p className="text-[12px] font-black uppercase tracking-[0.14em] text-gray-700">Tasarla</p>
+                            </div>
+                            <div className="grid grid-cols-4 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMobilePrimaryTab("design");
+                                  setPanelProgress(1);
+                                  activateDesignTool("print");
+                                }}
+                                className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "print"
+                                  ? "border-zinc-900 bg-zinc-900 text-white"
+                                  : "border-gray-300 bg-white text-gray-800"
+                                  }`}
+                              >
+                                Baskı<br />Seçim
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMobilePrimaryTab("design");
+                                  setPanelProgress(1);
+                                  activateDesignTool("upload");
+                                }}
+                                className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "upload"
+                                  ? "border-zinc-900 bg-zinc-900 text-white"
+                                  : "border-gray-300 bg-white text-gray-800"
+                                  }`}
+                              >
+                                Görsel<br />Yükle
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMobilePrimaryTab("design");
+                                  setPanelProgress(1);
+                                  activateDesignTool("text");
+                                }}
+                                className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "text"
+                                  ? "border-zinc-900 bg-zinc-900 text-white"
+                                  : "border-gray-300 bg-white text-gray-800"
+                                  }`}
+                              >
+                                Yazı<br />Ekle
+                              </button>
+                              <button type="button"
+                                onClick={openDrawerMenu}
+                                className="h-10 rounded-xl border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center justify-center gap-1"
+                              >
+                                <Menu size={14} />
+                                Menü
+                              </button>
+                            </div>
+                          </div>
+                        )}
                         {showPrintTypes && (
                           <div className="mx-4 mt-[10px] rounded-2xl border border-gray-200 bg-white shadow-sm pointer-events-auto">
                             <div className="p-3 space-y-2 pointer-events-auto">
