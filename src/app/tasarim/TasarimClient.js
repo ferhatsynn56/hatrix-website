@@ -4607,7 +4607,8 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                   const transitionActive = Boolean(cardTransition);
                   const transitionSelected = cardTransition?.modelType === modelType;
                   const isPressed = pressedModel === modelType;
-                  const previewShouldAnimate = isPressed || transitionSelected;
+                  // Allow animation on mobile for continuous rotation - user request
+                  const previewShouldAnimate = true;
                   let cardScale = 1;
                   if (isPressed) cardScale = 0.96;
                   if (transitionSelected) cardScale = cardTransition?.phase === "expand" ? 1.04 : 1.04;
@@ -4650,7 +4651,7 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                     >
                       <div data-model-preview className="aspect-square rounded-[20px] overflow-hidden border border-zinc-200 bg-[#F7F7F7]">
                         <Canvas
-                          frameloop={isMobileViewport && !previewShouldAnimate ? "demand" : "always"}
+                          frameloop={isMobileViewport ? "always" : "always"}
                           dpr={isMobileViewport ? [1, 1.6] : [1, 1.45]}
                           camera={{ position: [0, 0.28, 2.12], fov: 30 }}
                           gl={{
@@ -4672,7 +4673,7 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                           <Suspense fallback={null}>
                             <ModelSelectionPreview3D
                               modelType={modelType}
-                              paused={isMobileViewport ? !previewShouldAnimate : isPressed || transitionSelected}
+                              paused={false}
                             />
                           </Suspense>
                         </Canvas>
@@ -9314,8 +9315,63 @@ function TasarimClientContent({ isMobile }) {
                         </span>
                       </button>
 
+                      {/* Buttons moved back to scroll flow */}
                       {showDesignControls && !mobilePanelCollapsed && (
-                        <div className="flex items-center justify-between gap-2 border-b border-black/5 pb-2">
+                        <div className="mx-4 mt-3 grid grid-cols-4 gap-2 mb-2 pointer-events-auto">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMobilePrimaryTab("design");
+                              setPanelProgress(0);
+                              activateDesignTool("print");
+                            }}
+                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "print"
+                              ? "border-zinc-900 bg-zinc-900 text-white"
+                              : "border-gray-300 bg-white text-gray-800"
+                              }`}
+                          >
+                            Baskı<br />Seçim
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMobilePrimaryTab("design");
+                              setPanelProgress(0);
+                              activateDesignTool("upload");
+                            }}
+                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "upload"
+                              ? "border-zinc-900 bg-zinc-900 text-white"
+                              : "border-gray-300 bg-white text-gray-800"
+                              }`}
+                          >
+                            Görsel<br />Yükle
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMobilePrimaryTab("design");
+                              setPanelProgress(0);
+                              activateDesignTool("text");
+                            }}
+                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "text"
+                              ? "border-zinc-900 bg-zinc-900 text-white"
+                              : "border-gray-300 bg-white text-gray-800"
+                              }`}
+                          >
+                            Yazı<br />Ekle
+                          </button>
+                          <button type="button"
+                            onClick={openDrawerMenu}
+                            className="h-10 rounded-xl border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center justify-center gap-1"
+                          >
+                            <Menu size={14} />
+                            Menü
+                          </button>
+                        </div>
+                      )}
+
+                      {showDesignControls && !mobilePanelCollapsed && (
+                        <div className="flex items-center justify-between gap-2 border-b border-black/5 pb-2 mx-4 pointer-events-auto">
                           <p className="text-[12px] font-black uppercase tracking-[0.14em] text-gray-700">Tasarla</p>
                         </div>
                       )}
@@ -9396,62 +9452,7 @@ function TasarimClientContent({ isMobile }) {
                       </div>
                     </div>
 
-                    {/* STICKY FOOTER */}
-                    {showDesignControls && !mobilePanelCollapsed && (
-                      <div className="flex-none p-3 bg-white border-t border-gray-200 pointer-events-auto">
-                        <div className="grid grid-cols-4 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setMobilePrimaryTab("design");
-                              setPanelProgress(0);
-                              activateDesignTool("print");
-                            }}
-                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "print"
-                              ? "border-zinc-900 bg-zinc-900 text-white"
-                              : "border-gray-300 bg-gray-50 text-gray-800"
-                              }`}
-                          >
-                            Baskı<br />Seçim
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setMobilePrimaryTab("design");
-                              setPanelProgress(0);
-                              activateDesignTool("upload");
-                            }}
-                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "upload"
-                              ? "border-zinc-900 bg-zinc-900 text-white"
-                              : "border-gray-300 bg-gray-50 text-gray-800"
-                              }`}
-                          >
-                            Görsel<br />Yükle
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setMobilePrimaryTab("design");
-                              setPanelProgress(0);
-                              activateDesignTool("text");
-                            }}
-                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "text"
-                              ? "border-zinc-900 bg-zinc-900 text-white"
-                              : "border-gray-300 bg-gray-50 text-gray-800"
-                              }`}
-                          >
-                            Yazı<br />Ekle
-                          </button>
-                          <button type="button"
-                            onClick={openDrawerMenu}
-                            className="h-10 rounded-xl border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center justify-center gap-1"
-                          >
-                            <Menu size={14} />
-                            Menü
-                          </button>
-                        </div>
-                      </div>
-                    )}
+
                   </>
                 ) : (
                   <>
