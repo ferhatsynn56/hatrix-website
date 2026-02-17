@@ -2523,13 +2523,13 @@ function ShrinkwrappedRubberGlyph({
     () =>
       new THREE.MeshPhysicalMaterial({
         color: new THREE.Color(color || "#f3f4f6"),
-        roughness: 0.86,
-        metalness: 0.02,
-        clearcoat: 0.08,
-        clearcoatRoughness: 0.75,
-        reflectivity: 0.15,
-        sheen: 0.14,
-        envMapIntensity: 0.26,
+        roughness: 0.8, // Increased for matte rubber look
+        metalness: 0.1, // Reduced for less metallic look
+        clearcoat: 0.05,
+        clearcoatRoughness: 0.9,
+        reflectivity: 0.1,
+        sheen: 0.1,
+        envMapIntensity: 0.2,
         depthTest: true,
         depthWrite: false,
         polygonOffset: true,
@@ -4337,20 +4337,10 @@ function ModelSelectionPreview3D({ modelType, paused = false }) {
     return hasSkinned ? SkeletonUtils.clone(gltf.scene) : gltf.scene.clone(true);
   }, [gltf.scene, hasSkinned]);
 
-  useFrame((state) => {
-    if (!groupRef.current) return;
-    const cycleMs = 8000;
-    const liveProgress = (((state.clock.elapsedTime * 1000) % cycleMs) + cycleMs) % cycleMs / cycleMs;
-    if (paused) {
-      if (!wasPausedRef.current) pausedProgressRef.current = liveProgress;
-      wasPausedRef.current = true;
-    } else {
-      wasPausedRef.current = false;
-      pausedProgressRef.current = liveProgress;
-    }
-    const usedProgress = paused ? pausedProgressRef.current : liveProgress;
-    const easedProgress = 0.5 - 0.5 * Math.cos(Math.PI * usedProgress);
-    groupRef.current.rotation.y = easedProgress * Math.PI * 2;
+  useFrame((state, delta) => {
+    if (!groupRef.current || paused) return;
+    // Continuous rotation: 1 full turn every 8 seconds
+    groupRef.current.rotation.y += delta * (Math.PI * 2) / 8;
   });
 
   // Apply fabric material to review model
@@ -6038,6 +6028,7 @@ function TasarimClientContent({ isMobile }) {
   const [editorControlTab, setEditorControlTab] = useState("logo");
   const [isTextUpdatePending, startTextUpdateTransition] = useTransition();
   const [runtimeLowPerfMode, setRuntimeLowPerfMode] = useState(false);
+  const [isInteracting, setIsInteracting] = useState(false); // For real-time rotation
 
   // CRASH GUARD: Checks memory on startup
   useEffect(() => {
@@ -7642,6 +7633,12 @@ function TasarimClientContent({ isMobile }) {
     if (openPrintPicker) {
       setActiveTab("print");
       setDrawerOpen(true);
+    } else {
+      // Persist active tab or default to 'upload' if not set, 
+      // ensuring buttons don't get stuck in a "closed" state.
+      if (!activeTab || activeTab === "none") {
+        setActiveTab("upload");
+      }
     }
     setDrawerMenuOpen(false);
     if (openPrintPicker) {
@@ -7935,7 +7932,12 @@ function TasarimClientContent({ isMobile }) {
         style={{ background: SCENE_BG_COLOR }}
       >
         {/* Scene Layer */}
-        <div className={`fixed inset-0 z-0 pointer-events-auto ${isMobile ? "grid place-items-center" : ""}`}>
+        <div
+          className={`fixed inset-0 z-0 pointer-events-auto ${isMobile ? "grid place-items-center" : ""}`}
+          onPointerDown={() => setIsInteracting(true)}
+          onPointerUp={() => setIsInteracting(false)}
+          onPointerLeave={() => setIsInteracting(false)}
+        >
           {(() => {
             const desktopClosedScale = isPlacementPanelVisible ? 0.94 : isPrintAreaOpen ? 1.02 : 0.98;
             const desktopOpenScale = isPlacementPanelVisible ? 0.86 : isPrintAreaOpen ? 0.98 : 0.93;
@@ -7979,7 +7981,7 @@ function TasarimClientContent({ isMobile }) {
               : -0.1;
             return (
               <Canvas
-                frameloop={perf.frameloop || "always"}
+                frameloop={isInteracting ? "always" : (perf.frameloop || "always")}
                 key={`scene-canvas-${perf.qualityKey}`}
                 style={{
                   position: "absolute",
@@ -9243,7 +9245,7 @@ function TasarimClientContent({ isMobile }) {
           {/* DRAWER (MOBILE + DESKTOP) */}
           {activeDesign && !hideMobileDrawerInEditor && (
             <div
-              className={`${isMobile ? "fixed left-0 right-0" : "fixed left-0 right-0"} z-[92] pointer-events-auto transition-all duration-300`}
+              className={`${isMobile ? "fixed left-0 right-0" : "fixed left-0 right-0"} z-[92] pointer-events-none transition-all duration-300`}
               style={
                 isMobile
                   ? {
@@ -9313,91 +9315,9 @@ function TasarimClientContent({ isMobile }) {
                       </button>
 
                       {showDesignControls && !mobilePanelCollapsed && (
-                        <>
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-[12px] font-black uppercase tracking-[0.14em] text-gray-700">Tasarla</p>
-                            <button type="button"
-                              onPointerDown={(e) => e.stopPropagation()}
-                              onClick={openDrawerMenu}
-                              className="h-9 px-3 rounded-full border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center gap-1"
-                              aria-label="Kategori menüsünü aç"
-                            >
-                              <Menu size={12} />
-                              Menü
-                            </button>
-                          </div>
-
-                          <div className="grid grid-cols-4 gap-2 mt-3 pointer-events-auto">
-                            <button
-                              type="button"
-                              onPointerDown={(e) => {
-                                e.stopPropagation();
-                              }}
-                              onClick={() => {
-                                setMobilePrimaryTab("design");
-                                setPanelProgress(0);
-                                activateDesignTool("print");
-                              }}
-                              className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${activeTab === "print"
-                                ? "border-zinc-900 bg-zinc-900 text-white"
-                                : "border-gray-300 bg-white text-gray-800"
-                                }`}
-                            >
-                              Baskı Seçim
-                            </button>
-                            <button
-                              type="button"
-                              onPointerDown={(e) => {
-                                e.stopPropagation();
-                              }}
-                              onClick={() => {
-                                setMobilePrimaryTab("design");
-                                setPanelProgress(0);
-                                activateDesignTool("upload");
-                              }}
-                              className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${activeTab === "upload"
-                                ? "border-zinc-900 bg-zinc-900 text-white"
-                                : "border-gray-300 bg-white text-gray-800"
-                                }`}
-                            >
-                              Görsel Yükle
-                            </button>
-                            <button
-                              type="button"
-                              onPointerDown={(e) => {
-                                e.stopPropagation();
-                              }}
-                              onClick={() => {
-                                setMobilePrimaryTab("design");
-                                setPanelProgress(0);
-                                activateDesignTool("text");
-                              }}
-                              className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${activeTab === "text"
-                                ? "border-zinc-900 bg-zinc-900 text-white"
-                                : "border-gray-300 bg-white text-gray-800"
-                                }`}
-                            >
-                              Yazı Ekle
-                            </button>
-                            <button
-                              type="button"
-                              onPointerDown={(e) => {
-                                e.stopPropagation();
-                              }}
-                              onClick={() => {
-                                setMobilePrimaryTab("design");
-                                setPanelProgress(0);
-                                activateDesignTool("color");
-                              }}
-                              className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${activeTab === "color"
-                                ? "border-zinc-900 bg-zinc-900 text-white"
-                                : "border-gray-300 bg-white text-gray-800"
-                                }`}
-                            >
-                              Renk
-                            </button>
-                          </div>
-                        </>
+                        <div className="flex items-center justify-between gap-2 border-b border-black/5 pb-2">
+                          <p className="text-[12px] font-black uppercase tracking-[0.14em] text-gray-700">Tasarla</p>
+                        </div>
                       )}
                     </div>
 
@@ -9475,6 +9395,63 @@ function TasarimClientContent({ isMobile }) {
                         </div>
                       </div>
                     </div>
+
+                    {/* STICKY FOOTER */}
+                    {showDesignControls && !mobilePanelCollapsed && (
+                      <div className="flex-none p-3 bg-white border-t border-gray-200 pointer-events-auto">
+                        <div className="grid grid-cols-4 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMobilePrimaryTab("design");
+                              setPanelProgress(0);
+                              activateDesignTool("print");
+                            }}
+                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "print"
+                              ? "border-zinc-900 bg-zinc-900 text-white"
+                              : "border-gray-300 bg-gray-50 text-gray-800"
+                              }`}
+                          >
+                            Baskı<br />Seçim
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMobilePrimaryTab("design");
+                              setPanelProgress(0);
+                              activateDesignTool("upload");
+                            }}
+                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "upload"
+                              ? "border-zinc-900 bg-zinc-900 text-white"
+                              : "border-gray-300 bg-gray-50 text-gray-800"
+                              }`}
+                          >
+                            Görsel<br />Yükle
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMobilePrimaryTab("design");
+                              setPanelProgress(0);
+                              activateDesignTool("text");
+                            }}
+                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "text"
+                              ? "border-zinc-900 bg-zinc-900 text-white"
+                              : "border-gray-300 bg-gray-50 text-gray-800"
+                              }`}
+                          >
+                            Yazı<br />Ekle
+                          </button>
+                          <button type="button"
+                            onClick={openDrawerMenu}
+                            className="h-10 rounded-xl border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center justify-center gap-1"
+                          >
+                            <Menu size={14} />
+                            Menü
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>
@@ -9653,7 +9630,7 @@ function TasarimClientContent({ isMobile }) {
           )}
         </div>
       </div>
-    </div>
+    </div >
   );
 }
 
