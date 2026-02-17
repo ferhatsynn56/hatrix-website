@@ -1,6 +1,7 @@
 import "./globals.css";
 import { CartProvider } from "@/context/CartContext";
 import ErrorBoundary from "@/components/ErrorBoundary/ErrorBoundary";
+import PerformanceOverlay from "@/components/Debug/PerformanceOverlay";
 
 export default function RootLayout({ children }) {
   return (
@@ -8,6 +9,7 @@ export default function RootLayout({ children }) {
       <body>
         <ErrorBoundary>
           <CartProvider>{children}</CartProvider>
+          <PerformanceOverlay />
         </ErrorBoundary>
       </body>
     </html>
