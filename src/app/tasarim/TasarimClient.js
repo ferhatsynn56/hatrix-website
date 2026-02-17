@@ -8,6 +8,9 @@ import React, {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useCallback,
+  useDeferredValue,
+  useTransition,
 } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
@@ -15,6 +18,7 @@ import {
   OrbitControls,
   Decal,
   Center,
+  Text as DreiText,
   ContactShadows,
   useGLTF,
   useTexture,
@@ -719,7 +723,7 @@ const STICKER_OPTIONS = [{ id: "sticker-ferhata-att", label: "Ferhata Att", src:
 
 function PrintTypePickerCards({ selectedIds = [], onSelect, sourceLabel = "Sec", isMobile = false }) {
   return (
-    <div className="mt-2 rounded-xl border border-gray-200 bg-[#f4f6f8] p-3">
+    <div className="mt-2 rounded-xl border border-gray-200 bg-[#f4f6f8] p-3 pointer-events-auto">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-600">Baski Cesitleri</p>
         <span className="text-[10px] font-bold uppercase text-gray-500">{sourceLabel}</span>
@@ -733,7 +737,8 @@ function PrintTypePickerCards({ selectedIds = [], onSelect, sourceLabel = "Sec",
             <button
               key={`print-type-${sourceLabel}-${opt.id}`}
               type="button"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 if (!disabled) onSelect?.(opt.id);
               }}
               disabled={disabled}
@@ -776,7 +781,7 @@ function PrintTypePickerCards({ selectedIds = [], onSelect, sourceLabel = "Sec",
 
 function InjectionPatternPickerCards({ selectedId = null, onSelect, sourceLabel = "Sec", isMobile = false }) {
   return (
-    <div className="mt-2 rounded-xl border border-gray-200 bg-[#f4f6f8] p-3">
+    <div className="mt-2 rounded-xl border border-gray-200 bg-[#f4f6f8] p-3 pointer-events-auto">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-600">Enjeksiyon Desen</p>
         <span className="text-[10px] font-bold uppercase text-gray-500">{sourceLabel}</span>
@@ -788,7 +793,10 @@ function InjectionPatternPickerCards({ selectedId = null, onSelect, sourceLabel 
             <button
               key={`inj-picker-${sourceLabel}-${opt.id}`}
               type="button"
-              onClick={() => onSelect?.(opt.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect?.(opt.id);
+              }}
               className={`rounded-xl border px-2 py-2 text-left transition ${
                 selected
                   ? "border-black bg-black text-white"
@@ -843,7 +851,124 @@ const clamp01 = (v) => clamp(v, 0, 1);
 const pct = (v01) => `${Math.round(v01 * 100)}%`;
 const MAX_UPLOAD_FILE_MB = 16;
 const MAX_UPLOAD_RENDER_SIDE = 2688;
+const MOBILE_UPLOAD_RENDER_SIDE = 1536;
+const LOW_PERF_UPLOAD_RENDER_SIDE = 1024;
+const IMAGE_CACHE_MAX_ITEMS = 64;
+const IMAGE_CACHE_MAX_DATA_URL_ITEMS = 18;
+const TEXT_INPUT_DEBOUNCE_MS = 500;
+const INTERACTION_SIDE_EPSILON = 0.01;
+const NO_RAYCAST = () => null;
+const FRONT_SURFACE_RE = /front[_\s-]?material|(^|[_\s-])(front|on|fore)($|[_\s-])/i;
+const BACK_SURFACE_RE = /back[_\s-]?material|(^|[_\s-])(back|arka|rear)($|[_\s-])/i;
 const getTextCurveValue = (t) => clamp(Number(t?.curve ?? 30), 6, 88);
+
+function raycastMeshDoubleSide(raycaster, intersects) {
+  const mats = Array.isArray(this.material) ? this.material : [this.material];
+  const prevSides = mats.map((m) => (m ? m.side : null));
+  mats.forEach((m) => {
+    if (m) m.side = THREE.DoubleSide;
+  });
+  acceleratedRaycast.call(this, raycaster, intersects);
+  mats.forEach((m, idx) => {
+    if (!m) return;
+    if (prevSides[idx] != null) m.side = prevSides[idx];
+  });
+}
+
+const isLikelyIOSDevice = () => {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const platform = navigator.platform || "";
+  return /iPad|iPhone|iPod/i.test(ua) || (platform === "MacIntel" && navigator.maxTouchPoints > 1);
+};
+
+const isLikelyMobileDevice = (isMobileHint = null) => {
+  if (typeof isMobileHint === "boolean") return isMobileHint;
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const byUa = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua);
+  if (byUa) return true;
+  if (typeof window !== "undefined") return window.innerWidth < 1024;
+  return false;
+};
+
+const detectLowPerformanceMode = ({ isMobileHint = null, modelCount = 1 } = {}) => {
+  const isMobile = isLikelyMobileDevice(isMobileHint);
+  if (!isMobile) return false;
+  if (isLikelyIOSDevice()) return true;
+  if (typeof navigator === "undefined") return modelCount > 2;
+  const deviceMemory = Number(navigator.deviceMemory || 0);
+  const hardwareThreads = Number(navigator.hardwareConcurrency || 0);
+  const lowMemory = deviceMemory > 0 && deviceMemory <= 4;
+  const lowCpu = hardwareThreads > 0 && hardwareThreads <= 4;
+  return lowMemory || lowCpu || modelCount > 2;
+};
+
+const getUploadRenderSideLimit = (isMobileHint = null) => {
+  if (detectLowPerformanceMode({ isMobileHint })) return LOW_PERF_UPLOAD_RENDER_SIDE;
+  if (isLikelyMobileDevice(isMobileHint)) return MOBILE_UPLOAD_RENDER_SIDE;
+  return MAX_UPLOAD_RENDER_SIDE;
+};
+
+function useDebouncedValue(value, delayMs = TEXT_INPUT_DEBOUNCE_MS) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedValue(value);
+    }, delayMs);
+    return () => window.clearTimeout(timeoutId);
+  }, [value, delayMs]);
+  return debouncedValue;
+}
+
+const DebouncedTextDraftInput = React.memo(function DebouncedTextDraftInput({
+  committedText = "",
+  onCommit,
+  pending = false,
+  className = "",
+  placeholder = "",
+  maxLength,
+}) {
+  const [localText, setLocalText] = useState(() => committedText || "");
+  const localDirtyRef = useRef(false);
+  const committedRef = useRef(committedText || "");
+  const deferredLocalText = useDeferredValue(localText);
+  const debouncedLocalText = useDebouncedValue(deferredLocalText, TEXT_INPUT_DEBOUNCE_MS);
+
+  useEffect(() => {
+    committedRef.current = committedText || "";
+  }, [committedText]);
+
+  useEffect(() => {
+    if (!localDirtyRef.current) return;
+    const safeCommitted = committedRef.current;
+    if (debouncedLocalText === safeCommitted) {
+      localDirtyRef.current = false;
+      return;
+    }
+    localDirtyRef.current = false;
+    onCommit?.(debouncedLocalText);
+  }, [debouncedLocalText, onCommit]);
+
+  return (
+    <input
+      type="text"
+      value={localText}
+      maxLength={maxLength}
+      onChange={(e) => {
+        localDirtyRef.current = true;
+        setLocalText(e.target.value);
+      }}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.preventDefault();
+      }}
+      aria-busy={pending}
+      className={className}
+      placeholder={placeholder}
+    />
+  );
+});
 
 const drawStyledText = (ctx, t, centerX, centerY, fontSize) => {
   const text = String(t?.text || "").trim();
@@ -1046,6 +1171,51 @@ const fileToDataUrl = (file) =>
   });
 
 const IMAGE_CACHE = new Map();
+const trimImageCache = () => {
+  if (IMAGE_CACHE.size <= IMAGE_CACHE_MAX_ITEMS) {
+    const dataUrlCount = Array.from(IMAGE_CACHE.keys()).filter((k) => String(k).startsWith("data:")).length;
+    if (dataUrlCount <= IMAGE_CACHE_MAX_DATA_URL_ITEMS) return;
+  }
+
+  while (IMAGE_CACHE.size > 0) {
+    const dataUrlCount = Array.from(IMAGE_CACHE.keys()).filter((k) => String(k).startsWith("data:")).length;
+    if (IMAGE_CACHE.size <= IMAGE_CACHE_MAX_ITEMS && dataUrlCount <= IMAGE_CACHE_MAX_DATA_URL_ITEMS) break;
+    const oldestKey = IMAGE_CACHE.keys().next().value;
+    if (!oldestKey) break;
+    const oldest = IMAGE_CACHE.get(oldestKey);
+    if (oldest?.img && String(oldestKey).startsWith("data:")) {
+      oldest.img.onload = null;
+      oldest.img.onerror = null;
+      oldest.img.src = "";
+    }
+    IMAGE_CACHE.delete(oldestKey);
+  }
+};
+
+const touchImageCache = (key, value) => {
+  if (IMAGE_CACHE.has(key)) IMAGE_CACHE.delete(key);
+  IMAGE_CACHE.set(key, value);
+  trimImageCache();
+};
+
+const evictImageCacheDataUrls = (keepSources = new Set()) => {
+  const keepSet = keepSources instanceof Set
+    ? keepSources
+    : new Set(Array.isArray(keepSources) ? keepSources : []);
+  IMAGE_CACHE.forEach((entry, key) => {
+    const cacheKey = String(key || "");
+    if (!cacheKey.startsWith("data:")) return;
+    if (keepSet.has(cacheKey)) return;
+    if (entry?.img) {
+      entry.img.onload = null;
+      entry.img.onerror = null;
+      entry.img.src = "";
+    }
+    IMAGE_CACHE.delete(key);
+  });
+  trimImageCache();
+};
+
 const loadImg = (src) =>
   new Promise((resolve, reject) => {
     const key = String(src || "");
@@ -1055,10 +1225,12 @@ const loadImg = (src) =>
     }
     const cached = IMAGE_CACHE.get(key);
     if (cached?.img && cached.img.complete && cached.img.naturalWidth > 0) {
+      touchImageCache(key, cached);
       resolve(cached.img);
       return;
     }
     if (cached?.promise) {
+      touchImageCache(key, cached);
       cached.promise.then(resolve).catch(reject);
       return;
     }
@@ -1070,7 +1242,7 @@ const loadImg = (src) =>
     const promise = new Promise((res, rej) => {
       img.onload = () => {
         const commitLoaded = () => {
-          IMAGE_CACHE.set(key, { img });
+          touchImageCache(key, { img });
           res(img);
         };
         if (typeof img.decode === "function") {
@@ -1084,12 +1256,12 @@ const loadImg = (src) =>
         rej(new Error("Görsel çözümlenemedi."));
       };
     });
-    IMAGE_CACHE.set(key, { promise, img });
+    touchImageCache(key, { promise, img });
     promise.then(resolve).catch(reject);
     img.src = key;
   });
 
-async function optimizeUploadDataUrl(file) {
+async function optimizeUploadDataUrl(file, opts = {}) {
   if (!file || !String(file.type || "").startsWith("image/")) {
     throw new Error("Desteklenmeyen dosya türü.");
   }
@@ -1101,10 +1273,20 @@ async function optimizeUploadDataUrl(file) {
   if (typeof document === "undefined") return rawDataUrl;
 
   try {
+    const mobile = isLikelyMobileDevice();
+    const lowPerf = detectLowPerformanceMode({ isMobileHint: mobile });
+    const targetSide = opts?.targetSide === "back" ? "back" : "front";
+    const baseMaxRenderSide = getUploadRenderSideLimit(mobile);
+    const maxRenderSide =
+      mobile && targetSide === "back"
+        ? Math.min(baseMaxRenderSide, LOW_PERF_UPLOAD_RENDER_SIDE)
+        : baseMaxRenderSide;
+    const opaqueQuality = lowPerf ? 0.82 : mobile ? 0.88 : 0.93;
+    const transparentQuality = lowPerf ? 0.8 : mobile ? 0.86 : 0.92;
     const img = await loadImg(rawDataUrl);
     const srcW = img.naturalWidth || img.width || 1;
     const srcH = img.naturalHeight || img.height || 1;
-    const scale = Math.min(1, MAX_UPLOAD_RENDER_SIDE / Math.max(srcW, srcH));
+    const scale = Math.min(1, maxRenderSide / Math.max(srcW, srcH));
     const w = Math.max(1, Math.round(srcW * scale));
     const h = Math.max(1, Math.round(srcH * scale));
 
@@ -1114,17 +1296,23 @@ async function optimizeUploadDataUrl(file) {
     const ctx = c.getContext("2d");
     if (!ctx) return rawDataUrl;
     ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
+    ctx.imageSmoothingQuality = lowPerf ? "medium" : "high";
     ctx.clearRect(0, 0, w, h);
     ctx.drawImage(img, 0, 0, w, h);
 
     const wantTransparent = /png|webp/i.test(file.type);
     try {
-      return wantTransparent
-        ? c.toDataURL("image/webp", 0.95)
-        : c.toDataURL("image/jpeg", 0.93);
+      const optimized = wantTransparent
+        ? c.toDataURL("image/webp", transparentQuality)
+        : c.toDataURL("image/jpeg", opaqueQuality);
+      c.width = 1;
+      c.height = 1;
+      return optimized;
     } catch {
-      return c.toDataURL("image/png");
+      const fallback = c.toDataURL("image/png");
+      c.width = 1;
+      c.height = 1;
+      return fallback;
     }
   } catch {
     return rawDataUrl;
@@ -1199,6 +1387,7 @@ async function importTextFromPdfFile(file) {
 }
 
 const createSideData = () => ({
+  baseColor: null,
   logos: [],
   activeLogoId: null,
   injectionModelId: null,
@@ -1219,6 +1408,7 @@ const createSideData = () => ({
     layout: "straight",
     curve: 30,
     rotation: 0,
+    surfaceRotationY: 0,
     rubberDepth: 0.2,
     rubberStick: 0.96,
     rubberLetterSpacing: 1,
@@ -1230,6 +1420,10 @@ const createSideData = () => ({
 const normalizeSideData = (sideData) => {
   const base = createSideData();
   const source = sideData && typeof sideData === "object" ? sideData : {};
+  const baseColor =
+    typeof source?.baseColor === "string" && source.baseColor.trim()
+      ? source.baseColor.trim()
+      : null;
   const logos = Array.isArray(source.logos)
     ? source.logos.filter(Boolean).map((logo) => ({
         ...logo,
@@ -1244,6 +1438,9 @@ const normalizeSideData = (sideData) => {
       printTypeIdsToTechnique(source?.printTypes || source?.printTypesBySide?.front || [], PRINT_TECHNIQUES.DTF)
     ),
     rotation: clamp(Number(source?.customText?.rotation) || 0, -180, 180),
+    surfaceRotationY: Number.isFinite(Number(source?.customText?.surfaceRotationY))
+      ? Number(source.customText.surfaceRotationY)
+      : base.customText.surfaceRotationY,
     embossDepth: clamp(Number(source?.customText?.embossDepth ?? base.customText.embossDepth), 0.6, 2.8),
     embossStrength: clamp(Number(source?.customText?.embossStrength ?? base.customText.embossStrength), 0.6, 2.4),
     rubberDepth: 0.2,
@@ -1267,6 +1464,7 @@ const normalizeSideData = (sideData) => {
   return {
     ...base,
     ...source,
+    baseColor,
     logos,
     activeLogoId: source.activeLogoId || logos[0]?.id || null,
     injectionModelId: safeInjection?.id || null,
@@ -1578,7 +1776,8 @@ async function makePrintDataUrl(sideData, opts = {}) {
   const hasContent = logos.length > 0 || hasTextForPrint;
   if (!hasContent) return null;
 
-  const SIZE = 2048; // baskı için yüksek tut
+  const requestedSize = Number(opts?.size);
+  const SIZE = Number.isFinite(requestedSize) ? clamp(Math.round(requestedSize), 1024, 3072) : 2048;
   const c = document.createElement("canvas");
   c.width = SIZE;
   c.height = SIZE;
@@ -1650,7 +1849,8 @@ async function makeTextDataUrl(sideData, opts = {}) {
   const textPos = clampTextPos(sideData?.textPos || { x: 0.5, y: 0.85 }, t);
   if (!(t.text || "").trim()) return null;
 
-  const SIZE = 2048;
+  const requestedSize = Number(opts?.size);
+  const SIZE = Number.isFinite(requestedSize) ? clamp(Math.round(requestedSize), 1024, 3072) : 2048;
   const c = document.createElement("canvas");
   c.width = SIZE;
   c.height = SIZE;
@@ -1681,11 +1881,12 @@ async function makeTextDataUrl(sideData, opts = {}) {
 }
 
 /* ================= ADJUSTED LOGO EXPORT (PER LOGO) ================= */
-async function makeAdjustedLogoDataUrls(sideData) {
+async function makeAdjustedLogoDataUrls(sideData, opts = {}) {
   const logos = sideData?.logos || [];
   if (!logos.length) return [];
 
-  const SIZE = 2048;
+  const requestedSize = Number(opts?.size);
+  const SIZE = Number.isFinite(requestedSize) ? clamp(Math.round(requestedSize), 1024, 3072) : 2048;
   const results = [];
 
   for (const l of logos) {
@@ -1838,13 +2039,76 @@ function CameraController({ view, count, onAnimatingChange }) {
   return null;
 }
 
+function FpsPerformanceGuard({ enabled = true, onLowPerfChange }) {
+  const statsRef = useRef({
+    sampleElapsed: 0,
+    sampleFrames: 0,
+    lowElapsed: 0,
+    highElapsed: 0,
+    lowMode: false,
+  });
+
+  useFrame((_, delta) => {
+    const stats = statsRef.current;
+    if (!enabled) {
+      stats.sampleElapsed = 0;
+      stats.sampleFrames = 0;
+      stats.lowElapsed = 0;
+      stats.highElapsed = 0;
+      if (stats.lowMode) {
+        stats.lowMode = false;
+        onLowPerfChange?.(false);
+      }
+      return;
+    }
+
+    stats.sampleElapsed += delta;
+    stats.sampleFrames += 1;
+    if (stats.sampleElapsed < 0.55) return;
+
+    const elapsed = stats.sampleElapsed;
+    const fps = stats.sampleFrames / Math.max(0.001, elapsed);
+    stats.sampleElapsed = 0;
+    stats.sampleFrames = 0;
+
+    if (fps < 30) {
+      stats.lowElapsed += elapsed;
+      stats.highElapsed = 0;
+      if (!stats.lowMode && stats.lowElapsed >= 1.6) {
+        stats.lowMode = true;
+        onLowPerfChange?.(true);
+      }
+      return;
+    }
+
+    if (fps > 45) {
+      stats.highElapsed += elapsed;
+      stats.lowElapsed = 0;
+      if (stats.lowMode && stats.highElapsed >= 2.4) {
+        stats.lowMode = false;
+        onLowPerfChange?.(false);
+      }
+      return;
+    }
+
+    stats.lowElapsed = 0;
+    stats.highElapsed = 0;
+  });
+
+  return null;
+}
+
 /* ================= CANVAS TEXTURE (OPTIMIZED) ================= */
 function useDesignCanvas(sideData, opts = {}) {
   const [canvas, setCanvas] = useState(null);
 
   const logos = sideData?.logos || [];
-  const logosForCanvas = useMemo(() => logos.filter((l) => !isEmbossSticker(l)), [logos]);
-  const logoSignature = logos
+  const includeEmbossLogos = opts?.includeEmbossLogos === true;
+  const logosForCanvas = useMemo(
+    () => logos.filter((l) => includeEmbossLogos || !isEmbossSticker(l)),
+    [logos, includeEmbossLogos]
+  );
+  const logoSignature = logosForCanvas
     .map(
       (l) =>
         `${l.id}_${l.box.x.toFixed(3)}_${l.box.y.toFixed(3)}_${l.box.w.toFixed(3)}_${l.box.h.toFixed(3)}_${l.rotation || 0}_${l.z || 0}_${l.opacity ?? 1}_${l.brightness ?? 100}_${l.contrast ?? 100}_${l.saturation ?? 100}_${l.grayscale ?? 0}_${Number(Boolean(l.flipX))}_${Number(Boolean(l.flipY))}_${Number(Boolean(l.emboss))}_${l.kind || "logo"}`
@@ -1856,16 +2120,38 @@ function useDesignCanvas(sideData, opts = {}) {
 
   const requestedCanvasSize = Number(opts?.canvasSize);
   const CANVAS_SIZE = Number.isFinite(requestedCanvasSize)
-    ? clamp(Math.round(requestedCanvasSize), 1024, 4096)
+    ? clamp(Math.round(requestedCanvasSize), 768, 4096)
     : 2048;
-  const CANVAS_UPDATE_DEBOUNCE_MS = 12;
+  const requestedDebounceMs = Number(opts?.updateDebounceMs);
+  const CANVAS_UPDATE_DEBOUNCE_MS = Number.isFinite(requestedDebounceMs)
+    ? clamp(Math.round(requestedDebounceMs), 12, 500)
+    : 12;
   const textEnabled = opts?.disableText !== true;
+  const lowQuality = opts?.lowQuality === true;
+  const disabled = opts?.disabled === true;
 
   useEffect(() => {
+    if (disabled) {
+      setCanvas((prev) => {
+        if (prev) {
+          prev.width = 1;
+          prev.height = 1;
+        }
+        return null;
+      });
+      return;
+    }
+
     const hasTextContent = textEnabled && (customText?.text || "").trim();
     const hasContent = logosForCanvas.length > 0 || hasTextContent;
     if (!hasContent) {
-      setCanvas(null);
+      setCanvas((prev) => {
+        if (prev) {
+          prev.width = 1;
+          prev.height = 1;
+        }
+        return null;
+      });
       return;
     }
 
@@ -1878,7 +2164,7 @@ function useDesignCanvas(sideData, opts = {}) {
       if (!ctx) return;
 
       ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
+      ctx.imageSmoothingQuality = lowQuality ? "medium" : "high";
 
       const drawText = () => {
         if (!textEnabled) return;
@@ -1958,7 +2244,13 @@ function useDesignCanvas(sideData, opts = {}) {
         }
         if (cancelled) return;
         clearCenterStripe();
-        setCanvas(c);
+        setCanvas((prev) => {
+          if (prev && prev !== c) {
+            prev.width = 1;
+            prev.height = 1;
+          }
+          return c;
+        });
       };
 
       drawAll();
@@ -1969,7 +2261,19 @@ function useDesignCanvas(sideData, opts = {}) {
       clearTimeout(timeoutId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [logoSignature, textSignature, posSignature, opts?.clearCenterStripe01, opts?.disableText, CANVAS_SIZE, textEnabled]);
+  }, [
+    logoSignature,
+    textSignature,
+    posSignature,
+    opts?.clearCenterStripe01,
+    opts?.disableText,
+    CANVAS_SIZE,
+    CANVAS_UPDATE_DEBOUNCE_MS,
+    textEnabled,
+    lowQuality,
+    includeEmbossLogos,
+    disabled,
+  ]);
 
   return canvas;
 }
@@ -2030,8 +2334,10 @@ function pickDecalHostMesh(root, modelType) {
   return null;
 }
 
-function makeCanvasTexture(canvas, maxAnisotropy = 16) {
+function makeCanvasTexture(canvas, opts = {}) {
   if (!canvas) return null;
+  const maxAnisotropy = Number(opts?.maxAnisotropy ?? 16);
+  const useMipmaps = opts?.useMipmaps !== false;
   const tex = new THREE.CanvasTexture(canvas);
   tex.anisotropy = Math.max(1, Math.round(maxAnisotropy)); // Netlik için yüksek değer
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -2039,13 +2345,26 @@ function makeCanvasTexture(canvas, maxAnisotropy = 16) {
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   tex.needsUpdate = true;
-  tex.generateMipmaps = true;
-  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.generateMipmaps = useMipmaps;
+  tex.minFilter = useMipmaps ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
   tex.magFilter = THREE.LinearFilter;
   return tex;
 }
 
-function shrinkwrapGlyphMeshToSurface(mesh, targetMesh, epsilon = 0.00002, depthBoost = 5.5) {
+// Rubber text yüzeye çok yakın olduğunda Z-fighting oluşabiliyor.
+// Bu offset/polygon ayarları text'i modelin üstünde stabil tutar.
+const RUBBER_TEXT_BASE_SURFACE_OFFSET = 0.00014;
+const RUBBER_TEXT_STICK_SURFACE_OFFSET = 0.00042;
+const RUBBER_TEXT_POLYGON_OFFSET_FACTOR = -12;
+const RUBBER_TEXT_POLYGON_OFFSET_UNITS = -6;
+
+function shrinkwrapGlyphMeshToSurface(
+  mesh,
+  targetMesh,
+  epsilon = 0.00002,
+  depthBoost = 5.5,
+  surfaceSide = "front"
+) {
   if (!mesh?.geometry?.attributes?.position || !targetMesh?.geometry) return;
   const targetGeometry = targetMesh.geometry;
   if (!targetGeometry.boundsTree) {
@@ -2076,7 +2395,11 @@ function shrinkwrapGlyphMeshToSurface(mesh, targetMesh, epsilon = 0.00002, depth
   const rayA = new THREE.Vector3();
   const rayB = new THREE.Vector3();
   const normalWorld = new THREE.Vector3();
+  const normalLocal = new THREE.Vector3();
   const snappedWorld = new THREE.Vector3();
+  const targetWorldInverse = targetMesh.matrixWorld.clone().invert();
+  const expectedSide = surfaceSide === "back" ? "back" : "front";
+  const expectedLocalNormalSign = expectedSide === "back" ? -1 : 1;
 
   const castDist = 0.18;
   for (let i = 0; i < pos.count; i += 1) {
@@ -2095,41 +2418,59 @@ function shrinkwrapGlyphMeshToSurface(mesh, targetMesh, epsilon = 0.00002, depth
     raycaster.set(originB, rayB);
     const hitB = (raycaster.intersectObject(targetMesh, false) || [])[0] || null;
 
-    let hit = null;
-    let usedOrigin = null;
-    let usedRay = null;
-
-    if (hitA && hitB) {
-      const dA = hitA.point.distanceTo(world);
-      const dB = hitB.point.distanceTo(world);
-      if (dA <= dB) {
-        hit = hitA;
-        usedOrigin = originA;
-        usedRay = rayA;
+    const evaluateCandidate = (hit, usedRay, usedOrigin) => {
+      if (!hit) return null;
+      let normal = new THREE.Vector3();
+      if (hit.face?.normal) {
+        normal.copy(hit.face.normal).transformDirection(targetMesh.matrixWorld).normalize();
       } else {
-        hit = hitB;
-        usedOrigin = originB;
-        usedRay = rayB;
+        normal.copy(usedRay).multiplyScalar(-1).normalize();
       }
-    } else if (hitA) {
-      hit = hitA;
-      usedOrigin = originA;
-      usedRay = rayA;
-    } else if (hitB) {
-      hit = hitB;
-      usedOrigin = originB;
-      usedRay = rayB;
+      if (normal.dot(dir) < 0) normal.multiplyScalar(-1);
+      normalLocal.copy(normal).transformDirection(targetWorldInverse).normalize();
+      const localSideScore = normalLocal.z * expectedLocalNormalSign;
+      const worldDirScore = normal.dot(dir);
+      return {
+        hit,
+        usedOrigin,
+        usedRay,
+        normal,
+        distance: hit.point.distanceTo(world),
+        score: localSideScore * 2 + worldDirScore,
+      };
+    };
+
+    const candidates = [
+      evaluateCandidate(hitA, rayA, originA),
+      evaluateCandidate(hitB, rayB, originB),
+    ].filter(Boolean);
+
+    let selected = null;
+    if (candidates.length > 0) {
+      const sideMatched = candidates.filter((entry) => entry.score > -0.05);
+      const source = sideMatched.length > 0 ? sideMatched : candidates;
+      source.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.distance - b.distance;
+      });
+      selected = source[0] || null;
     }
+
+    const hit = selected?.hit || null;
+    const usedRay = selected?.usedRay || null;
 
     if (!hit) continue;
 
-    if (hit.face?.normal) {
+    if (selected?.normal) {
+      normalWorld.copy(selected.normal);
+    } else if (hit.face?.normal) {
       normalWorld.copy(hit.face.normal).transformDirection(targetMesh.matrixWorld).normalize();
-    } else {
+      if (normalWorld.dot(dir) < 0) normalWorld.multiplyScalar(-1);
+    } else if (usedRay) {
       normalWorld.copy(usedRay).multiplyScalar(-1).normalize();
+    } else {
+      continue;
     }
-
-    if (normalWorld.dot(dir) < 0) normalWorld.multiplyScalar(-1);
 
     const depthRatio = clamp(localDepth / maxLocalDepth, 0, 1);
     const depthOffset = depthRatio * worldDepth;
@@ -2145,6 +2486,7 @@ function shrinkwrapGlyphMeshToSurface(mesh, targetMesh, epsilon = 0.00002, depth
 function ShrinkwrappedRubberGlyph({
   baseGeometry,
   targetMesh,
+  surfaceSide = "front",
   position,
   rotationZ,
   scale,
@@ -2157,6 +2499,26 @@ function ShrinkwrappedRubberGlyph({
   const meshRef = useRef(null);
   const [px, py, pz] = position;
   const [sx, sy, sz] = scale;
+  const materialRef = useMemo(
+    () =>
+      new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color(color || "#f3f4f6"),
+        roughness: 0.86,
+        metalness: 0.02,
+        clearcoat: 0.08,
+        clearcoatRoughness: 0.75,
+        reflectivity: 0.15,
+        sheen: 0.14,
+        envMapIntensity: 0.26,
+        depthTest: true,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: RUBBER_TEXT_POLYGON_OFFSET_FACTOR,
+        polygonOffsetUnits: RUBBER_TEXT_POLYGON_OFFSET_UNITS,
+        side: THREE.FrontSide,
+      }),
+    [color]
+  );
 
   useLayoutEffect(() => {
     const mesh = meshRef.current;
@@ -2168,14 +2530,16 @@ function ShrinkwrappedRubberGlyph({
     if (prev && prev !== wrapped) prev.dispose?.();
 
     if (shrinkwrap && targetMesh?.geometry) {
-      const eps = 0.000008 + (1 - clamp(stick, 0.7, 1)) * 0.00035;
+      const eps =
+        RUBBER_TEXT_BASE_SURFACE_OFFSET +
+        (1 - clamp(stick, 0.7, 1)) * RUBBER_TEXT_STICK_SURFACE_OFFSET;
       try {
-        shrinkwrapGlyphMeshToSurface(mesh, targetMesh, eps, depthBoost);
+        shrinkwrapGlyphMeshToSurface(mesh, targetMesh, eps, depthBoost, surfaceSide);
       } catch (err) {
         console.warn("Rubber shrinkwrap failed:", err);
       }
     }
-  }, [baseGeometry, targetMesh, px, py, pz, rotationZ, sx, sy, sz, shrinkwrap, stick, depthBoost, placementKey]);
+  }, [baseGeometry, targetMesh, surfaceSide, px, py, pz, rotationZ, sx, sy, sz, shrinkwrap, stick, depthBoost, placementKey]);
 
   useEffect(
     () => () => {
@@ -2185,32 +2549,282 @@ function ShrinkwrappedRubberGlyph({
     []
   );
 
+  useEffect(
+    () => () => {
+      materialRef.dispose();
+    },
+    [materialRef]
+  );
+
   return (
     <mesh
       ref={meshRef}
+      raycast={NO_RAYCAST}
       position={position}
       rotation={[0, 0, rotationZ]}
       scale={scale}
       renderOrder={42}
     >
       <bufferGeometry />
-      <meshPhysicalMaterial
-        color={color}
-        roughness={0.86}
-        metalness={0.02}
-        clearcoat={0.08}
-        clearcoatRoughness={0.75}
-        reflectivity={0.15}
-        sheen={0.14}
-        envMapIntensity={0.26}
-        depthWrite={false}
-        polygonOffset
-        polygonOffsetFactor={-8}
-        side={THREE.FrontSide}
-      />
+      <primitive attach="material" object={materialRef} />
     </mesh>
   );
 }
+
+const RubberTextLayer = React.memo(function RubberTextLayer({
+  side = "front",
+  sideData,
+  profile,
+  areaW,
+  areaH,
+  enabled,
+  glyphLibrary,
+  decalHost,
+}) {
+  const layoutState = useMemo(() => {
+    if (!enabled) return null;
+    const textState = sideData?.customText || {};
+    const rawText = String(textState?.text || "").trim();
+    if (!rawText) return null;
+    const chars = [...rawText];
+    if (!chars.length) return null;
+    const layout = String(textState?.layout || "straight");
+    const curve = getTextCurveValue(textState);
+    const scaleX = clamp(Number(textState?.scaleX) || 1, 0.3, 3);
+    const scaleY = clamp(Number(textState?.scaleY) || 1, 0.3, 3);
+
+    const resolveGlyphForChar = (ch) => {
+      if (!ch) return null;
+      const upperTr = ch.toLocaleUpperCase("tr-TR");
+      const lowerTr = ch.toLocaleLowerCase("tr-TR");
+      return (
+        glyphLibrary[ch] ||
+        glyphLibrary[upperTr] ||
+        glyphLibrary[lowerTr] ||
+        glyphLibrary[ch.toUpperCase()] ||
+        glyphLibrary[ch.toLowerCase()] ||
+        null
+      );
+    };
+
+    const entries = chars.map((ch) => {
+      if (ch === " ") return { char: ch, width: 0.52, isSpace: true };
+      const glyph = resolveGlyphForChar(ch);
+      if (!glyph) return { char: ch, width: 0.52, isSpace: true };
+      return { char: ch, ...glyph, isSpace: false };
+    });
+
+    const avgGlyphW = entries
+      .filter((entry) => !entry.isSpace)
+      .reduce((sum, entry, _, arr) => sum + entry.width / Math.max(1, arr.length), 0) || 0.58;
+    const rubberLetterSpacing = clamp(Number(textState?.rubberLetterSpacing ?? 1), 0.2, 3);
+    const spacingRaw = clamp(avgGlyphW * 0.18, 0.02, 0.9);
+
+    const positions = [];
+    let cursor = 0;
+    entries.forEach((entry, idx) => {
+      const stepW = entry.isSpace ? avgGlyphW * 0.55 : entry.width;
+      positions[idx] = { x: cursor + stepW / 2, width: stepW };
+      cursor += stepW + spacingRaw;
+    });
+    const totalRawW = Math.max(0.001, cursor - spacingRaw);
+    const maxRawH = Math.max(
+      0.001,
+      ...entries.filter((entry) => !entry.isSpace).map((entry) => entry.height)
+    );
+    const maxRawD = Math.max(
+      0.0002,
+      ...entries.filter((entry) => !entry.isSpace).map((entry) => entry.depth || 0.0002)
+    );
+    const ampRaw = clamp((curve / 100) * maxRawH, 0, maxRawH * 2.8);
+    const layoutRows = entries.map((entry, idx) => {
+      const baseX = positions[idx].x - totalRawW / 2;
+      const count = Math.max(entries.length, 1);
+      const p = count > 1 ? idx / (count - 1) : 0.5;
+      const norm = count > 1 ? p * 2 - 1 : 0;
+      const phase = p * Math.PI * 2;
+      let yRaw = 0;
+      let rotDeg = 0;
+
+      if (layout === "wave" || layout === "wave-soft" || layout === "wave-strong") {
+        const waveMul = layout === "wave-soft" ? 0.7 : layout === "wave-strong" ? 1.35 : 1;
+        const rotMul = layout === "wave-soft" ? 0.11 : layout === "wave-strong" ? 0.21 : 0.16;
+        yRaw = Math.sin(phase) * ampRaw * waveMul;
+        rotDeg = Math.cos(phase) * curve * rotMul;
+      } else if (layout === "zigzag") {
+        yRaw = (idx % 2 === 0 ? -1 : 1) * ampRaw * 0.7;
+        rotDeg = (idx % 2 === 0 ? -1 : 1) * curve * 0.2;
+      } else if (layout === "stair-up" || layout === "stair-down") {
+        const dir = layout === "stair-up" ? -1 : 1;
+        yRaw = dir * (p - 0.5) * 2 * ampRaw * 1.1;
+        rotDeg = dir * 6;
+      } else if (
+        layout === "arc-up" ||
+        layout === "arc-down" ||
+        layout === "arc-up-strong" ||
+        layout === "arc-down-strong"
+      ) {
+        const arcDown = layout === "arc-down" || layout === "arc-down-strong";
+        const strong = layout === "arc-up-strong" || layout === "arc-down-strong";
+        const arcMul = strong ? 2.05 : 1.45;
+        const rotMul = strong ? 0.75 : 0.55;
+        yRaw = (arcDown ? 1 : -1) * Math.pow(norm, 2) * ampRaw * arcMul;
+        rotDeg = norm * curve * rotMul;
+      }
+
+      const top = yRaw + (entry.height || maxRawH);
+      const bottom = yRaw;
+      return { entry, baseX, yRaw, rotDeg, top, bottom };
+    });
+
+    const minRawY = layoutRows.reduce((min, row) => Math.min(min, row.bottom), 0);
+    const maxRawY = layoutRows.reduce((max, row) => Math.max(max, row.top), maxRawH);
+    const centerRawY = (minRawY + maxRawY) / 2;
+    const totalRawH = Math.max(0.001, maxRawY - minRawY);
+
+    const textBounds01 = estimateTextHalfBounds01(textState);
+    const targetW = clamp(textBounds01.halfW01 * 2 * areaW, 0.03, areaW * 0.96);
+    const targetH = clamp(textBounds01.halfH01 * 2 * areaH, 0.03, areaH * 0.88);
+    const fitWScale = (areaW * 0.96) / Math.max(0.001, totalRawW * scaleX);
+    const fitHScale = (areaH * 0.88) / Math.max(0.001, totalRawH * scaleY);
+    const scaleRaw = Math.min(targetW / totalRawW, targetH / maxRawH, fitWScale, fitHScale);
+    const glyphScale = clamp(scaleRaw, 0.01, 1.35);
+    const rubberStick = clamp(Number(textState?.rubberStick ?? 0.96), 0.7, 1);
+    const zScale = clamp((0.07 * maxRawD) / 0.024, 0.06, 0.17);
+    const depthBoost = 3.2;
+    const placedW = totalRawW * glyphScale * scaleX * rubberLetterSpacing;
+    const placedH = totalRawH * glyphScale * scaleY;
+
+    const safeTextPos = clampTextPos(sideData?.textPos, textState);
+    const halfW = placedW / 2;
+    const halfH = placedH / 2;
+    const edgePad = 0.002;
+    const cx = clamp(
+      profile.xMin + safeTextPos.x * areaW,
+      profile.xMin + halfW + edgePad,
+      profile.xMax - halfW - edgePad
+    );
+    const cy = clamp(
+      profile.yTop - safeTextPos.y * areaH,
+      profile.yBot + halfH + edgePad,
+      profile.yTop - halfH - edgePad
+    );
+    const rz = ((Number(textState?.rotation) || 0) * Math.PI) / 180;
+    const stickLift = (1 - rubberStick) * 0.00032;
+    const zNudge = side === "back" ? -(0.000012 + stickLift) : 0.000012 + stickLift;
+    const sideRotY = Number(textState?.surfaceRotationY ?? profile.rotY ?? (side === "back" ? Math.PI : 0));
+    const textColor = textState?.color || "#f4f4f4";
+    const placementKey = `${side}_${cx}_${cy}_${profile.z || 0}_${sideRotY}_${rz}`;
+
+    return {
+      centerRawY,
+      layoutRows,
+      glyphScale,
+      scaleX,
+      scaleY,
+      rubberLetterSpacing,
+      zScale,
+      rubberStick,
+      depthBoost,
+      textColor,
+      groupPosition: [cx, cy, (profile.z || 0) + zNudge],
+      groupRotation: [0, sideRotY, rz],
+      placementKey,
+      side,
+    };
+  }, [enabled, sideData, profile, areaW, areaH, glyphLibrary, side]);
+
+  if (!layoutState) return null;
+
+  const {
+    centerRawY,
+    layoutRows,
+    glyphScale,
+    scaleX,
+    scaleY,
+    rubberLetterSpacing,
+    zScale,
+    rubberStick,
+    depthBoost,
+    textColor,
+    groupPosition,
+    groupRotation,
+    placementKey,
+  } = layoutState;
+
+  return (
+    <group position={groupPosition} rotation={groupRotation}>
+      {layoutRows.map((row, idx) => {
+        const entry = row.entry;
+        if (!entry.geometry || entry.isSpace) return null;
+        const x = row.baseX * glyphScale * scaleX * rubberLetterSpacing;
+        const y = (row.yRaw - centerRawY) * glyphScale * scaleY;
+        return (
+          <ShrinkwrappedRubberGlyph
+            key={`rubber-glyph-${side}-${entry.char}-${idx}`}
+            baseGeometry={entry.geometry}
+            targetMesh={decalHost}
+            surfaceSide={side}
+            position={[x, y, 0]}
+            rotationZ={(row.rotDeg * Math.PI) / 180}
+            scale={[glyphScale * scaleX, glyphScale * scaleY, zScale]}
+            color={textColor}
+            shrinkwrap
+            stick={rubberStick}
+            depthBoost={depthBoost}
+            placementKey={placementKey}
+          />
+        );
+      })}
+    </group>
+  );
+});
+
+const SdfTextLayer = React.memo(function SdfTextLayer({
+  side = "front",
+  sideData,
+  profile,
+  areaW,
+  areaH,
+  enabled,
+}) {
+  if (!enabled) return null;
+  const textState = sideData?.customText || {};
+  const text = String(textState?.text || "").trim();
+  if (!text) return null;
+
+  const safeTextPos = clampTextPos(sideData?.textPos, textState);
+  const cx = profile.xMin + safeTextPos.x * areaW;
+  const cy = profile.yTop - safeTextPos.y * areaH;
+  const sideRotY = Number(textState?.surfaceRotationY ?? profile.rotY ?? (side === "back" ? Math.PI : 0));
+  const rz = ((Number(textState?.rotation) || 0) * Math.PI) / 180;
+  const fontSize = clamp((Number(textState?.size) || 150) / 5200, 0.018, 0.085);
+  const maxWidth = clamp(areaW * 0.9, 0.06, 0.45);
+  const zNudge = side === "back" ? -0.0002 : 0.0002;
+  const textColor = textState?.color || "#f4f4f4";
+
+  return (
+    <group position={[cx, cy, (profile.z || 0) + zNudge]} rotation={[0, sideRotY, rz]}>
+      <DreiText
+        fontSize={fontSize}
+        maxWidth={maxWidth}
+        anchorX="center"
+        anchorY="middle"
+        textAlign="center"
+        color={textColor}
+        fillOpacity={1}
+        outlineWidth={0.00095}
+        outlineColor="#0b0f14"
+        depthTest
+        depthWrite={false}
+        renderOrder={43}
+        sdfGlyphSize={64}
+      >
+        {text}
+      </DreiText>
+    </group>
+  );
+});
 
 function InjectionPatternStamp({
   option,
@@ -2322,6 +2936,7 @@ function InjectionPatternStamp({
           key={`inj-mesh-${entry.key}`}
           baseGeometry={entry.geometry}
           targetMesh={targetMesh}
+          surfaceSide={side}
           position={[0, 0, 0]}
           rotationZ={0}
           scale={[entry.scalar, entry.scalar, entry.scalar * 0.19]}
@@ -2350,15 +2965,21 @@ function Real3DModel({
   backSideData,
   frontPrintTypes = [],
   backPrintTypes = [],
+  perfProfile,
 }) {
   const { gl } = useThree();
+  const allowMipmaps = perfProfile?.enableMipmaps !== false;
+  const disableEmbossDecals = perfProfile?.disableEmbossDecals === true;
+  const useSdfTextFallback = Boolean(isMobile && perfProfile?.lowPerformanceMode);
   const modelPathRaw = MODEL_PATHS[normalizeModelType(modelType)] || MODEL_PATHS[DEFAULT_MODEL_TYPE];
   const gltf = useGLTF(toSafeUrl(modelPathRaw));
   const glyphGltf = useGLTF(toSafeUrl(RUBBER_GLYPH_MODEL_PATH));
   const maxAnisotropy = useMemo(() => {
     const cap = gl?.capabilities?.getMaxAnisotropy?.();
-    return Number.isFinite(cap) && cap > 0 ? cap : 16;
-  }, [gl]);
+    const rawCap = Number.isFinite(cap) && cap > 0 ? cap : 16;
+    const budgetCap = Number(perfProfile?.anisotropyCap ?? 16);
+    return Math.max(1, Math.min(rawCap, budgetCap));
+  }, [gl, perfProfile?.anisotropyCap]);
 
   const hasSkinned = useMemo(() => {
     let found = false;
@@ -2373,43 +2994,48 @@ function Real3DModel({
     return cloned;
   }, [gltf.scene, hasSkinned]);
 
-  const bodyMaterial = useMemo(() => {
-    const base = new THREE.Color(color || BRAND_DEFAULT_COLOR);
-    const lum = 0.2126 * base.r + 0.7152 * base.g + 0.0722 * base.b;
-    // White/very light tones are gently compressed to avoid blown-out cloth.
-    const whiteTaming = clamp((lum - 0.84) / 0.16, 0, 1);
-    if (whiteTaming > 0) {
-      base.multiplyScalar(1 - whiteTaming * 0.14);
-    }
-    const darkBoost = clamp((0.42 - lum) / 0.42, 0, 1);
-    const lightBoost = clamp((lum - 0.72) / 0.28, 0, 1);
-    const fabric = normalizeFabricType(fabricType, modelType);
-    const fabricMap = {
-      "supreme-24x1": { rough: 0.01, metal: 0, env: 0.01 },
-      "supreme-30x1": { rough: 0.03, metal: 0, env: -0.01 },
-      "iplik-3-sardonsuz": { rough: 0.02, metal: 0, env: -0.005 },
-      "iplik-3-sardonlu": { rough: 0.045, metal: 0, env: -0.025 },
-    };
-    const fabricFx = fabricMap[fabric] || fabricMap["supreme-24x1"];
+  const frontBaseColor = frontSideData?.baseColor || color || BRAND_DEFAULT_COLOR;
+  const backBaseColor = backSideData?.baseColor || color || BRAND_DEFAULT_COLOR;
 
-    return new THREE.MeshPhysicalMaterial({
-      color: base,
-      // Fabric feel (MeshPhysicalMaterial):
-      // clearcoat: 0 (mat)
-      // sheen: 1.0 (kadifemsi yuzey yansimasi)
-      // sheenRoughness: 0.5 (liflerin daginikligi)
-      clearcoat: 0,
-      sheen: 1.0,
-      sheenRoughness: 0.5,
-      sheenColor: new THREE.Color(0xcccccc), // Hafif gri sheen
-      roughness: clamp(0.92 + 0.02 * lightBoost + fabricFx.rough, 0.85, 0.98),
-      metalness: 0.0,
-      envMapIntensity: clamp(0.20 + 0.08 * darkBoost - 0.22 * lightBoost + fabricFx.env, 0.1, 0.4),
-      emissive: base,
-      emissiveIntensity: 0,
-      side: THREE.FrontSide,
-    });
-  }, [color, fabricType]);
+  const makeBodyMaterial = useCallback(
+    (inputColor) => {
+      const base = new THREE.Color(inputColor || BRAND_DEFAULT_COLOR);
+      const lum = 0.2126 * base.r + 0.7152 * base.g + 0.0722 * base.b;
+      // White/very light tones are gently compressed to avoid blown-out cloth.
+      const whiteTaming = clamp((lum - 0.84) / 0.16, 0, 1);
+      if (whiteTaming > 0) {
+        base.multiplyScalar(1 - whiteTaming * 0.14);
+      }
+      const darkBoost = clamp((0.42 - lum) / 0.42, 0, 1);
+      const lightBoost = clamp((lum - 0.72) / 0.28, 0, 1);
+      const fabric = normalizeFabricType(fabricType, modelType);
+      const fabricMap = {
+        "supreme-24x1": { rough: 0.01, metal: 0, env: 0.01 },
+        "supreme-30x1": { rough: 0.03, metal: 0, env: -0.01 },
+        "iplik-3-sardonsuz": { rough: 0.02, metal: 0, env: -0.005 },
+        "iplik-3-sardonlu": { rough: 0.045, metal: 0, env: -0.025 },
+      };
+      const fabricFx = fabricMap[fabric] || fabricMap["supreme-24x1"];
+      return new THREE.MeshPhysicalMaterial({
+        color: base,
+        clearcoat: 0,
+        sheen: 1.0,
+        sheenRoughness: 0.5,
+        sheenColor: new THREE.Color(0xcccccc),
+        roughness: clamp(0.92 + 0.02 * lightBoost + fabricFx.rough, 0.85, 0.98),
+        metalness: 0.0,
+        envMapIntensity: clamp(0.20 + 0.08 * darkBoost - 0.22 * lightBoost + fabricFx.env, 0.1, 0.4),
+        emissive: base,
+        emissiveIntensity: 0,
+        side: THREE.FrontSide,
+      });
+    },
+    [fabricType, modelType]
+  );
+
+  const frontBodyMaterial = useMemo(() => makeBodyMaterial(frontBaseColor), [makeBodyMaterial, frontBaseColor]);
+  const backBodyMaterial = useMemo(() => makeBodyMaterial(backBaseColor), [makeBodyMaterial, backBaseColor]);
+  const activeViewBodyMaterial = view === "back" ? backBodyMaterial : frontBodyMaterial;
 
   const laceMaterial = useMemo(
     () =>
@@ -2423,7 +3049,17 @@ function Real3DModel({
     [stringColor]
   );
 
+  useEffect(
+    () => () => {
+      frontBodyMaterial.dispose?.();
+      backBodyMaterial.dispose?.();
+      laceMaterial.dispose?.();
+    },
+    [frontBodyMaterial, backBodyMaterial, laceMaterial]
+  );
+
   const glyphLibrary = useMemo(() => {
+    if (useSdfTextFallback) return {};
     const source = glyphGltf?.scene;
     const next = {};
     if (!source) return next;
@@ -2452,7 +3088,7 @@ function Real3DModel({
       };
     });
     return next;
-  }, [glyphGltf]);
+  }, [glyphGltf, useSdfTextFallback]);
 
   useEffect(() => {
     return () => {
@@ -2483,8 +3119,20 @@ function Real3DModel({
       );
     };
 
+    const resolveBodyMaterialForMesh = (o) => {
+      const meshName = String(o?.name || "").toLowerCase();
+      const materialName = String(o?.material?.name || "").toLowerCase();
+      const identity = `${meshName} ${materialName}`;
+      const matchesBack = BACK_SURFACE_RE.test(identity);
+      const matchesFront = FRONT_SURFACE_RE.test(identity);
+      if (matchesBack && !matchesFront) return backBodyMaterial;
+      if (matchesFront && !matchesBack) return frontBodyMaterial;
+      return activeViewBodyMaterial;
+    };
+
     root.traverse((o) => {
       if (!(o && (o.isMesh || o.isSkinnedMesh) && o.geometry)) return;
+      o.raycast = raycastMeshDoubleSide;
       if (o.geometry.getAttribute?.("color")) o.geometry.deleteAttribute("color");
       if (isHoodieWithParts) {
         const meshName = (o?.name || "").toLowerCase();
@@ -2495,45 +3143,50 @@ function Real3DModel({
         }
         if (meshName.includes("hoodie_cep") || meshName.includes("_cep") || meshName.includes("cep")) {
           o.visible = showPocket;
-          o.material = bodyMaterial;
+          o.material = resolveBodyMaterialForMesh(o);
           return;
         }
         o.visible = true;
-        o.material = bodyMaterial;
+        o.material = resolveBodyMaterialForMesh(o);
         return;
       }
       o.visible = true;
-      o.material = looksLikeLace(o) ? laceMaterial : bodyMaterial;
+      o.material = looksLikeLace(o) ? laceMaterial : resolveBodyMaterialForMesh(o);
     });
-  }, [root, bodyMaterial, laceMaterial, modelType, hoodieV12Parts?.strings, hoodieV12Parts?.pocket]);
+  }, [
+    root,
+    activeViewBodyMaterial,
+    frontBodyMaterial,
+    backBodyMaterial,
+    laceMaterial,
+    modelType,
+    hoodieV12Parts?.strings,
+    hoodieV12Parts?.pocket,
+  ]);
 
   // Texture disposal
-  const [frontTex, setFrontTex] = useState(null);
-  const [backTex, setBackTex] = useState(null);
+  const frontTex = useMemo(
+    () => makeCanvasTexture(frontCanvas, { maxAnisotropy, useMipmaps: allowMipmaps }),
+    [frontCanvas, maxAnisotropy, allowMipmaps]
+  );
+  const backTex = useMemo(
+    () => makeCanvasTexture(backCanvas, { maxAnisotropy, useMipmaps: allowMipmaps }),
+    [backCanvas, maxAnisotropy, allowMipmaps]
+  );
 
-  useEffect(() => {
-    if (!frontCanvas) {
-      setFrontTex(null);
-      return;
-    }
-    const t = makeCanvasTexture(frontCanvas, maxAnisotropy);
-    setFrontTex(t);
-    return () => {
-      if (t) t.dispose();
-    };
-  }, [frontCanvas, isMobile, maxAnisotropy]);
+  useEffect(
+    () => () => {
+      frontTex?.dispose?.();
+    },
+    [frontTex]
+  );
 
-  useEffect(() => {
-    if (!backCanvas) {
-      setBackTex(null);
-      return;
-    }
-    const t = makeCanvasTexture(backCanvas, maxAnisotropy);
-    setBackTex(t);
-    return () => {
-      if (t) t.dispose();
-    };
-  }, [backCanvas, isMobile, maxAnisotropy]);
+  useEffect(
+    () => () => {
+      backTex?.dispose?.();
+    },
+    [backTex]
+  );
 
   const decalHost = useMemo(() => pickDecalHostMesh(root, modelType), [root, modelType]);
   const decalHostRef = useMemo(() => ({ current: decalHost }), [decalHost]);
@@ -2569,32 +3222,64 @@ function Real3DModel({
   const frontInjectionOption = getInjectionPatternById(frontSideData?.injectionModelId);
   const backInjectionOption = getInjectionPatternById(backSideData?.injectionModelId);
   const frontEmbossLogos = useMemo(
-    () => (frontSideData?.logos || []).filter((l) => isEmbossSticker(l)),
-    [frontSideData?.logos]
+    () => (disableEmbossDecals ? [] : (frontSideData?.logos || []).filter((l) => isEmbossSticker(l))),
+    [disableEmbossDecals, frontSideData?.logos]
   );
   const backEmbossLogos = useMemo(
-    () => (backSideData?.logos || []).filter((l) => isEmbossSticker(l)),
-    [backSideData?.logos]
+    () => (disableEmbossDecals ? [] : (backSideData?.logos || []).filter((l) => isEmbossSticker(l))),
+    [disableEmbossDecals, backSideData?.logos]
   );
   const frontEmbossUrls = useMemo(() => frontEmbossLogos.map((l) => l.url), [frontEmbossLogos]);
   const backEmbossUrls = useMemo(() => backEmbossLogos.map((l) => l.url), [backEmbossLogos]);
   const frontEmbossTextures = useTexture(frontEmbossUrls);
   const backEmbossTextures = useTexture(backEmbossUrls);
+  const trackedEmbossTexturesRef = useRef([]);
 
   useEffect(() => {
+    const disposeEmbossTexture = (tex) => {
+      if (!tex) return;
+      const src =
+        tex?.image?.currentSrc ||
+        tex?.image?.src ||
+        tex?.source?.data?.currentSrc ||
+        tex?.source?.data?.src ||
+        "";
+      if (String(src).startsWith("data:")) tex.dispose?.();
+    };
     const all = [...frontEmbossTextures, ...backEmbossTextures];
+    const tracked = trackedEmbossTexturesRef.current;
+    const removed = tracked.filter((tex) => tex && !all.includes(tex));
+    removed.forEach(disposeEmbossTexture);
+    trackedEmbossTexturesRef.current = all.filter(Boolean);
+
     all.forEach((tex) => {
       if (!tex) return;
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.anisotropy = maxAnisotropy;
       tex.wrapS = THREE.ClampToEdgeWrapping;
       tex.wrapT = THREE.ClampToEdgeWrapping;
-      tex.generateMipmaps = true;
-      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      tex.generateMipmaps = allowMipmaps;
+      tex.minFilter = allowMipmaps ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
       tex.magFilter = THREE.LinearFilter;
       tex.needsUpdate = true;
     });
-  }, [frontEmbossTextures, backEmbossTextures, maxAnisotropy]);
+  }, [frontEmbossTextures, backEmbossTextures, maxAnisotropy, allowMipmaps]);
+
+  useEffect(
+    () => () => {
+      trackedEmbossTexturesRef.current.forEach((tex) => {
+        const src =
+          tex?.image?.currentSrc ||
+          tex?.image?.src ||
+          tex?.source?.data?.currentSrc ||
+          tex?.source?.data?.src ||
+          "";
+        if (String(src).startsWith("data:")) tex?.dispose?.();
+      });
+      trackedEmbossTexturesRef.current = [];
+    },
+    []
+  );
 
   const modelCenter = useMemo(() => {
     root.updateWorldMatrix(true, true);
@@ -2617,174 +3302,6 @@ function Real3DModel({
     return center;
   }, [root, decalHost]);
 
-  const renderRubberText = (side, sideData, profile, areaW, areaH, enabled) => {
-    if (!enabled) return null;
-    const textState = sideData?.customText || {};
-    const rawText = String(textState?.text || "").trim();
-    if (!rawText) return null;
-    const chars = [...rawText];
-    if (!chars.length) return null;
-    const layout = String(textState?.layout || "straight");
-    const curve = getTextCurveValue(textState);
-    const scaleX = clamp(Number(textState?.scaleX) || 1, 0.3, 3);
-    const scaleY = clamp(Number(textState?.scaleY) || 1, 0.3, 3);
-
-    const resolveGlyphForChar = (ch) => {
-      if (!ch) return null;
-      const upperTr = ch.toLocaleUpperCase("tr-TR");
-      const lowerTr = ch.toLocaleLowerCase("tr-TR");
-      return (
-        glyphLibrary[ch] ||
-        glyphLibrary[upperTr] ||
-        glyphLibrary[lowerTr] ||
-        glyphLibrary[ch.toUpperCase()] ||
-        glyphLibrary[ch.toLowerCase()] ||
-        null
-      );
-    };
-
-    const entries = chars.map((ch) => {
-      if (ch === " ") return { char: ch, width: 0.52, isSpace: true };
-      const glyph = resolveGlyphForChar(ch);
-      if (!glyph) return { char: ch, width: 0.52, isSpace: true };
-      return { char: ch, ...glyph, isSpace: false };
-    });
-
-    const avgGlyphW = entries
-      .filter((entry) => !entry.isSpace)
-      .reduce((sum, entry, _, arr) => sum + entry.width / Math.max(1, arr.length), 0) || 0.58;
-    const rubberLetterSpacing = clamp(Number(textState?.rubberLetterSpacing ?? 1), 0.2, 3);
-    const spacingRaw = clamp(avgGlyphW * 0.18, 0.02, 0.9);
-
-    const positions = [];
-    let cursor = 0;
-    entries.forEach((entry, idx) => {
-      const stepW = entry.isSpace ? avgGlyphW * 0.55 : entry.width;
-      positions[idx] = { x: cursor + stepW / 2, width: stepW };
-      cursor += stepW + spacingRaw;
-    });
-    const totalRawW = Math.max(0.001, cursor - spacingRaw);
-    const maxRawH = Math.max(
-      0.001,
-      ...entries.filter((entry) => !entry.isSpace).map((entry) => entry.height)
-    );
-    const maxRawD = Math.max(
-      0.0002,
-      ...entries.filter((entry) => !entry.isSpace).map((entry) => entry.depth || 0.0002)
-    );
-    const ampRaw = clamp((curve / 100) * maxRawH, 0, maxRawH * 2.8);
-    const layoutRows = entries.map((entry, idx) => {
-      const baseX = positions[idx].x - totalRawW / 2;
-      const count = Math.max(entries.length, 1);
-      const p = count > 1 ? idx / (count - 1) : 0.5;
-      const norm = count > 1 ? p * 2 - 1 : 0;
-      const phase = p * Math.PI * 2;
-      let yRaw = 0;
-      let rotDeg = 0;
-
-      if (layout === "wave" || layout === "wave-soft" || layout === "wave-strong") {
-        const waveMul = layout === "wave-soft" ? 0.7 : layout === "wave-strong" ? 1.35 : 1;
-        const rotMul = layout === "wave-soft" ? 0.11 : layout === "wave-strong" ? 0.21 : 0.16;
-        yRaw = Math.sin(phase) * ampRaw * waveMul;
-        rotDeg = Math.cos(phase) * curve * rotMul;
-      } else if (layout === "zigzag") {
-        yRaw = (idx % 2 === 0 ? -1 : 1) * ampRaw * 0.7;
-        rotDeg = (idx % 2 === 0 ? -1 : 1) * curve * 0.2;
-      } else if (layout === "stair-up" || layout === "stair-down") {
-        const dir = layout === "stair-up" ? -1 : 1;
-        yRaw = dir * (p - 0.5) * 2 * ampRaw * 1.1;
-        rotDeg = dir * 6;
-      } else if (layout === "arc-up" || layout === "arc-down" || layout === "arc-up-strong" || layout === "arc-down-strong") {
-        const arcDown = layout === "arc-down" || layout === "arc-down-strong";
-        const strong = layout === "arc-up-strong" || layout === "arc-down-strong";
-        const arcMul = strong ? 2.05 : 1.45;
-        const rotMul = strong ? 0.75 : 0.55;
-        yRaw = (arcDown ? 1 : -1) * Math.pow(norm, 2) * ampRaw * arcMul;
-        rotDeg = norm * curve * rotMul;
-      }
-
-      const top = yRaw + (entry.height || maxRawH);
-      const bottom = yRaw;
-      return { entry, baseX, yRaw, rotDeg, top, bottom };
-    });
-
-    const minRawY = layoutRows.reduce((min, row) => Math.min(min, row.bottom), 0);
-    const maxRawY = layoutRows.reduce((max, row) => Math.max(max, row.top), maxRawH);
-    const centerRawY = (minRawY + maxRawY) / 2;
-    const totalRawH = Math.max(0.001, maxRawY - minRawY);
-
-    const textBounds01 = estimateTextHalfBounds01(textState);
-    const targetW = clamp(textBounds01.halfW01 * 2 * areaW, 0.03, areaW * 0.96);
-    const targetH = clamp(textBounds01.halfH01 * 2 * areaH, 0.03, areaH * 0.88);
-    const fitWScale = (areaW * 0.96) / Math.max(0.001, totalRawW * scaleX);
-    const fitHScale = (areaH * 0.88) / Math.max(0.001, totalRawH * scaleY);
-    const scaleRaw = Math.min(targetW / totalRawW, targetH / maxRawH, fitWScale, fitHScale);
-    const glyphScale = clamp(scaleRaw, 0.01, 1.35);
-    const rubberDepth = 0.2;
-    const rubberStick = clamp(Number(textState?.rubberStick ?? 0.96), 0.7, 1);
-    const depthT = 0;
-    const zScale = clamp(
-      (0.07 + depthT * 0.08) * (maxRawD / 0.024),
-      0.06,
-      0.17
-    );
-    const depthBoost = 3.2 + depthT * 2.2;
-    const placedW = totalRawW * glyphScale * scaleX * rubberLetterSpacing;
-    const placedH = totalRawH * glyphScale * scaleY;
-
-    const safeTextPos = clampTextPos(sideData?.textPos, textState);
-    const halfW = placedW / 2;
-    const halfH = placedH / 2;
-    const edgePad = 0.002;
-    const cx = clamp(
-      profile.xMin + safeTextPos.x * areaW,
-      profile.xMin + halfW + edgePad,
-      profile.xMax - halfW - edgePad
-    );
-    const cy = clamp(
-      profile.yTop - safeTextPos.y * areaH,
-      profile.yBot + halfH + edgePad,
-      profile.yTop - halfH - edgePad
-    );
-    const rz = ((Number(textState?.rotation) || 0) * Math.PI) / 180;
-    const stickLift = (1 - rubberStick) * 0.00032;
-    const zNudge = side === "back" ? -(0.000012 + stickLift) : 0.000012 + stickLift;
-    const sideRotY = Number(profile.rotY ?? (side === "back" ? Math.PI : 0));
-    const textColor = textState?.color || "#f4f4f4";
-    const yLift = 0;
-    const placementKey = `${side}_${cx}_${cy}_${profile.z || 0}_${sideRotY}_${rz}`;
-
-    return (
-      <group
-        key={`rubber-text-${side}-${rawText}`}
-        position={[cx, cy + yLift, (profile.z || 0) + zNudge]}
-        rotation={[0, sideRotY, rz]}
-      >
-        {layoutRows.map((row, idx) => {
-          const entry = row.entry;
-          if (!entry.geometry || entry.isSpace) return null;
-          const x = row.baseX * glyphScale * scaleX * rubberLetterSpacing;
-          const y = (row.yRaw - centerRawY) * glyphScale * scaleY;
-          return (
-            <ShrinkwrappedRubberGlyph
-              key={`rubber-glyph-${side}-${entry.char}-${idx}`}
-              baseGeometry={entry.geometry}
-              targetMesh={decalHost}
-              position={[x, y, 0]}
-              rotationZ={(row.rotDeg * Math.PI) / 180}
-              scale={[glyphScale * scaleX, glyphScale * scaleY, zScale]}
-              color={textColor}
-              shrinkwrap
-              stick={rubberStick}
-              depthBoost={depthBoost}
-              placementKey={placementKey}
-            />
-          );
-        })}
-      </group>
-    );
-  };
-
   return (
     <group dispose={null} position={[0, -0.08, 0]}>
       <group position={[-modelCenter.x, -modelCenter.y, -modelCenter.z]}>
@@ -2794,6 +3311,7 @@ function Real3DModel({
           <>
             {showFront && frontTex && (
               <Decal
+                raycast={NO_RAYCAST}
                 mesh={decalHostRef}
                 position={[0, frontCY, frontProfile.z + torsoZOffsetFront]}
                 rotation={[0, frontProfile.rotY || 0, 0]}
@@ -2830,6 +3348,7 @@ function Real3DModel({
                 return (
                   <React.Fragment key={`emboss-front-wrap-${logo.id || idx}`}>
                     <Decal
+                      raycast={NO_RAYCAST}
                       mesh={decalHostRef}
                       position={[cx, cy, frontProfile.z + torsoZOffsetFront + 0.0026]}
                       rotation={[0, frontProfile.rotY || 0, rz]}
@@ -2851,6 +3370,7 @@ function Real3DModel({
                       />
                     </Decal>
                     <Decal
+                      raycast={NO_RAYCAST}
                       mesh={decalHostRef}
                       position={[cx, cy, frontProfile.z + torsoZOffsetFront + 0.0036]}
                       rotation={[0, frontProfile.rotY || 0, rz]}
@@ -2874,6 +3394,7 @@ function Real3DModel({
                       />
                     </Decal>
                     <Decal
+                      raycast={NO_RAYCAST}
                       mesh={decalHostRef}
                       position={[cx, cy, frontProfile.z + torsoZOffsetFront + 0.0052]}
                       rotation={[0, frontProfile.rotY || 0, rz]}
@@ -2900,7 +3421,28 @@ function Real3DModel({
                 );
               })}
 
-            {showFront && renderRubberText("front", frontSideData, frontProfile, frontW, frontH, frontHasRubber)}
+            {showFront &&
+              (useSdfTextFallback ? (
+                <SdfTextLayer
+                  side="front"
+                  sideData={frontSideData}
+                  profile={frontProfile}
+                  areaW={frontW}
+                  areaH={frontH}
+                  enabled={frontHasRubber}
+                />
+              ) : (
+                <RubberTextLayer
+                  side="front"
+                  sideData={frontSideData}
+                  profile={frontProfile}
+                  areaW={frontW}
+                  areaH={frontH}
+                  enabled={frontHasRubber}
+                  glyphLibrary={glyphLibrary}
+                  decalHost={decalHost}
+                />
+              ))}
             {showFront && frontInjectionOption && (
               <InjectionPatternStamp
                 option={frontInjectionOption}
@@ -2915,6 +3457,7 @@ function Real3DModel({
 
             {showBack && backTex && (
               <Decal
+                raycast={NO_RAYCAST}
                 mesh={decalHostRef}
                 position={[0, backCY, backProfile.z + torsoZOffsetBack]}
                 rotation={[0, backProfile.rotY || Math.PI, 0]}
@@ -2937,7 +3480,28 @@ function Real3DModel({
               </Decal>
             )}
 
-            {showBack && renderRubberText("back", backSideData, backProfile, backW, backH, backHasRubber)}
+            {showBack &&
+              (useSdfTextFallback ? (
+                <SdfTextLayer
+                  side="back"
+                  sideData={backSideData}
+                  profile={backProfile}
+                  areaW={backW}
+                  areaH={backH}
+                  enabled={backHasRubber}
+                />
+              ) : (
+                <RubberTextLayer
+                  side="back"
+                  sideData={backSideData}
+                  profile={backProfile}
+                  areaW={backW}
+                  areaH={backH}
+                  enabled={backHasRubber}
+                  glyphLibrary={glyphLibrary}
+                  decalHost={decalHost}
+                />
+              ))}
             {showBack && backInjectionOption && (
               <InjectionPatternStamp
                 option={backInjectionOption}
@@ -2964,6 +3528,7 @@ function Real3DModel({
                 return (
                   <React.Fragment key={`emboss-back-wrap-${logo.id || idx}`}>
                     <Decal
+                      raycast={NO_RAYCAST}
                       mesh={decalHostRef}
                       position={[cx, cy, backProfile.z + torsoZOffsetBack - 0.0026]}
                       rotation={[0, backProfile.rotY || Math.PI, rz]}
@@ -2985,6 +3550,7 @@ function Real3DModel({
                       />
                     </Decal>
                     <Decal
+                      raycast={NO_RAYCAST}
                       mesh={decalHostRef}
                       position={[cx, cy, backProfile.z + torsoZOffsetBack - 0.0036]}
                       rotation={[0, backProfile.rotY || Math.PI, rz]}
@@ -3008,6 +3574,7 @@ function Real3DModel({
                       />
                     </Decal>
                     <Decal
+                      raycast={NO_RAYCAST}
                       mesh={decalHostRef}
                       position={[cx, cy, backProfile.z + torsoZOffsetBack - 0.0052]}
                       rotation={[0, backProfile.rotY || Math.PI, rz]}
@@ -3382,6 +3949,8 @@ function DesignModelItem({
   hidden,
   disableDrag,
   isMobile,
+  interactionMode,
+  perfProfile,
   onUserRotate,
   onModelTap,
   onModelLongPress,
@@ -3391,10 +3960,26 @@ function DesignModelItem({
   const userRotRef = useRef({ x: 0, y: 0 });
   const dragRef = useRef({ active: false, pid: null, startX: 0, startY: 0, startRotY: 0, startRotX: 0 });
   const holdRef = useRef({ timer: null, pid: null, startX: 0, startY: 0, triggered: false });
+  const tapSideHintRef = useRef(null);
+  const frontMeshRef = useRef({ side: "front" });
+  const backMeshRef = useRef({ side: "back" });
 
   const ROT_SPEED = isMobile ? 0.014 : 0.01;
   const clampRotX = (v) => Math.max(isMobile ? -0.9 : -0.75, Math.min(isMobile ? 0.9 : 0.75, v));
   const clampRotY = (v) => Math.max(isMobile ? -1.05 : -0.85, Math.min(isMobile ? 1.05 : 0.85, v));
+  const isColorMode = interactionMode === "color";
+  const targetMeshRef = view === "back" ? backMeshRef : frontMeshRef;
+
+  const resolveTapSideFromEvent = (evt) => {
+    const point = evt?.point;
+    const group = groupRef.current;
+    if (!point || !group) return null;
+    const local = group.worldToLocal(point.clone());
+    if (!Number.isFinite(local?.z)) return null;
+    if (local.z > INTERACTION_SIDE_EPSILON) return "front";
+    if (local.z < -INTERACTION_SIDE_EPSILON) return "back";
+    return null;
+  };
 
   const clearHoldTimer = () => {
     if (holdRef.current.timer) {
@@ -3460,18 +4045,42 @@ function DesignModelItem({
       printTypeIdsToTechnique(printTypesBySide.back, PRINT_TECHNIQUES.RUBBER)
     ) === PRINT_TECHNIQUES.RUBBER;
 
-  const textureCanvasSize = isMobile
-    ? (isActive ? 3072 : 1664)
-    : (isActive ? 3840 : 2304);
+  const lowPerformanceMode = Boolean(perfProfile?.lowPerformanceMode);
+  const singleSideTextureMode = Boolean(perfProfile?.singleSideTextureMode);
+  const frontCanvasEnabled = !singleSideTextureMode || view === "front";
+  const backCanvasEnabled = !singleSideTextureMode || view === "back";
+  const textureCanvasSize = isActive
+    ? Number(perfProfile?.activeCanvasSize || (isMobile ? 3072 : 3840))
+    : Number(perfProfile?.idleCanvasSize || (isMobile ? 1664 : 2304));
+  const textureDebounceMs = Number(perfProfile?.canvasUpdateDebounceMs || 12);
   const frontCanvas = useDesignCanvas(
     design.sides.front || EMPTY_SIDE,
     isZipper
-      ? { clearCenterStripe01: gap01, disableText: frontHasRubber, canvasSize: textureCanvasSize }
-      : { disableText: frontHasRubber, canvasSize: textureCanvasSize }
+      ? {
+          clearCenterStripe01: gap01,
+          disableText: frontHasRubber,
+          canvasSize: textureCanvasSize,
+          includeEmbossLogos: lowPerformanceMode,
+          updateDebounceMs: textureDebounceMs,
+          lowQuality: lowPerformanceMode,
+          disabled: !frontCanvasEnabled,
+        }
+      : {
+          disableText: frontHasRubber,
+          canvasSize: textureCanvasSize,
+          includeEmbossLogos: lowPerformanceMode,
+          updateDebounceMs: textureDebounceMs,
+          lowQuality: lowPerformanceMode,
+          disabled: !frontCanvasEnabled,
+        }
   );
   const backCanvas = useDesignCanvas(design.sides.back || EMPTY_SIDE, {
     disableText: backHasRubber,
     canvasSize: textureCanvasSize,
+    includeEmbossLogos: lowPerformanceMode,
+    updateDebounceMs: textureDebounceMs,
+    lowQuality: lowPerformanceMode,
+    disabled: !backCanvasEnabled,
   });
 
   if (hidden) return null;
@@ -3492,15 +4101,26 @@ function DesignModelItem({
       }}
       onPointerDown={(e) => {
         e.stopPropagation();
+        const requiredSide = targetMeshRef.current.side;
+        const tapSideHint = resolveTapSideFromEvent(e);
+        tapSideHintRef.current = tapSideHint;
+        if (tapSideHint && tapSideHint !== requiredSide) {
+          return;
+        }
+        const resolvedTapSide = tapSideHint || requiredSide;
         onSelect(design.id);
+        if (isColorMode) {
+          onModelTap?.(design.id, resolvedTapSide);
+          return;
+        }
         armHoldTimer(e);
         if (!isActive) {
-          onModelTap?.(design.id);
+          onModelTap?.(design.id, resolvedTapSide);
           return;
         }
         if (holdRef.current.triggered) return;
         if (disableDrag) {
-          onModelTap?.(design.id);
+          onModelTap?.(design.id, resolvedTapSide);
           return;
         }
 
@@ -3540,6 +4160,9 @@ function DesignModelItem({
         });
       }}
       onPointerUp={(e) => {
+        const tapSideHint = tapSideHintRef.current;
+        tapSideHintRef.current = null;
+        const requiredSide = targetMeshRef.current.side;
         const holdTriggered = holdRef.current.pid === e.pointerId && holdRef.current.triggered;
         if (holdRef.current.pid === e.pointerId) clearHoldTimer();
         if (disableDrag) return;
@@ -3548,9 +4171,10 @@ function DesignModelItem({
         dragRef.current.active = false;
         document.body.style.cursor = "grab";
         if (e.target?.releasePointerCapture) e.target.releasePointerCapture(e.pointerId);
-        if (tapped && !holdTriggered) onModelTap?.(design.id);
+        if (tapped && !holdTriggered) onModelTap?.(design.id, tapSideHint || requiredSide);
       }}
       onPointerCancel={(e) => {
+        tapSideHintRef.current = null;
         if (holdRef.current.pid === e.pointerId) clearHoldTimer();
         if (dragRef.current.pid !== e.pointerId) return;
         dragRef.current.active = false;
@@ -3572,6 +4196,7 @@ function DesignModelItem({
         isMobile={isMobile}
         frontPrintTypes={printTypesBySide.front}
         backPrintTypes={printTypesBySide.back}
+        perfProfile={perfProfile}
       />
       {showModelDeleteButton && (
         <Html position={[0, 0.42, 0]} center distanceFactor={6} occlude={false} zIndexRange={[180, 260]}>
@@ -4097,8 +4722,10 @@ function EditorPanel({
   const isDrawerLayout = layout === "drawer";
   const isMobileDrawer = isDrawerLayout && isMobile;
 
-  const currentSide = view === "back" ? "back" : "front";
-  const sideData = useMemo(() => design?.sides?.[currentSide] || createSideData(), [design, currentSide]);
+  const resolveViewSide = (nextView) => (nextView === "back" ? "back" : "front");
+  const currentView = resolveViewSide(view);
+  const currentSide = currentView;
+  const sideData = useMemo(() => normalizeSideData(design?.sides?.[currentSide]), [design, currentSide]);
 
   const previewRef = useRef(null);
   const uploadSlotRefs = useRef([]);
@@ -4118,12 +4745,44 @@ function EditorPanel({
   const sideHasInjection = Boolean(sideData?.injectionModelId);
   const hoodieParts = normalizeHoodieParts(design?.hoodieV12Parts);
   const hoodiePartOptionsVisible = MODELS_WITH_HOODIE_PARTS.has(design?.modelType);
+  const activeBaseColor = sideData?.baseColor || design?.color;
   const textFontOptions = rubberActiveForSide ? [RUBBER_FONT_OPTION] : FONT_OPTIONS;
+  const [isTextCommitPending, startTextCommitTransition] = useTransition();
+  const editorTextKey = `${design?.id || "no-design"}_${currentSide}`;
 
   useEffect(() => {
     if (printTypePickerSignal <= 0) return;
     setActiveTab("print");
   }, [printTypePickerSignal, setActiveTab]);
+
+  const commitEditorTextDraft = (nextText) => {
+    if (!design) return;
+    startTextCommitTransition(() => {
+      const liveSideData = normalizeSideData(design?.sides?.[currentSide]);
+      const committedText = liveSideData?.customText?.text || "";
+      if (nextText === committedText) return;
+      const liveText = liveSideData?.customText || {};
+      const liveTechnique = normalizePrintTechnique(liveText?.technique, PRINT_TECHNIQUES.RUBBER);
+      const nextCustomText = {
+        ...liveText,
+        text: nextText,
+        technique: liveTechnique,
+        surfaceRotationY: currentSide === "back" ? Math.PI : 0,
+        ...(liveTechnique === PRINT_TECHNIQUES.RUBBER ? { font: RUBBER_FONT_OPTION.value } : {}),
+      };
+      const nextTextPos = clampTextPos(liveSideData?.textPos, nextCustomText);
+      updateDesign({
+        sides: {
+          ...(design.sides || {}),
+          [currentSide]: {
+            ...liveSideData,
+            customText: nextCustomText,
+            textPos: nextTextPos,
+          },
+        },
+      });
+    });
+  };
 
   if (!design) return null;
 
@@ -4160,10 +4819,32 @@ function EditorPanel({
   };
 
   const updateSide = (patch) => {
+    const currentSideData = normalizeSideData(design?.sides?.[currentSide]);
     updateDesign({
       sides: {
-        ...design.sides,
-        [currentSide]: { ...design.sides[currentSide], ...patch },
+        ...(design.sides || {}),
+        [currentSide]: { ...currentSideData, ...(patch || {}) },
+      },
+    });
+  };
+
+  const handleColorChange = (nextColor, target = "body") => {
+    const safeColor = String(nextColor || "").trim();
+    if (!safeColor) return;
+    if (target === "string") {
+      updateDesign({ stringColor: safeColor });
+      return;
+    }
+    const safeSide = currentSide === "back" ? "back" : "front";
+    const liveSide = normalizeSideData(design?.sides?.[safeSide]);
+    updateDesign({
+      ...(safeSide === "front" ? { color: safeColor } : {}),
+      sides: {
+        ...(design.sides || {}),
+        [safeSide]: {
+          ...liveSide,
+          baseColor: safeColor,
+        },
       },
     });
   };
@@ -4173,6 +4854,9 @@ function EditorPanel({
     const nextTechnique = Object.prototype.hasOwnProperty.call(safePatch || {}, "technique")
       ? normalizePrintTechnique(safePatch?.technique, t.technique || PRINT_TECHNIQUES.RUBBER)
       : t.technique || PRINT_TECHNIQUES.RUBBER;
+    if (!Object.prototype.hasOwnProperty.call(safePatch, "surfaceRotationY")) {
+      safePatch.surfaceRotationY = currentSide === "back" ? Math.PI : 0;
+    }
     if (nextTechnique === PRINT_TECHNIQUES.RUBBER) {
       safePatch.font = RUBBER_FONT_OPTION.value;
     }
@@ -4207,29 +4891,59 @@ function EditorPanel({
   const logoCount = logos.length;
   const canUploadMoreLogos = logoCount < MAX_LOGOS_PER_SIDE;
 
-  const handleUploadFile = async (file) => {
+  const handleAddPrint = ({ url, kind = "logo", emboss = false, box = null } = {}) => {
+    const safeUrl = String(url || "").trim();
+    if (!safeUrl) return null;
+    const sideKey = resolveViewSide(view);
+    const sideState = normalizeSideData(design?.sides?.[sideKey]);
+    if ((sideState?.logos || []).length >= MAX_LOGOS_PER_SIDE) {
+      alert(`Bu alanda en fazla ${MAX_LOGOS_PER_SIDE} baskı görseli yükleyebilirsin.`);
+      return null;
+    }
+
+    const profile = getPrintProfile(design?.modelType || DEFAULT_MODEL_TYPE, sideKey, design?.hoodieV12Parts);
+    const isBackSide = sideKey === "back";
+    const nextLogo = {
+      id: makeId(),
+      url: safeUrl,
+      technique: PRINT_TECHNIQUES.DTF,
+      box: box || { x: 0.5, y: isBackSide ? 0.58 : 0.6, w: 0.7, h: 0.45 },
+      rotation: isBackSide ? 180 : 0,
+      z: 0,
+      kind: kind === "sticker" ? "sticker" : "logo",
+      emboss: Boolean(emboss),
+      // Back-view placement metadata: used to keep side intent explicit and debuggable.
+      surfaceSide: sideKey,
+      surfaceRotationY: Number(profile?.rotY ?? (isBackSide ? Math.PI : 0)),
+      surfaceZ: Number(profile?.z ?? (isBackSide ? -0.148 : 0.147)),
+      ...LOGO_STYLE_DEFAULTS,
+    };
+    const nextSide = {
+      ...sideState,
+      logos: [...(sideState?.logos || []), nextLogo],
+      activeLogoId: nextLogo.id,
+    };
+    const bySide = normalizePrintTypesBySide(design?.printTypesBySide, design?.printTypes);
+    bySide[sideKey] = Array.from(new Set([...(bySide[sideKey] || []), "dtf"]));
+    const mergedLegacy = Array.from(new Set([...(bySide.front || []), ...(bySide.back || [])]));
+
+    updateDesign({
+      sides: {
+        ...(design?.sides || {}),
+        [sideKey]: nextSide,
+      },
+      printTypesBySide: bySide,
+      printTypes: mergedLegacy,
+    });
+    return nextLogo.id;
+  };
+
+  const handleTextureUpload = async (file) => {
     if (!file) return;
     try {
-      if ((sideData.logos || []).length >= MAX_LOGOS_PER_SIDE) {
-        alert(`Bu alanda en fazla ${MAX_LOGOS_PER_SIDE} baskı görseli yükleyebilirsin.`);
-        return;
-      }
-
-      const optimizedUrl = await optimizeUploadDataUrl(file);
-      const id = makeId();
-      const nextLogo = {
-        id,
-        url: optimizedUrl,
-        technique: PRINT_TECHNIQUES.DTF,
-        box: { x: 0.5, y: 0.6, w: 0.7, h: 0.45 },
-        rotation: 0,
-        z: 0,
-        ...LOGO_STYLE_DEFAULTS,
-      };
-
-      const nextLogos = [...(sideData.logos || []), nextLogo];
-      updateSide({ logos: nextLogos, activeLogoId: id });
-      ensureCurrentSidePrintType("dtf");
+      const optimizedUrl = await optimizeUploadDataUrl(file, { targetSide: currentView });
+      const addedId = handleAddPrint({ url: optimizedUrl, kind: "logo", emboss: false });
+      if (!addedId) return;
       onRequestDrawerCollapse?.();
       onRequestShowEditorOverlay?.();
       setActiveTab("editor");
@@ -4239,27 +4953,46 @@ function EditorPanel({
     }
   };
 
-  const handleAddSticker = (sticker) => {
-    if (!sticker?.src) return;
-    if ((sideData.logos || []).length >= MAX_LOGOS_PER_SIDE) {
-      alert(`Bu alanda en fazla ${MAX_LOGOS_PER_SIDE} baskı görseli yükleyebilirsin.`);
+  const handleUploadInputClick = (e) => {
+    e.stopPropagation();
+    if (!canUploadMoreLogos) {
+      e.preventDefault();
       return;
     }
-    const id = makeId();
-    const nextLogo = {
-      id,
+    if (!dtfActiveForSide) {
+      applyTextTechnique(PRINT_TECHNIQUES.DTF, { fromImageAction: true });
+    }
+  };
+
+  const handleUploadInputChange = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const inputEl = e.currentTarget;
+    try {
+      if (!canUploadMoreLogos) return;
+      if (!dtfActiveForSide) {
+        applyTextTechnique(PRINT_TECHNIQUES.DTF, { fromImageAction: true });
+      }
+      const file = inputEl.files?.[0] || null;
+      if (!file) return;
+      await handleTextureUpload(file);
+    } catch (err) {
+      console.error("Dosya secim/yukleme hatasi:", err);
+      alert(err?.message || "Görsel seçimi sırasında bir hata oluştu.");
+    } finally {
+      inputEl.value = "";
+    }
+  };
+
+  const handleAddSticker = (sticker) => {
+    if (!sticker?.src) return;
+    const addedId = handleAddPrint({
       url: sticker.src,
-      technique: PRINT_TECHNIQUES.DTF,
-      box: { x: 0.5, y: 0.6, w: 0.62, h: 0.42 },
-      rotation: 0,
-      z: 0,
       kind: "sticker",
       emboss: true,
-      ...LOGO_STYLE_DEFAULTS,
-    };
-    const nextLogos = [...(sideData.logos || []), nextLogo];
-    updateSide({ logos: nextLogos, activeLogoId: id });
-    ensureCurrentSidePrintType("dtf");
+      box: { x: 0.5, y: 0.6, w: 0.62, h: 0.42 },
+    });
+    if (!addedId) return;
     onRequestDrawerCollapse?.();
     onRequestShowEditorOverlay?.();
     setActiveTab("editor");
@@ -4336,6 +5069,10 @@ function EditorPanel({
   const handleSelectPrintTypeFromPanel = (id) => {
     const opt = PRINT_TYPE_OPTIONS.find((entry) => entry.id === id);
     if (!opt?.available) return;
+    if (currentView === "back") {
+      togglePrintType(id);
+      return;
+    }
     togglePrintType(id);
   };
 
@@ -4381,7 +5118,7 @@ function EditorPanel({
       <div className="w-full h-full flex flex-col bg-[#111111]" style={{ touchAction: "none" }}>
         <div className="flex items-center justify-between p-3 border-b border-zinc-800 bg-[#0f0f0f]">
           <h3 className="text-sm font-bold text-white uppercase tracking-wider">Yerleşim Ayarı</h3>
-          <button
+          <button type="button" 
             onClick={() => setActiveTab("upload")}
             className="px-4 py-1.5 bg-green-600 text-white text-xs font-black rounded-full shadow-lg active:scale-95 transition flex items-center gap-1"
           >
@@ -4564,7 +5301,7 @@ function EditorPanel({
                 <p className="text-zinc-500 text-[10px] font-bold mb-1">BEDEN</p>
                 <div className="flex gap-1">
                   {sizes.map((s) => (
-                    <button
+                    <button type="button" 
                       key={s}
                       onClick={() => updateDesign({ size: s })}
                       className={`w-7 h-7 text-[10px] font-bold rounded border transition ${design.size === s ? "bg-white text-black border-white" : "text-zinc-500 border-zinc-700"
@@ -4583,6 +5320,7 @@ function EditorPanel({
             {panelTabs.map((tab) => (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => {
                   setActiveTab(tab.id);
                   if (tab.id === "upload" && !isMobileDrawer) onRequestDrawerCollapse?.();
@@ -4676,6 +5414,7 @@ function EditorPanel({
                           </div>
                           <img src={layer.url} alt="" className="w-full h-full object-cover" />
                           <button
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               const next = logos.filter((l) => l.id !== layer.id);
@@ -4691,45 +5430,55 @@ function EditorPanel({
                     }
 
                     return (
-                      <div key={`slot-empty-${slotIdx}`} className="relative h-28 rounded-lg border border-dashed border-gray-300 bg-gray-50">
-                        <button
-                          onClick={() => {
-                            if (!canUploadMoreLogos) return;
-                            if (!dtfActiveForSide) {
-                              applyTextTechnique(PRINT_TECHNIQUES.DTF, { fromImageAction: true });
-                              window.setTimeout(() => uploadSlotRefs.current?.[slotIdx]?.click(), 0);
-                              return;
-                            }
-                            uploadSlotRefs.current?.[slotIdx]?.click();
-                          }}
-                          disabled={!canUploadMoreLogos}
-                          className={`w-full h-full flex flex-col items-start justify-center pl-4 gap-1 ${canUploadMoreLogos ? "text-gray-600 hover:bg-gray-100" : "text-gray-400 cursor-not-allowed"
-                            }`}
-                        >
-                          <Plus size={26} strokeWidth={2.8} />
-                          <span className="text-[11px] font-bold uppercase">Dosya Ekle</span>
-                        </button>
-                        <input
-                          ref={(el) => {
-                            uploadSlotRefs.current[slotIdx] = el;
-                          }}
-                          type="file"
-                          className="hidden"
-                          accept="image/*"
-                          disabled={!canUploadMoreLogos}
-                          onChange={async (e) => {
-                            const inputEl = e.currentTarget;
-                            const file = inputEl.files?.[0];
-                            await handleUploadFile(file);
-                            inputEl.value = "";
-                          }}
-                        />
+                      <div key={`slot-empty-${slotIdx}`} className="relative h-28 rounded-lg border border-dashed border-gray-300 bg-gray-50 pointer-events-auto z-[2]">
+                        {(() => {
+                          const slotInputId = `upload-slot-${design?.id || "design"}-${currentSide}-${slotIdx}`;
+                          return (
+                            <>
+                              <label
+                                htmlFor={slotInputId}
+                                onPointerDown={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!canUploadMoreLogos) {
+                                    e.preventDefault();
+                                    return;
+                                  }
+                                  if (!dtfActiveForSide) {
+                                    applyTextTechnique(PRINT_TECHNIQUES.DTF, { fromImageAction: true });
+                                  }
+                                }}
+                                className={`w-full h-full flex flex-col items-start justify-center pl-4 gap-1 cursor-pointer pointer-events-auto relative z-[3] ${
+                                  canUploadMoreLogos ? "text-gray-600 hover:bg-gray-100" : "text-gray-400 cursor-not-allowed"
+                                }`}
+                              >
+                                <Plus size={26} strokeWidth={2.8} />
+                                <span className="text-[11px] font-bold uppercase">Dosya Ekle</span>
+                              </label>
+                              <input
+                                id={slotInputId}
+                                ref={(el) => {
+                                  uploadSlotRefs.current[slotIdx] = el;
+                                }}
+                                type="file"
+                                className="sr-only"
+                                accept="image/*"
+                                disabled={!canUploadMoreLogos}
+                                onClick={handleUploadInputClick}
+                                onChange={handleUploadInputChange}
+                              />
+                            </>
+                          );
+                        })()}
                       </div>
                     );
                   })}
                 </div>
                 {!isMobileDrawer && (
                   <button
+                    type="button"
                     onClick={() => {
                       setActiveTab("editor");
                       if (isMobileDrawer) onRequestDrawerCollapse?.();
@@ -4740,6 +5489,7 @@ function EditorPanel({
                   </button>
                 )}
                 <button
+                  type="button"
                   onClick={handleDeleteActiveImage}
                   disabled={!activeLogo}
                   className={`w-full py-1.5 rounded-lg text-[10px] font-bold uppercase border flex items-center justify-center gap-2 ${activeLogo
@@ -4920,7 +5670,7 @@ function EditorPanel({
                     <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Metin</p>
                     <button
                       type="button"
-                      onClick={() =>
+                      onClick={() => {
                         bumpText({
                           text: "",
                           color: "#ffffff",
@@ -4931,8 +5681,8 @@ function EditorPanel({
                           font: FONT_OPTIONS[0].value,
                           layout: "straight",
                           curve: 30,
-                        })
-                      }
+                        });
+                      }}
                       className="text-[10px] font-black uppercase text-gray-600 underline"
                     >
                       Temizle
@@ -4967,13 +5717,14 @@ function EditorPanel({
                       ? "Yazı odaklı, kabartı hissi veren minimal baskı."
                       : "Detaylı ve renkli tasarımlar için uygun."}
                   </p>
-                  <input
-                    type="text"
-                    value={t.text || ""}
+                  <DebouncedTextDraftInput
+                    key={`${editorTextKey}::${t.text || ""}`}
+                    committedText={t.text || ""}
+                    onCommit={commitEditorTextDraft}
+                    pending={isTextCommitPending}
                     maxLength={56}
-                    onChange={(e) => bumpText({ text: e.target.value })}
-                    placeholder=""
                     className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-[16px] md:text-[12px] font-semibold text-gray-800"
+                    placeholder=""
                   />
                   <div className="grid grid-cols-2 gap-2">
                     <label className="space-y-1">
@@ -5070,17 +5821,17 @@ function EditorPanel({
                   <span className="text-[10px] text-gray-500 font-bold uppercase">Seçili</span>
                   <span
                     className="w-4 h-4 rounded-full border border-gray-300"
-                    style={{ backgroundColor: design.color }}
-                    title={design.color}
+                    style={{ backgroundColor: activeBaseColor }}
+                    title={activeBaseColor}
                   />
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
                 {colorPresets.map((c) => (
-                  <button
+                  <button type="button" 
                     key={c}
-                    onClick={() => updateDesign({ color: c })}
-                    className={`w-10 h-10 rounded-full border-2 transition hover:scale-110 ${design.color === c ? "border-black scale-110" : "border-gray-200"
+                    onClick={() => handleColorChange(c, "body")}
+                    className={`w-10 h-10 rounded-full border-2 transition hover:scale-110 ${activeBaseColor === c ? "border-black scale-110" : "border-gray-200"
                       }`}
                     style={{ backgroundColor: c }}
                   />
@@ -5100,9 +5851,9 @@ function EditorPanel({
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   {stringPresets.map((c) => (
-                    <button
+                    <button type="button" 
                       key={c}
-                      onClick={() => updateDesign({ stringColor: c })}
+                      onClick={() => handleColorChange(c, "string")}
                       className={`w-10 h-10 rounded-full border-2 transition ${(design.stringColor || "#e6e6e6") === c ? "border-black scale-110" : "border-gray-300"
                         }`}
                       style={{ backgroundColor: c }}
@@ -5267,6 +6018,11 @@ function TasarimClientContent({ isMobile }) {
   const [isEditingCmW, setIsEditingCmW] = useState(false);
   const [isEditingCmH, setIsEditingCmH] = useState(false);
   const [editorControlTab, setEditorControlTab] = useState("logo");
+  const [isTextUpdatePending, startTextUpdateTransition] = useTransition();
+  const [runtimeLowPerfMode, setRuntimeLowPerfMode] = useState(false);
+  const handleRuntimeLowPerfChange = useCallback((enabled) => {
+    setRuntimeLowPerfMode((prev) => (prev === enabled ? prev : enabled));
+  }, []);
 
   const glRef = useRef(null);
   const sceneRef = useRef(null);
@@ -5293,6 +6049,26 @@ function TasarimClientContent({ isMobile }) {
   const logoCountTrackRef = useRef({});
   const prevActiveTabRef = useRef("upload");
   const placementPanelIntentRef = useRef(false);
+  const lastGlobalUiEventTsRef = useRef(0);
+
+  useEffect(() => {
+    if (!isMobile && runtimeLowPerfMode) {
+      setRuntimeLowPerfMode(false);
+    }
+  }, [isMobile, runtimeLowPerfMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const markInteraction = () => {
+      lastGlobalUiEventTsRef.current = performance.now();
+    };
+    window.addEventListener("pointerdown", markInteraction, { capture: true, passive: true });
+    window.addEventListener("click", markInteraction, true);
+    return () => {
+      window.removeEventListener("pointerdown", markInteraction, true);
+      window.removeEventListener("click", markInteraction, true);
+    };
+  }, []);
 
   const toggleLockAspect = () => {
     setLockAspect((prev) => {
@@ -5308,7 +6084,7 @@ function TasarimClientContent({ isMobile }) {
   const currentActiveDesign = designs.find(d => d.id === activeId);
   const currentSide = view;
   const sideLabel = currentSide === "front" ? "ÖN" : "ARKA";
-  const sideData = currentActiveDesign?.sides?.[currentSide] || {};
+  const sideData = normalizeSideData(currentActiveDesign?.sides?.[currentSide]);
   const printCm = CM_LABELS[currentActiveDesign?.modelType]?.[currentSide] || { w: 0, h: 0 };
   const printBounds = useMemo(() => {
     const modelType = currentActiveDesign?.modelType || "tshirt";
@@ -5326,6 +6102,7 @@ function TasarimClientContent({ isMobile }) {
   }, [printBounds, printCm?.w, printCm?.h]);
   const logos = sideData?.logos || [];
   const customText = sideData?.customText || {};
+  const textDraftKey = `${activeId}_${currentSide}`;
   const safeTextPos = clampTextPos(sideData?.textPos, customText);
   const activeLogo = logos.find(l => l.id === (sideData?.activeLogoId || logos[0]?.id));
   const activeLogoIsEmboss = isEmbossSticker(activeLogo);
@@ -5408,8 +6185,11 @@ function TasarimClientContent({ isMobile }) {
       d.id === activeId ? {
         ...d,
         sides: {
-          ...d.sides,
-          [currentSide]: { ...d.sides[currentSide], ...patch }
+          ...(d.sides || {}),
+          [currentSide]: {
+            ...normalizeSideData(d?.sides?.[currentSide]),
+            ...(patch || {}),
+          },
         }
       } : d
     ));
@@ -5420,17 +6200,29 @@ function TasarimClientContent({ isMobile }) {
     updateSide({ textPos: next });
   };
 
-  const bumpCustomText = (patch) => {
+  const bumpCustomText = (patch, opts = {}) => {
     const safePatch = patch && typeof patch === "object" ? { ...patch } : {};
     const nextTechnique = Object.prototype.hasOwnProperty.call(safePatch || {}, "technique")
       ? normalizePrintTechnique(safePatch?.technique, customText?.technique || PRINT_TECHNIQUES.RUBBER)
       : normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER);
+    if (!Object.prototype.hasOwnProperty.call(safePatch, "surfaceRotationY")) {
+      safePatch.surfaceRotationY = currentSide === "back" ? Math.PI : 0;
+    }
     if (nextTechnique === PRINT_TECHNIQUES.RUBBER) {
       safePatch.font = RUBBER_FONT_OPTION.value;
     }
     const nextCustomText = { ...customText, ...safePatch, technique: nextTechnique };
     const nextTextPos = clampTextPos(sideData?.textPos, nextCustomText);
-    updateSide({ customText: nextCustomText, textPos: nextTextPos });
+    const commit = () => updateSide({ customText: nextCustomText, textPos: nextTextPos });
+    if (opts?.defer) {
+      startTextUpdateTransition(commit);
+      return;
+    }
+    commit();
+  };
+
+  const commitSceneTextDraft = (nextValue) => {
+    bumpCustomText({ text: nextValue }, { defer: true });
   };
 
   const applySceneTextTechnique = (nextTechnique) => {
@@ -5534,8 +6326,13 @@ function TasarimClientContent({ isMobile }) {
     }
   };
 
-  const handleSceneModelTap = (designId) => {
+  const handleSceneModelTap = (designId, sideHint = null) => {
     if (!designId) return;
+    if (sideHint === "front" || sideHint === "back") {
+      if (sideHint !== view) {
+        setView(sideHint);
+      }
+    }
     setSceneModelSelectionId(null);
     if (designId !== activeId) {
       setActiveId(designId);
@@ -5647,20 +6444,32 @@ function TasarimClientContent({ isMobile }) {
 
   const modelCount = designs.length;
   const isIOSDevice = useMemo(() => {
-    if (typeof navigator === "undefined") return false;
-    const ua = navigator.userAgent || "";
-    const platform = navigator.platform || "";
-    return /iPad|iPhone|iPod/i.test(ua) || (platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    return isLikelyIOSDevice();
   }, []);
   const perf = useMemo(() => {
     const heavy = modelCount > 2;
+    const runtimeLow = isMobile && runtimeLowPerfMode;
+    const detectedLowPerformanceMode = detectLowPerformanceMode({ isMobileHint: isMobile, modelCount });
+    const lowPerformanceMode = detectedLowPerformanceMode || runtimeLow;
     if (isMobile) {
-      const conservative = heavy || isIOSDevice;
+      const conservative = heavy || lowPerformanceMode || isIOSDevice;
       return {
-        dpr: conservative ? 1 : 1.15,
+        dpr: conservative ? 0.9 : 1.05,
         antialias: !conservative,
-        shadowMap: conservative ? 224 : 288,
+        shadowMap: conservative ? 192 : 288,
         powerPreference: "default",
+        lowPerformanceMode,
+        runtimeLowPerformanceMode: runtimeLow,
+        activeCanvasSize: conservative ? 1024 : 1664,
+        idleCanvasSize: conservative ? 896 : 1280,
+        canvasUpdateDebounceMs: conservative ? 90 : 22,
+        exportCanvasSize: conservative ? 1280 : 1792,
+        anisotropyCap: conservative ? 2 : 4,
+        enableMipmaps: !conservative,
+        disableEmbossDecals: conservative,
+        disableShadows: true,
+        singleSideTextureMode: conservative,
+        qualityKey: conservative ? "mobile-low" : "mobile-normal",
       };
     }
     return {
@@ -5668,8 +6477,20 @@ function TasarimClientContent({ isMobile }) {
       antialias: !heavy,
       shadowMap: heavy ? 448 : 640,
       powerPreference: "high-performance",
+      lowPerformanceMode: false,
+      runtimeLowPerformanceMode: false,
+      activeCanvasSize: heavy ? 3072 : 3840,
+      idleCanvasSize: heavy ? 2048 : 2304,
+      canvasUpdateDebounceMs: heavy ? 28 : 16,
+      exportCanvasSize: heavy ? 2048 : 2304,
+      anisotropyCap: heavy ? 8 : 12,
+      enableMipmaps: true,
+      disableEmbossDecals: false,
+      disableShadows: false,
+      singleSideTextureMode: false,
+      qualityKey: heavy ? "desktop-heavy" : "desktop-high",
     };
-  }, [isMobile, modelCount, isIOSDevice]);
+  }, [isMobile, modelCount, isIOSDevice, runtimeLowPerfMode]);
 
   // Mobile drawer
   const DRAWER_PEEK = 56;
@@ -5886,7 +6707,8 @@ function TasarimClientContent({ isMobile }) {
     { id: "text", label: "Yazı", icon: FileText },
     { id: "upload", label: "Görsel", icon: ImageIcon },
   ];
-  const activeSideKey = view === "back" ? "back" : "front";
+  const currentView = view === "back" ? "back" : "front";
+  const activeSideKey = currentView;
   const activeSideData = activeDesign?.sides?.[activeSideKey];
   const activeSideTechnique = normalizePrintTechnique(
     activeSideData?.customText?.technique,
@@ -5908,7 +6730,7 @@ function TasarimClientContent({ isMobile }) {
     .join(" • ");
   const applyTechniqueToActiveSide = (nextTechnique, { updateTextTechnique = true } = {}) => {
     const safeTechnique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.DTF);
-    const safeSide = view === "back" ? "back" : "front";
+    const safeSide = currentView;
     setDesigns((prev) =>
       prev.map((d) => {
         if (d.id !== activeId) return d;
@@ -5937,6 +6759,9 @@ function TasarimClientContent({ isMobile }) {
   const togglePrintTypeFromMenu = (typeId) => {
     const opt = PRINT_TYPE_OPTIONS.find((entry) => entry.id === typeId);
     if (!opt?.available) return;
+    if (currentView === "back") {
+      // Back view uses independent side state; keep print selection actions side-scoped.
+    }
     if (isMobile) {
       setMobilePrimaryTab("design");
       setPanelProgress(0);
@@ -6511,7 +7336,9 @@ function TasarimClientContent({ isMobile }) {
             hasCenterZip(d.modelType) && sideKey === "front"
               ? MODEL_PRINT_BOUNDS?.[d.modelType]?.front?.zipGap01 ?? MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0
               : 0;
-          const exportOpts = zipperGap ? { clearCenterStripe01: zipperGap } : {};
+          const exportOpts = zipperGap
+            ? { clearCenterStripe01: zipperGap, size: perf.exportCanvasSize }
+            : { size: perf.exportCanvasSize };
 
           // eslint-disable-next-line no-await-in-loop
           const printData = await makePrintDataUrl(sd, exportOpts);
@@ -6522,7 +7349,7 @@ function TasarimClientContent({ isMobile }) {
           if (textData) textFiles[sideKey] = textData;
 
           // eslint-disable-next-line no-await-in-loop
-          const adjustedList = await makeAdjustedLogoDataUrls(sd);
+          const adjustedList = await makeAdjustedLogoDataUrls(sd, exportOpts);
           if (adjustedList.length) adjustedUploads[sideKey] = adjustedList;
 
           for (const l of sd.logos || []) {
@@ -6760,15 +7587,33 @@ function TasarimClientContent({ isMobile }) {
     controls.update?.();
   };
 
-  const switchSideAndOpenPrintPicker = (nextSide) => {
+  const handleViewChange = (nextSide, opts = {}) => {
     if (nextSide !== "front" && nextSide !== "back") return;
+    const openPrintPicker = opts?.openPrintPicker !== false;
     setView(nextSide);
+    clearSceneSelection();
+    if (isMobile && perf.lowPerformanceMode) {
+      const keepSideUrls = new Set(
+        (activeDesign?.sides?.[nextSide]?.logos || [])
+          .map((layer) => layer?.url)
+          .filter(Boolean)
+      );
+      evictImageCacheDataUrls(keepSideUrls);
+    }
     setMobilePrimaryTab("design");
     setPanelProgress(0);
-    setActiveTab("print");
-    setDrawerOpen(true);
+    if (openPrintPicker) {
+      setActiveTab("print");
+      setDrawerOpen(true);
+    }
     setDrawerMenuOpen(false);
-    setPrintTypePickerSignal((prev) => prev + 1);
+    if (openPrintPicker) {
+      setPrintTypePickerSignal((prev) => prev + 1);
+    }
+  };
+
+  const switchSideAndOpenPrintPicker = (nextSide) => {
+    handleViewChange(nextSide, { openPrintPicker: true });
   };
 
   const effectiveView = captureView || view;
@@ -6823,6 +7668,8 @@ function TasarimClientContent({ isMobile }) {
     { id: "model", label: "Model", icon: Layers },
     { id: "design", label: "Tasarla", icon: Pencil },
   ];
+  const sceneOverlayInteractionEnabled =
+    (!isMobile || isPlacementPanelVisible || mobilePanelCollapsed) && !pickerOpen && !drawerMenuOpen;
 
   useEffect(() => {
     if (!isMobile || flowStep !== "design") return;
@@ -6958,7 +7805,7 @@ function TasarimClientContent({ isMobile }) {
       >
         {isMobile ? (
           <div className="w-full pointer-events-auto grid grid-cols-[auto_1fr_auto] items-center gap-2">
-            <button
+            <button type="button" 
               onClick={openPrintTypePickerFromHeader}
               className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
               aria-label="Model secimine don"
@@ -6974,9 +7821,12 @@ function TasarimClientContent({ isMobile }) {
                 <p className="text-[10px] text-zinc-500 line-through">{formatMoney(headerListPrice)} ₺</p>
                 <p className="text-xs font-black text-zinc-700">{formatMoney(headerLaunchPrice)} ₺</p>
               </div>
+              {perf.lowPerformanceMode && (
+                <p className="text-[9px] font-black uppercase tracking-wide text-amber-700 mt-0.5">Düşük Performans Modu</p>
+              )}
             </div>
 
-            <button
+            <button type="button" 
               onClick={handleFinishCheckout}
               disabled={loading}
               className={`h-9 px-4 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${
@@ -6989,7 +7839,7 @@ function TasarimClientContent({ isMobile }) {
         ) : (
           <>
             <div className="flex items-start gap-3 pointer-events-auto">
-              <button
+              <button type="button" 
                 onClick={openPrintTypePickerFromHeader}
                 className="mt-0.5 h-8 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
                 aria-label="Model secimine don"
@@ -7003,11 +7853,14 @@ function TasarimClientContent({ isMobile }) {
                   <p className="text-xs font-black text-zinc-700">{formatMoney(headerLaunchPrice)} ₺</p>
                 </div>
                 <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">Açılışa Özel %20 İndirim</p>
+                {perf.lowPerformanceMode && (
+                  <p className="text-[10px] font-black uppercase tracking-wide text-amber-700">Düşük Performans Modu</p>
+                )}
               </div>
             </div>
 
             <div className="flex items-center gap-2 pointer-events-auto">
-              <button
+              <button type="button" 
                 onClick={handleFinishCheckout}
                 disabled={loading}
                 className={`px-4 py-2 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${
@@ -7046,8 +7899,186 @@ function TasarimClientContent({ isMobile }) {
         className={`${isMobile ? "w-full relative flex-1 min-h-0" : "w-full h-full relative"}`}
         style={{ background: SCENE_BG_COLOR }}
       >
+        {/* Scene Layer */}
+        <div className={`fixed inset-0 z-0 pointer-events-auto ${isMobile ? "grid place-items-center" : ""}`}>
+          {(() => {
+            const desktopClosedScale = isPlacementPanelVisible ? 0.94 : isPrintAreaOpen ? 1.02 : 0.98;
+            const desktopOpenScale = isPlacementPanelVisible ? 0.86 : isPrintAreaOpen ? 0.98 : 0.93;
+            const desktopScale = drawerOpen ? desktopOpenScale : desktopClosedScale;
+            const desktopWidth = isPlacementPanelVisible ? "62vw" : isPrintAreaOpen ? "74vw" : "70vw";
+            const desktopHeight = isPlacementPanelVisible ? "82vh" : isPrintAreaOpen ? "90vh" : "86vh";
+            const desktopTop = "50%";
+            const desktopShiftY = drawerOpen
+              ? isPlacementPanelVisible
+                ? "-18%"
+                : isPrintAreaOpen
+                  ? "-6%"
+                  : "-12%"
+              : isPlacementPanelVisible
+                ? "-7%"
+                : isPrintAreaOpen
+                  ? "-3%"
+                  : "-5%";
+            const mobilePanelProgress = clamp(mobileDrawerVisibilityRatio, 0, 1);
+            const mobileScaleClosed = isPrintAreaOpen ? 1.1 : 1.14;
+            const mobileScaleOpen = isPrintAreaOpen ? 0.94 : 0.98;
+            const mobileScale = THREE.MathUtils.lerp(mobileScaleClosed, mobileScaleOpen, mobilePanelProgress);
+            const mobileShiftClosed = isPlacementPanelVisible ? -7.5 : -4.5;
+            const mobileShiftOpen = isPlacementPanelVisible ? -13 : -14;
+            const mobileShiftY = THREE.MathUtils.lerp(mobileShiftClosed, mobileShiftOpen, mobilePanelProgress);
+            const mobileMinZoomOpen = isPlacementPanelVisible ? 1.84 : 1.78;
+            const mobileMinZoomClosed = isPlacementPanelVisible ? 1.56 : 1.5;
+            const minZoomDistance = !isMobile
+              ? isPlacementPanelVisible
+                ? 1.98
+                : drawerOpen
+                  ? 1.8
+                  : 1.72
+              : THREE.MathUtils.lerp(mobileMinZoomOpen, mobileMinZoomClosed, panelProgress);
+            const controlsTargetY = isMobile
+              ? THREE.MathUtils.lerp(
+                  isPlacementPanelVisible ? -0.11 : -0.1,
+                  isPlacementPanelVisible ? -0.125 : -0.12,
+                  panelProgress
+                )
+              : -0.1;
+            return (
+              <Canvas
+                key={`scene-canvas-${perf.qualityKey}`}
+                style={{
+                  position: "absolute",
+                  left: isMobile ? "50%" : isPlacementPanelVisible ? "63%" : "50%",
+                  top: isMobile ? "50%" : desktopTop,
+                  transform: isMobile
+                    ? `translate(-50%, -50%) translateY(${mobileShiftY.toFixed(3)}%) scale(${mobileScale.toFixed(4)})`
+                    : `translate(-50%, -50%) translateY(${desktopShiftY}) scale(${desktopScale})`,
+                  width: isMobile ? "100%" : desktopWidth,
+                  height: isMobile ? "100%" : desktopHeight,
+                  display: "block",
+                  backgroundColor: SCENE_BG_COLOR,
+                  willChange: "transform",
+                  transformOrigin: "center center",
+                  transition:
+                    isMobile && dragState.current.dragging
+                      ? "none"
+                      : "transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1)",
+                  zIndex: 0,
+                  touchAction: "none",
+                  pointerEvents: activeTab === "color" ? "none" : "auto",
+                }}
+                gl={{
+                  preserveDrawingBuffer: true,
+                  antialias: perf.antialias,
+                  alpha: false,
+                  powerPreference: perf.powerPreference,
+                }}
+                dpr={perf.dpr}
+                onPointerMissed={() => {
+                  clearSceneSelection();
+                }}
+                onCreated={({ gl, scene, camera }) => {
+                  glRef.current = gl;
+                  sceneRef.current = scene;
+                  cameraRef.current = camera;
+                  const bgColor = new THREE.Color(SCENE_BG_COLOR);
+                  scene.background = bgColor;
+                  gl.setClearColor(bgColor, 1);
+                  gl.outputColorSpace = THREE.SRGBColorSpace;
+                  gl.toneMapping = THREE.ACESFilmicToneMapping;
+                  gl.toneMappingExposure = 0.60;
+                  if (gl?.domElement) {
+                    gl.domElement.style.touchAction = "none";
+                    gl.domElement.style.overscrollBehavior = "contain";
+                    gl.domElement.style.webkitUserSelect = "none";
+                    gl.domElement.style.webkitTouchCallout = "none";
+                  }
+                }}
+                camera={{ position: [0, 0.26, 2.08], fov: isMobile ? (isPlacementPanelVisible ? 34 : 33) : 31 }}
+                shadows={!perf.disableShadows}
+              >
+                <SceneBackgroundLock />
+                <FpsPerformanceGuard
+                  enabled={isMobile && flowStep === "design"}
+                  onLowPerfChange={handleRuntimeLowPerfChange}
+                />
+
+                <HdriEnvironment urls={hdrEnvUrls} enabled />
+
+                <ambientLight intensity={0.35} />
+                <hemisphereLight intensity={0.12} groundColor={"#1f1f1f"} />
+                <directionalLight
+                  position={[6, 10, 8]}
+                  intensity={0.45}
+                  castShadow={!perf.disableShadows}
+                  shadow-mapSize-width={perf.shadowMap}
+                  shadow-mapSize-height={perf.shadowMap}
+                />
+                <directionalLight position={[-6, 6, -6]} intensity={0.16} />
+                <pointLight position={[0, 2.6, 2.2]} intensity={0.05} />
+                {!perf.disableShadows && <ContactShadows position={[0, -1.4, 0]} opacity={0.16} scale={7} blur={2.2} far={3.2} />}
+
+                <CameraController view={effectiveView} count={designs.length} onAnimatingChange={setCamAnimating} />
+
+                <Suspense fallback={<ThreeDotsLoader />}>
+                  {designs.map((design) => {
+                    const layout = layoutFor(design.id);
+                    return (
+                      <DesignModelItem
+                        key={design.id}
+                        design={design}
+                        isActive={design.id === activeId}
+                        isHovered={design.id === hoveredId}
+                        isSceneFocused={sceneModelSelectionId === design.id}
+                        showModelDeleteButton={!isPrintAreaOpen && sceneModelSelectionId === design.id}
+                        canDeleteModel={designs.length > 1}
+                        enableLongPressDelete={!isPrintAreaOpen}
+                        onSelect={setActiveId}
+                        onHover={setHoveredId}
+                        onUnhover={() => setHoveredId(null)}
+                        view={effectiveView}
+                        targetX={layout.x}
+                        targetZ={layout.z}
+                        targetRotY={layout.rotY}
+                        targetScale={layout.scale}
+                        hidden={layout.hidden}
+                        disableDrag={isLogoDragging || activeTab === "color"}
+                        isMobile={isMobile}
+                        interactionMode={activeTab}
+                        perfProfile={perf}
+                        onUserRotate={handleModelUserRotate}
+                        onModelTap={handleSceneModelTap}
+                        onModelLongPress={handleSceneModelLongPress}
+                        onDeleteModel={handleDeleteSceneModel}
+                      />
+                    );
+                  })}
+                </Suspense>
+
+                <OrbitControls
+                  ref={controlsRef}
+                  makeDefault
+                  enableZoom
+                  enablePan={false}
+                  enableRotate={false}
+                  enableDamping
+                  dampingFactor={isMobile ? 0.12 : 0.08}
+                  zoomSpeed={isMobile ? 0.95 : 0.7}
+                  minDistance={minZoomDistance}
+                  maxDistance={isMobile ? 4.6 : 4.2}
+                  zoomToCursor={false}
+                  enabled={!camAnimating}
+                  target={[0, controlsTargetY, 0]}
+                  mouseButtons={{ LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null }}
+                  touches={{ ONE: THREE.TOUCH.NONE, TWO: THREE.TOUCH.DOLLY }}
+                />
+              </Canvas>
+            );
+          })()}
+        </div>
+
+        {/* UI Layer */}
         <div
-          className={isMobile ? "relative z-10 h-full overflow-hidden" : "contents"}
+          className="relative z-50 pointer-events-none h-full"
           style={
             isMobile
               ? {
@@ -7073,8 +8104,11 @@ function TasarimClientContent({ isMobile }) {
                   }`}
               >
                 {UI_VIEWS.map((v) => (
-                  <button
+                  <button type="button" 
                     key={v}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                    }}
                     onClick={() => switchSideAndOpenPrintPicker(v)}
                     className={`${isMobile ? "px-3 py-1.5 text-[10px]" : "px-5 py-2.5 text-[11px]"} rounded-full font-bold uppercase tracking-widest transition-all ${view === v
                       ? "bg-zinc-900 text-white shadow-md"
@@ -7087,14 +8121,14 @@ function TasarimClientContent({ isMobile }) {
               </div>
               {isMobile && (
                 <div className="flex flex-col gap-1.5 rounded-2xl border border-zinc-300 bg-white/90 backdrop-blur px-1.5 py-1.5 shadow-lg">
-                  <button
+                  <button type="button" 
                     onClick={() => zoomModel("in")}
                     className="w-9 h-9 rounded-full border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center"
                     aria-label="Yakınlaştır"
                   >
                     <Plus size={16} strokeWidth={2.8} />
                   </button>
-                  <button
+                  <button type="button" 
                     onClick={() => zoomModel("out")}
                     className="w-9 h-9 rounded-full border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center"
                     aria-label="Uzaklaştır"
@@ -7109,7 +8143,7 @@ function TasarimClientContent({ isMobile }) {
                     {HOODIE_DETAIL_OPTIONS.map((opt) => {
                       const isEnabled = Boolean(activeHoodieParts[opt.id]);
                       return (
-                        <button
+                        <button type="button" 
                           key={`floating-hoodie-${opt.id}`}
                           onClick={() => setActiveHoodiePartEnabled(opt.id, !isEnabled)}
                           className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide border transition ${isEnabled
@@ -7131,14 +8165,14 @@ function TasarimClientContent({ isMobile }) {
 
         {/* Model picker modal */}
         {pickerOpen && (
-          <div className="fixed inset-0 z-[95] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[95] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4 pointer-events-auto">
             <div
               className="w-full max-w-2xl bg-[#eef1f4] border border-gray-300 rounded-2xl p-4 overflow-y-auto shadow-2xl"
               style={{ maxHeight: "calc(var(--app-vh) * 82)" }}
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-black tracking-widest uppercase text-zinc-800">Model Ekle</h3>
-                <button
+                <button type="button" 
                   onClick={() => {
                     setPickerOpen(false);
                   }}
@@ -7187,7 +8221,7 @@ function TasarimClientContent({ isMobile }) {
         {/* Editor Overlay - Sol Taraf */}
         {isPrintAreaOpen && showPlacementPanel && (
           <div
-            className={`z-[90] backdrop-blur-md border border-gray-200 shadow-2xl overflow-hidden flex flex-col ${
+            className={`z-[90] pointer-events-auto backdrop-blur-md border border-gray-200 shadow-2xl overflow-hidden flex flex-col ${
               isMobile ? "fixed left-0 right-0 rounded-none border-x-0 rounded-t-2xl" : "absolute rounded-2xl"
             }`}
             style={{
@@ -7222,7 +8256,7 @@ function TasarimClientContent({ isMobile }) {
                   <p className="text-[10px] text-gray-500 mt-1">{sideLabel}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
+                  <button type="button" 
                     onClick={handlePlacementDone}
                     className="h-8 px-3 rounded-full border border-emerald-600 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wide flex items-center justify-center gap-1"
                     aria-label="Yerleşim düzenlemesini tamamla"
@@ -7231,7 +8265,7 @@ function TasarimClientContent({ isMobile }) {
                     <Check size={12} />
                     Tamam
                   </button>
-                  <button
+                  <button type="button" 
                     onClick={() => {
                       placementPanelIntentRef.current = false;
                       setShowPlacementPanel(false);
@@ -7248,7 +8282,7 @@ function TasarimClientContent({ isMobile }) {
 
             <div className={`flex-1 ${isMobile ? "overflow-y-auto overflow-x-hidden p-3" : "overflow-y-auto overflow-x-visible p-4"}`}>
               <div className="grid grid-cols-3 gap-2">
-                <button
+                <button type="button" 
                   onClick={() => setEditorControlTab("logo")}
                   className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${editorControlTab === "logo"
                     ? "bg-white text-black border-white"
@@ -7257,7 +8291,7 @@ function TasarimClientContent({ isMobile }) {
                 >
                   Gorsel Ayari
                 </button>
-                <button
+                <button type="button" 
                   onClick={() => setEditorControlTab("text")}
                   className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${editorControlTab === "text"
                     ? "bg-white text-black border-white"
@@ -7266,7 +8300,7 @@ function TasarimClientContent({ isMobile }) {
                 >
                   Yazi Ayari
                 </button>
-                <button
+                <button type="button" 
                   onClick={() => setEditorControlTab("effects")}
                   className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${editorControlTab === "effects"
                     ? "bg-white text-black border-white"
@@ -7284,7 +8318,7 @@ function TasarimClientContent({ isMobile }) {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-[10px] text-zinc-400 font-bold uppercase">Ölçü (cm)</p>
-                      <button
+                      <button type="button" 
                         onClick={toggleLockAspect}
                         className={`w-8 h-8 rounded-full border flex items-center justify-center ${lockAspect ? "bg-white text-black border-white" : "bg-zinc-700 text-zinc-100 border-zinc-500"
                           }`}
@@ -7452,7 +8486,7 @@ function TasarimClientContent({ isMobile }) {
                   </div>
 
                   <div className="flex gap-2">
-                    <button
+                    <button type="button" 
                       disabled={imageControlDisabled}
                       onClick={() => setActiveLogoLayer("front")}
                       className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
@@ -7462,7 +8496,7 @@ function TasarimClientContent({ isMobile }) {
                     >
                       Öne Al
                     </button>
-                    <button
+                    <button type="button" 
                       disabled={imageControlDisabled}
                       onClick={() => setActiveLogoLayer("back")}
                       className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
@@ -7475,7 +8509,7 @@ function TasarimClientContent({ isMobile }) {
                   </div>
 
                   <div className="flex gap-2">
-                    <button
+                    <button type="button" 
                       disabled={imageControlDisabled}
                       onClick={() => updateActiveLogoBox({ ...activeLogoBox, x: 0.5, y: 0.5 })}
                       className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
@@ -7485,7 +8519,7 @@ function TasarimClientContent({ isMobile }) {
                     >
                       Ortala
                     </button>
-                    <button
+                    <button type="button" 
                       disabled={imageControlDisabled}
                       onClick={() =>
                         updateActiveLogoBox(
@@ -7523,7 +8557,13 @@ function TasarimClientContent({ isMobile }) {
                     {!(customText?.text || "").trim() && (
                       <button
                         type="button"
-                        onClick={() => bumpCustomText({ text: "YAZI" })}
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onClick={() => {
+                          bumpCustomText({ text: "YAZI" });
+                        }}
                         className="px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase"
                       >
                         Yazi Ekle
@@ -7563,10 +8603,12 @@ function TasarimClientContent({ isMobile }) {
 
                   <div className="space-y-1">
                     <label className="text-[10px] text-zinc-400">Metin</label>
-                    <input
-                      type="text"
-                      value={customText?.text || ""}
-                      onChange={(e) => bumpCustomText({ text: e.target.value })}
+                    <DebouncedTextDraftInput
+                      key={`${textDraftKey}::${customText?.text || ""}`}
+                      committedText={customText?.text || ""}
+                      onCommit={commitSceneTextDraft}
+                      pending={isTextUpdatePending}
+                      maxLength={56}
                       className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 text-white px-2 py-1 text-[16px] md:text-[11px]"
                       placeholder=""
                     />
@@ -7858,7 +8900,7 @@ function TasarimClientContent({ isMobile }) {
                   </div>
 
                   <div className="flex gap-2">
-                    <button
+                    <button type="button" 
                       onClick={() => updateActiveLogo({ flipX: !activeLogoFx.flipX })}
                       className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase border ${activeLogoFx.flipX
                         ? "bg-cyan-100 text-cyan-900 border-cyan-300"
@@ -7867,7 +8909,7 @@ function TasarimClientContent({ isMobile }) {
                     >
                       Yatay
                     </button>
-                    <button
+                    <button type="button" 
                       onClick={() => updateActiveLogo({ flipY: !activeLogoFx.flipY })}
                       className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase border ${activeLogoFx.flipY
                         ? "bg-cyan-100 text-cyan-900 border-cyan-300"
@@ -7878,7 +8920,7 @@ function TasarimClientContent({ isMobile }) {
                     </button>
                   </div>
 
-                  <button
+                  <button type="button" 
                     onClick={() => updateActiveLogo({ ...LOGO_STYLE_DEFAULTS })}
                     className="w-full py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-[10px] font-bold uppercase"
                   >
@@ -7894,180 +8936,10 @@ function TasarimClientContent({ isMobile }) {
           </div>
         )}
 
-        {/* THREE.js Canvas */}
-        {/** Drawer state'e göre desktop'ta da model ölçeklenir: açıkken küçük, kapalıyken büyük */}
-        <div className={isMobile ? "absolute inset-0 grid place-items-center" : "contents"}>
-        {(() => {
-          const desktopClosedScale = isPlacementPanelVisible ? 0.94 : isPrintAreaOpen ? 1.02 : 0.98;
-          const desktopOpenScale = isPlacementPanelVisible ? 0.86 : isPrintAreaOpen ? 0.98 : 0.93;
-          const desktopScale = drawerOpen ? desktopOpenScale : desktopClosedScale;
-          const desktopWidth = isPlacementPanelVisible ? "62vw" : isPrintAreaOpen ? "74vw" : "70vw";
-          const desktopHeight = isPlacementPanelVisible ? "82vh" : isPrintAreaOpen ? "90vh" : "86vh";
-          const desktopTop = "50%";
-          const desktopShiftY = drawerOpen
-            ? isPlacementPanelVisible
-              ? "-18%"
-              : isPrintAreaOpen
-                ? "-6%"
-                : "-12%"
-            : isPlacementPanelVisible
-              ? "-7%"
-              : isPrintAreaOpen
-                ? "-3%"
-                : "-5%";
-          const mobilePanelProgress = clamp(mobileDrawerVisibilityRatio, 0, 1);
-          const mobileScaleClosed = isPrintAreaOpen ? 1.1 : 1.14;
-          const mobileScaleOpen = isPrintAreaOpen ? 0.94 : 0.98;
-          const mobileScale = THREE.MathUtils.lerp(mobileScaleClosed, mobileScaleOpen, mobilePanelProgress);
-          const mobileShiftClosed = isPlacementPanelVisible ? -7.5 : -4.5;
-          const mobileShiftOpen = isPlacementPanelVisible ? -13 : -14;
-          const mobileShiftY = THREE.MathUtils.lerp(mobileShiftClosed, mobileShiftOpen, mobilePanelProgress);
-          const mobileMinZoomOpen = isPlacementPanelVisible ? 1.84 : 1.78;
-          const mobileMinZoomClosed = isPlacementPanelVisible ? 1.56 : 1.5;
-          const minZoomDistance = !isMobile
-            ? isPlacementPanelVisible
-              ? 1.98
-              : drawerOpen
-                ? 1.8
-                : 1.72
-            : THREE.MathUtils.lerp(mobileMinZoomOpen, mobileMinZoomClosed, panelProgress);
-          const controlsTargetY = isMobile
-            ? THREE.MathUtils.lerp(
-                isPlacementPanelVisible ? -0.11 : -0.1,
-                isPlacementPanelVisible ? -0.125 : -0.12,
-                panelProgress
-              )
-            : -0.1;
-          return (
-            <Canvas
-              style={{
-                position: "absolute",
-                left: isMobile ? "50%" : isPlacementPanelVisible ? "63%" : "50%",
-                top: isMobile ? "50%" : desktopTop,
-                transform: isMobile
-                  ? `translate(-50%, -50%) translateY(${mobileShiftY.toFixed(3)}%) scale(${mobileScale.toFixed(4)})`
-                  : `translate(-50%, -50%) translateY(${desktopShiftY}) scale(${desktopScale})`,
-                width: isMobile ? "100%" : desktopWidth,
-                height: isMobile ? "100%" : desktopHeight,
-                display: "block",
-                backgroundColor: SCENE_BG_COLOR,
-                willChange: "transform",
-                transformOrigin: "center center",
-                transition:
-                  isMobile && dragState.current.dragging
-                    ? "none"
-                    : "transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1)",
-                zIndex: 10,
-                touchAction: "none",
-              }}
-              gl={{
-                preserveDrawingBuffer: true,
-                antialias: perf.antialias,
-                alpha: false,
-                powerPreference: perf.powerPreference,
-              }}
-              dpr={perf.dpr}
-              onPointerMissed={() => {
-                clearSceneSelection();
-              }}
-              onCreated={({ gl, scene, camera }) => {
-                glRef.current = gl;
-                sceneRef.current = scene;
-                cameraRef.current = camera;
-                const bgColor = new THREE.Color(SCENE_BG_COLOR);
-                scene.background = bgColor;
-                gl.setClearColor(bgColor, 1);
-                gl.outputColorSpace = THREE.SRGBColorSpace;
-                gl.toneMapping = THREE.ACESFilmicToneMapping;
-                gl.toneMappingExposure = 0.60;
-                if (gl?.domElement) {
-                  gl.domElement.style.touchAction = "none";
-                  gl.domElement.style.overscrollBehavior = "contain";
-                  gl.domElement.style.webkitUserSelect = "none";
-                  gl.domElement.style.webkitTouchCallout = "none";
-                }
-              }}
-              camera={{ position: [0, 0.26, 2.08], fov: isMobile ? (isPlacementPanelVisible ? 34 : 33) : 31 }}
-              shadows={!isMobile}
-            >
-              <SceneBackgroundLock />
-
-              <HdriEnvironment urls={hdrEnvUrls} enabled />
-
-              <ambientLight intensity={0.35} />
-              <hemisphereLight intensity={0.12} groundColor={"#1f1f1f"} />
-              <directionalLight
-                position={[6, 10, 8]}
-                intensity={0.45}
-                castShadow={!isMobile}
-                shadow-mapSize-width={perf.shadowMap}
-                shadow-mapSize-height={perf.shadowMap}
-              />
-              <directionalLight position={[-6, 6, -6]} intensity={0.16} />
-              <pointLight position={[0, 2.6, 2.2]} intensity={0.05} />
-              {!isMobile && <ContactShadows position={[0, -1.4, 0]} opacity={0.16} scale={7} blur={2.2} far={3.2} />}
-
-              <CameraController view={effectiveView} count={designs.length} onAnimatingChange={setCamAnimating} />
-
-              <Suspense fallback={<ThreeDotsLoader />}>
-                {designs.map((design) => {
-                  const layout = layoutFor(design.id);
-                  return (
-                    <DesignModelItem
-                      key={design.id}
-                      design={design}
-                      isActive={design.id === activeId}
-                      isHovered={design.id === hoveredId}
-                      isSceneFocused={sceneModelSelectionId === design.id}
-                      showModelDeleteButton={!isPrintAreaOpen && sceneModelSelectionId === design.id}
-                      canDeleteModel={designs.length > 1}
-                      enableLongPressDelete={!isPrintAreaOpen}
-                      onSelect={setActiveId}
-                      onHover={setHoveredId}
-                      onUnhover={() => setHoveredId(null)}
-                      view={effectiveView}
-                      targetX={layout.x}
-                      targetZ={layout.z}
-                      targetRotY={layout.rotY}
-                      targetScale={layout.scale}
-                      hidden={layout.hidden}
-                      disableDrag={isLogoDragging}
-                      isMobile={isMobile}
-                      onUserRotate={handleModelUserRotate}
-                      onModelTap={handleSceneModelTap}
-                      onModelLongPress={handleSceneModelLongPress}
-                      onDeleteModel={handleDeleteSceneModel}
-                    />
-                  );
-                })}
-              </Suspense>
-
-              <OrbitControls
-                ref={controlsRef}
-                makeDefault
-                enableZoom
-                enablePan={false}
-                enableRotate={false}
-                enableDamping
-                dampingFactor={isMobile ? 0.12 : 0.08}
-                zoomSpeed={isMobile ? 0.95 : 0.7}
-                minDistance={minZoomDistance}
-                maxDistance={isMobile ? 4.6 : 4.2}
-                zoomToCursor={false}
-                enabled={!camAnimating}
-                target={[0, controlsTargetY, 0]}
-                mouseButtons={{ LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null }}
-                touches={{ ONE: THREE.TOUCH.NONE, TWO: THREE.TOUCH.DOLLY }}
-              />
-            </Canvas>
-          );
-        })()}
-        </div>
-
         {/* MODEL ÜZERİ DİREKT YERLEŞİM (Panel değişmeden) */}
         {isPrintAreaOpen && (
           <div
-            className="absolute z-[72] pointer-events-none"
+            className="absolute z-[64] pointer-events-none"
             style={{
               left: scenePlaneRect ? `${scenePlaneRect.left}px` : sceneEditCenterLeft,
               top: scenePlaneRect ? `${scenePlaneRect.top}px` : sceneEditCenterTop,
@@ -8075,6 +8947,7 @@ function TasarimClientContent({ isMobile }) {
               height: scenePlaneRect ? `${scenePlaneRect.height}px` : undefined,
               aspectRatio: scenePlaneRect ? undefined : previewAspect,
               transform: scenePlaneRect ? "none" : "translate(-50%, -50%)",
+              pointerEvents: sceneOverlayInteractionEnabled ? "auto" : "none",
             }}
           >
             <div
@@ -8317,7 +9190,6 @@ function TasarimClientContent({ isMobile }) {
             </div>
           </div>
         )}
-        </div>
 
         {/* LEFT OVERLAY EDITOR (DESKTOP ONLY) */}
         {!isMobile && forceEditorOverlay && (
@@ -8390,7 +9262,7 @@ function TasarimClientContent({ isMobile }) {
                       mobilePanelCollapsed ? "px-4 pt-0.5 pb-0.5" : "px-4 pt-3 pb-2 border-b border-black/10"
                     }`}
                   >
-                    <button
+                    <button type="button" 
                       onPointerDown={(e) => {
                         e.stopPropagation();
                         onDrawerPointerDown(e);
@@ -8421,7 +9293,7 @@ function TasarimClientContent({ isMobile }) {
                       <>
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-[12px] font-black uppercase tracking-[0.14em] text-gray-700">Tasarla</p>
-                          <button
+                          <button type="button" 
                             onPointerDown={(e) => e.stopPropagation()}
                             onClick={openDrawerMenu}
                             className="h-9 px-3 rounded-full border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center gap-1"
@@ -8432,10 +9304,12 @@ function TasarimClientContent({ isMobile }) {
                           </button>
                         </div>
 
-                        <div className="grid grid-cols-4 gap-2 mt-3">
+                        <div className="grid grid-cols-4 gap-2 mt-3 pointer-events-auto">
                           <button
                             type="button"
-                            onPointerDown={(e) => e.stopPropagation()}
+                            onPointerDown={(e) => {
+                              e.stopPropagation();
+                            }}
                             onClick={() => {
                               setMobilePrimaryTab("design");
                               setPanelProgress(0);
@@ -8451,7 +9325,9 @@ function TasarimClientContent({ isMobile }) {
                           </button>
                           <button
                             type="button"
-                            onPointerDown={(e) => e.stopPropagation()}
+                            onPointerDown={(e) => {
+                              e.stopPropagation();
+                            }}
                             onClick={() => {
                               setMobilePrimaryTab("design");
                               setPanelProgress(0);
@@ -8467,7 +9343,9 @@ function TasarimClientContent({ isMobile }) {
                           </button>
                           <button
                             type="button"
-                            onPointerDown={(e) => e.stopPropagation()}
+                            onPointerDown={(e) => {
+                              e.stopPropagation();
+                            }}
                             onClick={() => {
                               setMobilePrimaryTab("design");
                               setPanelProgress(0);
@@ -8483,7 +9361,9 @@ function TasarimClientContent({ isMobile }) {
                           </button>
                           <button
                             type="button"
-                            onPointerDown={(e) => e.stopPropagation()}
+                            onPointerDown={(e) => {
+                              e.stopPropagation();
+                            }}
                             onClick={() => {
                               setMobilePrimaryTab("design");
                               setPanelProgress(0);
@@ -8509,8 +9389,8 @@ function TasarimClientContent({ isMobile }) {
                   >
                     <div className="h-full overflow-y-auto overscroll-contain">
                       {showPrintTypes && (
-                        <div className="mx-4 mt-[10px] rounded-2xl border border-gray-200 bg-white shadow-sm">
-                          <div className="p-3 space-y-2">
+                        <div className="mx-4 mt-[10px] rounded-2xl border border-gray-200 bg-white shadow-sm pointer-events-auto">
+                          <div className="p-3 space-y-2 pointer-events-auto">
                             <div className="flex items-center justify-between">
                               <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-500">Baskı Tipleri</p>
                               <span className="text-[10px] font-black uppercase text-gray-500">
@@ -8583,7 +9463,7 @@ function TasarimClientContent({ isMobile }) {
                 <>
                   <div className={`relative px-3 border-b border-gray-300/80 bg-[#eceff3] ${drawerOpen ? "pt-9 pb-2" : "pt-7 pb-3"}`}>
                     <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-gray-400/80" />
-                    <button
+                    <button type="button" 
                       onClick={toggleDrawer}
                       className="absolute left-1/2 top-0 -translate-x-1/2 w-10 h-5 rounded-b-full border-2 border-zinc-700 border-t-0 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center z-40 shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
                       aria-label="Paneli aç/kapa"
@@ -8604,7 +9484,7 @@ function TasarimClientContent({ isMobile }) {
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
-                          <button
+                          <button type="button" 
                             onClick={openModelPicker}
                             className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[11px] font-black uppercase tracking-wide shadow-sm"
                             aria-label="Model ekle"
@@ -8612,7 +9492,7 @@ function TasarimClientContent({ isMobile }) {
                             + Model
                           </button>
                           <div className="flex items-center gap-2 min-w-0 max-w-[430px] px-1">
-                            <button
+                            <button type="button" 
                               onClick={goPrevTab}
                               className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
                               aria-label="Önceki adım"
@@ -8627,7 +9507,7 @@ function TasarimClientContent({ isMobile }) {
                                 {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
                               </p>
                             </div>
-                            <button
+                            <button type="button" 
                               onClick={goNextTab}
                               className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
                               aria-label="Sonraki adım"
@@ -8635,7 +9515,7 @@ function TasarimClientContent({ isMobile }) {
                               <ChevronRight size={18} strokeWidth={2.6} />
                             </button>
                           </div>
-                          <button
+                          <button type="button" 
                             onClick={openDrawerMenu}
                             className="h-9 px-4 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-wide shadow-sm"
                             aria-label="Kategori menüsünü aç"
@@ -8715,7 +9595,7 @@ function TasarimClientContent({ isMobile }) {
             >
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs font-black tracking-[0.16em] uppercase text-gray-500">Menü</p>
-                <button
+                <button type="button" 
                   onClick={closeDrawerMenu}
                   className="w-8 h-8 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-100 flex items-center justify-center"
                   aria-label="Menüyü kapat"
@@ -8726,7 +9606,7 @@ function TasarimClientContent({ isMobile }) {
 
               <div className={`grid gap-2 ${isMobile ? "grid-cols-2" : "grid-cols-3"}`}>
                 {menuTabs.map((tab) => (
-                  <button
+                  <button type="button" 
                     key={tab.id}
                     onClick={() => selectMenuTab(tab.id)}
                     className={`px-3 py-3 rounded-xl border text-[11px] font-black uppercase tracking-wide transition flex items-center justify-center gap-2 ${activeTab === tab.id
@@ -8756,6 +9636,7 @@ function TasarimClientContent({ isMobile }) {
           </div>
         )}
       </div>
+      </div>
     </div>
   );
 }
@@ -8774,30 +9655,36 @@ INJECTION_PATTERN_OPTIONS.slice(0, 2).forEach((opt) => {
 if (typeof window !== "undefined") {
   // Ortam ışığını cihaz tipine göre tek dosya preload et (ilk açılış ve bellek daha stabil).
   const prefersMobileEnv = window.matchMedia("(max-width: 1023px)").matches;
+  const lowPerfBoot = detectLowPerformanceMode({ isMobileHint: prefersMobileEnv });
   const preferredEnv = prefersMobileEnv ? HDR_ENV_MOBILE_PATH : HDR_ENV_DESKTOP_PATH;
   getHdriSourceTexture(preferredEnv).catch(() => {});
 
-  // Diğer modelleri idle zamanda sırayla preload et; ilk modeli bloke etmesin.
-  const preloadRest = () => {
-    const rest = AVAILABLE_MODELS.filter((m) => !PRIORITY_PRELOAD_MODELS.includes(m));
-    rest.forEach((modelType, idx) => {
-      const modelPath = MODEL_PATHS[modelType];
-      if (!modelPath) return;
-      window.setTimeout(() => {
-        useGLTF.preload(toSafeUrl(modelPath));
-      }, idx * 120);
-    });
-    const restStartOffset = rest.length * 120;
-    INJECTION_PATTERN_OPTIONS.forEach((opt, idx) => {
-      if (!opt?.path) return;
-      window.setTimeout(() => {
-        useGLTF.preload(toSafeUrl(opt.path));
-      }, restStartOffset + idx * 130);
-    });
-  };
-  if ("requestIdleCallback" in window) {
-    window.requestIdleCallback(preloadRest, { timeout: 1600 });
+  if (lowPerfBoot) {
+    // Düşük bellekli iOS/mobil cihazlarda agresif preload tab belleğini taşırabilir.
+    // Öncelikli model ve seçili HDR dışında preload yapma.
   } else {
-    window.setTimeout(preloadRest, 900);
+    // Diğer modelleri idle zamanda sırayla preload et; ilk modeli bloke etmesin.
+    const preloadRest = () => {
+      const rest = AVAILABLE_MODELS.filter((m) => !PRIORITY_PRELOAD_MODELS.includes(m));
+      rest.forEach((modelType, idx) => {
+        const modelPath = MODEL_PATHS[modelType];
+        if (!modelPath) return;
+        window.setTimeout(() => {
+          useGLTF.preload(toSafeUrl(modelPath));
+        }, idx * 120);
+      });
+      const restStartOffset = rest.length * 120;
+      INJECTION_PATTERN_OPTIONS.forEach((opt, idx) => {
+        if (!opt?.path) return;
+        window.setTimeout(() => {
+          useGLTF.preload(toSafeUrl(opt.path));
+        }, restStartOffset + idx * 130);
+      });
+    };
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(preloadRest, { timeout: 1600 });
+    } else {
+      window.setTimeout(preloadRest, 900);
+    }
   }
 }
