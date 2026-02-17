@@ -797,11 +797,10 @@ function InjectionPatternPickerCards({ selectedId = null, onSelect, sourceLabel 
                 e.stopPropagation();
                 onSelect?.(opt.id);
               }}
-              className={`rounded-xl border px-2 py-2 text-left transition ${
-                selected
-                  ? "border-black bg-black text-white"
-                  : "border-white bg-white text-gray-700 hover:border-zinc-300"
-              }`}
+              className={`rounded-xl border px-2 py-2 text-left transition ${selected
+                ? "border-black bg-black text-white"
+                : "border-white bg-white text-gray-700 hover:border-zinc-300"
+                }`}
             >
               <p className="text-[11px] font-black uppercase tracking-wide">{opt.label}</p>
               <p className={`mt-0.5 text-[9px] font-bold uppercase tracking-wide ${selected ? "text-white/85" : "text-zinc-500"}`}>
@@ -851,8 +850,8 @@ const clamp01 = (v) => clamp(v, 0, 1);
 const pct = (v01) => `${Math.round(v01 * 100)}%`;
 const MAX_UPLOAD_FILE_MB = 16;
 const MAX_UPLOAD_RENDER_SIDE = 2688;
-const MOBILE_UPLOAD_RENDER_SIDE = 1536;
-const LOW_PERF_UPLOAD_RENDER_SIDE = 1024;
+const MOBILE_UPLOAD_RENDER_SIDE = 1024;
+const LOW_PERF_UPLOAD_RENDER_SIDE = 512;
 const IMAGE_CACHE_MAX_ITEMS = 64;
 const IMAGE_CACHE_MAX_DATA_URL_ITEMS = 18;
 const TEXT_INPUT_DEBOUNCE_MS = 500;
@@ -1426,9 +1425,9 @@ const normalizeSideData = (sideData) => {
       : null;
   const logos = Array.isArray(source.logos)
     ? source.logos.filter(Boolean).map((logo) => ({
-        ...logo,
-        technique: PRINT_TECHNIQUES.DTF,
-      }))
+      ...logo,
+      technique: PRINT_TECHNIQUES.DTF,
+    }))
     : [];
   const customText = {
     ...base.customText,
@@ -3184,6 +3183,10 @@ function Real3DModel({
   useEffect(
     () => () => {
       backTex?.dispose?.();
+      // Expanded cleanup
+      if (backTex?.source?.data?.close) {
+        try { backTex.source.data.close(); } catch (e) { }
+      }
     },
     [backTex]
   );
@@ -3848,9 +3851,8 @@ function ResizeFrame({
 
   return (
     <div
-      className={`absolute border-2 rounded-lg group ${
-        transformMode === "rotate" ? "border-cyan-300/90 border-dashed" : "border-white/75 cursor-grab active:cursor-grabbing"
-      }`}
+      className={`absolute border-2 rounded-lg group ${transformMode === "rotate" ? "border-cyan-300/90 border-dashed" : "border-white/75 cursor-grab active:cursor-grabbing"
+        }`}
       style={{
         left: pct(box.x - box.w / 2),
         top: pct(box.y - box.h / 2),
@@ -4057,22 +4059,22 @@ function DesignModelItem({
     design.sides.front || EMPTY_SIDE,
     isZipper
       ? {
-          clearCenterStripe01: gap01,
-          disableText: frontHasRubber,
-          canvasSize: textureCanvasSize,
-          includeEmbossLogos: lowPerformanceMode,
-          updateDebounceMs: textureDebounceMs,
-          lowQuality: lowPerformanceMode,
-          disabled: !frontCanvasEnabled,
-        }
+        clearCenterStripe01: gap01,
+        disableText: frontHasRubber,
+        canvasSize: textureCanvasSize,
+        includeEmbossLogos: lowPerformanceMode,
+        updateDebounceMs: textureDebounceMs,
+        lowQuality: lowPerformanceMode,
+        disabled: !frontCanvasEnabled,
+      }
       : {
-          disableText: frontHasRubber,
-          canvasSize: textureCanvasSize,
-          includeEmbossLogos: lowPerformanceMode,
-          updateDebounceMs: textureDebounceMs,
-          lowQuality: lowPerformanceMode,
-          disabled: !frontCanvasEnabled,
-        }
+        disableText: frontHasRubber,
+        canvasSize: textureCanvasSize,
+        includeEmbossLogos: lowPerformanceMode,
+        updateDebounceMs: textureDebounceMs,
+        lowQuality: lowPerformanceMode,
+        disabled: !frontCanvasEnabled,
+      }
   );
   const backCanvas = useDesignCanvas(design.sides.back || EMPTY_SIDE, {
     disableText: backHasRubber,
@@ -4212,11 +4214,10 @@ function DesignModelItem({
               if (canDeleteModel) onDeleteModel?.(design.id);
             }}
             disabled={!canDeleteModel}
-            className={`w-9 h-9 rounded-full border flex items-center justify-center shadow-lg backdrop-blur-sm ${
-              canDeleteModel
-                ? "border-red-300 bg-red-600/90 text-white hover:bg-red-700/95"
-                : "border-zinc-400 bg-zinc-500/60 text-zinc-200 cursor-not-allowed"
-            }`}
+            className={`w-9 h-9 rounded-full border flex items-center justify-center shadow-lg backdrop-blur-sm ${canDeleteModel
+              ? "border-red-300 bg-red-600/90 text-white hover:bg-red-700/95"
+              : "border-zinc-400 bg-zinc-500/60 text-zinc-200 cursor-not-allowed"
+              }`}
             aria-label="Modeli sil"
             title={canDeleteModel ? "Modeli Sil" : "En az bir model kalmalı"}
           >
@@ -5118,7 +5119,7 @@ function EditorPanel({
       <div className="w-full h-full flex flex-col bg-[#111111]" style={{ touchAction: "none" }}>
         <div className="flex items-center justify-between p-3 border-b border-zinc-800 bg-[#0f0f0f]">
           <h3 className="text-sm font-bold text-white uppercase tracking-wider">Yerleşim Ayarı</h3>
-          <button type="button" 
+          <button type="button"
             onClick={() => setActiveTab("upload")}
             className="px-4 py-1.5 bg-green-600 text-white text-xs font-black rounded-full shadow-lg active:scale-95 transition flex items-center gap-1"
           >
@@ -5301,7 +5302,7 @@ function EditorPanel({
                 <p className="text-zinc-500 text-[10px] font-bold mb-1">BEDEN</p>
                 <div className="flex gap-1">
                   {sizes.map((s) => (
-                    <button type="button" 
+                    <button type="button"
                       key={s}
                       onClick={() => updateDesign({ size: s })}
                       className={`w-7 h-7 text-[10px] font-bold rounded border transition ${design.size === s ? "bg-white text-black border-white" : "text-zinc-500 border-zinc-700"
@@ -5450,9 +5451,8 @@ function EditorPanel({
                                     applyTextTechnique(PRINT_TECHNIQUES.DTF, { fromImageAction: true });
                                   }
                                 }}
-                                className={`w-full h-full flex flex-col items-start justify-center pl-4 gap-1 cursor-pointer pointer-events-auto relative z-[3] ${
-                                  canUploadMoreLogos ? "text-gray-600 hover:bg-gray-100" : "text-gray-400 cursor-not-allowed"
-                                }`}
+                                className={`w-full h-full flex flex-col items-start justify-center pl-4 gap-1 cursor-pointer pointer-events-auto relative z-[3] ${canUploadMoreLogos ? "text-gray-600 hover:bg-gray-100" : "text-gray-400 cursor-not-allowed"
+                                  }`}
                               >
                                 <Plus size={26} strokeWidth={2.8} />
                                 <span className="text-[11px] font-bold uppercase">Dosya Ekle</span>
@@ -5692,22 +5692,20 @@ function EditorPanel({
                     <button
                       type="button"
                       onClick={() => applyTextTechnique(PRINT_TECHNIQUES.DTF)}
-                      className={`h-9 rounded-lg border text-[10px] font-black uppercase tracking-wide ${
-                        t.technique === PRINT_TECHNIQUES.DTF
-                          ? "bg-black text-white border-black"
-                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                      }`}
+                      className={`h-9 rounded-lg border text-[10px] font-black uppercase tracking-wide ${t.technique === PRINT_TECHNIQUES.DTF
+                        ? "bg-black text-white border-black"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                        }`}
                     >
                       DTF
                     </button>
                     <button
                       type="button"
                       onClick={() => applyTextTechnique(PRINT_TECHNIQUES.RUBBER)}
-                      className={`h-9 rounded-lg border text-[10px] font-black uppercase tracking-wide ${
-                        t.technique === PRINT_TECHNIQUES.RUBBER
-                          ? "bg-black text-white border-black"
-                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                      }`}
+                      className={`h-9 rounded-lg border text-[10px] font-black uppercase tracking-wide ${t.technique === PRINT_TECHNIQUES.RUBBER
+                        ? "bg-black text-white border-black"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                        }`}
                     >
                       RUBBER
                     </button>
@@ -5828,7 +5826,7 @@ function EditorPanel({
               </div>
               <div className="flex flex-wrap gap-2">
                 {colorPresets.map((c) => (
-                  <button type="button" 
+                  <button type="button"
                     key={c}
                     onClick={() => handleColorChange(c, "body")}
                     className={`w-10 h-10 rounded-full border-2 transition hover:scale-110 ${activeBaseColor === c ? "border-black scale-110" : "border-gray-200"
@@ -5851,7 +5849,7 @@ function EditorPanel({
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   {stringPresets.map((c) => (
-                    <button type="button" 
+                    <button type="button"
                       key={c}
                       onClick={() => handleColorChange(c, "string")}
                       className={`w-10 h-10 rounded-full border-2 transition ${(design.stringColor || "#e6e6e6") === c ? "border-black scale-110" : "border-gray-300"
@@ -5878,11 +5876,10 @@ function EditorPanel({
                         key={`panel-hoodie-${opt.id}`}
                         type="button"
                         onClick={() => toggleHoodiePart(opt.id)}
-                        className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${
-                          enabled
-                            ? "border-black bg-black text-white"
-                            : "border-gray-300 bg-white text-gray-800"
-                        }`}
+                        className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${enabled
+                          ? "border-black bg-black text-white"
+                          : "border-gray-300 bg-white text-gray-800"
+                          }`}
                       >
                         {enabled ? "✓ " : ""}
                         {opt.label}
@@ -6460,16 +6457,17 @@ function TasarimClientContent({ isMobile }) {
         powerPreference: "default",
         lowPerformanceMode,
         runtimeLowPerformanceMode: runtimeLow,
-        activeCanvasSize: conservative ? 1024 : 1664,
-        idleCanvasSize: conservative ? 896 : 1280,
-        canvasUpdateDebounceMs: conservative ? 90 : 22,
-        exportCanvasSize: conservative ? 1280 : 1792,
+        activeCanvasSize: conservative ? 1024 : 1024,
+        idleCanvasSize: conservative ? 512 : 512,
+        canvasUpdateDebounceMs: conservative ? 100 : 80,
+        exportCanvasSize: conservative ? 1024 : 1024,
         anisotropyCap: conservative ? 2 : 4,
         enableMipmaps: !conservative,
         disableEmbossDecals: conservative,
         disableShadows: true,
         singleSideTextureMode: conservative,
         qualityKey: conservative ? "mobile-low" : "mobile-normal",
+        frameloop: "demand", // Added for battery saving
       };
     }
     return {
@@ -6607,7 +6605,7 @@ function TasarimClientContent({ isMobile }) {
     const preloadUrls = allLogoUrlSignature.split("|").filter(Boolean);
     preloadUrls.forEach((src, idx) => {
       window.setTimeout(() => {
-        loadImg(src).catch(() => {});
+        loadImg(src).catch(() => { });
       }, idx * 18);
     });
   }, [allLogoUrlSignature]);
@@ -7805,7 +7803,7 @@ function TasarimClientContent({ isMobile }) {
       >
         {isMobile ? (
           <div className="w-full pointer-events-auto grid grid-cols-[auto_1fr_auto] items-center gap-2">
-            <button type="button" 
+            <button type="button"
               onClick={openPrintTypePickerFromHeader}
               className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
               aria-label="Model secimine don"
@@ -7826,12 +7824,11 @@ function TasarimClientContent({ isMobile }) {
               )}
             </div>
 
-            <button type="button" 
+            <button type="button"
               onClick={handleFinishCheckout}
               disabled={loading}
-              className={`h-9 px-4 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${
-                loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
-              }`}
+              className={`h-9 px-4 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
+                }`}
             >
               {loading ? "HAZIR..." : "BİTTİ"}
             </button>
@@ -7839,7 +7836,7 @@ function TasarimClientContent({ isMobile }) {
         ) : (
           <>
             <div className="flex items-start gap-3 pointer-events-auto">
-              <button type="button" 
+              <button type="button"
                 onClick={openPrintTypePickerFromHeader}
                 className="mt-0.5 h-8 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
                 aria-label="Model secimine don"
@@ -7860,12 +7857,11 @@ function TasarimClientContent({ isMobile }) {
             </div>
 
             <div className="flex items-center gap-2 pointer-events-auto">
-              <button type="button" 
+              <button type="button"
                 onClick={handleFinishCheckout}
                 disabled={loading}
-                className={`px-4 py-2 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${
-                  loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
-                }`}
+                className={`px-4 py-2 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
+                  }`}
               >
                 {loading ? "HAZIRLANIYOR..." : "BİTTİ"}
               </button>
@@ -7937,13 +7933,14 @@ function TasarimClientContent({ isMobile }) {
               : THREE.MathUtils.lerp(mobileMinZoomOpen, mobileMinZoomClosed, panelProgress);
             const controlsTargetY = isMobile
               ? THREE.MathUtils.lerp(
-                  isPlacementPanelVisible ? -0.11 : -0.1,
-                  isPlacementPanelVisible ? -0.125 : -0.12,
-                  panelProgress
-                )
+                isPlacementPanelVisible ? -0.11 : -0.1,
+                isPlacementPanelVisible ? -0.125 : -0.12,
+                panelProgress
+              )
               : -0.1;
             return (
               <Canvas
+                frameloop={perf.frameloop || "always"}
                 key={`scene-canvas-${perf.qualityKey}`}
                 style={{
                   position: "absolute",
@@ -8082,1147 +8079,1135 @@ function TasarimClientContent({ isMobile }) {
           style={
             isMobile
               ? {
-                  height: "100%",
-                  overflow: "hidden",
-                }
+                height: "100%",
+                overflow: "hidden",
+              }
               : undefined
           }
         >
-        {/* Floating Controls */}
-        {(!isMobile || activeTab !== "editor" || !showPlacementPanel) && !pickerOpen && (
-          <div
-            className="absolute z-[90] pointer-events-none transition-all duration-300"
-            style={
-              isMobile
-                ? { right: "12px", top: "43%", transform: "translateY(-50%)" }
-                : { bottom: controlsBottom, right: "16px" }
-            }
-          >
-            <div className="flex flex-col items-center pointer-events-auto gap-2">
-              <div
-                className={`flex flex-col rounded-full border-2 border-zinc-700 bg-white/95 backdrop-blur shadow-[0_10px_26px_rgba(0,0,0,0.22)] ${isMobile ? "p-[3px]" : "p-1.5"
-                  }`}
-              >
-                {UI_VIEWS.map((v) => (
-                  <button type="button" 
-                    key={v}
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                    }}
-                    onClick={() => switchSideAndOpenPrintPicker(v)}
-                    className={`${isMobile ? "px-3 py-1.5 text-[10px]" : "px-5 py-2.5 text-[11px]"} rounded-full font-bold uppercase tracking-widest transition-all ${view === v
-                      ? "bg-zinc-900 text-white shadow-md"
-                      : "bg-white text-zinc-600 hover:bg-zinc-100"
-                      }`}
-                  >
-                    {v === "front" ? "ÖN" : "ARKA"}
-                  </button>
-                ))}
-              </div>
-              {isMobile && (
-                <div className="flex flex-col gap-1.5 rounded-2xl border border-zinc-300 bg-white/90 backdrop-blur px-1.5 py-1.5 shadow-lg">
-                  <button type="button" 
-                    onClick={() => zoomModel("in")}
-                    className="w-9 h-9 rounded-full border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center"
-                    aria-label="Yakınlaştır"
-                  >
-                    <Plus size={16} strokeWidth={2.8} />
-                  </button>
-                  <button type="button" 
-                    onClick={() => zoomModel("out")}
-                    className="w-9 h-9 rounded-full border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center"
-                    aria-label="Uzaklaştır"
-                  >
-                    <Minus size={16} strokeWidth={2.8} />
-                  </button>
-                </div>
-              )}
-              {showHoodieVariantButtons && !isMobile && (
-                <div className="rounded-2xl border border-zinc-300 bg-white/95 backdrop-blur px-2 py-2 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
-                  <div className="grid grid-cols-1 gap-1.5 min-w-[116px]">
-                    {HOODIE_DETAIL_OPTIONS.map((opt) => {
-                      const isEnabled = Boolean(activeHoodieParts[opt.id]);
-                      return (
-                        <button type="button" 
-                          key={`floating-hoodie-${opt.id}`}
-                          onClick={() => setActiveHoodiePartEnabled(opt.id, !isEnabled)}
-                          className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide border transition ${isEnabled
-                            ? "bg-zinc-900 text-white border-zinc-900"
-                            : "bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-100"
-                            }`}
-                        >
-                          {isEnabled ? "✓ " : ""}
-                          {opt.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Model picker modal */}
-        {pickerOpen && (
-          <div className="fixed inset-0 z-[95] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4 pointer-events-auto">
+          {/* Floating Controls */}
+          {(!isMobile || activeTab !== "editor" || !showPlacementPanel) && !pickerOpen && (
             <div
-              className="w-full max-w-2xl bg-[#eef1f4] border border-gray-300 rounded-2xl p-4 overflow-y-auto shadow-2xl"
-              style={{ maxHeight: "calc(var(--app-vh) * 82)" }}
+              className="absolute z-[90] pointer-events-none transition-all duration-300"
+              style={
+                isMobile
+                  ? { right: "12px", top: "43%", transform: "translateY(-50%)" }
+                  : { bottom: controlsBottom, right: "16px" }
+              }
             >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-black tracking-widest uppercase text-zinc-800">Model Ekle</h3>
-                <button type="button" 
-                  onClick={() => {
-                    setPickerOpen(false);
-                  }}
-                  className="w-8 h-8 rounded-full border border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-800 flex items-center justify-center"
-                  aria-label="Model penceresini kapat"
+              <div className="flex flex-col items-center pointer-events-auto gap-2">
+                <div
+                  className={`flex flex-col rounded-full border-2 border-zinc-700 bg-white/95 backdrop-blur shadow-[0_10px_26px_rgba(0,0,0,0.22)] ${isMobile ? "p-[3px]" : "p-1.5"
+                    }`}
                 >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">Eklenebilecek Modeller</p>
-                {pickerGroups.map((group) => (
-                  <div key={`picker-group-full-${group.id}`} className="rounded-xl border border-zinc-300 bg-white p-3">
-                    <p className="text-[11px] font-black uppercase tracking-wide text-zinc-600 mb-2">{group.title}</p>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                      {group.models.map((modelType) => {
-                        const alreadyAdded = selectedModelTypesSet.has(normalizeModelType(modelType));
+                  {UI_VIEWS.map((v) => (
+                    <button type="button"
+                      key={v}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                      }}
+                      onClick={() => switchSideAndOpenPrintPicker(v)}
+                      className={`${isMobile ? "px-3 py-1.5 text-[10px]" : "px-5 py-2.5 text-[11px]"} rounded-full font-bold uppercase tracking-widest transition-all ${view === v
+                        ? "bg-zinc-900 text-white shadow-md"
+                        : "bg-white text-zinc-600 hover:bg-zinc-100"
+                        }`}
+                    >
+                      {v === "front" ? "ÖN" : "ARKA"}
+                    </button>
+                  ))}
+                </div>
+                {isMobile && (
+                  <div className="flex flex-col gap-1.5 rounded-2xl border border-zinc-300 bg-white/90 backdrop-blur px-1.5 py-1.5 shadow-lg">
+                    <button type="button"
+                      onClick={() => zoomModel("in")}
+                      className="w-9 h-9 rounded-full border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center"
+                      aria-label="Yakınlaştır"
+                    >
+                      <Plus size={16} strokeWidth={2.8} />
+                    </button>
+                    <button type="button"
+                      onClick={() => zoomModel("out")}
+                      className="w-9 h-9 rounded-full border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center"
+                      aria-label="Uzaklaştır"
+                    >
+                      <Minus size={16} strokeWidth={2.8} />
+                    </button>
+                  </div>
+                )}
+                {showHoodieVariantButtons && !isMobile && (
+                  <div className="rounded-2xl border border-zinc-300 bg-white/95 backdrop-blur px-2 py-2 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
+                    <div className="grid grid-cols-1 gap-1.5 min-w-[116px]">
+                      {HOODIE_DETAIL_OPTIONS.map((opt) => {
+                        const isEnabled = Boolean(activeHoodieParts[opt.id]);
                         return (
-                          <button
-                            key={`picker-add-model-${modelType}`}
-                            type="button"
-                            disabled={alreadyAdded}
-                            onClick={() => addModel(modelType)}
-                            className={`py-2 px-2 rounded-lg border text-xs font-bold uppercase tracking-wide text-center ${
-                              alreadyAdded
-                                ? "bg-zinc-100 text-zinc-400 border-zinc-200 cursor-not-allowed"
-                                : "bg-white hover:bg-zinc-100 border-zinc-300 text-zinc-800"
-                            }`}
+                          <button type="button"
+                            key={`floating-hoodie-${opt.id}`}
+                            onClick={() => setActiveHoodiePartEnabled(opt.id, !isEnabled)}
+                            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide border transition ${isEnabled
+                              ? "bg-zinc-900 text-white border-zinc-900"
+                              : "bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-100"
+                              }`}
                           >
-                            {MODEL_SELECTION_CARD_LABELS[normalizeModelType(modelType)] || MODEL_LABELS[modelType] || modelType}
-                            <span className="block mt-0.5 text-[10px] font-normal normal-case text-zinc-500">
-                              {alreadyAdded ? "Ekli" : getModelGroupTitle(modelType)}
-                            </span>
+                            {isEnabled ? "✓ " : ""}
+                            {opt.label}
                           </button>
                         );
                       })}
                     </div>
                   </div>
-                ))}
+                )}
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Editor Overlay - Sol Taraf */}
-        {isPrintAreaOpen && showPlacementPanel && (
-          <div
-            className={`z-[90] pointer-events-auto backdrop-blur-md border border-gray-200 shadow-2xl overflow-hidden flex flex-col ${
-              isMobile ? "fixed left-0 right-0 rounded-none border-x-0 rounded-t-2xl" : "absolute rounded-2xl"
-            }`}
-            style={{
-              backgroundColor: "#f7f8fa",
-              left: isMobile ? 0 : `${LEFT_PRINT_AREA_GAP}px`,
-              right: isMobile ? 0 : undefined,
-              width: isMobile ? "auto" : `${LEFT_PRINT_AREA_WIDTH}px`,
-              maxWidth: isMobile ? "100vw" : undefined,
-              top: isMobile ? "auto" : "72px",
-              bottom: isMobile
-                ? mobilePlacementPanelBottom
-                : `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
-              minHeight: isMobile ? "220px" : undefined,
-              maxHeight: isMobile ? "min(38dvh, 320px)" : undefined,
-              transform: isMobile ? "translateY(0px)" : undefined,
-              transition: isMobile
-                ? dragState.current.dragging
-                  ? "none"
-                  : "bottom 220ms ease, opacity 180ms ease"
-                : undefined,
-            }}
-          >
-            {isMobile && !!lockToast && (
-              <div className="absolute left-1/2 top-2 -translate-x-1/2 z-20 rounded-full bg-black/45 text-white text-[10px] font-black uppercase tracking-wider px-3 py-1 backdrop-blur-md border border-white/25 pointer-events-none">
-                {lockToast}
-              </div>
-            )}
-            <div className={`${isMobile ? "p-3" : "p-4"} border-b border-gray-200 bg-white/85`}>
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3 className="text-xs font-black uppercase tracking-widest text-gray-900">Yerleşim Ayarı</h3>
-                  <p className="text-[10px] text-gray-500 mt-1">{sideLabel}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button type="button" 
-                    onClick={handlePlacementDone}
-                    className="h-8 px-3 rounded-full border border-emerald-600 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wide flex items-center justify-center gap-1"
-                    aria-label="Yerleşim düzenlemesini tamamla"
-                    title="Tamam"
-                  >
-                    <Check size={12} />
-                    Tamam
-                  </button>
-                  <button type="button" 
+          {/* Model picker modal */}
+          {pickerOpen && (
+            <div className="fixed inset-0 z-[95] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4 pointer-events-auto">
+              <div
+                className="w-full max-w-2xl bg-[#eef1f4] border border-gray-300 rounded-2xl p-4 overflow-y-auto shadow-2xl"
+                style={{ maxHeight: "calc(var(--app-vh) * 82)" }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-black tracking-widest uppercase text-zinc-800">Model Ekle</h3>
+                  <button type="button"
                     onClick={() => {
-                      placementPanelIntentRef.current = false;
-                      setShowPlacementPanel(false);
+                      setPickerOpen(false);
                     }}
-                    className="w-8 h-8 rounded-full border border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 flex items-center justify-center"
-                    aria-label="Yerleşim panelini kapat"
-                    title="Kapat"
+                    className="w-8 h-8 rounded-full border border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-800 flex items-center justify-center"
+                    aria-label="Model penceresini kapat"
                   >
-                    <X size={14} />
+                    <X size={16} />
                   </button>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">Eklenebilecek Modeller</p>
+                  {pickerGroups.map((group) => (
+                    <div key={`picker-group-full-${group.id}`} className="rounded-xl border border-zinc-300 bg-white p-3">
+                      <p className="text-[11px] font-black uppercase tracking-wide text-zinc-600 mb-2">{group.title}</p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {group.models.map((modelType) => {
+                          const alreadyAdded = selectedModelTypesSet.has(normalizeModelType(modelType));
+                          return (
+                            <button
+                              key={`picker-add-model-${modelType}`}
+                              type="button"
+                              disabled={alreadyAdded}
+                              onClick={() => addModel(modelType)}
+                              className={`py-2 px-2 rounded-lg border text-xs font-bold uppercase tracking-wide text-center ${alreadyAdded
+                                ? "bg-zinc-100 text-zinc-400 border-zinc-200 cursor-not-allowed"
+                                : "bg-white hover:bg-zinc-100 border-zinc-300 text-zinc-800"
+                                }`}
+                            >
+                              {MODEL_SELECTION_CARD_LABELS[normalizeModelType(modelType)] || MODEL_LABELS[modelType] || modelType}
+                              <span className="block mt-0.5 text-[10px] font-normal normal-case text-zinc-500">
+                                {alreadyAdded ? "Ekli" : getModelGroupTitle(modelType)}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
+          )}
 
-            <div className={`flex-1 ${isMobile ? "overflow-y-auto overflow-x-hidden p-3" : "overflow-y-auto overflow-x-visible p-4"}`}>
-              <div className="grid grid-cols-3 gap-2">
-                <button type="button" 
-                  onClick={() => setEditorControlTab("logo")}
-                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${editorControlTab === "logo"
-                    ? "bg-white text-black border-white"
-                    : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
-                    }`}
-                >
-                  Gorsel Ayari
-                </button>
-                <button type="button" 
-                  onClick={() => setEditorControlTab("text")}
-                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${editorControlTab === "text"
-                    ? "bg-white text-black border-white"
-                    : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
-                    }`}
-                >
-                  Yazi Ayari
-                </button>
-                <button type="button" 
-                  onClick={() => setEditorControlTab("effects")}
-                  className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${editorControlTab === "effects"
-                    ? "bg-white text-black border-white"
-                    : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
-                    }`}
-                >
-                  Efektler
-                </button>
+          {/* Editor Overlay - Sol Taraf */}
+          {isPrintAreaOpen && showPlacementPanel && (
+            <div
+              className={`z-[90] pointer-events-auto backdrop-blur-md border border-gray-200 shadow-2xl overflow-hidden flex flex-col ${isMobile ? "fixed left-0 right-0 rounded-none border-x-0 rounded-t-2xl" : "absolute rounded-2xl"
+                }`}
+              style={{
+                backgroundColor: "#f7f8fa",
+                left: isMobile ? 0 : `${LEFT_PRINT_AREA_GAP}px`,
+                right: isMobile ? 0 : undefined,
+                width: isMobile ? "auto" : `${LEFT_PRINT_AREA_WIDTH}px`,
+                maxWidth: isMobile ? "100vw" : undefined,
+                top: isMobile ? "auto" : "72px",
+                bottom: isMobile
+                  ? mobilePlacementPanelBottom
+                  : `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 12}px`,
+                minHeight: isMobile ? "220px" : undefined,
+                maxHeight: isMobile ? "min(38dvh, 320px)" : undefined,
+                transform: isMobile ? "translateY(0px)" : undefined,
+                transition: isMobile
+                  ? dragState.current.dragging
+                    ? "none"
+                    : "bottom 220ms ease, opacity 180ms ease"
+                  : undefined,
+              }}
+            >
+              {isMobile && !!lockToast && (
+                <div className="absolute left-1/2 top-2 -translate-x-1/2 z-20 rounded-full bg-black/45 text-white text-[10px] font-black uppercase tracking-wider px-3 py-1 backdrop-blur-md border border-white/25 pointer-events-none">
+                  {lockToast}
+                </div>
+              )}
+              <div className={`${isMobile ? "p-3" : "p-4"} border-b border-gray-200 bg-white/85`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="text-xs font-black uppercase tracking-widest text-gray-900">Yerleşim Ayarı</h3>
+                    <p className="text-[10px] text-gray-500 mt-1">{sideLabel}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button type="button"
+                      onClick={handlePlacementDone}
+                      className="h-8 px-3 rounded-full border border-emerald-600 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wide flex items-center justify-center gap-1"
+                      aria-label="Yerleşim düzenlemesini tamamla"
+                      title="Tamam"
+                    >
+                      <Check size={12} />
+                      Tamam
+                    </button>
+                    <button type="button"
+                      onClick={() => {
+                        placementPanelIntentRef.current = false;
+                        setShowPlacementPanel(false);
+                      }}
+                      className="w-8 h-8 rounded-full border border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100 flex items-center justify-center"
+                      aria-label="Yerleşim panelini kapat"
+                      title="Kapat"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              {editorControlTab === "logo" && (
-                <div className={`mt-3 rounded-xl border border-zinc-700 bg-zinc-800/60 space-y-3 relative ${isMobile ? "p-2.5" : "p-3"}`}>
-                  <p className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">Gorsel Ayarlari</p>
+              <div className={`flex-1 ${isMobile ? "overflow-y-auto overflow-x-hidden p-3" : "overflow-y-auto overflow-x-visible p-4"}`}>
+                <div className="grid grid-cols-3 gap-2">
+                  <button type="button"
+                    onClick={() => setEditorControlTab("logo")}
+                    className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${editorControlTab === "logo"
+                      ? "bg-white text-black border-white"
+                      : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
+                      }`}
+                  >
+                    Gorsel Ayari
+                  </button>
+                  <button type="button"
+                    onClick={() => setEditorControlTab("text")}
+                    className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${editorControlTab === "text"
+                      ? "bg-white text-black border-white"
+                      : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
+                      }`}
+                  >
+                    Yazi Ayari
+                  </button>
+                  <button type="button"
+                    onClick={() => setEditorControlTab("effects")}
+                    className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${editorControlTab === "effects"
+                      ? "bg-white text-black border-white"
+                      : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
+                      }`}
+                  >
+                    Efektler
+                  </button>
+                </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[10px] text-zinc-400 font-bold uppercase">Ölçü (cm)</p>
-                      <button type="button" 
-                        onClick={toggleLockAspect}
-                        className={`w-8 h-8 rounded-full border flex items-center justify-center ${lockAspect ? "bg-white text-black border-white" : "bg-zinc-700 text-zinc-100 border-zinc-500"
+                {editorControlTab === "logo" && (
+                  <div className={`mt-3 rounded-xl border border-zinc-700 bg-zinc-800/60 space-y-3 relative ${isMobile ? "p-2.5" : "p-3"}`}>
+                    <p className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">Gorsel Ayarlari</p>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] text-zinc-400 font-bold uppercase">Ölçü (cm)</p>
+                        <button type="button"
+                          onClick={toggleLockAspect}
+                          className={`w-8 h-8 rounded-full border flex items-center justify-center ${lockAspect ? "bg-white text-black border-white" : "bg-zinc-700 text-zinc-100 border-zinc-500"
+                            }`}
+                          title={lockAspect ? "Kilit Kapalı" : "Kilit Açık"}
+                        >
+                          {lockAspect ? <Lock size={14} /> : <LockOpen size={14} />}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-zinc-400">En</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            min="0"
+                            step="0.1"
+                            value={cmInputW}
+                            disabled={sizeControlDisabled}
+                            onChange={(e) => {
+                              setCmInputW(sanitizeCmInput(e.target.value));
+                            }}
+                            className={`w-full rounded-md border px-2 py-1 text-[16px] md:text-[11px] ${sizeControlDisabled
+                              ? "border-zinc-700 bg-zinc-800/60 text-zinc-500 cursor-not-allowed"
+                              : "border-zinc-600 bg-zinc-900/60 text-white"
+                              }`}
+                            onFocus={() => setIsEditingCmW(true)}
+                            onBlur={() => {
+                              setIsEditingCmW(false);
+                              const applied = applyWidthCmInput(cmInputW);
+                              if (!applied) {
+                                if (printCm.w) setCmInputW((activeLogoBox.w * printCm.w).toFixed(1));
+                                return;
+                              }
+                              setCmInputW(applied.cmW.toFixed(1));
+                              if (lockAspect) setCmInputH(applied.cmH.toFixed(1));
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") e.currentTarget.blur();
+                            }}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-zinc-400">Boy</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            min="0"
+                            step="0.1"
+                            value={cmInputH}
+                            disabled={sizeControlDisabled}
+                            onChange={(e) => {
+                              setCmInputH(sanitizeCmInput(e.target.value));
+                            }}
+                            className={`w-full rounded-md border px-2 py-1 text-[16px] md:text-[11px] ${sizeControlDisabled
+                              ? "border-zinc-700 bg-zinc-800/60 text-zinc-500 cursor-not-allowed"
+                              : "border-zinc-600 bg-zinc-900/60 text-white"
+                              }`}
+                            onFocus={() => setIsEditingCmH(true)}
+                            onBlur={() => {
+                              setIsEditingCmH(false);
+                              const applied = applyHeightCmInput(cmInputH);
+                              if (!applied) {
+                                if (printCm.h) setCmInputH((activeLogoBox.h * printCm.h).toFixed(1));
+                                return;
+                              }
+                              setCmInputH(applied.cmH.toFixed(1));
+                              if (lockAspect) setCmInputW(applied.cmW.toFixed(1));
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") e.currentTarget.blur();
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                        <span>X Konum</span>
+                        <span>{Math.round(activeLogoBox.x * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={activeLogoBox.w / 2}
+                        max={1 - activeLogoBox.w / 2}
+                        step="0.005"
+                        value={activeLogoBox.x}
+                        disabled={imageControlDisabled}
+                        onChange={(e) => updateActiveLogoBox({ ...activeLogoBox, x: Number(e.target.value) })}
+                        className={`w-full accent-cyan-300 ${imageControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                        <span>Y Konum</span>
+                        <span>{Math.round(activeLogoBox.y * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={activeLogoBox.h / 2}
+                        max={1 - activeLogoBox.h / 2}
+                        step="0.005"
+                        value={activeLogoBox.y}
+                        disabled={imageControlDisabled}
+                        onChange={(e) => updateActiveLogoBox({ ...activeLogoBox, y: Number(e.target.value) })}
+                        className={`w-full accent-cyan-300 ${imageControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                        <span>Genişlik</span>
+                        <span>{Math.round(activeLogoBox.w * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.12"
+                        max="0.95"
+                        step="0.005"
+                        value={activeLogoBox.w}
+                        disabled={sizeControlDisabled}
+                        onChange={(e) => updateActiveLogoBox({ ...activeLogoBox, w: Number(e.target.value) })}
+                        className={`w-full accent-cyan-300 ${sizeControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                        <span>Yükseklik</span>
+                        <span>{Math.round(activeLogoBox.h * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.12"
+                        max="0.95"
+                        step="0.005"
+                        value={activeLogoBox.h}
+                        disabled={sizeControlDisabled}
+                        onChange={(e) => updateActiveLogoBox({ ...activeLogoBox, h: Number(e.target.value) })}
+                        className={`w-full accent-cyan-300 ${sizeControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                        <span>Döndürme</span>
+                        <span>{Math.round(activeLogo?.rotation || 0)}°</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="-180"
+                        max="180"
+                        step="5"
+                        value={activeLogo?.rotation || 0}
+                        disabled={imageControlDisabled}
+                        onChange={(e) => {
+                          const raw = Number(e.target.value);
+                          const snapped = Math.round(raw / 5) * 5;
+                          updateActiveLogo({ rotation: snapped });
+                        }}
+                        className={`w-full accent-cyan-300 ${imageControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                      />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button type="button"
+                        disabled={imageControlDisabled}
+                        onClick={() => setActiveLogoLayer("front")}
+                        className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
+                          ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                          : "bg-zinc-700 hover:bg-zinc-600"
                           }`}
-                        title={lockAspect ? "Kilit Kapalı" : "Kilit Açık"}
                       >
-                        {lockAspect ? <Lock size={14} /> : <LockOpen size={14} />}
+                        Öne Al
                       </button>
+                      <button type="button"
+                        disabled={imageControlDisabled}
+                        onClick={() => setActiveLogoLayer("back")}
+                        className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
+                          ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                          : "bg-zinc-700 hover:bg-zinc-600"
+                          }`}
+                      >
+                        Arkaya Al
+                      </button>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button type="button"
+                        disabled={imageControlDisabled}
+                        onClick={() => updateActiveLogoBox({ ...activeLogoBox, x: 0.5, y: 0.5 })}
+                        className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
+                          ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                          : "bg-zinc-700 hover:bg-zinc-600"
+                          }`}
+                      >
+                        Ortala
+                      </button>
+                      <button type="button"
+                        disabled={imageControlDisabled}
+                        onClick={() =>
+                          updateActiveLogoBox(
+                            activeLogoIsEmboss
+                              ? { ...activeLogoBox, x: 0.5, y: 0.6 }
+                              : { x: 0.5, y: 0.6, w: 0.7, h: 0.45 }
+                          )
+                        }
+                        className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
+                          ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                          : "bg-zinc-700 hover:bg-zinc-600"
+                          }`}
+                      >
+                        Sıfırla
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleDeleteActiveImage}
+                      disabled={!activeLogo}
+                      className={`w-full py-1.5 rounded-lg text-[10px] font-bold uppercase border ${activeLogo
+                        ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
+                        : "border-zinc-600 bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                        }`}
+                    >
+                      Görseli Sil
+                    </button>
+                  </div>
+                )}
+
+                {editorControlTab === "text" && (
+                  <div className={`mt-3 rounded-xl border border-zinc-700 bg-zinc-800/60 space-y-3 ${isMobile ? "p-2.5" : "p-3"}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">Yazi Ayari</p>
+                      {!(customText?.text || "").trim() && (
+                        <button
+                          type="button"
+                          onPointerDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          onClick={() => {
+                            bumpCustomText({ text: "YAZI" });
+                          }}
+                          className="px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase"
+                        >
+                          Yazi Ekle
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => applySceneTextTechnique(PRINT_TECHNIQUES.DTF)}
+                        className={`h-8 rounded-md border text-[10px] font-black uppercase tracking-wide ${normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER) === PRINT_TECHNIQUES.DTF
+                          ? "bg-white text-black border-white"
+                          : "bg-zinc-900/60 text-zinc-200 border-zinc-600 hover:bg-zinc-800"
+                          }`}
+                      >
+                        DTF
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applySceneTextTechnique(PRINT_TECHNIQUES.RUBBER)}
+                        className={`h-8 rounded-md border text-[10px] font-black uppercase tracking-wide ${normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER) === PRINT_TECHNIQUES.RUBBER
+                          ? "bg-white text-black border-white"
+                          : "bg-zinc-900/60 text-zinc-200 border-zinc-600 hover:bg-zinc-800"
+                          }`}
+                      >
+                        RUBBER
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-zinc-300">
+                      {normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER) === PRINT_TECHNIQUES.RUBBER
+                        ? "Yazı odaklı, kabartı hissi veren minimal baskı."
+                        : "Detaylı ve renkli tasarımlar için uygun."}
+                    </p>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-zinc-400">Metin</label>
+                      <DebouncedTextDraftInput
+                        key={`${textDraftKey}::${customText?.text || ""}`}
+                        committedText={customText?.text || ""}
+                        onCommit={commitSceneTextDraft}
+                        pending={isTextUpdatePending}
+                        maxLength={56}
+                        className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 text-white px-2 py-1 text-[16px] md:text-[11px]"
+                        placeholder=""
+                      />
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
-                        <label className="text-[10px] text-zinc-400">En</label>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          min="0"
-                          step="0.1"
-                          value={cmInputW}
-                          disabled={sizeControlDisabled}
-                          onChange={(e) => {
-                            setCmInputW(sanitizeCmInput(e.target.value));
-                          }}
-                          className={`w-full rounded-md border px-2 py-1 text-[16px] md:text-[11px] ${sizeControlDisabled
-                            ? "border-zinc-700 bg-zinc-800/60 text-zinc-500 cursor-not-allowed"
-                            : "border-zinc-600 bg-zinc-900/60 text-white"
-                            }`}
-                          onFocus={() => setIsEditingCmW(true)}
-                          onBlur={() => {
-                            setIsEditingCmW(false);
-                            const applied = applyWidthCmInput(cmInputW);
-                            if (!applied) {
-                              if (printCm.w) setCmInputW((activeLogoBox.w * printCm.w).toFixed(1));
-                              return;
-                            }
-                            setCmInputW(applied.cmW.toFixed(1));
-                            if (lockAspect) setCmInputH(applied.cmH.toFixed(1));
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") e.currentTarget.blur();
-                          }}
-                        />
+                        <label className="text-[10px] text-zinc-400">Font</label>
+                        <select
+                          value={placementFontValue}
+                          onChange={(e) => bumpCustomText({ font: e.target.value })}
+                          disabled={rubberActiveForSide}
+                          className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 text-white px-2 py-1 text-[16px] md:text-[11px]"
+                        >
+                          {placementFontOptions.map((opt) => (
+                            <option key={`editor-text-font-${opt.value}`} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] text-zinc-400">Boy</label>
+                        <label className="text-[10px] text-zinc-400">Renk</label>
                         <input
-                          type="text"
-                          inputMode="decimal"
-                          min="0"
-                          step="0.1"
-                          value={cmInputH}
-                          disabled={sizeControlDisabled}
-                          onChange={(e) => {
-                            setCmInputH(sanitizeCmInput(e.target.value));
-                          }}
-                          className={`w-full rounded-md border px-2 py-1 text-[16px] md:text-[11px] ${sizeControlDisabled
-                            ? "border-zinc-700 bg-zinc-800/60 text-zinc-500 cursor-not-allowed"
-                            : "border-zinc-600 bg-zinc-900/60 text-white"
-                            }`}
-                          onFocus={() => setIsEditingCmH(true)}
-                          onBlur={() => {
-                            setIsEditingCmH(false);
-                            const applied = applyHeightCmInput(cmInputH);
-                            if (!applied) {
-                              if (printCm.h) setCmInputH((activeLogoBox.h * printCm.h).toFixed(1));
-                              return;
-                            }
-                            setCmInputH(applied.cmH.toFixed(1));
-                            if (lockAspect) setCmInputW(applied.cmW.toFixed(1));
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") e.currentTarget.blur();
-                          }}
+                          type="color"
+                          value={customText?.color || "#ffffff"}
+                          onChange={(e) => bumpCustomText({ color: e.target.value })}
+                          className="w-full h-[30px] rounded-md border border-zinc-600 bg-zinc-900/60 p-1"
                         />
                       </div>
                     </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                      <span>X Konum</span>
-                      <span>{Math.round(activeLogoBox.x * 100)}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={activeLogoBox.w / 2}
-                      max={1 - activeLogoBox.w / 2}
-                      step="0.005"
-                      value={activeLogoBox.x}
-                      disabled={imageControlDisabled}
-                      onChange={(e) => updateActiveLogoBox({ ...activeLogoBox, x: Number(e.target.value) })}
-                      className={`w-full accent-cyan-300 ${imageControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                      <span>Y Konum</span>
-                      <span>{Math.round(activeLogoBox.y * 100)}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={activeLogoBox.h / 2}
-                      max={1 - activeLogoBox.h / 2}
-                      step="0.005"
-                      value={activeLogoBox.y}
-                      disabled={imageControlDisabled}
-                      onChange={(e) => updateActiveLogoBox({ ...activeLogoBox, y: Number(e.target.value) })}
-                      className={`w-full accent-cyan-300 ${imageControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                      <span>Genişlik</span>
-                      <span>{Math.round(activeLogoBox.w * 100)}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.12"
-                      max="0.95"
-                      step="0.005"
-                      value={activeLogoBox.w}
-                      disabled={sizeControlDisabled}
-                      onChange={(e) => updateActiveLogoBox({ ...activeLogoBox, w: Number(e.target.value) })}
-                      className={`w-full accent-cyan-300 ${sizeControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                      <span>Yükseklik</span>
-                      <span>{Math.round(activeLogoBox.h * 100)}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.12"
-                      max="0.95"
-                      step="0.005"
-                      value={activeLogoBox.h}
-                      disabled={sizeControlDisabled}
-                      onChange={(e) => updateActiveLogoBox({ ...activeLogoBox, h: Number(e.target.value) })}
-                      className={`w-full accent-cyan-300 ${sizeControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                      <span>Döndürme</span>
-                      <span>{Math.round(activeLogo?.rotation || 0)}°</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="-180"
-                      max="180"
-                      step="5"
-                      value={activeLogo?.rotation || 0}
-                      disabled={imageControlDisabled}
-                      onChange={(e) => {
-                        const raw = Number(e.target.value);
-                        const snapped = Math.round(raw / 5) * 5;
-                        updateActiveLogo({ rotation: snapped });
-                      }}
-                      className={`w-full accent-cyan-300 ${imageControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                    />
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button type="button" 
-                      disabled={imageControlDisabled}
-                      onClick={() => setActiveLogoLayer("front")}
-                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
-                        ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                        : "bg-zinc-700 hover:bg-zinc-600"
-                        }`}
-                    >
-                      Öne Al
-                    </button>
-                    <button type="button" 
-                      disabled={imageControlDisabled}
-                      onClick={() => setActiveLogoLayer("back")}
-                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
-                        ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                        : "bg-zinc-700 hover:bg-zinc-600"
-                        }`}
-                    >
-                      Arkaya Al
-                    </button>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button type="button" 
-                      disabled={imageControlDisabled}
-                      onClick={() => updateActiveLogoBox({ ...activeLogoBox, x: 0.5, y: 0.5 })}
-                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
-                        ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                        : "bg-zinc-700 hover:bg-zinc-600"
-                        }`}
-                    >
-                      Ortala
-                    </button>
-                    <button type="button" 
-                      disabled={imageControlDisabled}
-                      onClick={() =>
-                        updateActiveLogoBox(
-                          activeLogoIsEmboss
-                            ? { ...activeLogoBox, x: 0.5, y: 0.6 }
-                            : { x: 0.5, y: 0.6, w: 0.7, h: 0.45 }
-                        )
-                      }
-                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase ${imageControlDisabled
-                        ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                        : "bg-zinc-700 hover:bg-zinc-600"
-                        }`}
-                    >
-                      Sıfırla
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleDeleteActiveImage}
-                    disabled={!activeLogo}
-                    className={`w-full py-1.5 rounded-lg text-[10px] font-bold uppercase border ${activeLogo
-                      ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
-                      : "border-zinc-600 bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                      }`}
-                  >
-                    Görseli Sil
-                  </button>
-                </div>
-              )}
-
-              {editorControlTab === "text" && (
-                <div className={`mt-3 rounded-xl border border-zinc-700 bg-zinc-800/60 space-y-3 ${isMobile ? "p-2.5" : "p-3"}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">Yazi Ayari</p>
-                    {!(customText?.text || "").trim() && (
-                      <button
-                        type="button"
-                        onPointerDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                        }}
-                        onClick={() => {
-                          bumpCustomText({ text: "YAZI" });
-                        }}
-                        className="px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase"
-                      >
-                        Yazi Ekle
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => applySceneTextTechnique(PRINT_TECHNIQUES.DTF)}
-                      className={`h-8 rounded-md border text-[10px] font-black uppercase tracking-wide ${
-                        normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER) === PRINT_TECHNIQUES.DTF
-                          ? "bg-white text-black border-white"
-                          : "bg-zinc-900/60 text-zinc-200 border-zinc-600 hover:bg-zinc-800"
-                      }`}
-                    >
-                      DTF
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applySceneTextTechnique(PRINT_TECHNIQUES.RUBBER)}
-                      className={`h-8 rounded-md border text-[10px] font-black uppercase tracking-wide ${
-                        normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER) === PRINT_TECHNIQUES.RUBBER
-                          ? "bg-white text-black border-white"
-                          : "bg-zinc-900/60 text-zinc-200 border-zinc-600 hover:bg-zinc-800"
-                      }`}
-                    >
-                      RUBBER
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-zinc-300">
-                    {normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER) === PRINT_TECHNIQUES.RUBBER
-                      ? "Yazı odaklı, kabartı hissi veren minimal baskı."
-                      : "Detaylı ve renkli tasarımlar için uygun."}
-                  </p>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-zinc-400">Metin</label>
-                    <DebouncedTextDraftInput
-                      key={`${textDraftKey}::${customText?.text || ""}`}
-                      committedText={customText?.text || ""}
-                      onCommit={commitSceneTextDraft}
-                      pending={isTextUpdatePending}
-                      maxLength={56}
-                      className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 text-white px-2 py-1 text-[16px] md:text-[11px]"
-                      placeholder=""
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-zinc-400">Font</label>
-                      <select
-                        value={placementFontValue}
-                        onChange={(e) => bumpCustomText({ font: e.target.value })}
-                        disabled={rubberActiveForSide}
-                        className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 text-white px-2 py-1 text-[16px] md:text-[11px]"
-                      >
-                        {placementFontOptions.map((opt) => (
-                          <option key={`editor-text-font-${opt.value}`} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-zinc-400">Renk</label>
-                      <input
-                        type="color"
-                        value={customText?.color || "#ffffff"}
-                        onChange={(e) => bumpCustomText({ color: e.target.value })}
-                        className="w-full h-[30px] rounded-md border border-zinc-600 bg-zinc-900/60 p-1"
-                      />
-                    </div>
-                  </div>
-                  {!rubberActiveForSide && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => bumpCustomText({ emboss: !Boolean(customText?.emboss) })}
-                        className={`w-full py-1.5 rounded-lg text-[10px] font-black uppercase border transition ${
-                          Boolean(customText?.emboss)
+                    {!rubberActiveForSide && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => bumpCustomText({ emboss: !Boolean(customText?.emboss) })}
+                          className={`w-full py-1.5 rounded-lg text-[10px] font-black uppercase border transition ${Boolean(customText?.emboss)
                             ? "bg-cyan-200 text-cyan-950 border-cyan-300"
                             : "bg-zinc-900/60 text-zinc-200 border-zinc-600 hover:bg-zinc-800"
-                        }`}
-                      >
-                        Kabartı: {Boolean(customText?.emboss) ? "Açık" : "Kapalı"}
-                      </button>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                          <span>Kabartı Kalınlığı</span>
-                          <span>{clamp(Number(customText?.embossDepth ?? 1.4), 0.6, 2.8).toFixed(2)}x</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0.6"
-                          max="2.8"
-                          step="0.05"
-                          value={clamp(Number(customText?.embossDepth ?? 1.4), 0.6, 2.8)}
-                          disabled={customText?.emboss === false}
-                          onChange={(e) => bumpCustomText({ embossDepth: Number(e.target.value) })}
-                          className={`w-full accent-cyan-300 ${customText?.emboss === false ? "opacity-45 cursor-not-allowed" : ""}`}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                          <span>Kabartı Gücü</span>
-                          <span>{clamp(Number(customText?.embossStrength ?? 1.4), 0.6, 2.4).toFixed(2)}x</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0.6"
-                          max="2.4"
-                          step="0.05"
-                          value={clamp(Number(customText?.embossStrength ?? 1.4), 0.6, 2.4)}
-                          disabled={customText?.emboss === false}
-                          onChange={(e) => bumpCustomText({ embossStrength: Number(e.target.value) })}
-                          className={`w-full accent-cyan-300 ${customText?.emboss === false ? "opacity-45 cursor-not-allowed" : ""}`}
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  {rubberActiveForSide && (
-                    <>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                          <span>Rubber Kalınlık</span>
-                          <span>2.00 mm (Sabit)</span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                          <span>Boyut</span>
-                          <span>{Math.round(Number(customText?.size) || 150)}px</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="40"
-                          max="280"
-                          step="1"
-                          value={Number(customText?.size) || 150}
-                          onChange={(e) => bumpCustomText({ size: Number(e.target.value) })}
-                          className="w-full accent-cyan-300"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                          <span>Harf Aralığı</span>
-                          <span>{clamp(Number(customText?.rubberLetterSpacing ?? 1), 0.2, 3).toFixed(2)}x</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0.2"
-                          max="3"
-                          step="0.05"
-                          value={clamp(Number(customText?.rubberLetterSpacing ?? 1), 0.2, 3)}
-                          onChange={(e) => bumpCustomText({ rubberLetterSpacing: Number(e.target.value) })}
-                          className="w-full accent-cyan-300"
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  {!rubberActiveForSide && (
-                    <>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                          <span>Boyut</span>
-                          <span>{Math.round(Number(customText?.size) || 150)}px</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="40"
-                          max="280"
-                          step="1"
-                          value={Number(customText?.size) || 150}
-                          onChange={(e) => bumpCustomText({ size: Number(e.target.value) })}
-                          className="w-full accent-cyan-300"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                          <span>Döndürme</span>
-                          <span>{Math.round(Number(customText?.rotation) || 0)}°</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="-180"
-                          max="180"
-                          step="1"
-                          value={Number(customText?.rotation) || 0}
-                          onChange={(e) => bumpCustomText({ rotation: Number(e.target.value) })}
-                          className="w-full accent-cyan-300"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                          <span>X Konum</span>
-                          <span>{Math.round(safeTextPos.x * 100)}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.005"
-                          value={safeTextPos.x}
-                          onChange={(e) => updateTextPos({ x: Number(e.target.value) })}
-                          className="w-full accent-cyan-300"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                          <span>Y Konum</span>
-                          <span>{Math.round(safeTextPos.y * 100)}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.005"
-                          value={safeTextPos.y}
-                          onChange={(e) => updateTextPos({ y: Number(e.target.value) })}
-                          className="w-full accent-cyan-300"
-                        />
-                      </div>
-
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setTextLayer("front")}
-                          className="flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-zinc-700 hover:bg-zinc-600"
+                            }`}
                         >
-                          Öne Al
+                          Kabartı: {Boolean(customText?.emboss) ? "Açık" : "Kapalı"}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setTextLayer("back")}
-                          className="flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-zinc-700 hover:bg-zinc-600"
-                        >
-                          Arkaya Al
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                            <span>Kabartı Kalınlığı</span>
+                            <span>{clamp(Number(customText?.embossDepth ?? 1.4), 0.6, 2.8).toFixed(2)}x</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.6"
+                            max="2.8"
+                            step="0.05"
+                            value={clamp(Number(customText?.embossDepth ?? 1.4), 0.6, 2.8)}
+                            disabled={customText?.emboss === false}
+                            onChange={(e) => bumpCustomText({ embossDepth: Number(e.target.value) })}
+                            className={`w-full accent-cyan-300 ${customText?.emboss === false ? "opacity-45 cursor-not-allowed" : ""}`}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                            <span>Kabartı Gücü</span>
+                            <span>{clamp(Number(customText?.embossStrength ?? 1.4), 0.6, 2.4).toFixed(2)}x</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.6"
+                            max="2.4"
+                            step="0.05"
+                            value={clamp(Number(customText?.embossStrength ?? 1.4), 0.6, 2.4)}
+                            disabled={customText?.emboss === false}
+                            onChange={(e) => bumpCustomText({ embossStrength: Number(e.target.value) })}
+                            className={`w-full accent-cyan-300 ${customText?.emboss === false ? "opacity-45 cursor-not-allowed" : ""}`}
+                          />
+                        </div>
+                      </>
+                    )}
 
-              {activeLogo && editorControlTab === "effects" && (
-                <div className={`mt-3 rounded-xl border border-zinc-700 bg-zinc-800/60 space-y-2 ${isMobile ? "p-2.5" : "p-3"}`}>
-                  <p className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">Efektler</p>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-zinc-300">
-                      <span>Opaklik</span>
-                      <span>{Math.round(activeLogoFx.opacity * 100)}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="1"
-                      value={Math.round(activeLogoFx.opacity * 100)}
-                      onChange={(e) => updateActiveLogo({ opacity: Number(e.target.value) / 100 })}
-                      className="w-full accent-cyan-300"
-                    />
+                    {rubberActiveForSide && (
+                      <>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                            <span>Rubber Kalınlık</span>
+                            <span>2.00 mm (Sabit)</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                            <span>Boyut</span>
+                            <span>{Math.round(Number(customText?.size) || 150)}px</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="40"
+                            max="280"
+                            step="1"
+                            value={Number(customText?.size) || 150}
+                            onChange={(e) => bumpCustomText({ size: Number(e.target.value) })}
+                            className="w-full accent-cyan-300"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                            <span>Harf Aralığı</span>
+                            <span>{clamp(Number(customText?.rubberLetterSpacing ?? 1), 0.2, 3).toFixed(2)}x</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0.2"
+                            max="3"
+                            step="0.05"
+                            value={clamp(Number(customText?.rubberLetterSpacing ?? 1), 0.2, 3)}
+                            onChange={(e) => bumpCustomText({ rubberLetterSpacing: Number(e.target.value) })}
+                            className="w-full accent-cyan-300"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {!rubberActiveForSide && (
+                      <>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                            <span>Boyut</span>
+                            <span>{Math.round(Number(customText?.size) || 150)}px</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="40"
+                            max="280"
+                            step="1"
+                            value={Number(customText?.size) || 150}
+                            onChange={(e) => bumpCustomText({ size: Number(e.target.value) })}
+                            className="w-full accent-cyan-300"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                            <span>Döndürme</span>
+                            <span>{Math.round(Number(customText?.rotation) || 0)}°</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="-180"
+                            max="180"
+                            step="1"
+                            value={Number(customText?.rotation) || 0}
+                            onChange={(e) => bumpCustomText({ rotation: Number(e.target.value) })}
+                            className="w-full accent-cyan-300"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                            <span>X Konum</span>
+                            <span>{Math.round(safeTextPos.x * 100)}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.005"
+                            value={safeTextPos.x}
+                            onChange={(e) => updateTextPos({ x: Number(e.target.value) })}
+                            className="w-full accent-cyan-300"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                            <span>Y Konum</span>
+                            <span>{Math.round(safeTextPos.y * 100)}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.005"
+                            value={safeTextPos.y}
+                            onChange={(e) => updateTextPos({ y: Number(e.target.value) })}
+                            className="w-full accent-cyan-300"
+                          />
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setTextLayer("front")}
+                            className="flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-zinc-700 hover:bg-zinc-600"
+                          >
+                            Öne Al
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTextLayer("back")}
+                            className="flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase bg-zinc-700 hover:bg-zinc-600"
+                          >
+                            Arkaya Al
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
+                )}
 
-                  <div className="grid grid-cols-2 gap-2">
+                {activeLogo && editorControlTab === "effects" && (
+                  <div className={`mt-3 rounded-xl border border-zinc-700 bg-zinc-800/60 space-y-2 ${isMobile ? "p-2.5" : "p-3"}`}>
+                    <p className="text-[10px] text-zinc-300 font-bold uppercase tracking-wider">Efektler</p>
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-[10px] text-zinc-300">
-                        <span>Parlaklik</span>
-                        <span>{Math.round(activeLogoFx.brightness)}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="20"
-                        max="200"
-                        step="1"
-                        value={Math.round(activeLogoFx.brightness)}
-                        onChange={(e) => updateActiveLogo({ brightness: Number(e.target.value) })}
-                        className="w-full accent-cyan-300"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-[10px] text-zinc-300">
-                        <span>Kontrast</span>
-                        <span>{Math.round(activeLogoFx.contrast)}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="20"
-                        max="200"
-                        step="1"
-                        value={Math.round(activeLogoFx.contrast)}
-                        onChange={(e) => updateActiveLogo({ contrast: Number(e.target.value) })}
-                        className="w-full accent-cyan-300"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-[10px] text-zinc-300">
-                        <span>Doygunluk</span>
-                        <span>{Math.round(activeLogoFx.saturation)}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="250"
-                        step="1"
-                        value={Math.round(activeLogoFx.saturation)}
-                        onChange={(e) => updateActiveLogo({ saturation: Number(e.target.value) })}
-                        className="w-full accent-cyan-300"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-[10px] text-zinc-300">
-                        <span>Gri Ton</span>
-                        <span>{Math.round(activeLogoFx.grayscale)}%</span>
+                        <span>Opaklik</span>
+                        <span>{Math.round(activeLogoFx.opacity * 100)}%</span>
                       </div>
                       <input
                         type="range"
                         min="0"
                         max="100"
                         step="1"
-                        value={Math.round(activeLogoFx.grayscale)}
-                        onChange={(e) => updateActiveLogo({ grayscale: Number(e.target.value) })}
+                        value={Math.round(activeLogoFx.opacity * 100)}
+                        onChange={(e) => updateActiveLogo({ opacity: Number(e.target.value) / 100 })}
                         className="w-full accent-cyan-300"
                       />
                     </div>
-                  </div>
 
-                  <div className="flex gap-2">
-                    <button type="button" 
-                      onClick={() => updateActiveLogo({ flipX: !activeLogoFx.flipX })}
-                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase border ${activeLogoFx.flipX
-                        ? "bg-cyan-100 text-cyan-900 border-cyan-300"
-                        : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
-                        }`}
-                    >
-                      Yatay
-                    </button>
-                    <button type="button" 
-                      onClick={() => updateActiveLogo({ flipY: !activeLogoFx.flipY })}
-                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase border ${activeLogoFx.flipY
-                        ? "bg-cyan-100 text-cyan-900 border-cyan-300"
-                        : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
-                        }`}
-                    >
-                      Dikey
-                    </button>
-                  </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-zinc-300">
+                          <span>Parlaklik</span>
+                          <span>{Math.round(activeLogoFx.brightness)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="20"
+                          max="200"
+                          step="1"
+                          value={Math.round(activeLogoFx.brightness)}
+                          onChange={(e) => updateActiveLogo({ brightness: Number(e.target.value) })}
+                          className="w-full accent-cyan-300"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-zinc-300">
+                          <span>Kontrast</span>
+                          <span>{Math.round(activeLogoFx.contrast)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="20"
+                          max="200"
+                          step="1"
+                          value={Math.round(activeLogoFx.contrast)}
+                          onChange={(e) => updateActiveLogo({ contrast: Number(e.target.value) })}
+                          className="w-full accent-cyan-300"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-zinc-300">
+                          <span>Doygunluk</span>
+                          <span>{Math.round(activeLogoFx.saturation)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="250"
+                          step="1"
+                          value={Math.round(activeLogoFx.saturation)}
+                          onChange={(e) => updateActiveLogo({ saturation: Number(e.target.value) })}
+                          className="w-full accent-cyan-300"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] text-zinc-300">
+                          <span>Gri Ton</span>
+                          <span>{Math.round(activeLogoFx.grayscale)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="1"
+                          value={Math.round(activeLogoFx.grayscale)}
+                          onChange={(e) => updateActiveLogo({ grayscale: Number(e.target.value) })}
+                          className="w-full accent-cyan-300"
+                        />
+                      </div>
+                    </div>
 
-                  <button type="button" 
-                    onClick={() => updateActiveLogo({ ...LOGO_STYLE_DEFAULTS })}
-                    className="w-full py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-[10px] font-bold uppercase"
-                  >
-                    Efekti Sifirla
-                  </button>
-                </div>
-              )}
-
-              <p className="text-[10px] text-zinc-500 mt-3">
-                İpucu: Görseli ortadan sürükle, köşelerden büyüt/küçült.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* MODEL ÜZERİ DİREKT YERLEŞİM (Panel değişmeden) */}
-        {isPrintAreaOpen && (
-          <div
-            className="absolute z-[64] pointer-events-none"
-            style={{
-              left: scenePlaneRect ? `${scenePlaneRect.left}px` : sceneEditCenterLeft,
-              top: scenePlaneRect ? `${scenePlaneRect.top}px` : sceneEditCenterTop,
-              width: scenePlaneRect ? `${scenePlaneRect.width}px` : isMobile ? "min(74vw, 350px)" : "min(34vw, 470px)",
-              height: scenePlaneRect ? `${scenePlaneRect.height}px` : undefined,
-              aspectRatio: scenePlaneRect ? undefined : previewAspect,
-              transform: scenePlaneRect ? "none" : "translate(-50%, -50%)",
-              pointerEvents: sceneOverlayInteractionEnabled ? "auto" : "none",
-            }}
-          >
-            <div
-              ref={sceneEditRef}
-              className="relative w-full h-full touch-none pointer-events-none"
-              style={{ touchAction: "none" }}
-            >
-              {(logos || []).map((l) => {
-                const isSelected = l.id === (sideData?.activeLogoId || sideData?.logos?.[0]?.id);
-                const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
-                return (
-                  <div
-                    key={`scene-logo-${l.id}`}
-                    className={`absolute border-2 rounded-sm transition-all ${
-                      isSelected && showSceneFrame
-                        ? "border-cyan-300/90 bg-transparent shadow-none"
-                        : "border-transparent bg-transparent"
-                    }`}
-                    style={{
-                      left: `${(box.x - box.w / 2) * 100}%`,
-                      top: `${(box.y - box.h / 2) * 100}%`,
-                      width: `${box.w * 100}%`,
-                      height: `${box.h * 100}%`,
-                      pointerEvents: "auto",
-                      touchAction: "none",
-                    }}
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (!isSelected || !sceneSelectionVisible) {
-                        updateSide({ activeLogoId: l.id });
-                        setSceneSelectionVisible(true);
-                        setSceneTextSelectionVisible(false);
-                        setSceneFrameMode("resize");
-                        setSelectedSceneItem({ id: l.id, type: "logo", side: currentSide });
-                        return;
-                      }
-                      setSceneFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"));
-                    }}
-                  />
-                );
-              })}
-
-              {showSceneFrame && (
-                <ResizeFrame
-                  box={activeLogo.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 }}
-                  containerRef={sceneEditRef}
-                  onChange={updateActiveLogoBox}
-                  rotation={Number(activeLogo?.rotation) || 0}
-                  onRotateChange={(nextRot) => updateActiveLogo({ rotation: nextRot })}
-                  onFrameTap={() => setSceneFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"))}
-                  transformMode={sceneFrameMode}
-                  onDragStateChange={setIsLogoDragging}
-                  diagonalOnly={lockAspect}
-                  disableResize={activeLogoIsEmboss}
-                  largeHandles={isMobile}
-                />
-              )}
-
-              {showSceneFrame && (
-                <div
-                  className="absolute flex items-center gap-1.5 z-[85] pointer-events-auto"
-                  style={{
-                    left: `${(activeLogoBox.x - activeLogoBox.w / 2) * 100}%`,
-                    top: `${(activeLogoBox.y - activeLogoBox.h / 2) * 100}%`,
-                    transform: isSceneFrameCompact ? "translate(-112%, -112%)" : "translate(0%, -120%)",
-                  }}
-                >
-                  <button
-                    type="button"
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleLockAspect();
-                    }}
-                    className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${
-                      isMobile ? "w-9 h-9" : "w-8 h-8"
-                    }`}
-                    aria-label="Oran kilidi"
-                    title={lockAspect ? "Kilitli" : "Kilit Açık"}
-                  >
-                    {lockAspect ? <Lock size={14} /> : <LockOpen size={14} />}
-                  </button>
-                </div>
-              )}
-
-              {showSceneFrame && (
-                <div
-                  className={`absolute flex z-[85] pointer-events-auto ${isSceneFrameCompact ? "items-center flex-col gap-1" : "items-center gap-1.5"}`}
-                  style={{
-                    left: `${(activeLogoBox.x + activeLogoBox.w / 2) * 100}%`,
-                    top: `${(activeLogoBox.y - activeLogoBox.h / 2) * 100}%`,
-                    transform: isSceneFrameCompact ? "translate(12%, -112%)" : "translate(-100%, -120%)",
-                  }}
-                >
-                  <button
-                    type="button"
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteActiveImage();
-                      setSceneSelectionVisible(false);
-                      setSceneFrameMode("resize");
-                    }}
-                    className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${
-                      isMobile ? "w-9 h-9" : "w-8 h-8"
-                    }`}
-                    aria-label="Seçili görseli sil"
-                    title="Sil"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openPlacementPanelFromScene("logo");
-                    }}
-                    className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${
-                      isMobile ? "w-9 h-9" : "w-8 h-8"
-                    }`}
-                    aria-label="Görsel düzenleme paneline geç"
-                    title="Düzenle"
-                  >
-                    <Pencil size={14} />
-                  </button>
-                </div>
-              )}
-
-              {hasSceneText && (
-                <>
-                  <div
-                    className={`absolute border-2 rounded-sm transition-all ${
-                      showSceneTextFrame
-                        ? "border-cyan-300/90 bg-transparent shadow-none"
-                        : "border-transparent bg-transparent"
-                    }`}
-                    style={{
-                      left: `${(sceneTextBox.x - sceneTextBox.w / 2) * 100}%`,
-                      top: `${(sceneTextBox.y - sceneTextBox.h / 2) * 100}%`,
-                      width: `${sceneTextBox.w * 100}%`,
-                      height: `${sceneTextBox.h * 100}%`,
-                      pointerEvents: showSceneTextFrame ? "none" : "auto",
-                      touchAction: "none",
-                      zIndex: showSceneTextFrame ? 62 : 61,
-                    }}
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (!sceneTextSelectionVisible) {
-                        setSceneTextSelectionVisible(true);
-                        setSceneTextFrameMode("resize");
-                        setSceneSelectionVisible(false);
-                        setSelectedSceneItem({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
-                        return;
-                      }
-                      if (!showPlacementPanel || editorControlTab !== "text") {
-                        openPlacementPanelFromScene("text");
-                      }
-                      setSceneTextFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"));
-                    }}
-                  />
-
-                  {showSceneTextFrame && (
-                    <ResizeFrame
-                      box={sceneTextBox}
-                      containerRef={sceneEditRef}
-                      onChange={(nextBox) => updateTextPos({ x: nextBox.x, y: nextBox.y })}
-                      rotation={Number(customText?.rotation) || 0}
-                      onRotateChange={(nextRot) => bumpCustomText({ rotation: nextRot })}
-                      onFrameTap={() => setSceneTextFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"))}
-                      transformMode={sceneTextFrameMode}
-                      onDragStateChange={setIsLogoDragging}
-                      disableResize
-                      largeHandles={isMobile}
-                    />
-                  )}
-
-                  {showSceneTextFrame && (
-                    <div
-                      className="absolute flex items-center gap-1.5 z-[85] pointer-events-auto"
-                      style={{
-                        left: `${(sceneTextBox.x + sceneTextBox.w / 2) * 100}%`,
-                        top: `${(sceneTextBox.y - sceneTextBox.h / 2) * 100}%`,
-                        transform: "translate(-100%, -120%)",
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onPointerDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          bumpCustomText({ text: "" });
-                          setSceneTextSelectionVisible(false);
-                          setSceneTextFrameMode("resize");
-                        }}
-                        className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${
-                          isMobile ? "w-9 h-9" : "w-8 h-8"
-                        }`}
-                        aria-label="Yazıyı sil"
-                        title="Yazıyı Sil"
+                    <div className="flex gap-2">
+                      <button type="button"
+                        onClick={() => updateActiveLogo({ flipX: !activeLogoFx.flipX })}
+                        className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase border ${activeLogoFx.flipX
+                          ? "bg-cyan-100 text-cyan-900 border-cyan-300"
+                          : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
+                          }`}
                       >
-                        <Trash2 size={14} />
+                        Yatay
                       </button>
-                      <button
-                        type="button"
-                        onPointerDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openPlacementPanelFromScene("text");
-                        }}
-                        className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${
-                          isMobile ? "w-9 h-9" : "w-8 h-8"
-                        }`}
-                        aria-label="Yazi düzenleme paneline geç"
-                        title="Yazı Düzenle"
+                      <button type="button"
+                        onClick={() => updateActiveLogo({ flipY: !activeLogoFx.flipY })}
+                        className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase border ${activeLogoFx.flipY
+                          ? "bg-cyan-100 text-cyan-900 border-cyan-300"
+                          : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
+                          }`}
                       >
-                        <Pencil size={14} />
+                        Dikey
                       </button>
                     </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        )}
 
-        {/* LEFT OVERLAY EDITOR (DESKTOP ONLY) */}
-        {!isMobile && forceEditorOverlay && (
-          <div
-            className="absolute left-6 z-[88] w-[360px] pointer-events-auto"
-            style={{
-              top: "96px",
-              bottom: `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 24}px`,
-            }}
-          >
-            <div className="h-full overflow-y-auto">
-              <EditorPanel
-                design={activeDesign}
-                updateDesign={updateActive}
-                view={view}
-                isMobile={isMobile}
-                activeTab="editor"
-                setActiveTab={setActiveTab}
-                layout="standard"
-                onRequestDrawerCollapse={() => setDrawerOpen(false)}
-                printTypePickerSignal={printTypePickerSignal}
-              />
-            </div>
-          </div>
-        )}
+                    <button type="button"
+                      onClick={() => updateActiveLogo({ ...LOGO_STYLE_DEFAULTS })}
+                      className="w-full py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-[10px] font-bold uppercase"
+                    >
+                      Efekti Sifirla
+                    </button>
+                  </div>
+                )}
 
-        {/* DRAWER (MOBILE + DESKTOP) */}
-        {activeDesign && !hideMobileDrawerInEditor && (
-          <div
-            className={`${isMobile ? "fixed left-0 right-0" : "fixed left-0 right-0"} z-[92] pointer-events-auto transition-all duration-300`}
-            style={
-              isMobile
-                ? {
+                <p className="text-[10px] text-zinc-500 mt-3">
+                  İpucu: Görseli ortadan sürükle, köşelerden büyüt/küçült.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* MODEL ÜZERİ DİREKT YERLEŞİM (Panel değişmeden) */}
+          {isPrintAreaOpen && (
+            <div
+              className="absolute z-[64] pointer-events-none"
+              style={{
+                left: scenePlaneRect ? `${scenePlaneRect.left}px` : sceneEditCenterLeft,
+                top: scenePlaneRect ? `${scenePlaneRect.top}px` : sceneEditCenterTop,
+                width: scenePlaneRect ? `${scenePlaneRect.width}px` : isMobile ? "min(74vw, 350px)" : "min(34vw, 470px)",
+                height: scenePlaneRect ? `${scenePlaneRect.height}px` : undefined,
+                aspectRatio: scenePlaneRect ? undefined : previewAspect,
+                transform: scenePlaneRect ? "none" : "translate(-50%, -50%)",
+                pointerEvents: sceneOverlayInteractionEnabled ? "auto" : "none",
+              }}
+            >
+              <div
+                ref={sceneEditRef}
+                className="relative w-full h-full touch-none pointer-events-none"
+                style={{ touchAction: "none" }}
+              >
+                {(logos || []).map((l) => {
+                  const isSelected = l.id === (sideData?.activeLogoId || sideData?.logos?.[0]?.id);
+                  const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
+                  return (
+                    <div
+                      key={`scene-logo-${l.id}`}
+                      className={`absolute border-2 rounded-sm transition-all ${isSelected && showSceneFrame
+                        ? "border-cyan-300/90 bg-transparent shadow-none"
+                        : "border-transparent bg-transparent"
+                        }`}
+                      style={{
+                        left: `${(box.x - box.w / 2) * 100}%`,
+                        top: `${(box.y - box.h / 2) * 100}%`,
+                        width: `${box.w * 100}%`,
+                        height: `${box.h * 100}%`,
+                        pointerEvents: "auto",
+                        touchAction: "none",
+                      }}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!isSelected || !sceneSelectionVisible) {
+                          updateSide({ activeLogoId: l.id });
+                          setSceneSelectionVisible(true);
+                          setSceneTextSelectionVisible(false);
+                          setSceneFrameMode("resize");
+                          setSelectedSceneItem({ id: l.id, type: "logo", side: currentSide });
+                          return;
+                        }
+                        setSceneFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"));
+                      }}
+                    />
+                  );
+                })}
+
+                {showSceneFrame && (
+                  <ResizeFrame
+                    box={activeLogo.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 }}
+                    containerRef={sceneEditRef}
+                    onChange={updateActiveLogoBox}
+                    rotation={Number(activeLogo?.rotation) || 0}
+                    onRotateChange={(nextRot) => updateActiveLogo({ rotation: nextRot })}
+                    onFrameTap={() => setSceneFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"))}
+                    transformMode={sceneFrameMode}
+                    onDragStateChange={setIsLogoDragging}
+                    diagonalOnly={lockAspect}
+                    disableResize={activeLogoIsEmboss}
+                    largeHandles={isMobile}
+                  />
+                )}
+
+                {showSceneFrame && (
+                  <div
+                    className="absolute flex items-center gap-1.5 z-[85] pointer-events-auto"
+                    style={{
+                      left: `${(activeLogoBox.x - activeLogoBox.w / 2) * 100}%`,
+                      top: `${(activeLogoBox.y - activeLogoBox.h / 2) * 100}%`,
+                      transform: isSceneFrameCompact ? "translate(-112%, -112%)" : "translate(0%, -120%)",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleLockAspect();
+                      }}
+                      className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${isMobile ? "w-9 h-9" : "w-8 h-8"
+                        }`}
+                      aria-label="Oran kilidi"
+                      title={lockAspect ? "Kilitli" : "Kilit Açık"}
+                    >
+                      {lockAspect ? <Lock size={14} /> : <LockOpen size={14} />}
+                    </button>
+                  </div>
+                )}
+
+                {showSceneFrame && (
+                  <div
+                    className={`absolute flex z-[85] pointer-events-auto ${isSceneFrameCompact ? "items-center flex-col gap-1" : "items-center gap-1.5"}`}
+                    style={{
+                      left: `${(activeLogoBox.x + activeLogoBox.w / 2) * 100}%`,
+                      top: `${(activeLogoBox.y - activeLogoBox.h / 2) * 100}%`,
+                      transform: isSceneFrameCompact ? "translate(12%, -112%)" : "translate(-100%, -120%)",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteActiveImage();
+                        setSceneSelectionVisible(false);
+                        setSceneFrameMode("resize");
+                      }}
+                      className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${isMobile ? "w-9 h-9" : "w-8 h-8"
+                        }`}
+                      aria-label="Seçili görseli sil"
+                      title="Sil"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openPlacementPanelFromScene("logo");
+                      }}
+                      className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${isMobile ? "w-9 h-9" : "w-8 h-8"
+                        }`}
+                      aria-label="Görsel düzenleme paneline geç"
+                      title="Düzenle"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  </div>
+                )}
+
+                {hasSceneText && (
+                  <>
+                    <div
+                      className={`absolute border-2 rounded-sm transition-all ${showSceneTextFrame
+                        ? "border-cyan-300/90 bg-transparent shadow-none"
+                        : "border-transparent bg-transparent"
+                        }`}
+                      style={{
+                        left: `${(sceneTextBox.x - sceneTextBox.w / 2) * 100}%`,
+                        top: `${(sceneTextBox.y - sceneTextBox.h / 2) * 100}%`,
+                        width: `${sceneTextBox.w * 100}%`,
+                        height: `${sceneTextBox.h * 100}%`,
+                        pointerEvents: showSceneTextFrame ? "none" : "auto",
+                        touchAction: "none",
+                        zIndex: showSceneTextFrame ? 62 : 61,
+                      }}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!sceneTextSelectionVisible) {
+                          setSceneTextSelectionVisible(true);
+                          setSceneTextFrameMode("resize");
+                          setSceneSelectionVisible(false);
+                          setSelectedSceneItem({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
+                          return;
+                        }
+                        if (!showPlacementPanel || editorControlTab !== "text") {
+                          openPlacementPanelFromScene("text");
+                        }
+                        setSceneTextFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"));
+                      }}
+                    />
+
+                    {showSceneTextFrame && (
+                      <ResizeFrame
+                        box={sceneTextBox}
+                        containerRef={sceneEditRef}
+                        onChange={(nextBox) => updateTextPos({ x: nextBox.x, y: nextBox.y })}
+                        rotation={Number(customText?.rotation) || 0}
+                        onRotateChange={(nextRot) => bumpCustomText({ rotation: nextRot })}
+                        onFrameTap={() => setSceneTextFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"))}
+                        transformMode={sceneTextFrameMode}
+                        onDragStateChange={setIsLogoDragging}
+                        disableResize
+                        largeHandles={isMobile}
+                      />
+                    )}
+
+                    {showSceneTextFrame && (
+                      <div
+                        className="absolute flex items-center gap-1.5 z-[85] pointer-events-auto"
+                        style={{
+                          left: `${(sceneTextBox.x + sceneTextBox.w / 2) * 100}%`,
+                          top: `${(sceneTextBox.y - sceneTextBox.h / 2) * 100}%`,
+                          transform: "translate(-100%, -120%)",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onPointerDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            bumpCustomText({ text: "" });
+                            setSceneTextSelectionVisible(false);
+                            setSceneTextFrameMode("resize");
+                          }}
+                          className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${isMobile ? "w-9 h-9" : "w-8 h-8"
+                            }`}
+                          aria-label="Yazıyı sil"
+                          title="Yazıyı Sil"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onPointerDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openPlacementPanelFromScene("text");
+                          }}
+                          className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${isMobile ? "w-9 h-9" : "w-8 h-8"
+                            }`}
+                          aria-label="Yazi düzenleme paneline geç"
+                          title="Yazı Düzenle"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* LEFT OVERLAY EDITOR (DESKTOP ONLY) */}
+          {!isMobile && forceEditorOverlay && (
+            <div
+              className="absolute left-6 z-[88] w-[360px] pointer-events-auto"
+              style={{
+                top: "96px",
+                bottom: `${(drawerOpen ? DESKTOP_DRAWER_HEIGHT : DESKTOP_DRAWER_PEEK) + 24}px`,
+              }}
+            >
+              <div className="h-full overflow-y-auto">
+                <EditorPanel
+                  design={activeDesign}
+                  updateDesign={updateActive}
+                  view={view}
+                  isMobile={isMobile}
+                  activeTab="editor"
+                  setActiveTab={setActiveTab}
+                  layout="standard"
+                  onRequestDrawerCollapse={() => setDrawerOpen(false)}
+                  printTypePickerSignal={printTypePickerSignal}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* DRAWER (MOBILE + DESKTOP) */}
+          {activeDesign && !hideMobileDrawerInEditor && (
+            <div
+              className={`${isMobile ? "fixed left-0 right-0" : "fixed left-0 right-0"} z-[92] pointer-events-auto transition-all duration-300`}
+              style={
+                isMobile
+                  ? {
                     bottom: mobileDrawerBottom,
                     maxHeight: drawerHeightStyle,
                     height: drawerHeightStyle,
@@ -9238,7 +9223,7 @@ function TasarimClientContent({ isMobile }) {
                       ? "none"
                       : "transform 280ms cubic-bezier(0.22,1,0.36,1), box-shadow 200ms ease",
                   }
-                : {
+                  : {
                     bottom: 0,
                     transform: drawerOpen
                       ? "translateY(0)"
@@ -9249,393 +9234,385 @@ function TasarimClientContent({ isMobile }) {
                     backgroundColor: "#ebedf0",
                     boxShadow: drawerOpen ? "0 -2px 10px rgba(0,0,0,0.1)" : "none",
                   }
-            }
-          >
-            <div
-              className={`${isMobile ? "w-full h-full min-h-0 overflow-x-hidden flex flex-col pointer-events-auto" : "w-full h-full overflow-x-hidden overflow-y-visible flex flex-col pointer-events-auto"}`}
-              style={{ backgroundColor: "#eef1f4" }}
+              }
             >
-              {isMobile ? (
-                <>
-                  <div
-                    className={`relative z-[20] bg-[#eef0f4] ${
-                      mobilePanelCollapsed ? "px-4 pt-0.5 pb-0.5" : "px-4 pt-3 pb-2 border-b border-black/10"
-                    }`}
-                  >
-                    <button type="button" 
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                        onDrawerPointerDown(e);
-                      }}
-                      onClick={(e) => {
-                        handleMobileDrawerHandleClick(e);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          handleMobileDrawerHandleClick(e);
-                        }
-                      }}
-                      className="absolute left-1/2 top-[-8px] -translate-x-1/2 w-12 h-10 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 flex items-center justify-center z-[30] shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
-                      aria-label="Alt panel yüksekliğini değiştir"
-                      style={{ touchAction: "none" }}
+              <div
+                className={`${isMobile ? "w-full h-full min-h-0 overflow-x-hidden flex flex-col pointer-events-auto" : "w-full h-full overflow-x-hidden overflow-y-visible flex flex-col pointer-events-auto"}`}
+                style={{ backgroundColor: "#eef1f4" }}
+              >
+                {isMobile ? (
+                  <>
+                    <div
+                      className={`relative z-[20] bg-[#eef0f4] ${mobilePanelCollapsed ? "px-4 pt-0.5 pb-0.5" : "px-4 pt-3 pb-2 border-b border-black/10"
+                        }`}
                     >
-                      <span className="translate-y-[1px]">
-                        {mobilePanelCollapsed ? (
-                          <ChevronUp size={17} strokeWidth={2.7} />
-                        ) : (
-                          <ChevronDown size={17} strokeWidth={2.7} />
-                        )}
-                      </span>
-                    </button>
+                      <button type="button"
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          onDrawerPointerDown(e);
+                        }}
+                        onClick={(e) => {
+                          handleMobileDrawerHandleClick(e);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            handleMobileDrawerHandleClick(e);
+                          }
+                        }}
+                        className="absolute left-1/2 top-[-8px] -translate-x-1/2 w-12 h-10 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 flex items-center justify-center z-[30] shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
+                        aria-label="Alt panel yüksekliğini değiştir"
+                        style={{ touchAction: "none" }}
+                      >
+                        <span className="translate-y-[1px]">
+                          {mobilePanelCollapsed ? (
+                            <ChevronUp size={17} strokeWidth={2.7} />
+                          ) : (
+                            <ChevronDown size={17} strokeWidth={2.7} />
+                          )}
+                        </span>
+                      </button>
 
-                    {showDesignControls && !mobilePanelCollapsed && (
-                      <>
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-[12px] font-black uppercase tracking-[0.14em] text-gray-700">Tasarla</p>
-                          <button type="button" 
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={openDrawerMenu}
-                            className="h-9 px-3 rounded-full border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center gap-1"
-                            aria-label="Kategori menüsünü aç"
-                          >
-                            <Menu size={12} />
-                            Menü
-                          </button>
-                        </div>
+                      {showDesignControls && !mobilePanelCollapsed && (
+                        <>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[12px] font-black uppercase tracking-[0.14em] text-gray-700">Tasarla</p>
+                            <button type="button"
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={openDrawerMenu}
+                              className="h-9 px-3 rounded-full border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center gap-1"
+                              aria-label="Kategori menüsünü aç"
+                            >
+                              <Menu size={12} />
+                              Menü
+                            </button>
+                          </div>
 
-                        <div className="grid grid-cols-4 gap-2 mt-3 pointer-events-auto">
-                          <button
-                            type="button"
-                            onPointerDown={(e) => {
-                              e.stopPropagation();
-                            }}
-                            onClick={() => {
-                              setMobilePrimaryTab("design");
-                              setPanelProgress(0);
-                              activateDesignTool("print");
-                            }}
-                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${
-                              activeTab === "print"
+                          <div className="grid grid-cols-4 gap-2 mt-3 pointer-events-auto">
+                            <button
+                              type="button"
+                              onPointerDown={(e) => {
+                                e.stopPropagation();
+                              }}
+                              onClick={() => {
+                                setMobilePrimaryTab("design");
+                                setPanelProgress(0);
+                                activateDesignTool("print");
+                              }}
+                              className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${activeTab === "print"
                                 ? "border-zinc-900 bg-zinc-900 text-white"
                                 : "border-gray-300 bg-white text-gray-800"
-                            }`}
-                          >
-                            Baskı Seçim
-                          </button>
-                          <button
-                            type="button"
-                            onPointerDown={(e) => {
-                              e.stopPropagation();
-                            }}
-                            onClick={() => {
-                              setMobilePrimaryTab("design");
-                              setPanelProgress(0);
-                              activateDesignTool("upload");
-                            }}
-                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${
-                              activeTab === "upload"
+                                }`}
+                            >
+                              Baskı Seçim
+                            </button>
+                            <button
+                              type="button"
+                              onPointerDown={(e) => {
+                                e.stopPropagation();
+                              }}
+                              onClick={() => {
+                                setMobilePrimaryTab("design");
+                                setPanelProgress(0);
+                                activateDesignTool("upload");
+                              }}
+                              className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${activeTab === "upload"
                                 ? "border-zinc-900 bg-zinc-900 text-white"
                                 : "border-gray-300 bg-white text-gray-800"
-                            }`}
-                          >
-                            Görsel Yükle
-                          </button>
-                          <button
-                            type="button"
-                            onPointerDown={(e) => {
-                              e.stopPropagation();
-                            }}
-                            onClick={() => {
-                              setMobilePrimaryTab("design");
-                              setPanelProgress(0);
-                              activateDesignTool("text");
-                            }}
-                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${
-                              activeTab === "text"
+                                }`}
+                            >
+                              Görsel Yükle
+                            </button>
+                            <button
+                              type="button"
+                              onPointerDown={(e) => {
+                                e.stopPropagation();
+                              }}
+                              onClick={() => {
+                                setMobilePrimaryTab("design");
+                                setPanelProgress(0);
+                                activateDesignTool("text");
+                              }}
+                              className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${activeTab === "text"
                                 ? "border-zinc-900 bg-zinc-900 text-white"
                                 : "border-gray-300 bg-white text-gray-800"
-                            }`}
-                          >
-                            Yazı Ekle
-                          </button>
-                          <button
-                            type="button"
-                            onPointerDown={(e) => {
-                              e.stopPropagation();
-                            }}
-                            onClick={() => {
-                              setMobilePrimaryTab("design");
-                              setPanelProgress(0);
-                              activateDesignTool("color");
-                            }}
-                            className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${
-                              activeTab === "color"
+                                }`}
+                            >
+                              Yazı Ekle
+                            </button>
+                            <button
+                              type="button"
+                              onPointerDown={(e) => {
+                                e.stopPropagation();
+                              }}
+                              onClick={() => {
+                                setMobilePrimaryTab("design");
+                                setPanelProgress(0);
+                                activateDesignTool("color");
+                              }}
+                              className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition ${activeTab === "color"
                                 ? "border-zinc-900 bg-zinc-900 text-white"
                                 : "border-gray-300 bg-white text-gray-800"
-                            }`}
-                          >
-                            Renk
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                                }`}
+                            >
+                              Renk
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
 
-                  <div
-                    className={`relative z-[15] flex-1 min-h-0 transition-opacity duration-200 ${
-                      mobilePanelCollapsed ? "opacity-0 pointer-events-none" : "opacity-100"
-                    }`}
-                  >
-                    <div className="h-full overflow-y-auto overscroll-contain">
-                      {showPrintTypes && (
-                        <div className="mx-4 mt-[10px] rounded-2xl border border-gray-200 bg-white shadow-sm pointer-events-auto">
-                          <div className="p-3 space-y-2 pointer-events-auto">
-                            <div className="flex items-center justify-between">
-                              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-500">Baskı Tipleri</p>
-                              <span className="text-[10px] font-black uppercase text-gray-500">
-                                {activePrintTypes.length} seçili
-                              </span>
+                    <div
+                      className={`relative z-[15] flex-1 min-h-0 transition-opacity duration-200 ${mobilePanelCollapsed ? "opacity-0 pointer-events-none" : "opacity-100"
+                        }`}
+                    >
+                      <div className="h-full overflow-y-auto overscroll-contain">
+                        {showPrintTypes && (
+                          <div className="mx-4 mt-[10px] rounded-2xl border border-gray-200 bg-white shadow-sm pointer-events-auto">
+                            <div className="p-3 space-y-2 pointer-events-auto">
+                              <div className="flex items-center justify-between">
+                                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-500">Baskı Tipleri</p>
+                                <span className="text-[10px] font-black uppercase text-gray-500">
+                                  {activePrintTypes.length} seçili
+                                </span>
+                              </div>
+                              <PrintTypePickerCards
+                                selectedIds={activePrintTypes}
+                                onSelect={togglePrintTypeFromMenu}
+                                sourceLabel="Mobil panel sec"
+                                isMobile
+                              />
+                              <InjectionPatternPickerCards
+                                selectedId={activeSideData?.injectionModelId || null}
+                                onSelect={toggleInjectionPatternFromMenu}
+                                sourceLabel="Mobil panel sec"
+                                isMobile
+                              />
                             </div>
-                            <PrintTypePickerCards
-                              selectedIds={activePrintTypes}
-                              onSelect={togglePrintTypeFromMenu}
-                              sourceLabel="Mobil panel sec"
-                              isMobile
-                            />
-                            <InjectionPatternPickerCards
-                              selectedId={activeSideData?.injectionModelId || null}
-                              onSelect={toggleInjectionPatternFromMenu}
-                              sourceLabel="Mobil panel sec"
-                              isMobile
-                            />
+                          </div>
+                        )}
+
+                        <div className="px-4 pt-2 pb-2">
+                          {mobilePrimaryTab === "model" ? (
+                            <div className="space-y-2.5">
+                              <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-500">Seçili Modeller</p>
+                                  <span className="text-[10px] font-black uppercase text-gray-500">{designs.length} model</span>
+                                </div>
+                                <div className="space-y-2">
+                                  {designs.map((designItem) => {
+                                    const isCurrent = designItem.id === activeId;
+                                    return (
+                                      <button
+                                        key={`mobile-sheet-model-${designItem.id}`}
+                                        type="button"
+                                        onClick={() => setActiveId(designItem.id)}
+                                        className={`w-full flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left ${isCurrent ? "border-black bg-black text-white" : "border-gray-300 bg-white text-gray-800"
+                                          }`}
+                                      >
+                                        <span className="text-[11px] font-black uppercase tracking-wide truncate">
+                                          {MODEL_LABELS[designItem.modelType] || designItem.modelType}
+                                        </span>
+                                        {isCurrent && <Check size={14} />}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                              <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                                <button
+                                  type="button"
+                                  onClick={openModelPicker}
+                                  className="w-full h-11 rounded-lg border border-zinc-300 bg-zinc-900 text-white text-[11px] font-black uppercase tracking-wide"
+                                >
+                                  + Model Ekle
+                                </button>
+                              </div>
+                            </div>
+                          ) : mobilePrimaryTab === "design" && activeTab === "print" ? null : (
+                            renderPanel
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className={`relative px-3 border-b border-gray-300/80 bg-[#eceff3] ${drawerOpen ? "pt-9 pb-2" : "pt-7 pb-3"}`}>
+                      <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-gray-400/80" />
+                      <button type="button"
+                        onClick={toggleDrawer}
+                        className="absolute left-1/2 top-0 -translate-x-1/2 w-10 h-5 rounded-b-full border-2 border-zinc-700 border-t-0 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center z-40 shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
+                        aria-label="Paneli aç/kapa"
+                      >
+                        <span className="translate-y-[3px]">
+                          {drawerOpen ? <ChevronDown size={14} strokeWidth={2.5} /> : <ChevronUp size={14} strokeWidth={2.5} />}
+                        </span>
+                      </button>
+
+                      {drawerOpen && (
+                        <div className="relative flex items-center justify-center min-h-[46px] w-full">
+                          <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                            <div
+                              className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm max-w-[250px] truncate"
+                              title={selectedPrintTypeNames || "Baski secilmedi"}
+                            >
+                              {selectedPrintTypeNames || "Baski secilmedi"}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <button type="button"
+                              onClick={openModelPicker}
+                              className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[11px] font-black uppercase tracking-wide shadow-sm"
+                              aria-label="Model ekle"
+                            >
+                              + Model
+                            </button>
+                            <div className="flex items-center gap-2 min-w-0 max-w-[430px] px-1">
+                              <button type="button"
+                                onClick={goPrevTab}
+                                className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
+                                aria-label="Önceki adım"
+                              >
+                                <ChevronLeft size={18} strokeWidth={2.6} />
+                              </button>
+                              <div className="text-center min-w-0 px-1">
+                                <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
+                                  {tabLabelMap[activeTab] || "Görsel"}
+                                </p>
+                                <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                                  {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
+                                </p>
+                              </div>
+                              <button type="button"
+                                onClick={goNextTab}
+                                className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
+                                aria-label="Sonraki adım"
+                              >
+                                <ChevronRight size={18} strokeWidth={2.6} />
+                              </button>
+                            </div>
+                            <button type="button"
+                              onClick={openDrawerMenu}
+                              className="h-9 px-4 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-wide shadow-sm"
+                              aria-label="Kategori menüsünü aç"
+                            >
+                              <Menu size={14} />
+                              Menü
+                            </button>
                           </div>
                         </div>
                       )}
-
-                      <div className="px-4 pt-2 pb-2">
-                        {mobilePrimaryTab === "model" ? (
-                          <div className="space-y-2.5">
-                            <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-                              <div className="flex items-center justify-between mb-2">
-                                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-gray-500">Seçili Modeller</p>
-                                <span className="text-[10px] font-black uppercase text-gray-500">{designs.length} model</span>
-                              </div>
-                              <div className="space-y-2">
-                                {designs.map((designItem) => {
-                                  const isCurrent = designItem.id === activeId;
-                                  return (
-                                    <button
-                                      key={`mobile-sheet-model-${designItem.id}`}
-                                      type="button"
-                                      onClick={() => setActiveId(designItem.id)}
-                                      className={`w-full flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left ${
-                                        isCurrent ? "border-black bg-black text-white" : "border-gray-300 bg-white text-gray-800"
-                                      }`}
-                                    >
-                                      <span className="text-[11px] font-black uppercase tracking-wide truncate">
-                                        {MODEL_LABELS[designItem.modelType] || designItem.modelType}
-                                      </span>
-                                      {isCurrent && <Check size={14} />}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                            <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-                              <button
-                                type="button"
-                                onClick={openModelPicker}
-                                className="w-full h-11 rounded-lg border border-zinc-300 bg-zinc-900 text-white text-[11px] font-black uppercase tracking-wide"
-                              >
-                                + Model Ekle
-                              </button>
-                            </div>
-                          </div>
-                        ) : mobilePrimaryTab === "design" && activeTab === "print" ? null : (
-                          renderPanel
-                        )}
-                      </div>
                     </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className={`relative px-3 border-b border-gray-300/80 bg-[#eceff3] ${drawerOpen ? "pt-9 pb-2" : "pt-7 pb-3"}`}>
-                    <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-gray-400/80" />
-                    <button type="button" 
-                      onClick={toggleDrawer}
-                      className="absolute left-1/2 top-0 -translate-x-1/2 w-10 h-5 rounded-b-full border-2 border-zinc-700 border-t-0 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center z-40 shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
-                      aria-label="Paneli aç/kapa"
-                    >
-                      <span className="translate-y-[3px]">
-                        {drawerOpen ? <ChevronDown size={14} strokeWidth={2.5} /> : <ChevronUp size={14} strokeWidth={2.5} />}
-                      </span>
-                    </button>
-
-                    {drawerOpen && (
-                      <div className="relative flex items-center justify-center min-h-[46px] w-full">
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                          <div
-                            className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm max-w-[250px] truncate"
-                            title={selectedPrintTypeNames || "Baski secilmedi"}
-                          >
-                            {selectedPrintTypeNames || "Baski secilmedi"}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <button type="button" 
-                            onClick={openModelPicker}
-                            className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[11px] font-black uppercase tracking-wide shadow-sm"
-                            aria-label="Model ekle"
-                          >
-                            + Model
-                          </button>
-                          <div className="flex items-center gap-2 min-w-0 max-w-[430px] px-1">
-                            <button type="button" 
-                              onClick={goPrevTab}
-                              className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
-                              aria-label="Önceki adım"
-                            >
-                              <ChevronLeft size={18} strokeWidth={2.6} />
-                            </button>
-                            <div className="text-center min-w-0 px-1">
-                              <p className="text-[18px] leading-none font-black uppercase tracking-wide text-gray-900">
-                                {tabLabelMap[activeTab] || "Görsel"}
-                              </p>
-                              <p className="text-[11px] text-gray-500 mt-0.5 truncate">
-                                {MODEL_LABELS[activeDesign?.modelType] || activeDesign?.modelType}
-                              </p>
-                            </div>
-                            <button type="button" 
-                              onClick={goNextTab}
-                              className="w-10 h-10 shrink-0 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center shadow-sm"
-                              aria-label="Sonraki adım"
-                            >
-                              <ChevronRight size={18} strokeWidth={2.6} />
-                            </button>
-                          </div>
-                          <button type="button" 
-                            onClick={openDrawerMenu}
-                            className="h-9 px-4 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-wide shadow-sm"
-                            aria-label="Kategori menüsünü aç"
-                          >
-                            <Menu size={14} />
-                            Menü
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  {drawerOpen && renderPanel}
-                </>
-              )}
+                    {drawerOpen && renderPanel}
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {showMobileBottomTabs && (
-          <div
-            className="fixed left-0 right-0 z-[70] border-t border-black/10 bg-[#e9eaee] px-3 pt-2.5"
-            style={{
-              bottom: 0,
-              height: "calc(92px + env(safe-area-inset-bottom))",
-              paddingBottom: "calc(env(safe-area-inset-bottom) + 4px)",
-              opacity: mobileBottomTabsOpacity,
-              transform: `translateY(${((1 - mobileBottomTabsOpacity) * 10).toFixed(2)}px)`,
-              pointerEvents: mobileBottomTabsOpacity < 0.08 ? "none" : "auto",
-              transition: dragState.current.dragging
-                ? "none"
-                : "opacity 180ms ease, transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1)",
-            }}
-          >
-            <div className="grid grid-cols-2 gap-2 h-[58px]">
-              {mobileToolbarItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = mobilePrimaryTab === item.id;
-                return (
-                  <button
-                    key={`mobile-primary-tab-${item.id}`}
-                    type="button"
-                    onClick={() => handleSelectMobilePrimaryTab(item.id)}
-                    className={`h-12 rounded-xl border text-[11px] font-black uppercase tracking-wide transition-transform duration-150 active:scale-[0.985] ${
-                      isActive
+          {showMobileBottomTabs && (
+            <div
+              className="fixed left-0 right-0 z-[70] border-t border-black/10 bg-[#e9eaee] px-3 pt-2.5"
+              style={{
+                bottom: 0,
+                height: "calc(92px + env(safe-area-inset-bottom))",
+                paddingBottom: "calc(env(safe-area-inset-bottom) + 4px)",
+                opacity: mobileBottomTabsOpacity,
+                transform: `translateY(${((1 - mobileBottomTabsOpacity) * 10).toFixed(2)}px)`,
+                pointerEvents: mobileBottomTabsOpacity < 0.08 ? "none" : "auto",
+                transition: dragState.current.dragging
+                  ? "none"
+                  : "opacity 180ms ease, transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1)",
+              }}
+            >
+              <div className="grid grid-cols-2 gap-2 h-[58px]">
+                {mobileToolbarItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = mobilePrimaryTab === item.id;
+                  return (
+                    <button
+                      key={`mobile-primary-tab-${item.id}`}
+                      type="button"
+                      onClick={() => handleSelectMobilePrimaryTab(item.id)}
+                      className={`h-12 rounded-xl border text-[11px] font-black uppercase tracking-wide transition-transform duration-150 active:scale-[0.985] ${isActive
                         ? "border-zinc-900 bg-zinc-900 text-white"
                         : "border-zinc-300 bg-white text-zinc-700"
-                    }`}
-                    aria-label={`${item.label} sekmesini aç`}
-                  >
-                    <span className="flex items-center justify-center gap-1.5">
-                      <Icon size={14} />
-                      {item.label}
-                    </span>
-                  </button>
-                );
-              })}
+                        }`}
+                      aria-label={`${item.label} sekmesini aç`}
+                    >
+                      <span className="flex items-center justify-center gap-1.5">
+                        <Icon size={14} />
+                        {item.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {drawerMenuMounted && (
-          <div
-            className={`fixed inset-0 z-[96] transition-opacity duration-200 ${drawerMenuOpen
-              ? "opacity-100 pointer-events-auto bg-black/16 backdrop-blur-[2px]"
-              : "opacity-0 pointer-events-none bg-black/0 backdrop-blur-0"
-              }`}
-            onClick={closeDrawerMenu}
-          >
+          {drawerMenuMounted && (
             <div
-              className={`absolute left-1/2 w-[min(97vw,980px)] rounded-2xl border border-gray-200 bg-white/95 shadow-2xl p-4 md:p-5 transform-gpu will-change-transform transition-all duration-200 ease-out ${drawerMenuOpen ? "opacity-100" : "opacity-0"
+              className={`fixed inset-0 z-[96] transition-opacity duration-200 ${drawerMenuOpen
+                ? "opacity-100 pointer-events-auto bg-black/16 backdrop-blur-[2px]"
+                : "opacity-0 pointer-events-none bg-black/0 backdrop-blur-0"
                 }`}
-              style={{
-                top: "50%",
-                transform: `translate(-50%, calc(-50% + ${drawerMenuOpen ? 0 : 12}px)) scale(${drawerMenuOpen ? 1 : 0.985})`,
-              }}
-              onClick={(e) => e.stopPropagation()}
+              onClick={closeDrawerMenu}
             >
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-black tracking-[0.16em] uppercase text-gray-500">Menü</p>
-                <button type="button" 
-                  onClick={closeDrawerMenu}
-                  className="w-8 h-8 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-100 flex items-center justify-center"
-                  aria-label="Menüyü kapat"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-
-              <div className={`grid gap-2 ${isMobile ? "grid-cols-2" : "grid-cols-3"}`}>
-                {menuTabs.map((tab) => (
-                  <button type="button" 
-                    key={tab.id}
-                    onClick={() => selectMenuTab(tab.id)}
-                    className={`px-3 py-3 rounded-xl border text-[11px] font-black uppercase tracking-wide transition flex items-center justify-center gap-2 ${activeTab === tab.id
-                      ? "bg-black text-white border-black"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                      }`}
+              <div
+                className={`absolute left-1/2 w-[min(97vw,980px)] rounded-2xl border border-gray-200 bg-white/95 shadow-2xl p-4 md:p-5 transform-gpu will-change-transform transition-all duration-200 ease-out ${drawerMenuOpen ? "opacity-100" : "opacity-0"
+                  }`}
+                style={{
+                  top: "50%",
+                  transform: `translate(-50%, calc(-50% + ${drawerMenuOpen ? 0 : 12}px)) scale(${drawerMenuOpen ? 1 : 0.985})`,
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-black tracking-[0.16em] uppercase text-gray-500">Menü</p>
+                  <button type="button"
+                    onClick={closeDrawerMenu}
+                    className="w-8 h-8 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-100 flex items-center justify-center"
+                    aria-label="Menüyü kapat"
                   >
-                    <tab.icon size={14} />
-                    {tab.label}
+                    <X size={14} />
                   </button>
-                ))}
-              </div>
+                </div>
 
-              <PrintTypePickerCards
-                selectedIds={activePrintTypes}
-                onSelect={togglePrintTypeFromMenu}
-                sourceLabel="Menuden sec"
-                isMobile={isMobile}
-              />
-              <InjectionPatternPickerCards
-                selectedId={activeSideData?.injectionModelId || null}
-                onSelect={toggleInjectionPatternFromMenu}
-                sourceLabel="Menuden sec"
-                isMobile={isMobile}
-              />
+                <div className={`grid gap-2 ${isMobile ? "grid-cols-2" : "grid-cols-3"}`}>
+                  {menuTabs.map((tab) => (
+                    <button type="button"
+                      key={tab.id}
+                      onClick={() => selectMenuTab(tab.id)}
+                      className={`px-3 py-3 rounded-xl border text-[11px] font-black uppercase tracking-wide transition flex items-center justify-center gap-2 ${activeTab === tab.id
+                        ? "bg-black text-white border-black"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                        }`}
+                    >
+                      <tab.icon size={14} />
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                <PrintTypePickerCards
+                  selectedIds={activePrintTypes}
+                  onSelect={togglePrintTypeFromMenu}
+                  sourceLabel="Menuden sec"
+                  isMobile={isMobile}
+                />
+                <InjectionPatternPickerCards
+                  selectedId={activeSideData?.injectionModelId || null}
+                  onSelect={toggleInjectionPatternFromMenu}
+                  sourceLabel="Menuden sec"
+                  isMobile={isMobile}
+                />
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -9657,7 +9634,7 @@ if (typeof window !== "undefined") {
   const prefersMobileEnv = window.matchMedia("(max-width: 1023px)").matches;
   const lowPerfBoot = detectLowPerformanceMode({ isMobileHint: prefersMobileEnv });
   const preferredEnv = prefersMobileEnv ? HDR_ENV_MOBILE_PATH : HDR_ENV_DESKTOP_PATH;
-  getHdriSourceTexture(preferredEnv).catch(() => {});
+  getHdriSourceTexture(preferredEnv).catch(() => { });
 
   if (lowPerfBoot) {
     // Düşük bellekli iOS/mobil cihazlarda agresif preload tab belleğini taşırabilir.
