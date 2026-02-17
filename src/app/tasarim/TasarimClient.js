@@ -848,6 +848,27 @@ const makeId = () => `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const clamp01 = (v) => clamp(v, 0, 1);
 const pct = (v01) => `${Math.round(v01 * 100)}%`;
+
+// Dynamic Tier System
+const getDeviceTier = () => {
+  if (typeof navigator === "undefined") return 3;
+
+  const memory = navigator.deviceMemory || 4;
+  const cores = navigator.hardwareConcurrency || 4;
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  // Tier 1 (Low / Old iOS)
+  if (memory <= 4 || cores <= 4 || (isIOS && window.screen.height < 850)) {
+    return 1;
+  }
+  // Tier 2 (Mid / Standard)
+  if (memory > 4 && cores > 4) {
+    return 2;
+  }
+  // Tier 3 (High / Flagship)
+  return 3;
+};
+
 const MAX_UPLOAD_FILE_MB = 16;
 const MAX_UPLOAD_RENDER_SIDE = 2688;
 const MOBILE_UPLOAD_RENDER_SIDE = 1024;
@@ -1274,12 +1295,12 @@ async function optimizeUploadDataUrl(file, opts = {}) {
   try {
     const mobile = isLikelyMobileDevice();
     const lowPerf = detectLowPerformanceMode({ isMobileHint: mobile });
+    const tier = getDeviceTier();
+    const tierLimit = tier === 1 ? 1024 : tier === 2 ? 1536 : 2048;
+
     const targetSide = opts?.targetSide === "back" ? "back" : "front";
     const baseMaxRenderSide = getUploadRenderSideLimit(mobile);
-    const maxRenderSide =
-      mobile && targetSide === "back"
-        ? Math.min(baseMaxRenderSide, LOW_PERF_UPLOAD_RENDER_SIDE)
-        : baseMaxRenderSide;
+    const maxRenderSide = mobile ? Math.min(baseMaxRenderSide, tierLimit) : baseMaxRenderSide;
     const opaqueQuality = lowPerf ? 0.82 : mobile ? 0.88 : 0.93;
     const transparentQuality = lowPerf ? 0.8 : mobile ? 0.86 : 0.92;
     const img = await loadImg(rawDataUrl);
@@ -6017,6 +6038,19 @@ function TasarimClientContent({ isMobile }) {
   const [editorControlTab, setEditorControlTab] = useState("logo");
   const [isTextUpdatePending, startTextUpdateTransition] = useTransition();
   const [runtimeLowPerfMode, setRuntimeLowPerfMode] = useState(false);
+
+  // CRASH GUARD: Checks memory on startup
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.performance && window.performance.memory) {
+      const { usedJSHeapSize, jsHeapSizeLimit } = window.performance.memory;
+      // If used heap > 800MB (conservative) or > 85% of limit, force Tier 1
+      const isCritical = usedJSHeapSize > 800 * 1024 * 1024 || (usedJSHeapSize / jsHeapSizeLimit) > 0.85;
+      if (isCritical) {
+        console.warn("Crash Guard: Critical memory usage detected. Forcing Tier 1.");
+        setRuntimeLowPerfMode(true);
+      }
+    }
+  }, []);
   const handleRuntimeLowPerfChange = useCallback((enabled) => {
     setRuntimeLowPerfMode((prev) => (prev === enabled ? prev : enabled));
   }, []);
@@ -6449,25 +6483,30 @@ function TasarimClientContent({ isMobile }) {
     const detectedLowPerformanceMode = detectLowPerformanceMode({ isMobileHint: isMobile, modelCount });
     const lowPerformanceMode = detectedLowPerformanceMode || runtimeLow;
     if (isMobile) {
-      const conservative = heavy || lowPerformanceMode || isIOSDevice;
+      const tier = getDeviceTier();
+      const isTier1 = tier === 1;
+      const isTier2 = tier === 2;
+      // conservative fallback for Tier 1
+      const conservative = heavy || lowPerformanceMode || isTier1;
+
       return {
-        dpr: conservative ? 0.9 : 1.05,
-        antialias: !conservative,
-        shadowMap: conservative ? 192 : 288,
+        dpr: isTier1 ? 1.0 : isTier2 ? 1.5 : 2.0,
+        antialias: !isTier1 && !isTier2, // Only Tier 3 gets AA
+        shadowMap: isTier1 ? 0 : isTier2 ? 128 : 512,
         powerPreference: "default",
         lowPerformanceMode,
         runtimeLowPerformanceMode: runtimeLow,
-        activeCanvasSize: conservative ? 1024 : 1024,
-        idleCanvasSize: conservative ? 512 : 512,
-        canvasUpdateDebounceMs: conservative ? 100 : 80,
-        exportCanvasSize: conservative ? 1024 : 1024,
-        anisotropyCap: conservative ? 2 : 4,
-        enableMipmaps: !conservative,
-        disableEmbossDecals: conservative,
-        disableShadows: true,
-        singleSideTextureMode: conservative,
-        qualityKey: conservative ? "mobile-low" : "mobile-normal",
-        frameloop: "demand", // Added for battery saving
+        activeCanvasSize: isTier1 ? 1024 : isTier2 ? 1536 : 2048,
+        idleCanvasSize: isTier1 ? 512 : 1024,
+        canvasUpdateDebounceMs: isTier1 ? 100 : 60,
+        exportCanvasSize: 2048, // Always keep high for export if possible, or tier based? User said scale upload.
+        anisotropyCap: isTier1 ? 2 : 4,
+        enableMipmaps: !isTier1,
+        disableEmbossDecals: isTier1,
+        disableShadows: isTier1,
+        singleSideTextureMode: isTier1,
+        qualityKey: `mobile-tier-${tier}`,
+        frameloop: "demand",
       };
     }
     return {
