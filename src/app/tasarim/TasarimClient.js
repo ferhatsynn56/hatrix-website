@@ -2065,65 +2065,6 @@ function CameraController({ view, count, onAnimatingChange }) {
   return null;
 }
 
-function FpsPerformanceGuard({ enabled = true, onLowPerfChange }) {
-  const statsRef = useRef({
-    sampleElapsed: 0,
-    sampleFrames: 0,
-    lowElapsed: 0,
-    highElapsed: 0,
-    lowMode: false,
-  });
-
-  useFrame((_, delta) => {
-    const stats = statsRef.current;
-    if (!enabled) {
-      stats.sampleElapsed = 0;
-      stats.sampleFrames = 0;
-      stats.lowElapsed = 0;
-      stats.highElapsed = 0;
-      if (stats.lowMode) {
-        stats.lowMode = false;
-        onLowPerfChange?.(false);
-      }
-      return;
-    }
-
-    stats.sampleElapsed += delta;
-    stats.sampleFrames += 1;
-    if (stats.sampleElapsed < 0.55) return;
-
-    const elapsed = stats.sampleElapsed;
-    const fps = stats.sampleFrames / Math.max(0.001, elapsed);
-    stats.sampleElapsed = 0;
-    stats.sampleFrames = 0;
-
-    if (fps < 30) {
-      stats.lowElapsed += elapsed;
-      stats.highElapsed = 0;
-      if (!stats.lowMode && stats.lowElapsed >= 1.6) {
-        stats.lowMode = true;
-        onLowPerfChange?.(true);
-      }
-      return;
-    }
-
-    if (fps > 45) {
-      stats.highElapsed += elapsed;
-      stats.lowElapsed = 0;
-      if (stats.lowMode && stats.highElapsed >= 2.4) {
-        stats.lowMode = false;
-        onLowPerfChange?.(false);
-      }
-      return;
-    }
-
-    stats.lowElapsed = 0;
-    stats.highElapsed = 0;
-  });
-
-  return null;
-}
-
 /* ================= CANVAS TEXTURE (OPTIMIZED) ================= */
 function useDesignCanvas(sideData, opts = {}) {
   const [canvas, setCanvas] = useState(null);
@@ -6695,7 +6636,10 @@ function TasarimClientContent({ isMobile }) {
     }
     setMobilePrimaryTab("design");
     if (!["print", "upload", "text", "editor", "color"].includes(activeTab)) {
-      setActiveTab(hasDtfForActiveSide ? "upload" : "print");
+      const currentSideHasDtf =
+        getPrintTypesForSide(activeDesign, view).includes("dtf") ||
+        Boolean((activeDesign?.sides?.[view]?.logos || []).length);
+      setActiveTab(currentSideHasDtf ? "upload" : "print");
     }
     setPanelProgress(0);
   };
@@ -8047,10 +7991,6 @@ function TasarimClientContent({ isMobile }) {
                 shadows={!perf.disableShadows}
               >
                 <SceneBackgroundLock />
-                <FpsPerformanceGuard
-                  enabled={isMobile && flowStep === "design"}
-                  onLowPerfChange={handleRuntimeLowPerfChange}
-                />
 
                 <HdriEnvironment urls={hdrEnvUrls} enabled />
 
