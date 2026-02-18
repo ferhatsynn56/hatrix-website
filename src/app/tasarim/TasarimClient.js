@@ -853,19 +853,25 @@ const pct = (v01) => `${Math.round(v01 * 100)}%`;
 const getDeviceTier = () => {
   if (typeof navigator === "undefined") return 3;
 
-  const memory = navigator.deviceMemory || 4;
-  const cores = navigator.hardwareConcurrency || 4;
+  const rawMemory = Number(navigator.deviceMemory);
+  const hasMemory = Number.isFinite(rawMemory) && rawMemory > 0;
+  const memory = hasMemory ? rawMemory : null;
+  const rawCores = Number(navigator.hardwareConcurrency);
+  const hasCores = Number.isFinite(rawCores) && rawCores > 0;
+  const cores = hasCores ? rawCores : null;
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const shortEdge = typeof window !== "undefined" ? Math.min(window.screen.width, window.screen.height) : 0;
+  const oldSmallIOS = isIOS && shortEdge > 0 && shortEdge <= 390;
 
-  // Tier 1 (Low / Old iOS)
-  if (memory <= 4 || cores <= 4 || (isIOS && window.screen.height < 850)) {
+  // Tier 1 (Low / old-small phones)
+  if ((hasMemory && memory <= 3) || (hasCores && cores <= 4) || oldSmallIOS) {
     return 1;
   }
-  // Tier 2 (Mid / Standard)
-  if (memory > 4 && cores > 4) {
+  // Tier 2 (Mid / mainstream)
+  if ((hasMemory && memory <= 6) || (hasCores && cores <= 6) || isIOS) {
     return 2;
   }
-  // Tier 3 (High / Flagship)
+  // Tier 3 (High / flagship)
   return 3;
 };
 
@@ -915,13 +921,15 @@ const isLikelyMobileDevice = (isMobileHint = null) => {
 const detectLowPerformanceMode = ({ isMobileHint = null, modelCount = 1 } = {}) => {
   const isMobile = isLikelyMobileDevice(isMobileHint);
   if (!isMobile) return false;
-  if (isLikelyIOSDevice()) return true;
+  const isIOS = isLikelyIOSDevice();
   if (typeof navigator === "undefined") return modelCount > 2;
   const deviceMemory = Number(navigator.deviceMemory || 0);
   const hardwareThreads = Number(navigator.hardwareConcurrency || 0);
-  const lowMemory = deviceMemory > 0 && deviceMemory <= 4;
+  const lowMemory = deviceMemory > 0 && deviceMemory <= 3;
   const lowCpu = hardwareThreads > 0 && hardwareThreads <= 4;
-  return lowMemory || lowCpu || modelCount > 2;
+  const shortEdge = typeof window !== "undefined" ? Math.min(window.screen.width, window.screen.height) : 0;
+  const oldSmallIOS = isIOS && shortEdge > 0 && shortEdge <= 390;
+  return lowMemory || lowCpu || oldSmallIOS || modelCount > 3;
 };
 
 const getUploadRenderSideLimit = (isMobileHint = null) => {
@@ -5979,6 +5987,8 @@ function TasarimClientContent({ isMobile }) {
   const [isTextUpdatePending, startTextUpdateTransition] = useTransition();
   const [runtimeLowPerfMode, setRuntimeLowPerfMode] = useState(false);
   const [isInteracting, setIsInteracting] = useState(false); // For real-time rotation
+  const [webglResetKey, setWebglResetKey] = useState(0);
+  const [glCanvasEl, setGlCanvasEl] = useState(null);
 
   // CRASH GUARD: Checks memory on startup
   useEffect(() => {
@@ -5995,6 +6005,55 @@ function TasarimClientContent({ isMobile }) {
   const handleRuntimeLowPerfChange = useCallback((enabled) => {
     setRuntimeLowPerfMode((prev) => (prev === enabled ? prev : enabled));
   }, []);
+
+  useEffect(() => {
+    if (!isMobile || !glCanvasEl) return;
+    const onContextLost = (event) => {
+      event.preventDefault();
+      setIsInteracting(false);
+      handleRuntimeLowPerfChange(true);
+      setWebglResetKey((prev) => prev + 1);
+    };
+    const onContextRestored = () => {
+      setWebglResetKey((prev) => prev + 1);
+    };
+    glCanvasEl.addEventListener("webglcontextlost", onContextLost, false);
+    glCanvasEl.addEventListener("webglcontextrestored", onContextRestored, false);
+    return () => {
+      glCanvasEl.removeEventListener("webglcontextlost", onContextLost, false);
+      glCanvasEl.removeEventListener("webglcontextrestored", onContextRestored, false);
+    };
+  }, [isMobile, glCanvasEl, handleRuntimeLowPerfChange]);
+
+  useEffect(() => {
+    if (!isMobile || runtimeLowPerfMode || flowStep !== "design") return;
+    let rafId = 0;
+    let lastTs = performance.now();
+    let consecutiveLowFrames = 0;
+    const LOW_FPS_THRESHOLD = 22;
+    const LOW_FPS_FRAME_BUDGET = 90;
+    const tick = (now) => {
+      const dt = now - lastTs;
+      lastTs = now;
+      if (dt > 0 && dt < 450) {
+        const fps = 1000 / dt;
+        if (fps < LOW_FPS_THRESHOLD) {
+          consecutiveLowFrames += 1;
+        } else {
+          consecutiveLowFrames = Math.max(0, consecutiveLowFrames - 2);
+        }
+        if (consecutiveLowFrames >= LOW_FPS_FRAME_BUDGET) {
+          handleRuntimeLowPerfChange(true);
+          return;
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [isMobile, runtimeLowPerfMode, flowStep, handleRuntimeLowPerfChange, activeId]);
 
   const glRef = useRef(null);
   const sceneRef = useRef(null);
@@ -6427,27 +6486,25 @@ function TasarimClientContent({ isMobile }) {
       const tier = getDeviceTier();
       const isTier1 = tier === 1;
       const isTier2 = tier === 2;
-      // conservative fallback for Tier 1
-      const conservative = heavy || lowPerformanceMode || isTier1;
 
       return {
-        dpr: isTier1 ? 1.0 : isTier2 ? 1.5 : 2.0,
-        antialias: !isTier1 && !isTier2, // Only Tier 3 gets AA
+        dpr: lowPerformanceMode ? (isTier1 ? 1.0 : 1.15) : isTier1 ? 1.1 : isTier2 ? 1.25 : 1.35,
+        antialias: !isTier1 && !isTier2 && !lowPerformanceMode,
         shadowMap: isTier1 ? 0 : isTier2 ? 128 : 512,
         powerPreference: "default",
         lowPerformanceMode,
         runtimeLowPerformanceMode: runtimeLow,
-        activeCanvasSize: isTier1 ? 1024 : isTier2 ? 1536 : 2048,
-        idleCanvasSize: isTier1 ? 512 : 1024,
-        canvasUpdateDebounceMs: isTier1 ? 100 : 60,
+        activeCanvasSize: lowPerformanceMode ? (isTier1 ? 1024 : 1280) : isTier1 ? 1280 : isTier2 ? 1792 : 2304,
+        idleCanvasSize: lowPerformanceMode ? (isTier1 ? 640 : 896) : isTier1 ? 896 : 1280,
+        canvasUpdateDebounceMs: lowPerformanceMode ? 80 : isTier1 ? 64 : 36,
         exportCanvasSize: 2048, // Always keep high for export if possible, or tier based? User said scale upload.
-        anisotropyCap: isTier1 ? 2 : 4,
-        enableMipmaps: !isTier1,
+        anisotropyCap: lowPerformanceMode ? (isTier1 ? 2 : 4) : isTier1 ? 4 : isTier2 ? 8 : 12,
+        enableMipmaps: !isTier1 || !lowPerformanceMode,
         disableEmbossDecals: isTier1,
         disableShadows: isTier1,
         singleSideTextureMode: isTier1,
-        qualityKey: `mobile-tier-${tier}`,
-        frameloop: "demand",
+        qualityKey: `mobile-tier-${tier}-${lowPerformanceMode ? "low" : "std"}`,
+        frameloop: lowPerformanceMode ? "demand" : "always",
       };
     }
     return {
@@ -7940,7 +7997,7 @@ function TasarimClientContent({ isMobile }) {
             return (
               <Canvas
                 frameloop={isInteracting ? "always" : (perf.frameloop || "always")}
-                key={`scene-canvas-${perf.qualityKey}`}
+                key={`scene-canvas-${perf.qualityKey}-${webglResetKey}`}
                 style={{
                   position: "absolute",
                   left: isMobile ? "50%" : isPlacementPanelVisible ? "63%" : "50%",
@@ -7976,6 +8033,7 @@ function TasarimClientContent({ isMobile }) {
                   glRef.current = gl;
                   sceneRef.current = scene;
                   cameraRef.current = camera;
+                  setGlCanvasEl(gl?.domElement || null);
                   const bgColor = new THREE.Color(SCENE_BG_COLOR);
                   scene.background = bgColor;
                   gl.setClearColor(bgColor, 1);
