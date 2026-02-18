@@ -2896,7 +2896,7 @@ function InjectionPatternStamp({
     <group
       key={`inj-stamp-${side}-${resolvedOption.id}`}
       position={[cx, cy, (profile.z || 0) + zNudge]}
-      rotation={[0, sideRotY, rz]}
+      rotation={[Math.PI / 2, sideRotY, rz]}
     >
       {normalizedGeometries.map((entry, idx) => (
         <ShrinkwrappedRubberGlyph
@@ -9232,8 +9232,8 @@ function TasarimClientContent({ isMobile }) {
               }
             >
               <div
-                className={`${isMobile ? "w-full h-full min-h-0 overflow-x-hidden flex flex-col pointer-events-auto" : "w-full h-full overflow-x-hidden overflow-y-visible flex flex-col pointer-events-auto"}`}
-                style={{ backgroundColor: "#eef1f4" }}
+                className={`${isMobile ? "w-full h-full min-h-0 overflow-x-hidden flex flex-col pointer-events-none" : "w-full h-full overflow-x-hidden overflow-y-visible flex flex-col pointer-events-auto"}`}
+                style={{ backgroundColor: isMobile ? "transparent" : "#eef1f4" }}
               >
                 {isMobile ? (
                   <>
@@ -9255,7 +9255,7 @@ function TasarimClientContent({ isMobile }) {
                             handleMobileDrawerHandleClick(e);
                           }
                         }}
-                        className="absolute left-1/2 top-[-8px] -translate-x-1/2 w-12 h-10 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 flex items-center justify-center z-[30] shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
+                        className="absolute left-1/2 top-[-8px] -translate-x-1/2 w-12 h-10 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 flex items-center justify-center z-[30] shadow-[0_6px_14px_rgba(0,0,0,0.18)] pointer-events-auto"
                         aria-label="Alt panel yüksekliğini değiştir"
                         style={{ touchAction: "none" }}
                       >

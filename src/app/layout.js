@@ -9,7 +9,7 @@ export default function RootLayout({ children }) {
       <body>
         <ErrorBoundary>
           <CartProvider>{children}</CartProvider>
-          <PerformanceOverlay />
+          {/* PerformanceOverlay Removed */}
         </ErrorBoundary>
       </body>
     </html>
