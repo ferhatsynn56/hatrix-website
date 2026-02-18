@@ -424,7 +424,7 @@ const estimateTextHalfBounds01 = (textState = {}) => {
   const size = clamp(Number(textState?.size) || 150, 30, 420);
   const scaleX = clamp(Number(textState?.scaleX) || 1, 0.3, 3);
   const scaleY = clamp(Number(textState?.scaleY) || 1, 0.3, 3);
-  const technique = normalizePrintTechnique(textState?.technique, PRINT_TECHNIQUES.RUBBER);
+  const technique = normalizePrintTechnique(textState?.technique, PRINT_TECHNIQUES.DTF);
   const rubberSpacingMul =
     technique === PRINT_TECHNIQUES.RUBBER
       ? clamp(Number(textState?.rubberLetterSpacing ?? 1), 0.2, 3)
@@ -970,6 +970,10 @@ const DebouncedTextDraftInput = React.memo(function DebouncedTextDraftInput({
 
   const deferredLocalText = useDeferredValue(localText);
   const debouncedLocalText = useDebouncedValue(deferredLocalText, TEXT_INPUT_DEBOUNCE_MS);
+  const mobileNoZoomStyle =
+    typeof window !== "undefined" && window.innerWidth < 768
+      ? { fontSize: "16px" }
+      : undefined;
 
   useEffect(() => {
     if (debouncedLocalText !== lastCommittedRef.current) {
@@ -992,6 +996,7 @@ const DebouncedTextDraftInput = React.memo(function DebouncedTextDraftInput({
       }}
       aria-busy={pending}
       className={className}
+      style={mobileNoZoomStyle}
       placeholder={placeholder}
     />
   );
@@ -1751,7 +1756,7 @@ const buildRubberSpecsBySide = (design) => {
     const sideData = design?.sides?.[side];
     const t = sideData?.customText || {};
     const isRubberText =
-      normalizePrintTechnique(t?.technique, printTypeIdsToTechnique(sideTypes, PRINT_TECHNIQUES.RUBBER)) ===
+      normalizePrintTechnique(t?.technique, printTypeIdsToTechnique(sideTypes, PRINT_TECHNIQUES.DTF)) ===
       PRINT_TECHNIQUES.RUBBER;
     if (!isRubberText) return;
     const rawText = String(t?.text || "").trim();
@@ -1800,7 +1805,7 @@ const formatMoney = (value) => {
 /* ================= PRINT CANVAS (FOR CART / EXPORT) ================= */
 async function makePrintDataUrl(sideData, opts = {}) {
   const logos = (sideData?.logos || []).filter((layer) => Boolean(layer?.url));
-  const textTechnique = normalizePrintTechnique(sideData?.customText?.technique, PRINT_TECHNIQUES.RUBBER);
+  const textTechnique = normalizePrintTechnique(sideData?.customText?.technique, PRINT_TECHNIQUES.DTF);
   const t = {
     ...(sideData?.customText || {}),
     technique: textTechnique,
@@ -2090,7 +2095,7 @@ function useDesignCanvas(sideData, opts = {}) {
     )
     .join("|");
   const customText = sideData?.customText;
-  const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}_${customText?.font}_${customText?.layout || "straight"}_${customText?.curve ?? 30}_${customText?.rotation ?? 0}_${customText?.z ?? 0}_${Number(Boolean(customText?.emboss))}_${customText?.embossDepth ?? 1.4}_${customText?.embossStrength ?? 1.4}_${normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER)}`;
+  const textSignature = `${customText?.text}_${customText?.color}_${customText?.size}_${customText?.scaleX}_${customText?.scaleY}_${customText?.font}_${customText?.layout || "straight"}_${customText?.curve ?? 30}_${customText?.rotation ?? 0}_${customText?.z ?? 0}_${Number(Boolean(customText?.emboss))}_${customText?.embossDepth ?? 1.4}_${customText?.embossStrength ?? 1.4}_${normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.DTF)}`;
   const posSignature = `${sideData?.textPos?.x}_${sideData?.textPos?.y}`;
 
   const requestedCanvasSize = Number(opts?.canvasSize);
@@ -2945,7 +2950,7 @@ function Real3DModel({
   const { gl } = useThree();
   const allowMipmaps = perfProfile?.enableMipmaps !== false;
   const disableEmbossDecals = perfProfile?.disableEmbossDecals === true;
-  const useSdfTextFallback = Boolean(isMobile && perfProfile?.lowPerformanceMode);
+  const useSdfTextFallback = false;
   const modelPathRaw = MODEL_PATHS[normalizeModelType(modelType)] || MODEL_PATHS[DEFAULT_MODEL_TYPE];
   const gltf = useGLTF(toSafeUrl(modelPathRaw));
   const glyphGltf = useGLTF(toSafeUrl(RUBBER_GLYPH_MODEL_PATH));
@@ -3191,12 +3196,12 @@ function Real3DModel({
   const frontHasRubber =
     normalizePrintTechnique(
       frontSideData?.customText?.technique,
-      printTypeIdsToTechnique(frontPrintTypes, PRINT_TECHNIQUES.RUBBER)
+      printTypeIdsToTechnique(frontPrintTypes, PRINT_TECHNIQUES.DTF)
     ) === PRINT_TECHNIQUES.RUBBER;
   const backHasRubber =
     normalizePrintTechnique(
       backSideData?.customText?.technique,
-      printTypeIdsToTechnique(backPrintTypes, PRINT_TECHNIQUES.RUBBER)
+      printTypeIdsToTechnique(backPrintTypes, PRINT_TECHNIQUES.DTF)
     ) === PRINT_TECHNIQUES.RUBBER;
   const frontInjectionOption = getInjectionPatternById(frontSideData?.injectionModelId);
   const backInjectionOption = getInjectionPatternById(backSideData?.injectionModelId);
@@ -4015,12 +4020,12 @@ function DesignModelItem({
   const frontHasRubber =
     normalizePrintTechnique(
       design?.sides?.front?.customText?.technique,
-      printTypeIdsToTechnique(printTypesBySide.front, PRINT_TECHNIQUES.RUBBER)
+      printTypeIdsToTechnique(printTypesBySide.front, PRINT_TECHNIQUES.DTF)
     ) === PRINT_TECHNIQUES.RUBBER;
   const backHasRubber =
     normalizePrintTechnique(
       design?.sides?.back?.customText?.technique,
-      printTypeIdsToTechnique(printTypesBySide.back, PRINT_TECHNIQUES.RUBBER)
+      printTypeIdsToTechnique(printTypesBySide.back, PRINT_TECHNIQUES.DTF)
     ) === PRINT_TECHNIQUES.RUBBER;
 
   const lowPerformanceMode = Boolean(perfProfile?.lowPerformanceMode);
@@ -4732,7 +4737,7 @@ function EditorPanel({
       const committedText = liveSideData?.customText?.text || "";
       if (nextText === committedText) return;
       const liveText = liveSideData?.customText || {};
-      const liveTechnique = normalizePrintTechnique(liveText?.technique, PRINT_TECHNIQUES.RUBBER);
+      const liveTechnique = normalizePrintTechnique(liveText?.technique, PRINT_TECHNIQUES.DTF);
       const nextCustomText = {
         ...liveText,
         text: nextText,
@@ -4822,8 +4827,8 @@ function EditorPanel({
   const bumpText = (patch) => {
     const safePatch = patch && typeof patch === "object" ? { ...patch } : {};
     const nextTechnique = Object.prototype.hasOwnProperty.call(safePatch || {}, "technique")
-      ? normalizePrintTechnique(safePatch?.technique, t.technique || PRINT_TECHNIQUES.RUBBER)
-      : t.technique || PRINT_TECHNIQUES.RUBBER;
+      ? normalizePrintTechnique(safePatch?.technique, t.technique || PRINT_TECHNIQUES.DTF)
+      : t.technique || PRINT_TECHNIQUES.DTF;
     if (!Object.prototype.hasOwnProperty.call(safePatch, "surfaceRotationY")) {
       safePatch.surfaceRotationY = currentSide === "back" ? Math.PI : 0;
     }
@@ -5989,6 +5994,8 @@ function TasarimClientContent({ isMobile }) {
   const [isInteracting, setIsInteracting] = useState(false); // For real-time rotation
   const [webglResetKey, setWebglResetKey] = useState(0);
   const [glCanvasEl, setGlCanvasEl] = useState(null);
+  const lastStableViewportHeightRef = useRef(0);
+  const [cameraReadyTick, setCameraReadyTick] = useState(0);
 
   // CRASH GUARD: Checks memory on startup
   useEffect(() => {
@@ -6234,8 +6241,8 @@ function TasarimClientContent({ isMobile }) {
   const bumpCustomText = (patch, opts = {}) => {
     const safePatch = patch && typeof patch === "object" ? { ...patch } : {};
     const nextTechnique = Object.prototype.hasOwnProperty.call(safePatch || {}, "technique")
-      ? normalizePrintTechnique(safePatch?.technique, customText?.technique || PRINT_TECHNIQUES.RUBBER)
-      : normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER);
+      ? normalizePrintTechnique(safePatch?.technique, customText?.technique || PRINT_TECHNIQUES.DTF)
+      : normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.DTF);
     if (!Object.prototype.hasOwnProperty.call(safePatch, "surfaceRotationY")) {
       safePatch.surfaceRotationY = currentSide === "back" ? Math.PI : 0;
     }
@@ -6549,16 +6556,44 @@ function TasarimClientContent({ isMobile }) {
 
   useEffect(() => {
     if (!isMobile || typeof window === "undefined") return;
-    const setAppVh = () => {
-      const vh = window.innerHeight * 0.01;
+    const isTypingFieldFocused = () => {
+      const activeEl = document.activeElement;
+      if (!activeEl) return false;
+      const tag = String(activeEl.tagName || "").toLowerCase();
+      if (activeEl.isContentEditable) return true;
+      if (tag === "textarea") return true;
+      if (tag !== "input") return false;
+      const type = String(activeEl.getAttribute("type") || "text").toLowerCase();
+      return [
+        "text",
+        "search",
+        "email",
+        "tel",
+        "url",
+        "password",
+        "number",
+      ].includes(type);
+    };
+
+    const setAppVh = ({ force = false } = {}) => {
+      const viewportHeight = window.innerHeight;
+      if (!Number.isFinite(viewportHeight) || viewportHeight <= 0) return;
+      const stableHeight = lastStableViewportHeightRef.current || viewportHeight;
+      const keyboardLikelyOpen =
+        isTypingFieldFocused() && viewportHeight < stableHeight * 0.86;
+      if (!force && keyboardLikelyOpen) return;
+      lastStableViewportHeightRef.current = viewportHeight;
+      const vh = viewportHeight * 0.01;
       document.documentElement.style.setProperty("--app-vh", `${vh}px`);
     };
-    setAppVh();
-    window.addEventListener("resize", setAppVh, { passive: true });
-    window.addEventListener("orientationchange", setAppVh);
+    setAppVh({ force: true });
+    const handleResize = () => setAppVh();
+    const handleOrientation = () => setAppVh({ force: true });
+    window.addEventListener("resize", handleResize, { passive: true });
+    window.addEventListener("orientationchange", handleOrientation);
     return () => {
-      window.removeEventListener("resize", setAppVh);
-      window.removeEventListener("orientationchange", setAppVh);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleOrientation);
     };
   }, [isMobile]);
 
@@ -7345,7 +7380,7 @@ function TasarimClientContent({ isMobile }) {
       UI_SIDES.some((sideKey) => {
         const sd = d?.sides?.[sideKey] || EMPTY_SIDE;
         const logos = Array.isArray(sd?.logos) ? sd.logos : [];
-        const textTechnique = normalizePrintTechnique(sd?.customText?.technique, PRINT_TECHNIQUES.RUBBER);
+        const textTechnique = normalizePrintTechnique(sd?.customText?.technique, PRINT_TECHNIQUES.DTF);
         const hasInvalidImageTechnique = logos.some(
           (logo) => normalizePrintTechnique(logo?.technique, PRINT_TECHNIQUES.DTF) !== PRINT_TECHNIQUES.DTF
         );
@@ -7792,7 +7827,7 @@ function TasarimClientContent({ isMobile }) {
       if (panelCameraAnimRef.current) cancelAnimationFrame(panelCameraAnimRef.current);
       panelCameraAnimRef.current = 0;
     };
-  }, [isMobile, flowStep, panelProgress, isPlacementPanelVisible, drawerHeight]);
+  }, [isMobile, flowStep, panelProgress, isPlacementPanelVisible, drawerHeight, cameraReadyTick]);
 
   const renderPanel = (
     <EditorPanel
@@ -8033,6 +8068,7 @@ function TasarimClientContent({ isMobile }) {
                   glRef.current = gl;
                   sceneRef.current = scene;
                   cameraRef.current = camera;
+                  setCameraReadyTick((prev) => prev + 1);
                   setGlCanvasEl(gl?.domElement || null);
                   const bgColor = new THREE.Color(SCENE_BG_COLOR);
                   scene.background = bgColor;
@@ -8047,7 +8083,10 @@ function TasarimClientContent({ isMobile }) {
                     gl.domElement.style.webkitTouchCallout = "none";
                   }
                 }}
-                camera={{ position: [0, 0.26, 2.08], fov: isMobile ? (isPlacementPanelVisible ? 34 : 33) : 31 }}
+                camera={{
+                  position: isMobile ? [0, 0.255, 2.34] : [0, 0.26, 2.2],
+                  fov: isMobile ? (isPlacementPanelVisible ? 34 : 33) : 31,
+                }}
                 shadows={!perf.disableShadows}
               >
                 <SceneBackgroundLock />
@@ -8625,7 +8664,7 @@ function TasarimClientContent({ isMobile }) {
                       <button
                         type="button"
                         onClick={() => applySceneTextTechnique(PRINT_TECHNIQUES.DTF)}
-                        className={`h-8 rounded-md border text-[10px] font-black uppercase tracking-wide ${normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER) === PRINT_TECHNIQUES.DTF
+                        className={`h-8 rounded-md border text-[10px] font-black uppercase tracking-wide ${normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.DTF) === PRINT_TECHNIQUES.DTF
                           ? "bg-white text-black border-white"
                           : "bg-zinc-900/60 text-zinc-200 border-zinc-600 hover:bg-zinc-800"
                           }`}
@@ -8635,7 +8674,7 @@ function TasarimClientContent({ isMobile }) {
                       <button
                         type="button"
                         onClick={() => applySceneTextTechnique(PRINT_TECHNIQUES.RUBBER)}
-                        className={`h-8 rounded-md border text-[10px] font-black uppercase tracking-wide ${normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER) === PRINT_TECHNIQUES.RUBBER
+                        className={`h-8 rounded-md border text-[10px] font-black uppercase tracking-wide ${normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.DTF) === PRINT_TECHNIQUES.RUBBER
                           ? "bg-white text-black border-white"
                           : "bg-zinc-900/60 text-zinc-200 border-zinc-600 hover:bg-zinc-800"
                           }`}
@@ -8644,7 +8683,7 @@ function TasarimClientContent({ isMobile }) {
                       </button>
                     </div>
                     <p className="text-[10px] text-zinc-300">
-                      {normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.RUBBER) === PRINT_TECHNIQUES.RUBBER
+                      {normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.DTF) === PRINT_TECHNIQUES.RUBBER
                         ? "Yazı odaklı, kabartı hissi veren minimal baskı."
                         : "Detaylı ve renkli tasarımlar için uygun."}
                     </p>
