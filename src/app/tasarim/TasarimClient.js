@@ -949,25 +949,25 @@ const DebouncedTextDraftInput = React.memo(function DebouncedTextDraftInput({
   placeholder = "",
   maxLength,
 }) {
-  const [localText, setLocalText] = useState(() => committedText || "");
-  const localDirtyRef = useRef(false);
-  const committedRef = useRef(committedText || "");
+  const [localText, setLocalText] = useState(committedText || "");
+  const lastCommittedRef = useRef(committedText || "");
+
+  // Sync external changes to local state
+  useEffect(() => {
+    if (committedText !== lastCommittedRef.current) {
+      setLocalText(committedText || "");
+      lastCommittedRef.current = committedText || "";
+    }
+  }, [committedText]);
+
   const deferredLocalText = useDeferredValue(localText);
   const debouncedLocalText = useDebouncedValue(deferredLocalText, TEXT_INPUT_DEBOUNCE_MS);
 
   useEffect(() => {
-    committedRef.current = committedText || "";
-  }, [committedText]);
-
-  useEffect(() => {
-    if (!localDirtyRef.current) return;
-    const safeCommitted = committedRef.current;
-    if (debouncedLocalText === safeCommitted) {
-      localDirtyRef.current = false;
-      return;
+    if (debouncedLocalText !== lastCommittedRef.current) {
+      lastCommittedRef.current = debouncedLocalText;
+      onCommit?.(debouncedLocalText);
     }
-    localDirtyRef.current = false;
-    onCommit?.(debouncedLocalText);
   }, [debouncedLocalText, onCommit]);
 
   return (
@@ -975,10 +975,7 @@ const DebouncedTextDraftInput = React.memo(function DebouncedTextDraftInput({
       type="text"
       value={localText}
       maxLength={maxLength}
-      onChange={(e) => {
-        localDirtyRef.current = true;
-        setLocalText(e.target.value);
-      }}
+      onChange={(e) => setLocalText(e.target.value)}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => {
         if (e.key === "Enter") e.preventDefault();
@@ -5728,7 +5725,7 @@ function EditorPanel({
                       : "Detaylı ve renkli tasarımlar için uygun."}
                   </p>
                   <DebouncedTextDraftInput
-                    key={`${editorTextKey}::${t.text || ""}`}
+                    key={editorTextKey}
                     committedText={t.text || ""}
                     onCommit={commitEditorTextDraft}
                     pending={isTextCommitPending}
@@ -8646,7 +8643,7 @@ function TasarimClientContent({ isMobile }) {
                     <div className="space-y-1">
                       <label className="text-[10px] text-zinc-400">Metin</label>
                       <DebouncedTextDraftInput
-                        key={`${textDraftKey}::${customText?.text || ""}`}
+                        key={textDraftKey}
                         committedText={customText?.text || ""}
                         onCommit={commitSceneTextDraft}
                         pending={isTextUpdatePending}
