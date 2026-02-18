@@ -464,6 +464,31 @@ const clampTextPos = (textPos, textState = {}) => {
   return { x, y };
 };
 
+const clampRubberLetterSpacingWithinBounds = (spacingValue, textState = {}) => {
+  const safeSpacing = clamp(Number(spacingValue ?? textState?.rubberLetterSpacing ?? 1), 0.2, 3);
+  const baseState = {
+    ...(textState || {}),
+    technique: PRINT_TECHNIQUES.RUBBER,
+  };
+  const MAX_HALF_W01 = 0.47;
+  if (estimateTextHalfBounds01({ ...baseState, rubberLetterSpacing: safeSpacing }).halfW01 <= MAX_HALF_W01) {
+    return safeSpacing;
+  }
+
+  let lo = 0.2;
+  let hi = safeSpacing;
+  for (let i = 0; i < 14; i += 1) {
+    const mid = (lo + hi) / 2;
+    const halfW = estimateTextHalfBounds01({ ...baseState, rubberLetterSpacing: mid }).halfW01;
+    if (halfW <= MAX_HALF_W01) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  return clamp(lo, 0.2, safeSpacing);
+};
+
 const CM_LABELS = {
   tshirt: { front: { w: 40, h: 54 }, back: { w: 40, h: 54 } },
   sweatshirt: { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
@@ -718,8 +743,6 @@ const PRINT_TYPE_OPTIONS = [
     previewAlt: "Rubber örnek baskı",
   },
 ];
-
-const STICKER_OPTIONS = [{ id: "sticker-ferhata-att", label: "Ferhata Att", src: "/urungorsel/ferhata%20atttttttt.png" }];
 
 function PrintTypePickerCards({ selectedIds = [], onSelect, sourceLabel = "Sec", isMobile = false }) {
   return (
@@ -2669,10 +2692,13 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
     const fitHScale = (areaH * 0.88) / Math.max(0.001, totalRawH * scaleY);
     const scaleRaw = Math.min(targetW / totalRawW, targetH / maxRawH, fitWScale, fitHScale);
     const glyphScale = clamp(scaleRaw, 0.01, 1.35);
+    const basePlacedW = totalRawW * glyphScale * scaleX;
+    const maxRubberLetterSpacing = clamp((areaW * 0.94) / Math.max(0.001, basePlacedW), 0.2, 3);
+    const effectiveRubberLetterSpacing = clamp(rubberLetterSpacing, 0.2, maxRubberLetterSpacing);
     const rubberStick = clamp(Number(textState?.rubberStick ?? 0.96), 0.7, 1);
     const zScale = clamp((0.07 * maxRawD) / 0.024, 0.06, 0.17);
     const depthBoost = 3.2;
-    const placedW = totalRawW * glyphScale * scaleX * rubberLetterSpacing;
+    const placedW = basePlacedW * effectiveRubberLetterSpacing;
     const placedH = totalRawH * glyphScale * scaleY;
 
     const safeTextPos = clampTextPos(sideData?.textPos, textState);
@@ -2702,7 +2728,7 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
       glyphScale,
       scaleX,
       scaleY,
-      rubberLetterSpacing,
+      rubberLetterSpacing: effectiveRubberLetterSpacing,
       zScale,
       rubberStick,
       depthBoost,
@@ -4719,7 +4745,6 @@ function EditorPanel({
   const hoodieParts = normalizeHoodieParts(design?.hoodieV12Parts);
   const hoodiePartOptionsVisible = MODELS_WITH_HOODIE_PARTS.has(design?.modelType);
   const activeBaseColor = sideData?.baseColor || design?.color;
-  const textFontOptions = rubberActiveForSide ? [RUBBER_FONT_OPTION] : FONT_OPTIONS;
   const [isTextCommitPending, startTextCommitTransition] = useTransition();
   const editorTextKey = `${design?.id || "no-design"}_${currentSide}`;
   const lastHandledPrintSignalRef = useRef(printTypePickerSignal);
@@ -4773,9 +4798,6 @@ function EditorPanel({
       ...((rubberActiveForSide && String(t?.text || "").trim()) ? ["rubber"] : []),
     ])
   );
-  const resolvedTextFontValue = rubberActiveForSide
-    ? RUBBER_FONT_OPTION.value
-    : (t.font || FONT_OPTIONS[0].value);
   const setCurrentSidePrintTypes = (nextTypes) => {
     const bySide = normalizePrintTypesBySide(design.printTypesBySide, design.printTypes);
     const safeSide = currentSide === "back" ? "back" : "front";
@@ -4834,6 +4856,15 @@ function EditorPanel({
     }
     if (nextTechnique === PRINT_TECHNIQUES.RUBBER) {
       safePatch.font = RUBBER_FONT_OPTION.value;
+      const rawSpacing =
+        Object.prototype.hasOwnProperty.call(safePatch, "rubberLetterSpacing")
+          ? safePatch.rubberLetterSpacing
+          : t?.rubberLetterSpacing;
+      safePatch.rubberLetterSpacing = clampRubberLetterSpacingWithinBounds(rawSpacing, {
+        ...t,
+        ...safePatch,
+        technique: PRINT_TECHNIQUES.RUBBER,
+      });
     }
     const nextCustomText = { ...t, ...safePatch, technique: nextTechnique };
     const nextTextPos = clampTextPos(sideData?.textPos, nextCustomText);
@@ -4959,27 +4990,14 @@ function EditorPanel({
     }
   };
 
-  const handleAddSticker = (sticker) => {
-    if (!sticker?.src) return;
-    const addedId = handleAddPrint({
-      url: sticker.src,
-      kind: "sticker",
-      emboss: true,
-      box: { x: 0.5, y: 0.6, w: 0.62, h: 0.42 },
-    });
-    if (!addedId) return;
-    onRequestDrawerCollapse?.();
-    onRequestShowEditorOverlay?.();
-    setActiveTab("editor");
-  };
-
   const isFocusMode = isMobile && activeTab === "editor" && !isDrawerLayout;
   const drawerHeadingClass = "text-[13px] font-black tracking-[0.14em] text-gray-500 uppercase";
   const panelTabs = [
     { id: "color", icon: Palette, label: "Renk" },
     { id: "print", icon: Layers, label: "Baskı Seçim" },
-    { id: "text", icon: FileText, label: "Yazı" },
     { id: "upload", icon: ImageIcon, label: "Görsel" },
+    { id: "text", icon: FileText, label: "Yazı" },
+    { id: "pattern", icon: Layers, label: "Desen" },
   ];
 
   const togglePrintType = (id) => {
@@ -5330,10 +5348,22 @@ function EditorPanel({
                 sourceLabel="Panelden sec"
                 isMobile={isMobile}
               />
+            </div>
+          </div>
+        )}
+
+        {/* PATTERN / ENJEKSİYON */}
+        {activeTab === "pattern" && (
+          <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-stretch justify-start gap-2.5") : "space-y-2.5"}`}>
+            <div className={`rounded-xl border border-gray-200 bg-white p-3 space-y-3 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "w-full min-h-[188px] overflow-hidden") : ""}`}>
+              <div className="flex items-center justify-between gap-2">
+                <p className={drawerHeadingClass}>Desen</p>
+                <span className="text-[10px] font-black uppercase tracking-wide text-gray-500">Enjeksiyon</span>
+              </div>
               <InjectionPatternPickerCards
                 selectedId={sideData?.injectionModelId || null}
                 onSelect={toggleInjectionPattern}
-                sourceLabel="Rubber desen"
+                sourceLabel="Desenden sec"
                 isMobile={isMobile}
               />
             </div>
@@ -5640,55 +5670,7 @@ function EditorPanel({
 
               <div className="space-y-3">
                 <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Metin</p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        bumpText({
-                          text: "",
-                          color: "#ffffff",
-                          size: 150,
-                          emboss: false,
-                          embossDepth: 1.4,
-                          embossStrength: 1.4,
-                          font: FONT_OPTIONS[0].value,
-                          layout: "straight",
-                          curve: 30,
-                        });
-                      }}
-                      className="text-[10px] font-black uppercase text-gray-600 underline"
-                    >
-                      Temizle
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => applyTextTechnique(PRINT_TECHNIQUES.DTF)}
-                      className={`h-9 rounded-lg border text-[10px] font-black uppercase tracking-wide ${t.technique === PRINT_TECHNIQUES.DTF
-                        ? "bg-black text-white border-black"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                        }`}
-                    >
-                      DTF
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyTextTechnique(PRINT_TECHNIQUES.RUBBER)}
-                      className={`h-9 rounded-lg border text-[10px] font-black uppercase tracking-wide ${t.technique === PRINT_TECHNIQUES.RUBBER
-                        ? "bg-black text-white border-black"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
-                        }`}
-                    >
-                      RUBBER
-                    </button>
-                  </div>
-                  <p className="text-[11px] font-semibold text-gray-600">
-                    {t.technique === PRINT_TECHNIQUES.RUBBER
-                      ? "Yazı odaklı, kabartı hissi veren minimal baskı."
-                      : "Detaylı ve renkli tasarımlar için uygun."}
-                  </p>
+                  <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Metin</p>
                   <DebouncedTextDraftInput
                     key={editorTextKey}
                     committedText={t.text || ""}
@@ -5698,72 +5680,9 @@ function EditorPanel({
                     className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-[16px] md:text-[12px] font-semibold text-gray-800"
                     placeholder=""
                   />
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="space-y-1">
-                      <span className="block text-[10px] font-black uppercase tracking-wide text-gray-500">Font</span>
-                      <select
-                        value={resolvedTextFontValue}
-                        onChange={(e) => bumpText({ font: e.target.value })}
-                        disabled={rubberActiveForSide}
-                        className="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-[16px] md:text-[11px] font-semibold text-gray-800"
-                      >
-                        {textFontOptions.map((opt) => (
-                          <option key={`font-opt-${opt.value}`} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="space-y-1">
-                      <span className="block text-[10px] font-black uppercase tracking-wide text-gray-500">Renk</span>
-                      <input
-                        type="color"
-                        value={t.color || "#ffffff"}
-                        onChange={(e) => bumpText({ color: e.target.value })}
-                        className="h-10 w-full rounded-lg border border-gray-300 bg-white p-1"
-                      />
-                    </label>
-                  </div>
-                  {rubberActiveForSide && (
-                    <>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-gray-500">
-                          <span>Rubber Kalınlık</span>
-                          <span className="text-gray-700 normal-case">2.00 mm (Sabit)</span>
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-gray-500">
-                          <span>Boyut</span>
-                          <span className="text-gray-700 normal-case">{Math.round(Number(t?.size) || 150)}px</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="40"
-                          max="280"
-                          step="1"
-                          value={Number(t?.size) || 150}
-                          onChange={(e) => bumpText({ size: Number(e.target.value) })}
-                          className="w-full accent-cyan-600"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wide text-gray-500">
-                          <span>Harf Aralığı</span>
-                          <span className="text-gray-700 normal-case">{clamp(Number(t?.rubberLetterSpacing ?? 1), 0.2, 3).toFixed(2)}x</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0.2"
-                          max="3"
-                          step="0.05"
-                          value={clamp(Number(t?.rubberLetterSpacing ?? 1), 0.2, 3)}
-                          onChange={(e) => bumpText({ rubberLetterSpacing: Number(e.target.value) })}
-                          className="w-full accent-cyan-600"
-                        />
-                      </div>
-                    </>
-                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => {
@@ -5773,9 +5692,16 @@ function EditorPanel({
                       setActiveTab("editor");
                       if (isMobileDrawer) onRequestDrawerCollapse?.();
                     }}
-                    className="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase flex items-center justify-center gap-2"
+                    className="h-9 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase flex items-center justify-center gap-2"
                   >
                     <Move size={14} /> Modelde Düzenle
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => bumpText({ text: "" })}
+                    className="h-9 rounded-lg border border-red-200 bg-red-50 text-red-600 text-[10px] font-black uppercase flex items-center justify-center gap-1.5"
+                  >
+                    <Trash2 size={14} /> Sil
                   </button>
                 </div>
               </div>
@@ -6248,6 +6174,15 @@ function TasarimClientContent({ isMobile }) {
     }
     if (nextTechnique === PRINT_TECHNIQUES.RUBBER) {
       safePatch.font = RUBBER_FONT_OPTION.value;
+      const rawSpacing =
+        Object.prototype.hasOwnProperty.call(safePatch, "rubberLetterSpacing")
+          ? safePatch.rubberLetterSpacing
+          : customText?.rubberLetterSpacing;
+      safePatch.rubberLetterSpacing = clampRubberLetterSpacingWithinBounds(rawSpacing, {
+        ...customText,
+        ...safePatch,
+        technique: PRINT_TECHNIQUES.RUBBER,
+      });
     }
     const nextCustomText = { ...customText, ...safePatch, technique: nextTechnique };
     const nextTextPos = clampTextPos(sideData?.textPos, nextCustomText);
@@ -6696,12 +6631,13 @@ function TasarimClientContent({ isMobile }) {
   const hasDtfForActiveSide =
     getPrintTypesForSide(activeDesign, activeSideKeyForFlow).includes("dtf") ||
     Boolean((activeDesign?.sides?.[activeSideKeyForFlow]?.logos || []).length);
-  const DRAWER_TABS = ["color", "print", "text", "upload"];
+  const DRAWER_TABS = ["color", "print", "upload", "text", "pattern"];
   const tabIndex = DRAWER_TABS.indexOf(activeTab);
   const tabLabelMap = {
     print: "Baskı Seçim",
     upload: "Görsel",
     text: "Yazı",
+    pattern: "Desen",
     editor: "Yerleşim",
     color: "Renk",
   };
@@ -6729,7 +6665,7 @@ function TasarimClientContent({ isMobile }) {
       return;
     }
     setMobilePrimaryTab("design");
-    if (!["print", "upload", "text", "editor", "color"].includes(activeTab)) {
+    if (!["print", "upload", "text", "pattern", "editor", "color"].includes(activeTab)) {
       const currentSideHasDtf =
         getPrintTypesForSide(activeDesign, view).includes("dtf") ||
         Boolean((activeDesign?.sides?.[view]?.logos || []).length);
@@ -6759,6 +6695,10 @@ function TasarimClientContent({ isMobile }) {
       setActiveTab("text");
       return;
     }
+    if (toolId === "pattern") {
+      setActiveTab("pattern");
+      return;
+    }
     if (toolId === "editor") {
       setActiveTab("editor");
       return;
@@ -6782,6 +6722,7 @@ function TasarimClientContent({ isMobile }) {
   const menuTabs = [
     { id: "color", label: "Renk", icon: Palette },
     { id: "print", label: "Baskı Seçim", icon: Layers },
+    { id: "pattern", label: "Desen", icon: Layers },
     { id: "text", label: "Yazı", icon: FileText },
     { id: "upload", label: "Görsel", icon: ImageIcon },
   ];
@@ -6980,7 +6921,7 @@ function TasarimClientContent({ isMobile }) {
         };
       })
     );
-    setActiveTab("print");
+    setActiveTab("pattern");
     setDrawerMenuOpen(false);
   };
 
@@ -7006,7 +6947,7 @@ function TasarimClientContent({ isMobile }) {
 
   useEffect(() => {
     if (!isMobile) return;
-    if (["color", "print", "text", "upload", "editor"].includes(activeTab)) {
+    if (["color", "print", "text", "pattern", "upload", "editor"].includes(activeTab)) {
       setMobilePrimaryTab((prev) => (prev === "design" ? prev : "design"));
     }
   }, [isMobile, activeTab]);
@@ -7077,12 +7018,6 @@ function TasarimClientContent({ isMobile }) {
       setEditorControlTab("logo");
     }
   }, [activeTab, activeId, currentSide, sideData?.logos?.length, editorControlTab]);
-
-  useEffect(() => {
-    if (activeTab === "pattern") {
-      setActiveTab("print");
-    }
-  }, [activeTab]);
 
   useEffect(() => {
     if (!rubberActiveForSide) return;
@@ -9385,7 +9320,7 @@ function TasarimClientContent({ isMobile }) {
                             <div className="flex items-center justify-between gap-2 border-b border-black/5 pb-2 mb-3">
                               <p className="text-[12px] font-black uppercase tracking-[0.14em] text-gray-700">Tasarla</p>
                             </div>
-                            <div className="grid grid-cols-4 gap-2">
+                            <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -9393,7 +9328,7 @@ function TasarimClientContent({ isMobile }) {
                                   setPanelProgress(1);
                                   activateDesignTool("print");
                                 }}
-                                className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "print"
+                                className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "print"
                                   ? "border-zinc-900 bg-zinc-900 text-white"
                                   : "border-gray-300 bg-white text-gray-800"
                                   }`}
@@ -9407,7 +9342,7 @@ function TasarimClientContent({ isMobile }) {
                                   setPanelProgress(1);
                                   activateDesignTool("upload");
                                 }}
-                                className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "upload"
+                                className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "upload"
                                   ? "border-zinc-900 bg-zinc-900 text-white"
                                   : "border-gray-300 bg-white text-gray-800"
                                   }`}
@@ -9421,16 +9356,30 @@ function TasarimClientContent({ isMobile }) {
                                   setPanelProgress(1);
                                   activateDesignTool("text");
                                 }}
-                                className={`h-10 rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "text"
+                                className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "text"
                                   ? "border-zinc-900 bg-zinc-900 text-white"
                                   : "border-gray-300 bg-white text-gray-800"
                                   }`}
                               >
                                 Yazı<br />Ekle
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMobilePrimaryTab("design");
+                                  setPanelProgress(1);
+                                  activateDesignTool("pattern");
+                                }}
+                                className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "pattern"
+                                  ? "border-zinc-900 bg-zinc-900 text-white"
+                                  : "border-gray-300 bg-white text-gray-800"
+                                  }`}
+                              >
+                                Desen<br />Ekle
+                              </button>
                               <button type="button"
                                 onClick={openDrawerMenu}
-                                className="h-10 rounded-xl border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center justify-center gap-1"
+                                className="h-10 min-w-[96px] rounded-xl border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center justify-center gap-1"
                               >
                                 <Menu size={14} />
                                 Menü
@@ -9450,12 +9399,6 @@ function TasarimClientContent({ isMobile }) {
                               <PrintTypePickerCards
                                 selectedIds={activePrintTypes}
                                 onSelect={togglePrintTypeFromMenu}
-                                sourceLabel="Mobil panel sec"
-                                isMobile
-                              />
-                              <InjectionPatternPickerCards
-                                selectedId={activeSideData?.injectionModelId || null}
-                                onSelect={toggleInjectionPatternFromMenu}
                                 sourceLabel="Mobil panel sec"
                                 isMobile
                               />
@@ -9670,18 +9613,22 @@ function TasarimClientContent({ isMobile }) {
                   ))}
                 </div>
 
-                <PrintTypePickerCards
-                  selectedIds={activePrintTypes}
-                  onSelect={togglePrintTypeFromMenu}
-                  sourceLabel="Menuden sec"
-                  isMobile={isMobile}
-                />
-                <InjectionPatternPickerCards
-                  selectedId={activeSideData?.injectionModelId || null}
-                  onSelect={toggleInjectionPatternFromMenu}
-                  sourceLabel="Menuden sec"
-                  isMobile={isMobile}
-                />
+                {activeTab === "print" && (
+                  <PrintTypePickerCards
+                    selectedIds={activePrintTypes}
+                    onSelect={togglePrintTypeFromMenu}
+                    sourceLabel="Menuden sec"
+                    isMobile={isMobile}
+                  />
+                )}
+                {activeTab === "pattern" && (
+                  <InjectionPatternPickerCards
+                    selectedId={activeSideData?.injectionModelId || null}
+                    onSelect={toggleInjectionPatternFromMenu}
+                    sourceLabel="Menuden sec"
+                    isMobile={isMobile}
+                  />
+                )}
               </div>
             </div>
           )}
