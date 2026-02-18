@@ -4709,9 +4709,11 @@ function EditorPanel({
   const textFontOptions = rubberActiveForSide ? [RUBBER_FONT_OPTION] : FONT_OPTIONS;
   const [isTextCommitPending, startTextCommitTransition] = useTransition();
   const editorTextKey = `${design?.id || "no-design"}_${currentSide}`;
+  const lastHandledPrintSignalRef = useRef(printTypePickerSignal);
 
   useEffect(() => {
-    if (printTypePickerSignal <= 0) return;
+    if (printTypePickerSignal <= lastHandledPrintSignalRef.current) return;
+    lastHandledPrintSignalRef.current = printTypePickerSignal;
     setActiveTab("print");
   }, [printTypePickerSignal, setActiveTab]);
 
@@ -6658,12 +6660,11 @@ function TasarimClientContent({ isMobile }) {
           console.error("Auto-apply DTF failed", e);
         }
       }
-      // Force a small timeout to ensure state propagation if needed, though direct set should work
-      setTimeout(() => setActiveTab("upload"), 0);
+      setActiveTab("upload");
       return;
     }
     if (toolId === "text") {
-      setTimeout(() => setActiveTab("text"), 0);
+      setActiveTab("text");
       return;
     }
     if (toolId === "editor") {
@@ -7660,7 +7661,7 @@ function TasarimClientContent({ isMobile }) {
     { id: "design", label: "Tasarla", icon: Pencil },
   ];
   const sceneOverlayInteractionEnabled =
-    (!isMobile || isPlacementPanelVisible || mobilePanelCollapsed) && !pickerOpen && !drawerMenuOpen;
+    (!isMobile || isPlacementPanelVisible) && !pickerOpen && !drawerMenuOpen;
 
   useEffect(() => {
     if (!isMobile || flowStep !== "design") return;
@@ -8953,14 +8954,14 @@ function TasarimClientContent({ isMobile }) {
                         ? "border-cyan-300/90 bg-transparent shadow-none"
                         : "border-transparent bg-transparent"
                         }`}
-                      style={{
-                        left: `${(box.x - box.w / 2) * 100}%`,
-                        top: `${(box.y - box.h / 2) * 100}%`,
-                        width: `${box.w * 100}%`,
-                        height: `${box.h * 100}%`,
-                        pointerEvents: "auto",
-                        touchAction: "none",
-                      }}
+                    style={{
+                      left: `${(box.x - box.w / 2) * 100}%`,
+                      top: `${(box.y - box.h / 2) * 100}%`,
+                      width: `${box.w * 100}%`,
+                      height: `${box.h * 100}%`,
+                      pointerEvents: isMobile && mobilePanelCollapsed ? "none" : "auto",
+                      touchAction: "none",
+                    }}
                       onPointerDown={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -9078,15 +9079,20 @@ function TasarimClientContent({ isMobile }) {
                         ? "border-cyan-300/90 bg-transparent shadow-none"
                         : "border-transparent bg-transparent"
                         }`}
-                      style={{
-                        left: `${(sceneTextBox.x - sceneTextBox.w / 2) * 100}%`,
-                        top: `${(sceneTextBox.y - sceneTextBox.h / 2) * 100}%`,
-                        width: `${sceneTextBox.w * 100}%`,
-                        height: `${sceneTextBox.h * 100}%`,
-                        pointerEvents: showSceneTextFrame ? "none" : "auto",
-                        touchAction: "none",
-                        zIndex: showSceneTextFrame ? 62 : 61,
-                      }}
+                    style={{
+                      left: `${(sceneTextBox.x - sceneTextBox.w / 2) * 100}%`,
+                      top: `${(sceneTextBox.y - sceneTextBox.h / 2) * 100}%`,
+                      width: `${sceneTextBox.w * 100}%`,
+                      height: `${sceneTextBox.h * 100}%`,
+                      pointerEvents:
+                        isMobile && mobilePanelCollapsed
+                          ? "none"
+                          : showSceneTextFrame
+                            ? "none"
+                            : "auto",
+                      touchAction: "none",
+                      zIndex: showSceneTextFrame ? 62 : 61,
+                    }}
                       onPointerDown={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
