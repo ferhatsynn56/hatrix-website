@@ -979,6 +979,7 @@ const DebouncedTextDraftInput = React.memo(function DebouncedTextDraftInput({
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
       onKeyDown={(e) => {
+        e.stopPropagation();
         if (e.key === "Enter") e.preventDefault();
       }}
       aria-busy={pending}
@@ -1594,17 +1595,24 @@ const normalizePrintTypesBySide = (bySide, legacy = []) => {
   const legacyListRaw = Array.isArray(legacy) ? legacy : [];
   const legacyList = legacyListRaw.filter((id) => id === "dtf" || id === "rubber");
   const raw = bySide && typeof bySide === "object" ? bySide : {};
-  const next = {
-    ...base,
-    ...raw,
-  };
+
+  // Check if we have explicit side data
+  const hasFront = Array.isArray(raw.front);
+  const hasBack = Array.isArray(raw.back);
+
   const orderMap = { dtf: 0, rubber: 1 };
   const normalizeSideList = (sideList = []) =>
     Array.from(new Set((Array.isArray(sideList) ? sideList : []).filter((id) => id === "dtf" || id === "rubber"))).sort(
       (a, b) => (orderMap[a] ?? 99) - (orderMap[b] ?? 99)
     );
-  const front = normalizeSideList([...(Array.isArray(next.front) ? next.front : []), ...legacyList]);
-  const back = normalizeSideList(Array.isArray(next.back) ? next.back : []);
+
+  // Only merge legacy into front if we DON'T have explicit side data
+  // This prevents back-side selections (rendering into legacy) from polluting front side
+  const frontSource = hasFront ? raw.front : legacyList;
+  const backSource = hasBack ? raw.back : [];
+
+  const front = normalizeSideList(frontSource);
+  const back = normalizeSideList(backSource);
   return { front, back };
 };
 
