@@ -977,6 +977,7 @@ const DebouncedTextDraftInput = React.memo(function DebouncedTextDraftInput({
       maxLength={maxLength}
       onChange={(e) => setLocalText(e.target.value)}
       onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
       onKeyDown={(e) => {
         if (e.key === "Enter") e.preventDefault();
       }}
@@ -4815,7 +4816,7 @@ function EditorPanel({
     const bySide = normalizePrintTypesBySide(design.printTypesBySide, design.printTypes);
     const safeSide = currentSide === "back" ? "back" : "front";
     const normalizedNextRaw = Array.isArray(nextTypes) ? Array.from(new Set(nextTypes)) : [];
-    const normalizedNext = normalizePrintTypesBySide({ front: normalizedNextRaw, back: [] }).front;
+    const normalizedNext = Array.from(new Set(normalizedNextRaw)).filter(id => id === "dtf" || id === "rubber");
     const nextBySide = { ...bySide, [safeSide]: normalizedNext };
     const mergedLegacy = Array.from(new Set([...(nextBySide.front || []), ...(nextBySide.back || [])]));
     updateDesign({
@@ -8640,7 +8641,7 @@ function TasarimClientContent({ isMobile }) {
                         : "Detaylı ve renkli tasarımlar için uygun."}
                     </p>
 
-                    <div className="space-y-1">
+                    <div className="space-y-1" onPointerDown={(e) => e.stopPropagation()}>
                       <label className="text-[10px] text-zinc-400">Metin</label>
                       <DebouncedTextDraftInput
                         key={textDraftKey}
