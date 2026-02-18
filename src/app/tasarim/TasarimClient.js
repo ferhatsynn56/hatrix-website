@@ -8103,8 +8103,8 @@ function TasarimClientContent({ isMobile }) {
                   makeDefault
                   enableZoom
                   enablePan={false}
-                  enableRotate={false}
-                  autoRotate={true}
+                  enableRotate={true}
+                  autoRotate={false}
                   autoRotateSpeed={isMobile ? 2.0 : 1.5}
                   enableDamping
                   dampingFactor={isMobile ? 0.12 : 0.08}
