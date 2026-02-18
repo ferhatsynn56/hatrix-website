@@ -6658,11 +6658,12 @@ function TasarimClientContent({ isMobile }) {
           console.error("Auto-apply DTF failed", e);
         }
       }
-      setActiveTab("upload");
+      // Force a small timeout to ensure state propagation if needed, though direct set should work
+      setTimeout(() => setActiveTab("upload"), 0);
       return;
     }
     if (toolId === "text") {
-      setActiveTab("text");
+      setTimeout(() => setActiveTab("text"), 0);
       return;
     }
     if (toolId === "editor") {
@@ -9272,10 +9273,10 @@ function TasarimClientContent({ isMobile }) {
                     </div>
 
                     <div
-                      className={`relative z-[15] flex-1 min-h-0 transition-opacity duration-200 ${mobilePanelCollapsed ? "opacity-0 pointer-events-none" : "opacity-100"
+                      className={`relative z-[15] flex-1 min-h-0 transition-opacity duration-200 ${mobilePanelCollapsed ? "opacity-0 pointer-events-none" : "opacity-100 pointer-events-auto"
                         }`}
                     >
-                      <div className="h-full overflow-y-auto overscroll-contain">
+                      <div className="h-full overflow-y-auto overscroll-contain" style={{ touchAction: "pan-y" }}>
                         {showDesignControls && !mobilePanelCollapsed && (
                           <div className="pb-2 mx-4 mt-4 pointer-events-auto">
                             <div className="flex items-center justify-between gap-2 border-b border-black/5 pb-2 mb-3">
