@@ -6702,6 +6702,20 @@ function TasarimClientContent({ isMobile }) {
 
   useEffect(() => {
     if (!isMobile || typeof window === "undefined") return;
+
+    let viewportMeta = document.querySelector('meta[name="viewport"]');
+    const hadViewportMeta = Boolean(viewportMeta);
+    const previousViewportContent = viewportMeta?.getAttribute("content") || "";
+    if (!viewportMeta) {
+      viewportMeta = document.createElement("meta");
+      viewportMeta.setAttribute("name", "viewport");
+      document.head.appendChild(viewportMeta);
+    }
+    viewportMeta.setAttribute(
+      "content",
+      "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    );
+
     const isTypingFieldFocused = () => {
       const activeEl = document.activeElement;
       if (!activeEl) return false;
@@ -6740,6 +6754,13 @@ function TasarimClientContent({ isMobile }) {
     return () => {
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("orientationchange", handleOrientation);
+      if (viewportMeta) {
+        if (hadViewportMeta) {
+          viewportMeta.setAttribute("content", previousViewportContent);
+        } else {
+          viewportMeta.remove();
+        }
+      }
     };
   }, [isMobile]);
 
@@ -6762,20 +6783,21 @@ function TasarimClientContent({ isMobile }) {
   }, [isMobile]);
 
   useEffect(() => {
-    const shouldLockScroll = flowStep !== "select" && !isMobile;
+    const isDesign = flowStep !== "select";
+    const shouldLockScroll = isDesign && !isMobile;
     document.body.style.overflow = shouldLockScroll ? "hidden" : "";
     document.documentElement.style.overflow = shouldLockScroll ? "hidden" : "";
     document.body.style.overflowX = "hidden";
     document.documentElement.style.overflowX = "hidden";
-    document.body.style.overscrollBehaviorY = shouldLockScroll ? "none" : "";
-    document.documentElement.style.overscrollBehaviorY = shouldLockScroll ? "none" : "";
+    document.body.style.overscrollBehavior = isDesign ? "none" : "";
+    document.documentElement.style.overscrollBehavior = isDesign ? "none" : "";
     return () => {
       document.body.style.overflow = "";
       document.documentElement.style.overflow = "";
       document.body.style.overflowX = "";
       document.documentElement.style.overflowX = "";
-      document.body.style.overscrollBehaviorY = "";
-      document.documentElement.style.overscrollBehaviorY = "";
+      document.body.style.overscrollBehavior = "";
+      document.documentElement.style.overscrollBehavior = "";
     };
   }, [flowStep, isMobile]);
 
@@ -8374,7 +8396,7 @@ function TasarimClientContent({ isMobile }) {
                   enabled={!camAnimating}
                   target={[0, controlsTargetY, 0]}
                   mouseButtons={{ LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null }}
-                  touches={{ ONE: THREE.TOUCH.NONE, TWO: THREE.TOUCH.DOLLY }}
+                  touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY }}
                 />
               </Canvas>
             );
@@ -9650,7 +9672,7 @@ function TasarimClientContent({ isMobile }) {
               }
             >
               <div
-                className={`${isMobile ? "w-full h-full min-h-0 overflow-x-hidden flex flex-col pointer-events-none" : "w-full h-full overflow-x-hidden overflow-y-visible flex flex-col pointer-events-auto"}`}
+                className={`${isMobile ? "w-full h-full min-h-0 overflow-visible flex flex-col pointer-events-none" : "w-full h-full overflow-visible flex flex-col pointer-events-auto"}`}
                 style={{ backgroundColor: isMobile ? "transparent" : "#eef1f4" }}
               >
                 {isMobile ? (
