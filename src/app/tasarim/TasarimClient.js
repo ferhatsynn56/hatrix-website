@@ -2890,24 +2890,70 @@ function InjectionPatternStamp({
     const filteredEntries = rawEntries.filter((entry) => {
       const centerY = entry.bbox.getCenter(new THREE.Vector3()).y;
       const entryHeight = entry.bbox.getSize(new THREE.Vector3()).y;
-      const allowedDelta = Math.max(medianHeight * 2.2, entryHeight * 2.4, 0.01);
+      const allowedDelta = Math.max(medianHeight * 1.2, entryHeight * 1.4, 0.006);
       return Math.abs(centerY - medianCenterY) <= allowedDelta;
     });
 
     const usableEntries = filteredEntries.length ? filteredEntries : rawEntries;
-    const unionBox = new THREE.Box3();
-    usableEntries.forEach((entry) => {
-      unionBox.union(entry.bbox);
-    });
+    const rebuildUnion = (entries) => {
+      const box = new THREE.Box3();
+      entries.forEach((entry) => {
+        entry.geometry.computeBoundingBox?.();
+        if (!entry.geometry.boundingBox) return;
+        entry.bbox = entry.geometry.boundingBox.clone();
+        box.union(entry.bbox);
+      });
+      return box;
+    };
+
+    const unionBeforeAlign = rebuildUnion(usableEntries);
+    if (unionBeforeAlign.isEmpty()) {
+      usableEntries.forEach((entry) => entry.geometry.dispose?.());
+      rawEntries.forEach((entry) => {
+        if (!usableEntries.includes(entry)) entry.geometry.dispose?.();
+      });
+      return [];
+    }
+
+    const sourceSize = unionBeforeAlign.getSize(new THREE.Vector3());
+    const axisEntries = [
+      { axis: "x", value: sourceSize.x },
+      { axis: "y", value: sourceSize.y },
+      { axis: "z", value: sourceSize.z },
+    ].sort((a, b) => a.value - b.value);
+    const smallestAxis = axisEntries[0];
+    const secondAxis = axisEntries[1];
+    const needsDepthRealign =
+      smallestAxis?.axis !== "z" &&
+      Number.isFinite(smallestAxis?.value) &&
+      Number.isFinite(secondAxis?.value) &&
+      smallestAxis.value > 0 &&
+      smallestAxis.value * 1.8 < secondAxis.value;
+
+    if (needsDepthRealign) {
+      usableEntries.forEach((entry) => {
+        if (smallestAxis.axis === "y") {
+          entry.geometry.rotateX(-Math.PI / 2);
+        } else if (smallestAxis.axis === "x") {
+          entry.geometry.rotateY(Math.PI / 2);
+        }
+        entry.geometry.computeBoundingBox?.();
+        entry.bbox = entry.geometry.boundingBox ? entry.geometry.boundingBox.clone() : entry.bbox;
+      });
+    }
+
+    const unionBox = rebuildUnion(usableEntries);
+    if (unionBox.isEmpty()) {
+      usableEntries.forEach((entry) => entry.geometry.dispose?.());
+      rawEntries.forEach((entry) => {
+        if (!usableEntries.includes(entry)) entry.geometry.dispose?.();
+      });
+      return [];
+    }
 
     rawEntries.forEach((entry) => {
       if (!usableEntries.includes(entry)) entry.geometry.dispose?.();
     });
-
-    if (unionBox.isEmpty()) {
-      usableEntries.forEach((entry) => entry.geometry.dispose?.());
-      return [];
-    }
 
     const center = unionBox.getCenter(new THREE.Vector3());
     const size = unionBox.getSize(new THREE.Vector3());
