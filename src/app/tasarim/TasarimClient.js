@@ -96,22 +96,21 @@ function ThreeDotsLoader() {
 /* ================= PATH HELPERS ================= */
 const toSafeUrl = (p) => (typeof window !== "undefined" ? encodeURI(p) : p);
 const NEW_MODELS_ROOT = "/models/newModels";
-const NEW_MODELS_DIR_A = `${NEW_MODELS_ROOT}/drive-download-20260208T203457Z-3-001`;
-const NEW_MODELS_DIR_B = `${NEW_MODELS_ROOT}/drive-download-20260210T163425Z-3-001`;
+const NEW_MODELS_DIR_REMASTERED = `${NEW_MODELS_ROOT}/modelRemastered`;
 const INJECTION_MODELS_ROOT = "/models/Enjeksiyon 3D HAZIR MODELLER";
 const MODELS_WITH_HOODIE_PARTS = new Set(["hoodie-v12-canavari", "oversize-hoodie-parcali"]);
 const DEFAULT_MODEL_TYPE = "yeni-duz-tshirt";
 
 /* ================= MODEL PATHS ================= */
 const PRIMARY_MODEL_PATHS = Object.freeze({
-  "yeni-duz-tshirt": `${NEW_MODELS_DIR_A}/duz-tisort.glb`,
-  "yeni-oversize-tshirt": `${NEW_MODELS_DIR_A}/oversize-tshirt.glb`,
-  "yeni-duz-sweat": `${NEW_MODELS_DIR_A}/duz-sweat.glb`,
-  "yeni-oversize-sweat": `${NEW_MODELS_DIR_A}/oversize-sweat.glb`,
-  "yeni-fermuarli": `${NEW_MODELS_DIR_A}/fermuarli.glb`,
-  "polar-son": `${NEW_MODELS_DIR_B}/polar-son.glb`,
-  "hoodie-v12-canavari": `${NEW_MODELS_ROOT}/hoodie-v12-canavari.glb`,
-  "oversize-hoodie-parcali": `${NEW_MODELS_DIR_B}/oversize-hoodie-parcali.glb`,
+  "yeni-duz-tshirt": `${NEW_MODELS_DIR_REMASTERED}/T-shirtTHEND.glb`,
+  "yeni-oversize-tshirt": `${NEW_MODELS_DIR_REMASTERED}/T-shirtTHEND.glb`,
+  "yeni-duz-sweat": `${NEW_MODELS_DIR_REMASTERED}/SweatTHEND.glb`,
+  "yeni-oversize-sweat": `${NEW_MODELS_DIR_REMASTERED}/SweatOwersizeTHEND.glb`,
+  "yeni-fermuarli": `${NEW_MODELS_DIR_REMASTERED}/FermuarliSweat.glb`,
+  "polar-son": `${NEW_MODELS_DIR_REMASTERED}/PolarTHEND.glb`,
+  "hoodie-v12-canavari": `${NEW_MODELS_DIR_REMASTERED}/Classic_HoodieTHENDv1.glb`,
+  "oversize-hoodie-parcali": `${NEW_MODELS_DIR_REMASTERED}/Hoodie_Owersize_THEND.glb`,
 });
 
 const MODEL_TYPE_ALIASES = Object.freeze({
@@ -272,123 +271,19 @@ const getModelGroupTitle = (modelType) => {
   return found?.title || "Model";
 };
 
-/* ================= PRINT BOUNDS ================= */
-const MODEL_PRINT_BOUNDS = {
-  tshirt: {
-    front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
-    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
-  },
-  "oversize-tshirt": {
-    front: { xMin: -0.17, xMax: 0.17, yTop: 0.265, yBot: -0.30, z: 0.147, rotY: 0 },
-    back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
-  },
-  "oversize-tshirt-efektli": {
-    front: { xMin: -0.17, xMax: 0.17, yTop: 0.265, yBot: -0.30, z: 0.147, rotY: 0 },
-    back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
-  },
-  sweatshirt: {
-    front: { xMin: -0.17, xMax: 0.17, yTop: 0.275, yBot: -0.24, z: 0.147, rotY: 0 },
-    back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.245, z: -0.148, rotY: Math.PI },
-  },
-  "yeni-duz-sweat": {
-    front: { xMin: -0.16, xMax: 0.16, yTop: 0.275, yBot: -0.24, z: 0.147, rotY: 0 },
-    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.245, z: -0.148, rotY: Math.PI },
-  },
-  "sweat-deneme": {
-    front: { xMin: -0.17, xMax: 0.17, yTop: 0.275, yBot: -0.24, z: 0.147, rotY: 0 },
-    back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.245, z: -0.148, rotY: Math.PI },
-  },
-  "oversize-sweat": {
-    front: { xMin: -0.16, xMax: 0.16, yTop: 0.270, yBot: -0.255, z: 0.147, rotY: 0 },
-    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.26, z: -0.148, rotY: Math.PI },
-  },
-  "yeni-oversize-sweat": {
-    front: { xMin: -0.16, xMax: 0.16, yTop: 0.270, yBot: -0.255, z: 0.147, rotY: 0 },
-    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.26, z: -0.148, rotY: Math.PI },
-  },
-  "yeni-duz-tshirt": {
-    front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
-    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
-  },
-  "yeni-oversize-tshirt": {
-    front: { xMin: -0.17, xMax: 0.17, yTop: 0.265, yBot: -0.30, z: 0.147, rotY: 0 },
-    back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
-  },
-  hoodie: {
-    front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
-    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
-  },
-  "hoodie-ipli": {
-    front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
-    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
-  },
-  "hoodie-oversize": {
-    front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
-    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
-  },
-  "hoodie-oversize-ipli": {
-    front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
-    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
-  },
-  "hoodie-oversize-cepli": {
-    front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
-    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
-  },
-  "hoodie-oversize-ceplipli": {
-    front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
-    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
-  },
-  "hoodie-v12-canavari": {
-    front: { xMin: -0.130, xMax: 0.130, yTop: 0.125, yBot: -0.265, z: 0.147, rotY: 0 },
-    back: { xMin: -0.122, xMax: 0.125, yTop: 0.145, yBot: -0.285, z: -0.148, rotY: Math.PI },
-  },
-  "oversize-hoodie-parcali": {
-    front: { xMin: -0.130, xMax: 0.130, yTop: 0.125, yBot: -0.265, z: 0.147, rotY: 0 },
-    back: { xMin: -0.120, xMax: 0.120, yTop: 0.145, yBot: -0.275, z: -0.148, rotY: Math.PI },
-  },
+/* ================= PRINT PROFILES (MATERIAL BASED) ================= */
+const DEFAULT_PRINT_PROFILE = Object.freeze({
+  front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
+  back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
+});
 
-  // İstisnalar (sonraki isteğinde özel değerler gelecek)
-  polar: {
-    front: { xMin: -0.162, xMax: 0.162, yTop: 0.275, yBot: -0.242, z: 0.139, rotY: 0, zipGap01: 0.03 },
-    back: { xMin: -0.162, xMax: 0.162, yTop: 0.305, yBot: -0.248, z: -0.14, rotY: Math.PI },
-  },
-  "polar-son": {
-    front: { xMin: -0.162, xMax: 0.162, yTop: 0.275, yBot: -0.242, z: 0.139, rotY: 0, zipGap01: 0.10 },
-    back: { xMin: -0.162, xMax: 0.162, yTop: 0.305, yBot: -0.248, z: -0.14, rotY: Math.PI },
-  },
-  "hoodie-cepli": {
-    front: { xMin: -0.13, xMax: 0.13, yTop: 0.13, yBot: -0.135, z: 0.112, rotY: 0 },
-    back: { xMin: -0.125, xMax: 0.125, yTop: 0.15, yBot: -0.3, z: -0.113, rotY: Math.PI },
-  },
-  "hoodie-ceplipli": {
-    front: { xMin: -0.135, xMax: 0.135, yTop: 0.11, yBot: -0.118, z: 0.112, rotY: 0 },
-    back: { xMin: -0.125, xMax: 0.125, yTop: 0.13, yBot: -0.28, z: -0.113, rotY: Math.PI },
-  },
-  fermuarli: {
-    front: {
-      xMin: -0.16,
-      xMax: 0.165,
-      yTop: 0.22,
-      yBot: -0.21,
-      z: 0.131,
-      rotY: 0.1,
-      zipGap01: 0.035, // Orta fermuar şeridi (daha belirgin)
-    },
-    back: { xMin: -0.155, xMax: 0.155, yTop: 0.28, yBot: -0.24, z: -0.132, rotY: Math.PI },
-  },
-  "yeni-fermuarli": {
-    front: {
-      xMin: -0.150,
-      xMax: 0.150,
-      yTop: 0.22,
-      yBot: -0.205,
-      z: 0.131,
-      rotY: 0.1,
-      zipGap01: 0.110,
-    },
-    back: { xMin: -0.153, xMax: 0.153, yTop: 0.27, yBot: -0.238, z: -0.132, rotY: Math.PI },
-  },
-};
+const MODEL_PRINT_PROFILE_CACHE = new Map();
+const MODEL_ZIP_GAP_HINTS = Object.freeze({
+  "yeni-fermuarli": 0.11,
+  fermuarli: 0.11,
+  "polar-son": 0.1,
+  polar: 0.1,
+});
 
 const HOODIE_POCKET_FRONT_YBOT = Object.freeze({
   "hoodie-v12-canavari": -0.145,
@@ -405,16 +300,178 @@ const hasCenterZip = (modelType) => {
   return CENTER_ZIP_MODEL_TYPES.has(raw) || CENTER_ZIP_MODEL_TYPES.has(normalized);
 };
 
-const getPrintProfile = (modelType, side = "front", hoodieParts = DEFAULT_HOODIE_PARTS) => {
-  const base = MODEL_PRINT_BOUNDS[modelType]?.[side] || MODEL_PRINT_BOUNDS.tshirt[side];
-  if (!base) return MODEL_PRINT_BOUNDS.tshirt.front;
-  if (side !== "front") return base;
-  if (!MODELS_WITH_HOODIE_PARTS.has(modelType)) return base;
-  if (!hoodieParts?.pocket) return base;
+const resolvePrintSideFromMaterialName = (name = "") => {
+  const key = String(name || "").toLowerCase().trim();
+  if (!key) return null;
+  if (!(key.includes("baski") || key.includes("print"))) return null;
+  if (key.includes("arka") || key.includes("back")) return "back";
+  if (key.includes("on") || key.includes("front")) return "front";
+  return null;
+};
 
-  const pocketYBot = HOODIE_POCKET_FRONT_YBOT[modelType];
+const normalizePrintProfile = (profile, side = "front", modelType = DEFAULT_MODEL_TYPE) => {
+  const fallback = DEFAULT_PRINT_PROFILE[side] || DEFAULT_PRINT_PROFILE.front;
+  const raw = profile && typeof profile === "object" ? profile : {};
+  let xMin = Number.isFinite(Number(raw.xMin)) ? Number(raw.xMin) : fallback.xMin;
+  let xMax = Number.isFinite(Number(raw.xMax)) ? Number(raw.xMax) : fallback.xMax;
+  let yTop = Number.isFinite(Number(raw.yTop)) ? Number(raw.yTop) : fallback.yTop;
+  let yBot = Number.isFinite(Number(raw.yBot)) ? Number(raw.yBot) : fallback.yBot;
+
+  if (!(xMax > xMin) || xMax - xMin < 0.04) {
+    xMin = fallback.xMin;
+    xMax = fallback.xMax;
+  }
+  if (!(yTop > yBot) || yTop - yBot < 0.04) {
+    yTop = fallback.yTop;
+    yBot = fallback.yBot;
+  }
+
+  const z = Number.isFinite(Number(raw.z)) ? Number(raw.z) : fallback.z;
+  const rotY = Number.isFinite(Number(raw.rotY))
+    ? Number(raw.rotY)
+    : side === "front"
+      ? 0
+      : Math.PI;
+
+  const next = { xMin, xMax, yTop, yBot, z, rotY };
+  const zipGap01 = Number(raw.zipGap01);
+  if (side === "front" && hasCenterZip(modelType) && Number.isFinite(zipGap01)) {
+    next.zipGap01 = clamp(zipGap01, 0, 0.25);
+  }
+  return next;
+};
+
+const getCenterZipGap01 = (modelType) => {
+  if (!hasCenterZip(modelType)) return 0;
+  const normalized = normalizeModelType(modelType);
+  const cached = Number(MODEL_PRINT_PROFILE_CACHE.get(normalized)?.front?.zipGap01);
+  if (Number.isFinite(cached)) return clamp(cached, 0, 0.25);
+  const hinted = Number(MODEL_ZIP_GAP_HINTS[normalized] ?? MODEL_ZIP_GAP_HINTS[String(modelType || "").toLowerCase().trim()]);
+  if (Number.isFinite(hinted)) return clamp(hinted, 0, 0.25);
+  return 0.08;
+};
+
+const registerMaterialPrintProfiles = (modelType, profiles) => {
+  const normalized = normalizeModelType(modelType);
+  if (!profiles || typeof profiles !== "object") return false;
+  const nextFront = normalizePrintProfile(
+    { ...(profiles.front || {}), zipGap01: Number(profiles.front?.zipGap01) || getCenterZipGap01(normalized) },
+    "front",
+    normalized
+  );
+  const nextBack = normalizePrintProfile(profiles.back, "back", normalized);
+  const prev = MODEL_PRINT_PROFILE_CACHE.get(normalized);
+  const serializedNext = JSON.stringify({ front: nextFront, back: nextBack });
+  const serializedPrev = prev ? JSON.stringify(prev) : "";
+  if (serializedNext === serializedPrev) return false;
+  MODEL_PRINT_PROFILE_CACHE.set(normalized, { front: nextFront, back: nextBack });
+  return true;
+};
+
+const extractPrintProfilesFromMaterials = (root, modelType) => {
+  if (!root) return null;
+  root.updateWorldMatrix(true, true);
+  const rootInv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  const tmp = new THREE.Vector3();
+  const sideBounds = {
+    front: { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: Infinity, maxZ: -Infinity, count: 0 },
+    back: { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: Infinity, maxZ: -Infinity, count: 0 },
+  };
+
+  const updateBounds = (side, p) => {
+    const b = sideBounds[side];
+    b.minX = Math.min(b.minX, p.x);
+    b.maxX = Math.max(b.maxX, p.x);
+    b.minY = Math.min(b.minY, p.y);
+    b.maxY = Math.max(b.maxY, p.y);
+    b.minZ = Math.min(b.minZ, p.z);
+    b.maxZ = Math.max(b.maxZ, p.z);
+    b.count += 1;
+  };
+
+  root.traverse((obj) => {
+    if (!(obj?.isMesh || obj?.isSkinnedMesh) || !obj.geometry?.attributes?.position) return;
+    const geometry = obj.geometry;
+    const position = geometry.attributes.position;
+    const index = geometry.index;
+    const groups = geometry.groups?.length
+      ? geometry.groups
+      : [{ start: 0, count: index ? index.count : position.count, materialIndex: 0 }];
+    const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+
+    groups.forEach((group) => {
+      const mat = materials[group.materialIndex] || materials[0];
+      const side = resolvePrintSideFromMaterialName(mat?.name || "");
+      if (!side) return;
+      const start = Math.max(0, Number(group.start) || 0);
+      const count = Math.max(0, Number(group.count) || 0);
+      const end = start + count;
+
+      for (let i = start; i < end; i += 1) {
+        const vi = index ? (index.array ? index.array[i] : index.getX(i)) : i;
+        if (!Number.isFinite(vi) || vi < 0 || vi >= position.count) continue;
+        tmp.fromBufferAttribute(position, vi);
+        obj.localToWorld(tmp);
+        tmp.applyMatrix4(rootInv);
+        updateBounds(side, tmp);
+      }
+    });
+  });
+
+  const toProfile = (side) => {
+    const b = sideBounds[side];
+    if (!b || b.count < 3) return null;
+    const rawW = b.maxX - b.minX;
+    const rawH = b.maxY - b.minY;
+    if (!(rawW > 0.02) || !(rawH > 0.02)) return null;
+
+    const padX = Math.min(rawW * 0.025, 0.012);
+    const padY = Math.min(rawH * 0.025, 0.012);
+    const xMin = b.minX + padX;
+    const xMax = b.maxX - padX;
+    const yTop = b.maxY - padY;
+    const yBot = b.minY + padY;
+    const z = side === "front" ? b.maxZ + 0.0008 : b.minZ - 0.0008;
+
+    return normalizePrintProfile(
+      {
+        xMin,
+        xMax,
+        yTop,
+        yBot,
+        z,
+        rotY: side === "front" ? 0 : Math.PI,
+        zipGap01: getCenterZipGap01(modelType),
+      },
+      side,
+      modelType
+    );
+  };
+
+  const result = {
+    front: toProfile("front"),
+    back: toProfile("back"),
+  };
+  if (!result.front && !result.back) return null;
+  return result;
+};
+
+const applyHoodiePocketClampToFront = (baseProfile, modelType, hoodieParts = DEFAULT_HOODIE_PARTS) => {
+  const normalized = normalizeModelType(modelType);
+  const base = normalizePrintProfile(baseProfile, "front", normalized);
+  if (!MODELS_WITH_HOODIE_PARTS.has(normalized)) return base;
+  if (!hoodieParts?.pocket) return base;
+  const pocketYBot = HOODIE_POCKET_FRONT_YBOT[normalized];
   if (!Number.isFinite(pocketYBot)) return base;
   return { ...base, yBot: Math.max(base.yBot, pocketYBot) };
+};
+
+const getPrintProfile = (modelType, side = "front", hoodieParts = DEFAULT_HOODIE_PARTS) => {
+  const normalized = normalizeModelType(modelType);
+  const cached = MODEL_PRINT_PROFILE_CACHE.get(normalized);
+  const base = normalizePrintProfile(cached?.[side], side, normalized);
+  if (side !== "front") return base;
+  return applyHoodiePocketClampToFront(base, normalized, hoodieParts);
 };
 
 const estimateTextHalfBounds01 = (textState = {}) => {
@@ -3307,11 +3364,35 @@ function Real3DModel({
 
   const decalHost = useMemo(() => pickDecalHostMesh(root, modelType), [root, modelType]);
   const decalHostRef = useMemo(() => ({ current: decalHost }), [decalHost]);
+  const materialProfiles = useMemo(
+    () => extractPrintProfilesFromMaterials(root, modelType),
+    [root, modelType]
+  );
+
+  useEffect(() => {
+    if (!materialProfiles) return;
+    registerMaterialPrintProfiles(modelType, materialProfiles);
+  }, [modelType, materialProfiles]);
 
   const TORSO_DEPTH = 0.3;
 
-  const frontProfile = getPrintProfile(modelType, "front", hoodieV12Parts);
-  const backProfile = getPrintProfile(modelType, "back", hoodieV12Parts);
+  const frontProfile = useMemo(() => {
+    const dynamicFront = materialProfiles?.front
+      ? normalizePrintProfile(materialProfiles.front, "front", modelType)
+      : null;
+    if (dynamicFront) {
+      return applyHoodiePocketClampToFront(dynamicFront, modelType, hoodieV12Parts);
+    }
+    return getPrintProfile(modelType, "front", hoodieV12Parts);
+  }, [materialProfiles?.front, modelType, hoodieV12Parts]);
+
+  const backProfile = useMemo(() => {
+    const dynamicBack = materialProfiles?.back
+      ? normalizePrintProfile(materialProfiles.back, "back", modelType)
+      : null;
+    if (dynamicBack) return dynamicBack;
+    return getPrintProfile(modelType, "back", hoodieV12Parts);
+  }, [materialProfiles?.back, modelType, hoodieV12Parts]);
 
   const frontW = frontProfile.xMax - frontProfile.xMin;
   const frontH = frontProfile.yTop - frontProfile.yBot;
@@ -4148,7 +4229,7 @@ function DesignModelItem({
   });
 
   const isZipper = hasCenterZip(design.modelType);
-  const gap01 = MODEL_PRINT_BOUNDS?.[design.modelType]?.front?.zipGap01 ?? MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
+  const gap01 = getCenterZipGap01(design.modelType);
   const printTypesBySide = normalizePrintTypesBySide(design.printTypesBySide, design.printTypes);
   const frontHasRubber =
     normalizePrintTechnique(
@@ -4824,7 +4905,7 @@ function EditorPanel({
   printTypePickerSignal = 0,
 }) {
   const isZipperFront = hasCenterZip(design.modelType) && view === "front";
-  const gap01 = MODEL_PRINT_BOUNDS?.[design.modelType]?.front?.zipGap01 ?? MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0.08;
+  const gap01 = getCenterZipGap01(design.modelType);
   const isDrawerLayout = layout === "drawer";
   const isMobileDrawer = isDrawerLayout && isMobile;
 
@@ -6202,7 +6283,7 @@ function TasarimClientContent({ isMobile }) {
     ? guideStops.filter((p) => Math.abs((activeLogoBox?.y ?? 0.5) - p) <= snapThreshold)
     : [];
   const isZipperFront = hasCenterZip(currentActiveDesign?.modelType) && currentSide === "front";
-  const gap01 = MODEL_PRINT_BOUNDS[currentActiveDesign?.modelType]?.front?.zipGap01 || 0;
+  const gap01 = getCenterZipGap01(currentActiveDesign?.modelType);
   const textEditingMode = editorControlTab === "text" && showPlacementPanel;
   const showSceneFrame = Boolean(sceneSelectionVisible && activeLogo && !textEditingMode);
   const isSceneFrameCompact = (activeLogoBox?.w || 0) < 0.30 || (activeLogoBox?.h || 0) < 0.22;
@@ -7598,7 +7679,7 @@ function TasarimClientContent({ isMobile }) {
           const sd = d.sides?.[sideKey] || EMPTY_SIDE;
           const zipperGap =
             hasCenterZip(d.modelType) && sideKey === "front"
-              ? MODEL_PRINT_BOUNDS?.[d.modelType]?.front?.zipGap01 ?? MODEL_PRINT_BOUNDS?.fermuarli?.front?.zipGap01 ?? 0
+              ? getCenterZipGap01(d.modelType)
               : 0;
           const exportOpts = zipperGap
             ? { clearCenterStripe01: zipperGap, size: perf.exportCanvasSize }

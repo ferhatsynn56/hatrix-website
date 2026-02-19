@@ -14,18 +14,17 @@ const toSafeUrl = (p) => (typeof window !== "undefined" ? encodeURI(p) : p);
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
 const NEW_MODELS_ROOT = "/models/newModels";
-const NEW_MODELS_DIR_A = `${NEW_MODELS_ROOT}/drive-download-20260208T203457Z-3-001`;
-const NEW_MODELS_DIR_B = `${NEW_MODELS_ROOT}/drive-download-20260210T163425Z-3-001`;
+const NEW_MODELS_DIR_REMASTERED = `${NEW_MODELS_ROOT}/modelRemastered`;
 const DEFAULT_MODEL_TYPE = "yeni-duz-tshirt";
 const MODEL_PATHS = {
-  "yeni-duz-tshirt": `${NEW_MODELS_DIR_A}/duz-tisort.glb`,
-  "yeni-oversize-tshirt": `${NEW_MODELS_DIR_A}/oversize-tshirt.glb`,
-  "yeni-duz-sweat": `${NEW_MODELS_DIR_A}/duz-sweat.glb`,
-  "yeni-oversize-sweat": `${NEW_MODELS_DIR_A}/oversize-sweat.glb`,
-  "yeni-fermuarli": `${NEW_MODELS_DIR_A}/fermuarli.glb`,
-  "polar-son": `${NEW_MODELS_DIR_B}/polar-son.glb`,
-  "hoodie-v12-canavari": `${NEW_MODELS_ROOT}/hoodie-v12-canavari.glb`,
-  "oversize-hoodie-parcali": `${NEW_MODELS_DIR_B}/oversize-hoodie-parcali.glb`,
+  "yeni-duz-tshirt": `${NEW_MODELS_DIR_REMASTERED}/T-shirtTHEND.glb`,
+  "yeni-oversize-tshirt": `${NEW_MODELS_DIR_REMASTERED}/T-shirtTHEND.glb`,
+  "yeni-duz-sweat": `${NEW_MODELS_DIR_REMASTERED}/SweatTHEND.glb`,
+  "yeni-oversize-sweat": `${NEW_MODELS_DIR_REMASTERED}/SweatOwersizeTHEND.glb`,
+  "yeni-fermuarli": `${NEW_MODELS_DIR_REMASTERED}/FermuarliSweat.glb`,
+  "polar-son": `${NEW_MODELS_DIR_REMASTERED}/PolarTHEND.glb`,
+  "hoodie-v12-canavari": `${NEW_MODELS_DIR_REMASTERED}/Classic_HoodieTHENDv1.glb`,
+  "oversize-hoodie-parcali": `${NEW_MODELS_DIR_REMASTERED}/Hoodie_Owersize_THEND.glb`,
 };
 const MODEL_TYPE_ALIASES = {
   tshirt: "yeni-duz-tshirt",
@@ -72,41 +71,11 @@ const DEFAULT_HOODIE_PARTS = Object.freeze({
   pocket: false,
 });
 const MODELS_WITH_HOODIE_PARTS = new Set(["hoodie-v12-canavari", "oversize-hoodie-parcali"]);
-
-const MODEL_PRINT_BOUNDS = {
-  "yeni-duz-tshirt": {
-    front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
-    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
-  },
-  "yeni-oversize-tshirt": {
-    front: { xMin: -0.17, xMax: 0.17, yTop: 0.265, yBot: -0.3, z: 0.147, rotY: 0 },
-    back: { xMin: -0.17, xMax: 0.17, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
-  },
-  "yeni-duz-sweat": {
-    front: { xMin: -0.16, xMax: 0.16, yTop: 0.275, yBot: -0.24, z: 0.147, rotY: 0 },
-    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.245, z: -0.148, rotY: Math.PI },
-  },
-  "yeni-oversize-sweat": {
-    front: { xMin: -0.16, xMax: 0.16, yTop: 0.27, yBot: -0.255, z: 0.147, rotY: 0 },
-    back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.26, z: -0.148, rotY: Math.PI },
-  },
-  "yeni-fermuarli": {
-    front: { xMin: -0.15, xMax: 0.15, yTop: 0.22, yBot: -0.205, z: 0.131, rotY: 0.1 },
-    back: { xMin: -0.153, xMax: 0.153, yTop: 0.27, yBot: -0.238, z: -0.132, rotY: Math.PI },
-  },
-  "polar-son": {
-    front: { xMin: -0.162, xMax: 0.162, yTop: 0.275, yBot: -0.242, z: 0.139, rotY: 0 },
-    back: { xMin: -0.162, xMax: 0.162, yTop: 0.305, yBot: -0.248, z: -0.14, rotY: Math.PI },
-  },
-  "hoodie-v12-canavari": {
-    front: { xMin: -0.13, xMax: 0.13, yTop: 0.125, yBot: -0.265, z: 0.147, rotY: 0 },
-    back: { xMin: -0.122, xMax: 0.125, yTop: 0.145, yBot: -0.285, z: -0.148, rotY: Math.PI },
-  },
-  "oversize-hoodie-parcali": {
-    front: { xMin: -0.13, xMax: 0.13, yTop: 0.125, yBot: -0.265, z: 0.147, rotY: 0 },
-    back: { xMin: -0.12, xMax: 0.12, yTop: 0.145, yBot: -0.275, z: -0.148, rotY: Math.PI },
-  },
-};
+const DEFAULT_PRINT_PROFILE = Object.freeze({
+  front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
+  back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
+});
+const MODEL_PRINT_PROFILE_CACHE = new Map();
 
 const HOODIE_POCKET_FRONT_YBOT = Object.freeze({
   "hoodie-v12-canavari": -0.145,
@@ -118,12 +87,122 @@ const normalizeHoodieParts = (parts) => ({
   ...(parts && typeof parts === "object" ? parts : {}),
 });
 
+const resolvePrintSideFromMaterialName = (name = "") => {
+  const key = String(name || "").toLowerCase().trim();
+  if (!key) return null;
+  if (!(key.includes("baski") || key.includes("print"))) return null;
+  if (key.includes("arka") || key.includes("back")) return "back";
+  if (key.includes("on") || key.includes("front")) return "front";
+  return null;
+};
+
+const normalizePrintProfile = (profile, side = "front") => {
+  const fallback = DEFAULT_PRINT_PROFILE[side] || DEFAULT_PRINT_PROFILE.front;
+  const raw = profile && typeof profile === "object" ? profile : {};
+  let xMin = Number.isFinite(Number(raw.xMin)) ? Number(raw.xMin) : fallback.xMin;
+  let xMax = Number.isFinite(Number(raw.xMax)) ? Number(raw.xMax) : fallback.xMax;
+  let yTop = Number.isFinite(Number(raw.yTop)) ? Number(raw.yTop) : fallback.yTop;
+  let yBot = Number.isFinite(Number(raw.yBot)) ? Number(raw.yBot) : fallback.yBot;
+  if (!(xMax > xMin) || xMax - xMin < 0.04) {
+    xMin = fallback.xMin;
+    xMax = fallback.xMax;
+  }
+  if (!(yTop > yBot) || yTop - yBot < 0.04) {
+    yTop = fallback.yTop;
+    yBot = fallback.yBot;
+  }
+  const z = Number.isFinite(Number(raw.z)) ? Number(raw.z) : fallback.z;
+  const rotY = Number.isFinite(Number(raw.rotY)) ? Number(raw.rotY) : side === "front" ? 0 : Math.PI;
+  return { xMin, xMax, yTop, yBot, z, rotY };
+};
+
+const registerMaterialPrintProfiles = (modelType, profiles) => {
+  const normalized = normalizeModelType(modelType);
+  if (!profiles || typeof profiles !== "object") return;
+  MODEL_PRINT_PROFILE_CACHE.set(normalized, {
+    front: normalizePrintProfile(profiles.front, "front"),
+    back: normalizePrintProfile(profiles.back, "back"),
+  });
+};
+
+const extractPrintProfilesFromMaterials = (root) => {
+  if (!root) return null;
+  root.updateWorldMatrix(true, true);
+  const rootInv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+  const tmp = new THREE.Vector3();
+  const sideBounds = {
+    front: { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: Infinity, maxZ: -Infinity, count: 0 },
+    back: { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: Infinity, maxZ: -Infinity, count: 0 },
+  };
+  const updateBounds = (side, p) => {
+    const b = sideBounds[side];
+    b.minX = Math.min(b.minX, p.x);
+    b.maxX = Math.max(b.maxX, p.x);
+    b.minY = Math.min(b.minY, p.y);
+    b.maxY = Math.max(b.maxY, p.y);
+    b.minZ = Math.min(b.minZ, p.z);
+    b.maxZ = Math.max(b.maxZ, p.z);
+    b.count += 1;
+  };
+
+  root.traverse((obj) => {
+    if (!(obj?.isMesh || obj?.isSkinnedMesh) || !obj.geometry?.attributes?.position) return;
+    const geometry = obj.geometry;
+    const position = geometry.attributes.position;
+    const index = geometry.index;
+    const groups = geometry.groups?.length
+      ? geometry.groups
+      : [{ start: 0, count: index ? index.count : position.count, materialIndex: 0 }];
+    const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+
+    groups.forEach((group) => {
+      const mat = materials[group.materialIndex] || materials[0];
+      const side = resolvePrintSideFromMaterialName(mat?.name || "");
+      if (!side) return;
+      const start = Math.max(0, Number(group.start) || 0);
+      const count = Math.max(0, Number(group.count) || 0);
+      const end = start + count;
+      for (let i = start; i < end; i += 1) {
+        const vi = index ? (index.array ? index.array[i] : index.getX(i)) : i;
+        if (!Number.isFinite(vi) || vi < 0 || vi >= position.count) continue;
+        tmp.fromBufferAttribute(position, vi);
+        obj.localToWorld(tmp);
+        tmp.applyMatrix4(rootInv);
+        updateBounds(side, tmp);
+      }
+    });
+  });
+
+  const toProfile = (side) => {
+    const b = sideBounds[side];
+    if (!b || b.count < 3) return null;
+    const rawW = b.maxX - b.minX;
+    const rawH = b.maxY - b.minY;
+    if (!(rawW > 0.02) || !(rawH > 0.02)) return null;
+    const padX = Math.min(rawW * 0.025, 0.012);
+    const padY = Math.min(rawH * 0.025, 0.012);
+    return normalizePrintProfile({
+      xMin: b.minX + padX,
+      xMax: b.maxX - padX,
+      yTop: b.maxY - padY,
+      yBot: b.minY + padY,
+      z: side === "front" ? b.maxZ + 0.0008 : b.minZ - 0.0008,
+      rotY: side === "front" ? 0 : Math.PI,
+    }, side);
+  };
+
+  const result = { front: toProfile("front"), back: toProfile("back") };
+  if (!result.front && !result.back) return null;
+  return result;
+};
+
 const getPrintProfile = (modelType, side = "front", hoodieParts = DEFAULT_HOODIE_PARTS) => {
-  const fallback = MODEL_PRINT_BOUNDS[DEFAULT_MODEL_TYPE] || MODEL_PRINT_BOUNDS["yeni-duz-tshirt"];
-  const base = MODEL_PRINT_BOUNDS[modelType]?.[side] || fallback?.[side];
-  if (!base || side !== "front") return base || fallback.front;
+  const normalized = normalizeModelType(modelType);
+  const cached = MODEL_PRINT_PROFILE_CACHE.get(normalized);
+  const base = normalizePrintProfile(cached?.[side], side);
+  if (side !== "front") return base;
   if (!hoodieParts?.pocket) return base;
-  const pocketYBot = HOODIE_POCKET_FRONT_YBOT[modelType];
+  const pocketYBot = HOODIE_POCKET_FRONT_YBOT[normalized];
   if (!Number.isFinite(pocketYBot)) return base;
   return { ...base, yBot: Math.max(base.yBot, pocketYBot) };
 };
@@ -168,6 +247,7 @@ function RotatingModelPreviewMesh({
   const root = useMemo(() => {
     return hasSkinned ? SkeletonUtils.clone(gltf.scene) : gltf.scene.clone(true);
   }, [gltf.scene, hasSkinned]);
+  const materialProfiles = useMemo(() => extractPrintProfilesFromMaterials(root), [root]);
 
   const [frontTex, setFrontTex] = useState(null);
   const [backTex, setBackTex] = useState(null);
@@ -263,8 +343,27 @@ function RotatingModelPreviewMesh({
   const decalHost = useMemo(() => pickDecalHostMesh(root), [root]);
   const decalHostRef = useMemo(() => ({ current: decalHost }), [decalHost]);
   const parts = normalizeHoodieParts(hoodieV12Parts);
-  const frontProfile = getPrintProfile(resolvedType, "front", parts);
-  const backProfile = getPrintProfile(resolvedType, "back", parts);
+  const frontProfile = useMemo(() => {
+    const base = materialProfiles?.front
+      ? normalizePrintProfile(materialProfiles.front, "front")
+      : getPrintProfile(resolvedType, "front", parts);
+    if (!parts?.pocket || !MODELS_WITH_HOODIE_PARTS.has(resolvedType)) return base;
+    const pocketYBot = HOODIE_POCKET_FRONT_YBOT[resolvedType];
+    if (!Number.isFinite(pocketYBot)) return base;
+    return { ...base, yBot: Math.max(base.yBot, pocketYBot) };
+  }, [materialProfiles?.front, resolvedType, parts]);
+  const backProfile = useMemo(
+    () =>
+      materialProfiles?.back
+        ? normalizePrintProfile(materialProfiles.back, "back")
+        : getPrintProfile(resolvedType, "back", parts),
+    [materialProfiles?.back, resolvedType, parts]
+  );
+
+  useEffect(() => {
+    if (!materialProfiles) return;
+    registerMaterialPrintProfiles(resolvedType, materialProfiles);
+  }, [resolvedType, materialProfiles]);
   const frontW = frontProfile.xMax - frontProfile.xMin;
   const frontH = frontProfile.yTop - frontProfile.yBot;
   const frontCY = (frontProfile.yTop + frontProfile.yBot) / 2;
