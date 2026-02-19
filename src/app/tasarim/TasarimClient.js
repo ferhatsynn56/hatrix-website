@@ -2861,20 +2861,51 @@ function InjectionPatternStamp({
 
   const normalizedGeometries = useMemo(() => {
     if (!isEnabled || !resolvedOption?.id || !sourceScene) return [];
-    const rawGeometries = [];
-    const unionBox = new THREE.Box3();
+    const rawEntries = [];
     sourceScene.updateWorldMatrix(true, true);
     sourceScene.traverse((o) => {
       if (!(o && (o.isMesh || o.isSkinnedMesh) && o.geometry)) return;
       const geom = o.geometry.clone();
       geom.applyMatrix4(o.matrixWorld);
       geom.computeBoundingBox?.();
-      if (geom.boundingBox) unionBox.union(geom.boundingBox);
-      rawGeometries.push(geom);
+      if (!geom.boundingBox) {
+        geom.dispose?.();
+        return;
+      }
+      rawEntries.push({ geometry: geom, bbox: geom.boundingBox.clone() });
     });
 
-    if (!rawGeometries.length || unionBox.isEmpty()) {
-      rawGeometries.forEach((geom) => geom.dispose?.());
+    if (!rawEntries.length) {
+      return [];
+    }
+
+    const sortedCenterYs = rawEntries
+      .map((entry) => entry.bbox.getCenter(new THREE.Vector3()).y)
+      .sort((a, b) => a - b);
+    const medianCenterY = sortedCenterYs[Math.floor(sortedCenterYs.length / 2)] ?? 0;
+    const sortedHeights = rawEntries
+      .map((entry) => entry.bbox.getSize(new THREE.Vector3()).y)
+      .sort((a, b) => a - b);
+    const medianHeight = sortedHeights[Math.floor(sortedHeights.length / 2)] ?? 0.001;
+    const filteredEntries = rawEntries.filter((entry) => {
+      const centerY = entry.bbox.getCenter(new THREE.Vector3()).y;
+      const entryHeight = entry.bbox.getSize(new THREE.Vector3()).y;
+      const allowedDelta = Math.max(medianHeight * 2.2, entryHeight * 2.4, 0.01);
+      return Math.abs(centerY - medianCenterY) <= allowedDelta;
+    });
+
+    const usableEntries = filteredEntries.length ? filteredEntries : rawEntries;
+    const unionBox = new THREE.Box3();
+    usableEntries.forEach((entry) => {
+      unionBox.union(entry.bbox);
+    });
+
+    rawEntries.forEach((entry) => {
+      if (!usableEntries.includes(entry)) entry.geometry.dispose?.();
+    });
+
+    if (unionBox.isEmpty()) {
+      usableEntries.forEach((entry) => entry.geometry.dispose?.());
       return [];
     }
 
@@ -2893,7 +2924,8 @@ function InjectionPatternStamp({
     const injectionScale = clamp(Number(sideData?.injectionScale ?? 1), 0.45, 2.4);
     const scalar = fit * injectionScale;
 
-    return rawGeometries.map((geom, idx) => {
+    return usableEntries.map((entry, idx) => {
+      const geom = entry.geometry;
       geom.translate(-center.x, -center.y, -center.z);
       geom.computeBoundingBox?.();
       const bb = geom.boundingBox;
@@ -2913,20 +2945,38 @@ function InjectionPatternStamp({
     [normalizedGeometries]
   );
 
+  const patternHalfBounds = useMemo(() => {
+    if (!normalizedGeometries.length) return { halfW: 0, halfH: 0 };
+    let halfW = 0;
+    let halfH = 0;
+    normalizedGeometries.forEach((entry) => {
+      const bb = entry?.geometry?.boundingBox;
+      if (!bb) return;
+      const maxAbsX = Math.max(Math.abs(bb.min.x), Math.abs(bb.max.x));
+      const maxAbsY = Math.max(Math.abs(bb.min.y), Math.abs(bb.max.y));
+      halfW = Math.max(halfW, maxAbsX * entry.scalar);
+      halfH = Math.max(halfH, maxAbsY * entry.scalar);
+    });
+    return { halfW, halfH };
+  }, [normalizedGeometries]);
+
   const safePosRaw = sideData?.injectionPos && typeof sideData.injectionPos === "object"
     ? sideData.injectionPos
     : { x: 0.5, y: 0.58 };
+  const safeHalfW01 = clamp(patternHalfBounds.halfW / Math.max(areaW, 0.001), 0.03, 0.46);
+  const safeHalfH01 = clamp(patternHalfBounds.halfH / Math.max(areaH, 0.001), 0.03, 0.46);
   const safePos = {
-    x: clamp(Number(safePosRaw?.x ?? 0.5), 0.05, 0.95),
-    y: clamp(Number(safePosRaw?.y ?? 0.58), 0.05, 0.95),
+    x: clamp(Number(safePosRaw?.x ?? 0.5), safeHalfW01, 1 - safeHalfW01),
+    y: clamp(Number(safePosRaw?.y ?? 0.58), safeHalfH01, 1 - safeHalfH01),
   };
   const cx = profile.xMin + safePos.x * areaW;
   const cy = profile.yTop - safePos.y * areaH;
   const sideRotY = Number(profile.rotY ?? (side === "back" ? Math.PI : 0));
+  const tiltX = Number.isFinite(Number(resolvedOption?.tiltX)) ? Number(resolvedOption.tiltX) : 0;
   const rz = ((Number(sideData?.injectionRotation) || 0) * Math.PI) / 180;
-  const zNudge = side === "back" ? -0.000016 : 0.000016;
+  const zNudge = side === "back" ? -0.00001 : 0.00001;
   const color = sideData?.customText?.color || "#f3f4f6";
-  const stick = clamp(Number(sideData?.customText?.rubberStick ?? 0.96), 0.7, 1);
+  const stick = clamp(Number(sideData?.injectionStick ?? sideData?.customText?.rubberStick ?? 0.995), 0.92, 1);
   const placementKey = `${side}_${resolvedOption?.id || "none"}_${cx}_${cy}_${rz}_${stick}`;
 
   if (!isEnabled || !resolvedOption) return null;
@@ -2935,7 +2985,7 @@ function InjectionPatternStamp({
     <group
       key={`inj-stamp-${side}-${resolvedOption.id}`}
       position={[cx, cy, (profile.z || 0) + zNudge]}
-      rotation={[Math.PI / 2, sideRotY, rz]}
+      rotation={[tiltX, sideRotY, rz]}
     >
       {normalizedGeometries.map((entry, idx) => (
         <ShrinkwrappedRubberGlyph
@@ -5356,10 +5406,6 @@ function EditorPanel({
         {activeTab === "pattern" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-stretch justify-start gap-2.5") : "space-y-2.5"}`}>
             <div className={`rounded-xl border border-gray-200 bg-white p-3 space-y-3 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "w-full min-h-[188px] overflow-hidden") : ""}`}>
-              <div className="flex items-center justify-between gap-2">
-                <p className={drawerHeadingClass}>Desen</p>
-                <span className="text-[10px] font-black uppercase tracking-wide text-gray-500">Enjeksiyon</span>
-              </div>
               <InjectionPatternPickerCards
                 selectedId={sideData?.injectionModelId || null}
                 onSelect={toggleInjectionPattern}
@@ -7809,8 +7855,8 @@ function TasarimClientContent({ isMobile }) {
         overscrollBehavior: "none",
         touchAction: isMobile ? "pan-y" : "none",
         overflowX: "hidden",
-        minHeight: isMobile ? "100dvh" : undefined,
-        height: isMobile ? "100dvh" : undefined,
+        minHeight: isMobile ? "calc(var(--app-vh, 1vh) * 100)" : undefined,
+        height: isMobile ? "calc(var(--app-vh, 1vh) * 100)" : undefined,
       }}
     >
       {/* Top Header */}
@@ -7918,7 +7964,7 @@ function TasarimClientContent({ isMobile }) {
       >
         {/* Scene Layer */}
         <div
-          className={`fixed inset-0 z-0 pointer-events-auto ${isMobile ? "grid place-items-center" : ""}`}
+          className={`${isMobile ? "absolute inset-0" : "fixed inset-0"} z-0 pointer-events-auto ${isMobile ? "grid place-items-center" : ""}`}
           onPointerDown={() => setIsInteracting(true)}
           onPointerUp={() => setIsInteracting(false)}
           onPointerLeave={() => setIsInteracting(false)}
@@ -8120,7 +8166,7 @@ function TasarimClientContent({ isMobile }) {
               className="absolute z-[90] pointer-events-none transition-all duration-300"
               style={
                 isMobile
-                  ? { right: "12px", top: "43%", transform: "translateY(-50%)" }
+                  ? { right: "12px", top: "50%", transform: "translateY(-50%)" }
                   : { bottom: controlsBottom, right: "16px" }
               }
             >
@@ -9294,7 +9340,7 @@ function TasarimClientContent({ isMobile }) {
                             handleMobileDrawerHandleClick(e);
                           }
                         }}
-                        className="absolute left-1/2 top-[-8px] -translate-x-1/2 w-12 h-10 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 flex items-center justify-center z-[30] shadow-[0_6px_14px_rgba(0,0,0,0.18)] pointer-events-auto"
+                        className="absolute left-1/2 top-[-18px] -translate-x-1/2 w-11 h-9 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 flex items-center justify-center z-[35] shadow-[0_6px_14px_rgba(0,0,0,0.18)] pointer-events-auto"
                         aria-label="Alt panel yüksekliğini değiştir"
                         style={{ touchAction: "none" }}
                       >
@@ -9317,9 +9363,6 @@ function TasarimClientContent({ isMobile }) {
                       <div className="h-full overflow-y-auto overscroll-contain" style={{ touchAction: "pan-y" }}>
                         {showDesignControls && !mobilePanelCollapsed && (
                           <div className="pb-2 mx-4 mt-4 pointer-events-auto">
-                            <div className="flex items-center justify-between gap-2 border-b border-black/5 pb-2 mb-3">
-                              <p className="text-[12px] font-black uppercase tracking-[0.14em] text-gray-700">Tasarla</p>
-                            </div>
                             <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                               <button
                                 type="button"
