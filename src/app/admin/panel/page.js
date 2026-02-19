@@ -438,6 +438,12 @@ export default function AdminOrdersPage() {
                             <span className="text-zinc-500 block text-xs mb-0.5">Adres:</span>{" "}
                             {order.customer?.adres || "-"}
                           </p>
+                          {order.customer?.siparisNotu ? (
+                            <p>
+                              <span className="text-zinc-500 block text-xs mb-0.5">Sipariş Notu:</span>{" "}
+                              {order.customer?.siparisNotu}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                       <div className="bg-black/40 border border-zinc-800 rounded-xl p-5 flex flex-col justify-center items-center text-center">

@@ -607,6 +607,14 @@ export default function SiparisPage() {
                 Ödemeye Geç
               </button>
             </div>
+            {String(data?.orderNote || "").trim() && (
+              <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-500">Sipariş Notu</p>
+                <p className="mt-2 text-sm text-zinc-700 whitespace-pre-wrap break-words">
+                  {String(data?.orderNote || "").trim()}
+                </p>
+              </div>
+            )}
           </aside>
         </div>
       </main>

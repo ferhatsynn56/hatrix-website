@@ -17,6 +17,7 @@ export default function OdemeSayfasi() {
   // Context'ten verileri çekiyoruz
   const { cart, user, completeOrder, completeOrderWithItems, clearCart } = useCart();
   const [checkoutItems, setCheckoutItems] = useState([]);
+  const [orderNote, setOrderNote] = useState("");
   
   const [yukleniyor, setYukleniyor] = useState(true);
   const [islemSuruyor, setIslemSuruyor] = useState(false);
@@ -64,6 +65,7 @@ export default function OdemeSayfasi() {
         }))
       : [];
     setCheckoutItems(parsedCheckoutItems);
+    setOrderNote(String(payload?.orderNote || "").trim());
 
     // Kullanıcı varsa ismini doldur
     if (user) {
@@ -143,6 +145,7 @@ export default function OdemeSayfasi() {
           sehir: form.sehir,
           telefon: form.telefon,
           email: user?.email || "",
+          siparisNotu: orderNote,
         },
       };
 
@@ -163,6 +166,7 @@ export default function OdemeSayfasi() {
         sehir: form.sehir,
         telefon: form.telefon,
         odemeYontemi: "Kredi Kartı",
+        siparisNotu: orderNote,
       };
 
       const usingCheckoutFlow = cart.length === 0 && checkoutItems.length > 0;

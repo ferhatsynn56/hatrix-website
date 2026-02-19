@@ -15,6 +15,7 @@ export default function TasarimAdetPage() {
   const router = useRouter();
   const [payload, setPayload] = useState(null);
   const [quantities, setQuantities] = useState({});
+  const [orderNote, setOrderNote] = useState("");
   const [error, setError] = useState("");
   const resumeHref = useMemo(() => {
     const modelType = payload?.designs?.[0]?.modelType;
@@ -24,6 +25,7 @@ export default function TasarimAdetPage() {
   useEffect(() => {
     const data = getCheckoutData();
     setPayload(data);
+    setOrderNote(String(data?.orderNote || ""));
     const next = {};
     (data?.designs || []).forEach((item) => {
       next[item.id] = Math.max(1, sanitizeQty(item.quantity || 1) || 1);
@@ -73,6 +75,7 @@ export default function TasarimAdetPage() {
       ...payload,
       designs: nextDesigns,
       totalPrice: nextDesigns.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1), 0),
+      orderNote: String(orderNote || "").trim(),
     });
 
     router.push("/siparis");
@@ -171,6 +174,18 @@ export default function TasarimAdetPage() {
           <p className="text-sm font-black uppercase tracking-wide">Toplam</p>
           <p className="text-xl font-black">{total} ₺</p>
         </div>
+
+        <section className="rounded-2xl border border-zinc-200 bg-white p-4 md:p-5">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-zinc-500">Sipariş Notu</p>
+          <textarea
+            rows={3}
+            value={orderNote}
+            onChange={(e) => setOrderNote(e.target.value.slice(0, 500))}
+            placeholder="Örn: teslim saatleri, paket notu, özel istek"
+            className="mt-3 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-300"
+          />
+          <p className="mt-1 text-[11px] text-zinc-500 text-right">{orderNote.length}/500</p>
+        </section>
 
         {error && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">

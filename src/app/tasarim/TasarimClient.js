@@ -6109,6 +6109,8 @@ function TasarimClientContent({ isMobile }) {
   const [sceneFrameMode, setSceneFrameMode] = useState("resize");
   const [sceneTextSelectionVisible, setSceneTextSelectionVisible] = useState(false);
   const [sceneTextFrameMode, setSceneTextFrameMode] = useState("resize");
+  const [sceneInjectionSelectionVisible, setSceneInjectionSelectionVisible] = useState(false);
+  const [sceneInjectionFrameMode, setSceneInjectionFrameMode] = useState("resize");
   const [selectedSceneItem, setSelectedSceneItem] = useState(null);
   const [sceneModelSelectionId, setSceneModelSelectionId] = useState(null);
   const [showPlacementPanel, setShowPlacementPanel] = useState(false);
@@ -6205,6 +6207,20 @@ function TasarimClientContent({ isMobile }) {
   const showSceneFrame = Boolean(sceneSelectionVisible && activeLogo && !textEditingMode);
   const isSceneFrameCompact = (activeLogoBox?.w || 0) < 0.30 || (activeLogoBox?.h || 0) < 0.22;
   const hasSceneText = Boolean((customText?.text || "").trim());
+  const hasSceneInjection = Boolean(sideData?.injectionModelId);
+  const sceneInjectionScale = clamp(Number(sideData?.injectionScale ?? 1), 0.45, 2.4);
+  const sceneInjectionBox = useMemo(() => {
+    const rawPos =
+      sideData?.injectionPos && typeof sideData.injectionPos === "object"
+        ? sideData.injectionPos
+        : { x: 0.5, y: 0.58 };
+    // Enjeksiyon meshleri modele göre değiştiği için kutuyu güvenli bir çalışma alanında tut.
+    const w = clamp(0.31 * sceneInjectionScale, 0.14, 0.88);
+    const h = clamp(0.24 * sceneInjectionScale, 0.1, 0.72);
+    const x = clamp(Number(rawPos?.x ?? 0.5), w / 2, 1 - w / 2);
+    const y = clamp(Number(rawPos?.y ?? 0.58), h / 2, 1 - h / 2);
+    return { x, y, w, h };
+  }, [sideData?.injectionPos, sceneInjectionScale]);
   const textHalfBounds = estimateTextHalfBounds01(customText);
   const sceneTextBox = useMemo(
     () => ({
@@ -6216,12 +6232,16 @@ function TasarimClientContent({ isMobile }) {
     [safeTextPos.x, safeTextPos.y, textHalfBounds.halfW01, textHalfBounds.halfH01]
   );
   const showSceneTextFrame = Boolean(sceneTextSelectionVisible && hasSceneText);
+  const showSceneInjectionFrame = Boolean(sceneInjectionSelectionVisible && hasSceneInjection && !textEditingMode);
+  const isSceneInjectionCompact = (sceneInjectionBox?.w || 0) < 0.24 || (sceneInjectionBox?.h || 0) < 0.18;
 
   useEffect(() => {
     setSceneSelectionVisible(false);
     setSceneTextSelectionVisible(false);
+    setSceneInjectionSelectionVisible(false);
     setSceneFrameMode("resize");
     setSceneTextFrameMode("resize");
+    setSceneInjectionFrameMode("resize");
     setSelectedSceneItem(null);
   }, [activeId, currentSide]);
 
@@ -6234,8 +6254,10 @@ function TasarimClientContent({ isMobile }) {
       // Yeni görsel eklendiğinde çerçeve otomatik açılmasın.
       setSceneSelectionVisible(false);
       setSceneTextSelectionVisible(false);
+      setSceneInjectionSelectionVisible(false);
       setSceneFrameMode("resize");
       setSceneTextFrameMode("resize");
+      setSceneInjectionFrameMode("resize");
       setSelectedSceneItem(null);
     }
   }, [activeId, currentSide, logos.length]);
@@ -6245,6 +6267,25 @@ function TasarimClientContent({ isMobile }) {
     setSceneTextSelectionVisible(false);
     setSceneTextFrameMode("resize");
   }, [hasSceneText]);
+
+  useEffect(() => {
+    if (hasSceneInjection) return;
+    setSceneInjectionSelectionVisible(false);
+    setSceneInjectionFrameMode("resize");
+  }, [hasSceneInjection]);
+
+  useEffect(() => {
+    if (!hasSceneInjection || activeTab !== "pattern") return;
+    setSceneInjectionSelectionVisible(true);
+    setSceneInjectionFrameMode("resize");
+    setSceneSelectionVisible(false);
+    setSceneTextSelectionVisible(false);
+    setSelectedSceneItem({
+      id: `pattern_${sideData?.injectionModelId}_${currentSide}`,
+      type: "pattern",
+      side: currentSide,
+    });
+  }, [activeTab, hasSceneInjection, sideData?.injectionModelId, currentSide]);
 
   // Editor overlay için updateSide fonksiyonu
   const updateSide = (patch) => {
@@ -6356,11 +6397,22 @@ function TasarimClientContent({ isMobile }) {
     updateSide({ logos: nextLogos });
   };
 
+  const updateInjectionPlacement = (nextBox) => {
+    if (!hasSceneInjection) return;
+    const w = sceneInjectionBox.w;
+    const h = sceneInjectionBox.h;
+    const x = clamp(Number(nextBox?.x ?? sceneInjectionBox.x), w / 2, 1 - w / 2);
+    const y = clamp(Number(nextBox?.y ?? sceneInjectionBox.y), h / 2, 1 - h / 2);
+    updateSide({ injectionPos: { x, y } });
+  };
+
   const clearSceneSelection = () => {
     setSceneSelectionVisible(false);
     setSceneTextSelectionVisible(false);
+    setSceneInjectionSelectionVisible(false);
     setSceneFrameMode("resize");
     setSceneTextFrameMode("resize");
+    setSceneInjectionFrameMode("resize");
     setSceneModelSelectionId(null);
     setSelectedSceneItem(null);
   };
@@ -6383,7 +6435,32 @@ function TasarimClientContent({ isMobile }) {
     clearSceneSelection();
   };
 
+  const handleDeleteInjectionPattern = () => {
+    if (!hasSceneInjection) return;
+    updateSide({ injectionModelId: null });
+    setSceneInjectionSelectionVisible(false);
+    setSceneInjectionFrameMode("resize");
+    setSelectedSceneItem(null);
+  };
+
   const openPlacementPanelFromScene = (controlTab = "logo") => {
+    if (controlTab === "pattern") {
+      setActiveTab("pattern");
+      setShowPlacementPanel(false);
+      setSceneInjectionSelectionVisible(true);
+      setSceneInjectionFrameMode("resize");
+      setSelectedSceneItem({
+        id: `pattern_${sideData?.injectionModelId || "none"}_${currentSide}`,
+        type: "pattern",
+        side: currentSide,
+      });
+      if (isMobile) {
+        setMobilePrimaryTab("design");
+        setPanelProgress(0);
+        setDrawerOpen(false);
+      }
+      return;
+    }
     placementPanelIntentRef.current = true;
     setEditorControlTab(controlTab === "text" ? "text" : "logo");
     setShowPlacementPanel(true);
@@ -6415,11 +6492,26 @@ function TasarimClientContent({ isMobile }) {
       return;
     }
 
+    const preferInjection = activeTab === "pattern";
+    if (preferInjection && hasSceneInjection) {
+      setSceneInjectionSelectionVisible(true);
+      setSceneInjectionFrameMode("resize");
+      setSceneSelectionVisible(false);
+      setSceneTextSelectionVisible(false);
+      setSelectedSceneItem({
+        id: `pattern_${sideData?.injectionModelId}_${currentSide}`,
+        type: "pattern",
+        side: currentSide,
+      });
+      return;
+    }
+
     const preferText = editorControlTab === "text" || rubberActiveForSide;
     if (preferText && hasSceneText) {
       setSceneTextSelectionVisible(true);
       setSceneTextFrameMode("resize");
       setSceneSelectionVisible(false);
+      setSceneInjectionSelectionVisible(false);
       setSelectedSceneItem({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
       return;
     }
@@ -6428,6 +6520,7 @@ function TasarimClientContent({ isMobile }) {
       setSceneSelectionVisible(true);
       setSceneFrameMode("resize");
       setSceneTextSelectionVisible(false);
+      setSceneInjectionSelectionVisible(false);
       setSelectedSceneItem({ id: activeLogo.id, type: "logo", side: currentSide });
       return;
     }
@@ -6436,7 +6529,21 @@ function TasarimClientContent({ isMobile }) {
       setSceneTextSelectionVisible(true);
       setSceneTextFrameMode("resize");
       setSceneSelectionVisible(false);
+      setSceneInjectionSelectionVisible(false);
       setSelectedSceneItem({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
+      return;
+    }
+
+    if (hasSceneInjection) {
+      setSceneInjectionSelectionVisible(true);
+      setSceneInjectionFrameMode("resize");
+      setSceneSelectionVisible(false);
+      setSceneTextSelectionVisible(false);
+      setSelectedSceneItem({
+        id: `pattern_${sideData?.injectionModelId}_${currentSide}`,
+        type: "pattern",
+        side: currentSide,
+      });
     }
   };
 
@@ -6446,6 +6553,7 @@ function TasarimClientContent({ isMobile }) {
     setSceneModelSelectionId(designId);
     setSceneSelectionVisible(false);
     setSceneTextSelectionVisible(false);
+    setSceneInjectionSelectionVisible(false);
   };
 
   const handleDeleteSceneModel = (designId) => {
@@ -6632,6 +6740,24 @@ function TasarimClientContent({ isMobile }) {
     return () => {
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("orientationchange", handleOrientation);
+    };
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (!isMobile || typeof document === "undefined") return;
+    const handleFocusIn = (event) => {
+      const target = event?.target;
+      if (!(target instanceof HTMLElement)) return;
+      const tag = String(target.tagName || "").toLowerCase();
+      if (tag !== "input" && tag !== "textarea") return;
+      const computed = window.getComputedStyle(target).fontSize;
+      const currentPx = Number.parseFloat(computed || "0");
+      if (!Number.isFinite(currentPx) || currentPx >= 16) return;
+      target.style.fontSize = "16px";
+    };
+    document.addEventListener("focusin", handleFocusIn, true);
+    return () => {
+      document.removeEventListener("focusin", handleFocusIn, true);
     };
   }, [isMobile]);
 
@@ -7791,7 +7917,11 @@ function TasarimClientContent({ isMobile }) {
     { id: "design", label: "Tasarla", icon: Pencil },
   ];
   const sceneOverlayInteractionEnabled =
-    (!isMobile || isPlacementPanelVisible) && !pickerOpen && !drawerMenuOpen;
+    (!isMobile ||
+      isPlacementPanelVisible ||
+      activeBottomTab === "tasarla") &&
+    !pickerOpen &&
+    !drawerMenuOpen;
 
   useEffect(() => {
     if (!isMobile || flowStep !== "design") return;
@@ -7866,6 +7996,52 @@ function TasarimClientContent({ isMobile }) {
       panelCameraAnimRef.current = 0;
     };
   }, [isMobile, flowStep, panelProgress, isPlacementPanelVisible, drawerHeight, cameraReadyTick]);
+
+  useEffect(() => {
+    if (!isMobile || flowStep !== "design" || typeof window === "undefined") return;
+    const normalizeMobileViewportAndCamera = () => {
+      const activeEl = document.activeElement;
+      if (activeEl && typeof activeEl.blur === "function") {
+        const tag = String(activeEl.tagName || "").toLowerCase();
+        if (tag === "input" || tag === "textarea" || activeEl.isContentEditable) {
+          activeEl.blur();
+        }
+      }
+      const camera = cameraRef.current;
+      const controls = controlsRef.current;
+      if (!camera || !controls) return;
+      const camY = THREE.MathUtils.lerp(0.255, 0.225, panelProgress);
+      const camZ = THREE.MathUtils.lerp(
+        isPlacementPanelVisible ? 2.26 : 2.34,
+        isPlacementPanelVisible ? 2.08 : 2.16,
+        panelProgress
+      );
+      const targetY = THREE.MathUtils.lerp(
+        isPlacementPanelVisible ? -0.11 : -0.1,
+        isPlacementPanelVisible ? -0.125 : -0.12,
+        panelProgress
+      );
+      camera.position.set(0, camY, camZ);
+      controls.target.set(0, targetY, 0);
+      controls.update();
+    };
+
+    const onPageShow = () => {
+      requestAnimationFrame(() => requestAnimationFrame(normalizeMobileViewportAndCamera));
+    };
+    const onVisibility = () => {
+      if (!document.hidden) onPageShow();
+    };
+
+    window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("popstate", onPageShow);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("popstate", onPageShow);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [isMobile, flowStep, panelProgress, isPlacementPanelVisible]);
 
   const renderPanel = (
     <EditorPanel
@@ -9207,6 +9383,106 @@ function TasarimClientContent({ isMobile }) {
                   </div>
                 )}
 
+                {hasSceneInjection && (
+                  <div
+                    className={`absolute border-2 rounded-sm transition-all ${showSceneInjectionFrame
+                      ? "border-cyan-300/90 bg-transparent shadow-none"
+                      : "border-transparent bg-transparent"
+                      }`}
+                    style={{
+                      left: `${(sceneInjectionBox.x - sceneInjectionBox.w / 2) * 100}%`,
+                      top: `${(sceneInjectionBox.y - sceneInjectionBox.h / 2) * 100}%`,
+                      width: `${sceneInjectionBox.w * 100}%`,
+                      height: `${sceneInjectionBox.h * 100}%`,
+                      pointerEvents: showSceneInjectionFrame ? "none" : "auto",
+                      touchAction: "none",
+                      zIndex: showSceneInjectionFrame ? 63 : 62,
+                    }}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!sceneInjectionSelectionVisible) {
+                        setSceneInjectionSelectionVisible(true);
+                        setSceneInjectionFrameMode("resize");
+                        setSceneSelectionVisible(false);
+                        setSceneTextSelectionVisible(false);
+                        setSelectedSceneItem({
+                          id: `pattern_${sideData?.injectionModelId}_${currentSide}`,
+                          type: "pattern",
+                          side: currentSide,
+                        });
+                        return;
+                      }
+                      setSceneInjectionFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"));
+                    }}
+                  />
+                )}
+
+                {showSceneInjectionFrame && (
+                  <ResizeFrame
+                    box={sceneInjectionBox}
+                    containerRef={sceneEditRef}
+                    onChange={updateInjectionPlacement}
+                    rotation={Number(sideData?.injectionRotation) || 0}
+                    onRotateChange={(nextRot) =>
+                      updateSide({ injectionRotation: clamp(Math.round(nextRot), -180, 180) })
+                    }
+                    onFrameTap={() =>
+                      setSceneInjectionFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"))
+                    }
+                    transformMode={sceneInjectionFrameMode}
+                    onDragStateChange={setIsLogoDragging}
+                    disableResize
+                    largeHandles={isMobile}
+                  />
+                )}
+
+                {showSceneInjectionFrame && (
+                  <div
+                    className={`absolute flex z-[85] pointer-events-auto ${isSceneInjectionCompact ? "items-center flex-col gap-1" : "items-center gap-1.5"}`}
+                    style={{
+                      left: `${(sceneInjectionBox.x + sceneInjectionBox.w / 2) * 100}%`,
+                      top: `${(sceneInjectionBox.y - sceneInjectionBox.h / 2) * 100}%`,
+                      transform: isSceneInjectionCompact ? "translate(12%, -112%)" : "translate(-100%, -120%)",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteInjectionPattern();
+                      }}
+                      className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${isMobile ? "w-9 h-9" : "w-8 h-8"
+                        }`}
+                      aria-label="Deseni sil"
+                      title="Sil"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openPlacementPanelFromScene("pattern");
+                      }}
+                      className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${isMobile ? "w-9 h-9" : "w-8 h-8"
+                        }`}
+                      aria-label="Desen düzenleme paneline geç"
+                      title="Düzenle"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  </div>
+                )}
+
                 {hasSceneText && (
                   <>
                     <div
@@ -9434,6 +9710,20 @@ function TasarimClientContent({ isMobile }) {
                                   }`}
                               >
                                 Baskı<br />Seçim
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMobilePrimaryTab("design");
+                                  setPanelProgress(1);
+                                  activateDesignTool("color");
+                                }}
+                                className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "color"
+                                  ? "border-zinc-900 bg-zinc-900 text-white"
+                                  : "border-gray-300 bg-white text-gray-800"
+                                  }`}
+                              >
+                                Renk
                               </button>
                               <button
                                 type="button"
