@@ -125,10 +125,11 @@ const registerMaterialPrintProfiles = (modelType, profiles) => {
   });
 };
 
-const extractPrintProfilesFromMaterials = (root) => {
-  if (!root) return null;
-  root.updateWorldMatrix(true, true);
-  const rootInv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+const extractPrintProfilesFromMaterials = (hostMesh) => {
+  if (!(hostMesh && (hostMesh.isMesh || hostMesh.isSkinnedMesh) && hostMesh.geometry?.attributes?.position)) {
+    return null;
+  }
+  hostMesh.updateWorldMatrix(true, false);
   const tmp = new THREE.Vector3();
   const sideBounds = {
     front: { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: Infinity, maxZ: -Infinity, count: 0 },
@@ -145,32 +146,33 @@ const extractPrintProfilesFromMaterials = (root) => {
     b.count += 1;
   };
 
-  root.traverse((obj) => {
-    if (!(obj?.isMesh || obj?.isSkinnedMesh) || !obj.geometry?.attributes?.position) return;
-    const geometry = obj.geometry;
-    const position = geometry.attributes.position;
-    const index = geometry.index;
-    const groups = geometry.groups?.length
-      ? geometry.groups
-      : [{ start: 0, count: index ? index.count : position.count, materialIndex: 0 }];
-    const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+  const geometry = hostMesh.geometry;
+  const position = geometry.attributes.position;
+  const normal = geometry.attributes.normal;
+  const index = geometry.index;
+  const groups = geometry.groups?.length
+    ? geometry.groups
+    : [{ start: 0, count: index ? index.count : position.count, materialIndex: 0 }];
+  const materials = Array.isArray(hostMesh.material) ? hostMesh.material : [hostMesh.material];
 
-    groups.forEach((group) => {
-      const mat = materials[group.materialIndex] || materials[0];
-      const side = resolvePrintSideFromMaterialName(mat?.name || "");
-      if (!side) return;
-      const start = Math.max(0, Number(group.start) || 0);
-      const count = Math.max(0, Number(group.count) || 0);
-      const end = start + count;
-      for (let i = start; i < end; i += 1) {
-        const vi = index ? (index.array ? index.array[i] : index.getX(i)) : i;
-        if (!Number.isFinite(vi) || vi < 0 || vi >= position.count) continue;
-        tmp.fromBufferAttribute(position, vi);
-        obj.localToWorld(tmp);
-        tmp.applyMatrix4(rootInv);
-        updateBounds(side, tmp);
+  groups.forEach((group) => {
+    const mat = materials[group.materialIndex] || materials[0];
+    const side = resolvePrintSideFromMaterialName(mat?.name || "");
+    if (!side) return;
+    const start = Math.max(0, Number(group.start) || 0);
+    const count = Math.max(0, Number(group.count) || 0);
+    const end = start + count;
+    for (let i = start; i < end; i += 1) {
+      const vi = index ? (index.array ? index.array[i] : index.getX(i)) : i;
+      if (!Number.isFinite(vi) || vi < 0 || vi >= position.count) continue;
+      if (normal && vi < normal.count) {
+        const nz = Number(normal.getZ(vi));
+        if (side === "front" && Number.isFinite(nz) && nz < 0.05) continue;
+        if (side === "back" && Number.isFinite(nz) && nz > -0.05) continue;
       }
-    });
+      tmp.fromBufferAttribute(position, vi);
+      updateBounds(side, tmp);
+    }
   });
 
   const toProfile = (side) => {
@@ -179,8 +181,8 @@ const extractPrintProfilesFromMaterials = (root) => {
     const rawW = b.maxX - b.minX;
     const rawH = b.maxY - b.minY;
     if (!(rawW > 0.02) || !(rawH > 0.02)) return null;
-    const padX = Math.min(rawW * 0.025, 0.012);
-    const padY = Math.min(rawH * 0.025, 0.012);
+    const padX = Math.min(rawW * 0.04, 0.018);
+    const padY = Math.min(rawH * 0.045, 0.02);
     return normalizePrintProfile({
       xMin: b.minX + padX,
       xMax: b.maxX - padX,
@@ -208,6 +210,7 @@ const getPrintProfile = (modelType, side = "front", hoodieParts = DEFAULT_HOODIE
 };
 
 function pickDecalHostMesh(root) {
+  const printableCandidates = [];
   const candidates = [];
   root.traverse((o) => {
     if (!(o && (o.isMesh || o.isSkinnedMesh) && o.geometry?.attributes?.position)) return;
@@ -218,8 +221,18 @@ function pickDecalHostMesh(root) {
     bb.getSize(size);
     const volume = size.x * size.y * size.z;
     if (!Number.isFinite(volume) || volume <= 0) return;
+    const materials = Array.isArray(o.material) ? o.material : [o.material];
+    const hasPrintableMaterial = materials.some((mat) =>
+      Boolean(resolvePrintSideFromMaterialName(mat?.name || ""))
+    );
+    if (hasPrintableMaterial) {
+      printableCandidates.push({ o, score: volume * 4 + size.y * size.x });
+      return;
+    }
     if (size.y > 0.35 && size.x > 0.15) candidates.push({ o, score: volume });
   });
+  printableCandidates.sort((a, b) => b.score - a.score);
+  if (printableCandidates[0]?.o) return printableCandidates[0].o;
   candidates.sort((a, b) => b.score - a.score);
   return candidates[0]?.o || null;
 }
@@ -247,7 +260,6 @@ function RotatingModelPreviewMesh({
   const root = useMemo(() => {
     return hasSkinned ? SkeletonUtils.clone(gltf.scene) : gltf.scene.clone(true);
   }, [gltf.scene, hasSkinned]);
-  const materialProfiles = useMemo(() => extractPrintProfilesFromMaterials(root), [root]);
 
   const [frontTex, setFrontTex] = useState(null);
   const [backTex, setBackTex] = useState(null);
@@ -273,6 +285,8 @@ function RotatingModelPreviewMesh({
         texture.anisotropy = 8;
         texture.wrapS = THREE.ClampToEdgeWrapping;
         texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.repeat.set(1, 1);
+        texture.offset.set(0, 0);
         texture.needsUpdate = true;
         setFrontTex((prev) => {
           if (prev) prev.dispose();
@@ -313,6 +327,8 @@ function RotatingModelPreviewMesh({
         texture.anisotropy = 8;
         texture.wrapS = THREE.ClampToEdgeWrapping;
         texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.repeat.set(1, 1);
+        texture.offset.set(0, 0);
         texture.needsUpdate = true;
         setBackTex((prev) => {
           if (prev) prev.dispose();
@@ -341,6 +357,7 @@ function RotatingModelPreviewMesh({
   );
 
   const decalHost = useMemo(() => pickDecalHostMesh(root), [root]);
+  const materialProfiles = useMemo(() => extractPrintProfilesFromMaterials(decalHost), [decalHost]);
   const decalHostRef = useMemo(() => ({ current: decalHost }), [decalHost]);
   const parts = normalizeHoodieParts(hoodieV12Parts);
   const frontProfile = useMemo(() => {
@@ -370,6 +387,34 @@ function RotatingModelPreviewMesh({
   const backW = backProfile.xMax - backProfile.xMin;
   const backH = backProfile.yTop - backProfile.yBot;
   const backCY = (backProfile.yTop + backProfile.yBot) / 2;
+  const DTF_DECAL_DEPTH = 0.2;
+  const DTF_SURFACE_OFFSET = 0.008;
+  const frontDecalRotY = Number(frontProfile?.rotY || 0);
+  const backDecalRotY = Number(backProfile?.rotY || Math.PI);
+  const frontDecalNormal = useMemo(
+    () => new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(0, frontDecalRotY, 0)).normalize(),
+    [frontDecalRotY]
+  );
+  const backDecalNormal = useMemo(
+    () => new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(0, backDecalRotY, 0)).normalize(),
+    [backDecalRotY]
+  );
+  const frontDecalPosition = useMemo(
+    () => [
+      frontDecalNormal.x * DTF_SURFACE_OFFSET,
+      frontCY + frontDecalNormal.y * DTF_SURFACE_OFFSET,
+      frontProfile.z + 0.001 + frontDecalNormal.z * DTF_SURFACE_OFFSET,
+    ],
+    [frontCY, frontProfile.z, frontDecalNormal]
+  );
+  const backDecalPosition = useMemo(
+    () => [
+      backDecalNormal.x * DTF_SURFACE_OFFSET,
+      backCY + backDecalNormal.y * DTF_SURFACE_OFFSET,
+      backProfile.z - 0.001 + backDecalNormal.z * DTF_SURFACE_OFFSET,
+    ],
+    [backCY, backProfile.z, backDecalNormal]
+  );
   const bodyMaterial = useMemo(() => {
     const base = new THREE.Color(color || "#d6dbe2");
     const lum = 0.2126 * base.r + 0.7152 * base.g + 0.0722 * base.b;
@@ -476,9 +521,9 @@ function RotatingModelPreviewMesh({
         {decalHost && frontTex && (
           <Decal
             mesh={decalHostRef}
-            position={[0, frontCY, frontProfile.z + 0.001]}
-            rotation={[0, frontProfile.rotY || 0, 0]}
-            scale={[frontW, frontH, 0.3]}
+            position={frontDecalPosition}
+            rotation={[0, frontDecalRotY, 0]}
+            scale={[frontW * 0.985, frontH * 0.985, DTF_DECAL_DEPTH]}
           >
             <meshBasicMaterial
               map={frontTex}
@@ -496,9 +541,9 @@ function RotatingModelPreviewMesh({
         {decalHost && backTex && (
           <Decal
             mesh={decalHostRef}
-            position={[0, backCY, backProfile.z - 0.001]}
-            rotation={[0, backProfile.rotY || Math.PI, 0]}
-            scale={[backW, backH, 0.3]}
+            position={backDecalPosition}
+            rotation={[0, backDecalRotY, 0]}
+            scale={[backW * 0.985, backH * 0.985, DTF_DECAL_DEPTH]}
           >
             <meshBasicMaterial
               map={backTex}

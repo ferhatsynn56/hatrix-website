@@ -277,6 +277,52 @@ const DEFAULT_PRINT_PROFILE = Object.freeze({
   back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
 });
 
+const STATIC_PRINT_PROFILES = Object.freeze({
+  "yeni-duz-tshirt": {
+    front: { xMin: -0.2000, xMax: 0.2000, yTop: 0.2500, yBot: -0.2900, z: 0.1542, rotY: 0 },
+    back: { xMin: -0.2000, xMax: 0.2000, yTop: 0.2700, yBot: -0.2700, z: -0.1547, rotY: Math.PI },
+  },
+  "yeni-oversize-tshirt": {
+    front: { xMin: -0.2250, xMax: 0.2250, yTop: 0.2800, yBot: -0.3200, z: 0.1542, rotY: 0 },
+    back: { xMin: -0.2250, xMax: 0.2250, yTop: 0.3000, yBot: -0.3000, z: -0.1547, rotY: Math.PI },
+  },
+  "yeni-duz-sweat": {
+    front: { xMin: -0.2600, xMax: 0.2600, yTop: 0.2600, yBot: -0.2600, z: 0.1458, rotY: 0 },
+    back: { xMin: -0.2150, xMax: 0.2150, yTop: 0.3100, yBot: -0.3100, z: -0.1465, rotY: Math.PI },
+  },
+  "yeni-oversize-sweat": {
+    front: { xMin: -0.2900, xMax: 0.2900, yTop: 0.2900, yBot: -0.2900, z: 0.1444, rotY: 0 },
+    back: { xMin: -0.2900, xMax: 0.2900, yTop: 0.2900, yBot: -0.2900, z: -0.1450, rotY: Math.PI },
+  },
+  "yeni-fermuarli": {
+    front: { xMin: -0.3200, xMax: 0.3200, yTop: 0.2750, yBot: -0.2750, z: 0.1378, rotY: 0 },
+    back: { xMin: -0.2150, xMax: 0.2150, yTop: 0.3100, yBot: -0.3100, z: -0.1386, rotY: Math.PI },
+  },
+  "polar-son": {
+    front: { xMin: -0.2600, xMax: 0.2600, yTop: 0.2600, yBot: -0.2600, z: 0.1457, rotY: 0 },
+    back: { xMin: -0.2150, xMax: 0.2150, yTop: 0.3100, yBot: -0.3100, z: -0.1461, rotY: Math.PI },
+  },
+  "hoodie-v12-canavari": {
+    front: { xMin: -0.1600, xMax: 0.1600, yTop: 0.1900, yBot: -0.1400, z: 0.1091, rotY: 0 },
+    back: { xMin: -0.1600, xMax: 0.1600, yTop: 0.1500, yBot: -0.2300, z: -0.1096, rotY: Math.PI },
+  },
+  "oversize-hoodie-parcali": {
+    front: { xMin: -0.1800, xMax: 0.1800, yTop: 0.1950, yBot: -0.1500, z: 0.1094, rotY: 0 },
+    back: { xMin: -0.1800, xMax: 0.1800, yTop: 0.1600, yBot: -0.2600, z: -0.1097, rotY: Math.PI },
+  },
+});
+
+const STATIC_DECAL_DEPTH = Object.freeze({
+  "yeni-duz-tshirt": 0.18,
+  "yeni-oversize-tshirt": 0.18,
+  "yeni-duz-sweat": 0.17,
+  "yeni-oversize-sweat": 0.17,
+  "yeni-fermuarli": 0.16,
+  "polar-son": 0.17,
+  "hoodie-v12-canavari": 0.09,
+  "oversize-hoodie-parcali": 0.09,
+});
+
 const MODEL_PRINT_PROFILE_CACHE = new Map();
 const MODEL_ZIP_GAP_HINTS = Object.freeze({
   "yeni-fermuarli": 0.11,
@@ -307,6 +353,175 @@ const resolvePrintSideFromMaterialName = (name = "") => {
   if (key.includes("arka") || key.includes("back")) return "back";
   if (key.includes("on") || key.includes("front")) return "front";
   return null;
+};
+
+const PRINT_MESH_NAME_HINTS = [
+  "baski_mesh",
+  "baski-mesh",
+  "baski mesh",
+  "print_mesh",
+  "print-mesh",
+  "print mesh",
+  "decal_mesh",
+  "decal-mesh",
+  "decal mesh",
+  "print_area",
+  "print-area",
+  "print area",
+  "baski_alan",
+  "baski-alan",
+  "baski alan",
+];
+
+const looksLikeNamedPrintMesh = (name = "") => {
+  const key = String(name || "").toLowerCase().trim();
+  if (!key) return false;
+  return PRINT_MESH_NAME_HINTS.some((hint) => key.includes(hint));
+};
+
+const getPrintableGroupsForMesh = (mesh) => {
+  if (!(mesh && (mesh.isMesh || mesh.isSkinnedMesh) && mesh.geometry?.attributes?.position)) return [];
+  const geometry = mesh.geometry;
+  const index = geometry.index;
+  const groups = geometry.groups?.length
+    ? geometry.groups
+    : [{ start: 0, count: index ? index.count : geometry.attributes.position.count, materialIndex: 0 }];
+  const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  return groups
+    .map((group) => {
+      const mat = materials[group.materialIndex] || materials[0];
+      const side = resolvePrintSideFromMaterialName(mat?.name || "");
+      if (!side) return null;
+      return {
+        side,
+        materialName: String(mat?.name || ""),
+        start: Math.max(0, Number(group.start) || 0),
+        count: Math.max(0, Number(group.count) || 0),
+      };
+    })
+    .filter(Boolean);
+};
+
+const PRINT_PROXY_CACHE = new WeakMap();
+
+const createPrintableProxyGeometry = (sourceMesh, printableGroups) => {
+  const geometry = sourceMesh?.geometry;
+  if (!geometry?.attributes?.position || !Array.isArray(printableGroups) || printableGroups.length === 0) {
+    return null;
+  }
+  const indexAttr = geometry.index;
+  const positionAttr = geometry.attributes.position;
+  const attrs = geometry.attributes;
+  const indexCount = indexAttr ? indexAttr.count : positionAttr.count;
+  const sideBuckets = { front: [], back: [] };
+
+  printableGroups.forEach((entry) => {
+    const side = entry.side === "back" ? "back" : "front";
+    const start = Math.max(0, Number(entry.start) || 0);
+    const count = Math.max(0, Number(entry.count) || 0);
+    const end = Math.min(indexCount, start + count);
+    for (let i = start; i < end; i += 1) {
+      const vi = indexAttr ? (indexAttr.array ? indexAttr.array[i] : indexAttr.getX(i)) : i;
+      if (!Number.isFinite(vi) || vi < 0 || vi >= positionAttr.count) continue;
+      sideBuckets[side].push(vi);
+    }
+  });
+
+  const totalVertexRefs = sideBuckets.front.length + sideBuckets.back.length;
+  if (totalVertexRefs < 3) return null;
+
+  const sourceToProxy = new Map();
+  const mapIndex = (srcIndex) => {
+    let mapped = sourceToProxy.get(srcIndex);
+    if (mapped == null) {
+      mapped = sourceToProxy.size;
+      sourceToProxy.set(srcIndex, mapped);
+    }
+    return mapped;
+  };
+  const frontProxyIndices = sideBuckets.front.map(mapIndex);
+  const backProxyIndices = sideBuckets.back.map(mapIndex);
+  const vertexCount = sourceToProxy.size;
+  if (vertexCount < 3) return null;
+
+  const outGeometry = new THREE.BufferGeometry();
+  Object.entries(attrs).forEach(([attrName, attr]) => {
+    if (!attr?.array?.length || !attr.itemSize) return;
+    const TypedArrayCtor = attr.array.constructor;
+    const out = new TypedArrayCtor(vertexCount * attr.itemSize);
+    sourceToProxy.forEach((dstIndex, srcIndex) => {
+      const srcOffset = srcIndex * attr.itemSize;
+      const dstOffset = dstIndex * attr.itemSize;
+      for (let k = 0; k < attr.itemSize; k += 1) out[dstOffset + k] = attr.array[srcOffset + k];
+    });
+    outGeometry.setAttribute(attrName, new THREE.BufferAttribute(out, attr.itemSize, attr.normalized));
+  });
+
+  const totalIndexCount = frontProxyIndices.length + backProxyIndices.length;
+  const IndexArrayCtor = vertexCount > 65535 ? Uint32Array : Uint16Array;
+  const outIndices = new IndexArrayCtor(totalIndexCount);
+  let cursor = 0;
+  frontProxyIndices.forEach((idx) => {
+    outIndices[cursor] = idx;
+    cursor += 1;
+  });
+  const frontCount = frontProxyIndices.length;
+  backProxyIndices.forEach((idx) => {
+    outIndices[cursor] = idx;
+    cursor += 1;
+  });
+  const backCount = backProxyIndices.length;
+
+  outGeometry.setIndex(new THREE.BufferAttribute(outIndices, 1));
+  outGeometry.clearGroups();
+  if (frontCount > 0) outGeometry.addGroup(0, frontCount, 0);
+  if (backCount > 0) outGeometry.addGroup(frontCount, backCount, 1);
+  outGeometry.computeBoundingBox();
+  outGeometry.computeBoundingSphere();
+  return outGeometry;
+};
+
+const getOrCreatePrintableProxyMesh = (sourceMesh, printableGroups) => {
+  if (!sourceMesh) return null;
+  const cached = PRINT_PROXY_CACHE.get(sourceMesh);
+  if (
+    cached?.proxy &&
+    cached.sourceGeometry === sourceMesh.geometry &&
+    cached.groupSignature === printableGroups.map((g) => `${g.side}:${g.start}:${g.count}`).join("|")
+  ) {
+    return cached.proxy;
+  }
+
+  const proxyGeometry = createPrintableProxyGeometry(sourceMesh, printableGroups);
+  if (!proxyGeometry) return null;
+
+  const matFront = new THREE.MeshBasicMaterial({ name: "Baski_On", side: THREE.DoubleSide, transparent: true, opacity: 0 });
+  const matBack = new THREE.MeshBasicMaterial({ name: "Baski_Arka", side: THREE.DoubleSide, transparent: true, opacity: 0 });
+  matFront.depthWrite = false;
+  matBack.depthWrite = false;
+  matFront.colorWrite = false;
+  matBack.colorWrite = false;
+
+  const proxy = new THREE.Mesh(proxyGeometry, [matFront, matBack]);
+  proxy.name = `${sourceMesh.name || "Mesh"}__print_proxy`;
+  proxy.matrixAutoUpdate = false;
+  proxy.userData.__printProxySource = sourceMesh;
+  proxy.userData.__printProxy = true;
+  PRINT_PROXY_CACHE.set(sourceMesh, {
+    proxy,
+    sourceGeometry: sourceMesh.geometry,
+    groupSignature: printableGroups.map((g) => `${g.side}:${g.start}:${g.count}`).join("|"),
+  });
+  return proxy;
+};
+
+const syncPrintableProxyMesh = (mesh) => {
+  const source = mesh?.userData?.__printProxySource;
+  if (!source) return;
+  source.updateWorldMatrix(true, false);
+  mesh.matrix.copy(source.matrix);
+  mesh.matrixWorld.copy(source.matrixWorld);
+  mesh.matrixWorldNeedsUpdate = false;
 };
 
 const normalizePrintProfile = (profile, side = "front", modelType = DEFAULT_MODEL_TYPE) => {
@@ -368,10 +583,11 @@ const registerMaterialPrintProfiles = (modelType, profiles) => {
   return true;
 };
 
-const extractPrintProfilesFromMaterials = (root, modelType) => {
-  if (!root) return null;
-  root.updateWorldMatrix(true, true);
-  const rootInv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+const extractPrintProfilesFromMaterials = (hostMesh, modelType) => {
+  if (!(hostMesh && (hostMesh.isMesh || hostMesh.isSkinnedMesh) && hostMesh.geometry?.attributes?.position)) {
+    return null;
+  }
+  hostMesh.updateWorldMatrix(true, false);
   const tmp = new THREE.Vector3();
   const sideBounds = {
     front: { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: Infinity, maxZ: -Infinity, count: 0 },
@@ -389,33 +605,39 @@ const extractPrintProfilesFromMaterials = (root, modelType) => {
     b.count += 1;
   };
 
-  root.traverse((obj) => {
-    if (!(obj?.isMesh || obj?.isSkinnedMesh) || !obj.geometry?.attributes?.position) return;
-    const geometry = obj.geometry;
-    const position = geometry.attributes.position;
-    const index = geometry.index;
-    const groups = geometry.groups?.length
-      ? geometry.groups
-      : [{ start: 0, count: index ? index.count : position.count, materialIndex: 0 }];
-    const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+  const geometry = hostMesh.geometry;
+  const position = geometry.attributes.position;
+  const normal = geometry.attributes.normal;
+  const index = geometry.index;
+  const groups = geometry.groups?.length
+    ? geometry.groups
+    : [{ start: 0, count: index ? index.count : position.count, materialIndex: 0 }];
+  const materials = Array.isArray(hostMesh.material) ? hostMesh.material : [hostMesh.material];
 
-    groups.forEach((group) => {
-      const mat = materials[group.materialIndex] || materials[0];
-      const side = resolvePrintSideFromMaterialName(mat?.name || "");
-      if (!side) return;
-      const start = Math.max(0, Number(group.start) || 0);
-      const count = Math.max(0, Number(group.count) || 0);
-      const end = start + count;
+  groups.forEach((group) => {
+    const mat = materials[group.materialIndex] || materials[0];
+    const matSide = resolvePrintSideFromMaterialName(mat?.name || "");
+    const allowNormalSplit = !matSide && looksLikeNamedPrintMesh(hostMesh?.name || "");
+    const start = Math.max(0, Number(group.start) || 0);
+    const count = Math.max(0, Number(group.count) || 0);
+    const end = start + count;
 
-      for (let i = start; i < end; i += 1) {
-        const vi = index ? (index.array ? index.array[i] : index.getX(i)) : i;
-        if (!Number.isFinite(vi) || vi < 0 || vi >= position.count) continue;
-        tmp.fromBufferAttribute(position, vi);
-        obj.localToWorld(tmp);
-        tmp.applyMatrix4(rootInv);
-        updateBounds(side, tmp);
+    for (let i = start; i < end; i += 1) {
+      const vi = index ? (index.array ? index.array[i] : index.getX(i)) : i;
+      if (!Number.isFinite(vi) || vi < 0 || vi >= position.count) continue;
+      let side = matSide;
+      if (normal && vi < normal.count) {
+        const nz = Number(normal.getZ(vi));
+        if (!side && allowNormalSplit && Number.isFinite(nz)) {
+          side = nz >= 0 ? "front" : "back";
+        }
+        if (side === "front" && Number.isFinite(nz) && nz < 0.05) continue;
+        if (side === "back" && Number.isFinite(nz) && nz > -0.05) continue;
       }
-    });
+      if (!side) continue;
+      tmp.fromBufferAttribute(position, vi);
+      updateBounds(side, tmp);
+    }
   });
 
   const toProfile = (side) => {
@@ -425,8 +647,8 @@ const extractPrintProfilesFromMaterials = (root, modelType) => {
     const rawH = b.maxY - b.minY;
     if (!(rawW > 0.02) || !(rawH > 0.02)) return null;
 
-    const padX = Math.min(rawW * 0.025, 0.012);
-    const padY = Math.min(rawH * 0.025, 0.012);
+    const padX = Math.min(rawW * 0.08, 0.03);
+    const padY = Math.min(rawH * 0.09, 0.035);
     const xMin = b.minX + padX;
     const xMax = b.maxX - padX;
     const yTop = b.maxY - padY;
@@ -1532,6 +1754,14 @@ const createSideData = () => ({
 const normalizeSideData = (sideData) => {
   const base = createSideData();
   const source = sideData && typeof sideData === "object" ? sideData : {};
+  const normalizeLogoBox = (box) => {
+    const raw = box && typeof box === "object" ? box : {};
+    const w = clamp(Number(raw.w ?? 0.7), 0.12, 0.95);
+    const h = clamp(Number(raw.h ?? 0.45), 0.08, 0.95);
+    const x = clamp(Number(raw.x ?? 0.5), w / 2, 1 - w / 2);
+    const y = clamp(Number(raw.y ?? 0.6), h / 2, 1 - h / 2);
+    return { x, y, w, h };
+  };
   const baseColor =
     typeof source?.baseColor === "string" && source.baseColor.trim()
       ? source.baseColor.trim()
@@ -1539,6 +1769,7 @@ const normalizeSideData = (sideData) => {
   const logos = Array.isArray(source.logos)
     ? source.logos.filter(Boolean).map((logo) => ({
       ...logo,
+      box: normalizeLogoBox(logo?.box),
       technique: PRINT_TECHNIQUES.DTF,
     }))
     : [];
@@ -2340,6 +2571,8 @@ function useDesignCanvas(sideData, opts = {}) {
 
 /* ================= 3D MODEL HELPERS ================= */
 function pickDecalHostMesh(root, modelType) {
+  const namedPrintMeshCandidates = [];
+  const printableCandidates = [];
   const candidates = [];
   const fallbackCandidates = [];
 
@@ -2354,6 +2587,24 @@ function pickDecalHostMesh(root, modelType) {
     bb.getSize(size);
     const volume = size.x * size.y * size.z;
     if (!Number.isFinite(volume) || volume <= 0) return;
+    const printableGroups = getPrintableGroupsForMesh(o);
+    const hasPrintableGroups = printableGroups.length > 0;
+
+    if (looksLikeNamedPrintMesh(o?.name)) {
+      namedPrintMeshCandidates.push({ o, score: volume * 9 + size.y * size.x });
+      return;
+    }
+
+    if (hasPrintableGroups) {
+      const proxy = getOrCreatePrintableProxyMesh(o, printableGroups);
+      if (proxy) {
+        syncPrintableProxyMesh(proxy);
+        printableCandidates.push({ o: proxy, score: volume * 7 + size.y * size.x });
+        return;
+      }
+      printableCandidates.push({ o, score: volume * 4 + size.y * size.x });
+      return;
+    }
 
     const meshName = String(o?.name || "").toLowerCase();
     const isAccessoryLike =
@@ -2385,6 +2636,12 @@ function pickDecalHostMesh(root, modelType) {
     }
   });
 
+  namedPrintMeshCandidates.sort((a, b) => b.score - a.score);
+  if (namedPrintMeshCandidates[0]?.o) return namedPrintMeshCandidates[0].o;
+
+  printableCandidates.sort((a, b) => b.score - a.score);
+  if (printableCandidates[0]?.o) return printableCandidates[0].o;
+
   candidates.sort((a, b) => b.score - a.score);
   if (candidates[0]?.o) return candidates[0].o;
 
@@ -2404,6 +2661,8 @@ function makeCanvasTexture(canvas, opts = {}) {
   tex.flipY = true; // Canvas Y ekseni ile model UV yönünü eşleştir
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.repeat.set(1, 1);
+  tex.offset.set(0, 0);
   tex.needsUpdate = true;
   tex.generateMipmaps = useMipmaps;
   tex.minFilter = useMipmaps ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
@@ -3365,32 +3624,71 @@ function Real3DModel({
   const decalHost = useMemo(() => pickDecalHostMesh(root, modelType), [root, modelType]);
   const decalHostRef = useMemo(() => ({ current: decalHost }), [decalHost]);
   const materialProfiles = useMemo(
-    () => extractPrintProfilesFromMaterials(root, modelType),
-    [root, modelType]
+    () => extractPrintProfilesFromMaterials(decalHost, modelType),
+    [decalHost, modelType]
   );
+
+  useFrame(() => {
+    if (!decalHost?.userData?.__printProxySource) return;
+    syncPrintableProxyMesh(decalHost);
+  });
 
   useEffect(() => {
     if (!materialProfiles) return;
     registerMaterialPrintProfiles(modelType, materialProfiles);
   }, [modelType, materialProfiles]);
 
-  const TORSO_DEPTH = 0.3;
+  const DTF_DECAL_DEPTH = STATIC_DECAL_DEPTH[normalizeModelType(modelType)] ?? 0.18;
+  const DTF_SURFACE_OFFSET = 0.008;
+  const EMBOSS_DECAL_DEPTH_1 = 0.032;
+  const EMBOSS_DECAL_DEPTH_2 = 0.027;
+  const EMBOSS_DECAL_DEPTH_3 = 0.022;
+  const frontDecalRotY = 0;
+  const backDecalRotY = Math.PI;
 
   const frontProfile = useMemo(() => {
+    const normalized = normalizeModelType(modelType);
+    const staticFront = STATIC_PRINT_PROFILES[normalized]?.front;
+    if (staticFront) {
+      const base = normalizePrintProfile(staticFront, "front", modelType);
+      return applyHoodiePocketClampToFront(base, modelType, hoodieV12Parts);
+    }
     const dynamicFront = materialProfiles?.front
       ? normalizePrintProfile(materialProfiles.front, "front", modelType)
       : null;
     if (dynamicFront) {
-      return applyHoodiePocketClampToFront(dynamicFront, modelType, hoodieV12Parts);
+      const hardcoded = getPrintProfile(modelType, "front", hoodieV12Parts);
+      const clamped = {
+        ...dynamicFront,
+        xMin: Math.max(dynamicFront.xMin, hardcoded.xMin),
+        xMax: Math.min(dynamicFront.xMax, hardcoded.xMax),
+        yTop: Math.min(dynamicFront.yTop, hardcoded.yTop),
+        yBot: Math.max(dynamicFront.yBot, hardcoded.yBot),
+      };
+      return applyHoodiePocketClampToFront(clamped, modelType, hoodieV12Parts);
     }
     return getPrintProfile(modelType, "front", hoodieV12Parts);
   }, [materialProfiles?.front, modelType, hoodieV12Parts]);
 
   const backProfile = useMemo(() => {
+    const normalized = normalizeModelType(modelType);
+    const staticBack = STATIC_PRINT_PROFILES[normalized]?.back;
+    if (staticBack) {
+      return normalizePrintProfile(staticBack, "back", modelType);
+    }
     const dynamicBack = materialProfiles?.back
       ? normalizePrintProfile(materialProfiles.back, "back", modelType)
       : null;
-    if (dynamicBack) return dynamicBack;
+    if (dynamicBack) {
+      const hardcoded = getPrintProfile(modelType, "back", hoodieV12Parts);
+      return {
+        ...dynamicBack,
+        xMin: Math.max(dynamicBack.xMin, hardcoded.xMin),
+        xMax: Math.min(dynamicBack.xMax, hardcoded.xMax),
+        yTop: Math.min(dynamicBack.yTop, hardcoded.yTop),
+        yBot: Math.max(dynamicBack.yBot, hardcoded.yBot),
+      };
+    }
     return getPrintProfile(modelType, "back", hoodieV12Parts);
   }, [materialProfiles?.back, modelType, hoodieV12Parts]);
 
@@ -3401,9 +3699,34 @@ function Real3DModel({
   const backW = backProfile.xMax - backProfile.xMin;
   const backH = backProfile.yTop - backProfile.yBot;
   const backCY = (backProfile.yTop + backProfile.yBot) / 2;
+  const materialInset = 0.985;
 
   const torsoZOffsetFront = 0.001;
   const torsoZOffsetBack = -0.001;
+  const frontDecalNormal = useMemo(
+    () => new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(0, frontDecalRotY, 0)).normalize(),
+    [frontDecalRotY]
+  );
+  const backDecalNormal = useMemo(
+    () => new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(0, backDecalRotY, 0)).normalize(),
+    [backDecalRotY]
+  );
+  const frontDecalPosition = useMemo(
+    () => [
+      frontDecalNormal.x * DTF_SURFACE_OFFSET,
+      frontCY + frontDecalNormal.y * DTF_SURFACE_OFFSET,
+      frontProfile.z + torsoZOffsetFront + frontDecalNormal.z * DTF_SURFACE_OFFSET,
+    ],
+    [frontCY, frontProfile.z, frontDecalNormal, torsoZOffsetFront]
+  );
+  const backDecalPosition = useMemo(
+    () => [
+      backDecalNormal.x * DTF_SURFACE_OFFSET,
+      backCY + backDecalNormal.y * DTF_SURFACE_OFFSET,
+      backProfile.z + torsoZOffsetBack + backDecalNormal.z * DTF_SURFACE_OFFSET,
+    ],
+    [backCY, backProfile.z, backDecalNormal, torsoZOffsetBack]
+  );
 
   const showFront = view === "front";
   const showBack = view === "back";
@@ -3511,9 +3834,9 @@ function Real3DModel({
               <Decal
                 raycast={NO_RAYCAST}
                 mesh={decalHostRef}
-                position={[0, frontCY, frontProfile.z + torsoZOffsetFront]}
-                rotation={[0, frontProfile.rotY || 0, 0]}
-                scale={[frontW, frontH, TORSO_DEPTH]}
+                position={frontDecalPosition}
+                rotation={[0, frontDecalRotY, 0]}
+                scale={[frontW * materialInset, frontH * materialInset, DTF_DECAL_DEPTH]}
               >
                 <meshBasicMaterial
                   map={frontTex}
@@ -3550,7 +3873,7 @@ function Real3DModel({
                       mesh={decalHostRef}
                       position={[cx, cy, frontProfile.z + torsoZOffsetFront + 0.0026]}
                       rotation={[0, frontProfile.rotY || 0, rz]}
-                      scale={[decalW * 1.12, decalH * 1.12, TORSO_DEPTH * 0.9]}
+                      scale={[decalW * 1.12, decalH * 1.12, EMBOSS_DECAL_DEPTH_1]}
                     >
                       <meshStandardMaterial
                         color="#0f1218"
@@ -3572,7 +3895,7 @@ function Real3DModel({
                       mesh={decalHostRef}
                       position={[cx, cy, frontProfile.z + torsoZOffsetFront + 0.0036]}
                       rotation={[0, frontProfile.rotY || 0, rz]}
-                      scale={[decalW * 1.085, decalH * 1.085, TORSO_DEPTH * 0.84]}
+                      scale={[decalW * 1.085, decalH * 1.085, EMBOSS_DECAL_DEPTH_2]}
                     >
                       <meshStandardMaterial
                         color="#212732"
@@ -3596,7 +3919,7 @@ function Real3DModel({
                       mesh={decalHostRef}
                       position={[cx, cy, frontProfile.z + torsoZOffsetFront + 0.0052]}
                       rotation={[0, frontProfile.rotY || 0, rz]}
-                      scale={[decalW, decalH, TORSO_DEPTH * 0.6]}
+                      scale={[decalW, decalH, EMBOSS_DECAL_DEPTH_3]}
                     >
                       <meshStandardMaterial
                         map={tex}
@@ -3657,9 +3980,9 @@ function Real3DModel({
               <Decal
                 raycast={NO_RAYCAST}
                 mesh={decalHostRef}
-                position={[0, backCY, backProfile.z + torsoZOffsetBack]}
-                rotation={[0, backProfile.rotY || Math.PI, 0]}
-                scale={[backW, backH, TORSO_DEPTH]}
+                position={backDecalPosition}
+                rotation={[0, backDecalRotY, 0]}
+                scale={[backW * materialInset, backH * materialInset, DTF_DECAL_DEPTH]}
               >
                 <meshBasicMaterial
                   map={backTex}
@@ -3730,7 +4053,7 @@ function Real3DModel({
                       mesh={decalHostRef}
                       position={[cx, cy, backProfile.z + torsoZOffsetBack - 0.0026]}
                       rotation={[0, backProfile.rotY || Math.PI, rz]}
-                      scale={[decalW * 1.12, decalH * 1.12, TORSO_DEPTH * 0.9]}
+                      scale={[decalW * 1.12, decalH * 1.12, EMBOSS_DECAL_DEPTH_1]}
                     >
                       <meshStandardMaterial
                         color="#0f1218"
@@ -3752,7 +4075,7 @@ function Real3DModel({
                       mesh={decalHostRef}
                       position={[cx, cy, backProfile.z + torsoZOffsetBack - 0.0036]}
                       rotation={[0, backProfile.rotY || Math.PI, rz]}
-                      scale={[decalW * 1.085, decalH * 1.085, TORSO_DEPTH * 0.84]}
+                      scale={[decalW * 1.085, decalH * 1.085, EMBOSS_DECAL_DEPTH_2]}
                     >
                       <meshStandardMaterial
                         color="#212732"
@@ -3776,7 +4099,7 @@ function Real3DModel({
                       mesh={decalHostRef}
                       position={[cx, cy, backProfile.z + torsoZOffsetBack - 0.0052]}
                       rotation={[0, backProfile.rotY || Math.PI, rz]}
-                      scale={[decalW, decalH, TORSO_DEPTH * 0.6]}
+                      scale={[decalW, decalH, EMBOSS_DECAL_DEPTH_3]}
                     >
                       <meshStandardMaterial
                         map={tex}
@@ -3818,6 +4141,7 @@ function ResizeFrame({
   diagonalOnly = false,
   disableResize = false,
   largeHandles = false,
+  dragBounds = null,
 }) {
   const dragRef = useRef(null);
   const rafRef = useRef(0);
@@ -3858,6 +4182,11 @@ function ResizeFrame({
     const rect = containerRef.current.getBoundingClientRect();
     const { x: px, y: py } = getPointer01(e, rect);
 
+    const boundsRaw = dragBounds && typeof dragBounds === "object" ? dragBounds : {};
+    const xMin = clamp(Number(boundsRaw.xMin ?? 0), 0, 1);
+    const xMax = clamp(Number(boundsRaw.xMax ?? 1), xMin + 0.001, 1);
+    const yMin = clamp(Number(boundsRaw.yMin ?? 0), 0, 1);
+    const yMax = clamp(Number(boundsRaw.yMax ?? 1), yMin + 0.001, 1);
     dragRef.current = {
       mode,
       rect,
@@ -3873,6 +4202,7 @@ function ResizeFrame({
         bottom: box.y + box.h / 2,
       },
       moveOffset: { dx: box.x - px, dy: box.y - py },
+      bounds: { xMin, xMax, yMin, yMax },
     };
     onDragStateChange?.(true);
 
@@ -3893,6 +4223,9 @@ function ResizeFrame({
     const { x: px, y: py } = getPointer01(e, s.rect);
     const minW = 0.12;
     const minH = 0.12;
+    const bounds = s.bounds || { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
+    const maxWBound = Math.max(minW, bounds.xMax - bounds.xMin);
+    const maxHBound = Math.max(minH, bounds.yMax - bounds.yMin);
 
     if (s.mode === "rotate") {
       if (!onRotateChange) return;
@@ -3908,8 +4241,8 @@ function ResizeFrame({
       const halfW = s.startBox.w / 2;
       const halfH = s.startBox.h / 2;
       queueChange({
-        x: clamp(px + s.moveOffset.dx, halfW, 1 - halfW),
-        y: clamp(py + s.moveOffset.dy, halfH, 1 - halfH),
+        x: clamp(px + s.moveOffset.dx, bounds.xMin + halfW, bounds.xMax - halfW),
+        y: clamp(py + s.moveOffset.dy, bounds.yMin + halfH, bounds.yMax - halfH),
         w: s.startBox.w,
         h: s.startBox.h,
       });
@@ -3920,30 +4253,30 @@ function ResizeFrame({
       const ratio = Math.max(0.01, (s.startBox.w || 1) / (s.startBox.h || 1));
       let anchorX = s.startEdges.right;
       let anchorY = s.startEdges.bottom;
-      let maxW = anchorX;
-      let maxH = anchorY;
+      let maxW = Math.min(anchorX - bounds.xMin, maxWBound);
+      let maxH = Math.min(anchorY - bounds.yMin, maxHBound);
       let rawW = Math.abs(anchorX - px);
       let rawH = Math.abs(anchorY - py);
 
       if (s.mode === "rt") {
         anchorX = s.startEdges.left;
         anchorY = s.startEdges.bottom;
-        maxW = 1 - anchorX;
-        maxH = anchorY;
+        maxW = Math.min(bounds.xMax - anchorX, maxWBound);
+        maxH = Math.min(anchorY - bounds.yMin, maxHBound);
         rawW = Math.abs(px - anchorX);
         rawH = Math.abs(anchorY - py);
       } else if (s.mode === "rb") {
         anchorX = s.startEdges.left;
         anchorY = s.startEdges.top;
-        maxW = 1 - anchorX;
-        maxH = 1 - anchorY;
+        maxW = Math.min(bounds.xMax - anchorX, maxWBound);
+        maxH = Math.min(bounds.yMax - anchorY, maxHBound);
         rawW = Math.abs(px - anchorX);
         rawH = Math.abs(py - anchorY);
       } else if (s.mode === "lb") {
         anchorX = s.startEdges.right;
         anchorY = s.startEdges.top;
-        maxW = anchorX;
-        maxH = 1 - anchorY;
+        maxW = Math.min(anchorX - bounds.xMin, maxWBound);
+        maxH = Math.min(bounds.yMax - anchorY, maxHBound);
         rawW = Math.abs(anchorX - px);
         rawH = Math.abs(py - anchorY);
       }
@@ -3953,7 +4286,7 @@ function ResizeFrame({
       let w = dwNorm >= dhNorm ? rawW : rawH * ratio;
       let h = w / ratio;
 
-      w = clamp(w, minW, maxW);
+      w = clamp(w, minW, Math.max(minW, maxW));
       h = w / ratio;
       if (h > maxH) {
         h = maxH;
@@ -3996,8 +4329,8 @@ function ResizeFrame({
       }
 
       queueChange({
-        x: left + w / 2,
-        y: top + h / 2,
+        x: clamp(left + w / 2, bounds.xMin + w / 2, bounds.xMax - w / 2),
+        y: clamp(top + h / 2, bounds.yMin + h / 2, bounds.yMax - h / 2),
         w,
         h,
       });
@@ -4005,14 +4338,19 @@ function ResizeFrame({
     }
 
     let { left, right, top, bottom } = s.startEdges;
-    if (s.mode.includes("l")) left = clamp(px, 0, right - minW);
-    if (s.mode.includes("r")) right = clamp(px, left + minW, 1);
-    if (s.mode.includes("t")) top = clamp(py, 0, bottom - minH);
-    if (s.mode.includes("b")) bottom = clamp(py, top + minH, 1);
+    if (s.mode.includes("l")) left = clamp(px, bounds.xMin, right - minW);
+    if (s.mode.includes("r")) right = clamp(px, left + minW, bounds.xMax);
+    if (s.mode.includes("t")) top = clamp(py, bounds.yMin, bottom - minH);
+    if (s.mode.includes("b")) bottom = clamp(py, top + minH, bounds.yMax);
 
-    const w = right - left;
-    const h = bottom - top;
-    queueChange({ x: left + w / 2, y: top + h / 2, w, h });
+    let w = clamp(right - left, minW, maxWBound);
+    let h = clamp(bottom - top, minH, maxHBound);
+    queueChange({
+      x: clamp(left + w / 2, bounds.xMin + w / 2, bounds.xMax - w / 2),
+      y: clamp(top + h / 2, bounds.yMin + h / 2, bounds.yMax - h / 2),
+      w,
+      h,
+    });
   };
 
   const end = (e) => {
@@ -4161,11 +4499,12 @@ function DesignModelItem({
   const frontMeshRef = useRef({ side: "front" });
   const backMeshRef = useRef({ side: "back" });
 
-  const ROT_SPEED = isMobile ? 0.014 : 0.01;
+  const ROT_SPEED = isMobile ? 0.016 : 0.012;
   const clampRotX = (v) => Math.max(isMobile ? -0.9 : -0.75, Math.min(isMobile ? 0.9 : 0.75, v));
-  const clampRotY = (v) => Math.max(isMobile ? -1.05 : -0.85, Math.min(isMobile ? 1.05 : 0.85, v));
+  const clampRotY = (v) => (Number.isFinite(v) ? v : 0);
   const isColorMode = interactionMode === "color";
   const targetMeshRef = view === "back" ? backMeshRef : frontMeshRef;
+  const hitVolumeScale = isMobile ? [1.58, 1.86, 1.32] : [1.46, 1.72, 1.24];
 
   const resolveTapSideFromEvent = (evt) => {
     const point = evt?.point;
@@ -4298,23 +4637,15 @@ function DesignModelItem({
       }}
       onPointerDown={(e) => {
         e.stopPropagation();
-        const requiredSide = targetMeshRef.current.side;
         const tapSideHint = resolveTapSideFromEvent(e);
         tapSideHintRef.current = tapSideHint;
-        if (tapSideHint && tapSideHint !== requiredSide) {
-          return;
-        }
-        const resolvedTapSide = tapSideHint || requiredSide;
+        const resolvedTapSide = tapSideHint || targetMeshRef.current.side;
         onSelect(design.id);
         if (isColorMode) {
           onModelTap?.(design.id, resolvedTapSide);
           return;
         }
         armHoldTimer(e);
-        if (!isActive) {
-          onModelTap?.(design.id, resolvedTapSide);
-          return;
-        }
         if (holdRef.current.triggered) return;
         if (disableDrag) {
           onModelTap?.(design.id, resolvedTapSide);
@@ -4359,7 +4690,7 @@ function DesignModelItem({
       onPointerUp={(e) => {
         const tapSideHint = tapSideHintRef.current;
         tapSideHintRef.current = null;
-        const requiredSide = targetMeshRef.current.side;
+        const fallbackSide = targetMeshRef.current.side;
         const holdTriggered = holdRef.current.pid === e.pointerId && holdRef.current.triggered;
         if (holdRef.current.pid === e.pointerId) clearHoldTimer();
         if (disableDrag) return;
@@ -4368,7 +4699,7 @@ function DesignModelItem({
         dragRef.current.active = false;
         document.body.style.cursor = "grab";
         if (e.target?.releasePointerCapture) e.target.releasePointerCapture(e.pointerId);
-        if (tapped && !holdTriggered) onModelTap?.(design.id, tapSideHint || requiredSide);
+        if (tapped && !holdTriggered) onModelTap?.(design.id, tapSideHint || fallbackSide);
       }}
       onPointerCancel={(e) => {
         tapSideHintRef.current = null;
@@ -4379,6 +4710,12 @@ function DesignModelItem({
         if (e.target?.releasePointerCapture) e.target.releasePointerCapture(e.pointerId);
       }}
     >
+      {isActive && !isColorMode && (
+        <mesh position={[0, -0.03, 0]} scale={hitVolumeScale}>
+          <sphereGeometry args={[0.72, 20, 16]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
+        </mesh>
+      )}
       <Real3DModel
         color={design.color}
         stringColor={design.stringColor}
@@ -6389,6 +6726,25 @@ function TasarimClientContent({ isMobile }) {
     updateSide({ textPos: next });
   };
 
+  const logoDragBounds01 = useMemo(() => {
+    if (!printBounds) return { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
+    const meshXMin = Number(printBounds.xMin);
+    const meshXMax = Number(printBounds.xMax);
+    const meshYTop = Number(printBounds.yTop);
+    const meshYBot = Number(printBounds.yBot);
+    const w = Math.max(0.001, meshXMax - meshXMin);
+    const h = Math.max(0.001, meshYTop - meshYBot);
+    if (!Number.isFinite(w) || !Number.isFinite(h)) return { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
+    const to01X = (x) => (x - meshXMin) / w;
+    const to01Y = (y) => (meshYTop - y) / h;
+    return {
+      xMin: clamp(to01X(meshXMin), 0, 1),
+      xMax: clamp(to01X(meshXMax), 0, 1),
+      yMin: clamp(to01Y(meshYTop), 0, 1),
+      yMax: clamp(to01Y(meshYBot), 0, 1),
+    };
+  }, [printBounds?.xMin, printBounds?.xMax, printBounds?.yTop, printBounds?.yBot]);
+
   const bumpCustomText = (patch, opts = {}) => {
     const safePatch = patch && typeof patch === "object" ? { ...patch } : {};
     const nextTechnique = Object.prototype.hasOwnProperty.call(safePatch || {}, "technique")
@@ -6456,10 +6812,13 @@ function TasarimClientContent({ isMobile }) {
   const sanitizeLogoBox = (nextBox) => {
     const minW = 0.12;
     const minH = 0.12;
-    const rawW = activeLogoIsEmboss ? activeLogoBox.w : clamp(nextBox.w ?? activeLogoBox.w, minW, 1);
-    const rawH = activeLogoIsEmboss ? activeLogoBox.h : clamp(nextBox.h ?? activeLogoBox.h, minH, 1);
-    const x = clamp(nextBox.x ?? activeLogoBox.x, rawW / 2, 1 - rawW / 2);
-    const y = clamp(nextBox.y ?? activeLogoBox.y, rawH / 2, 1 - rawH / 2);
+    const bounds = logoDragBounds01 || { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
+    const maxW = Math.max(minW, bounds.xMax - bounds.xMin);
+    const maxH = Math.max(minH, bounds.yMax - bounds.yMin);
+    const rawW = activeLogoIsEmboss ? activeLogoBox.w : clamp(nextBox.w ?? activeLogoBox.w, minW, maxW);
+    const rawH = activeLogoIsEmboss ? activeLogoBox.h : clamp(nextBox.h ?? activeLogoBox.h, minH, maxH);
+    const x = clamp(nextBox.x ?? activeLogoBox.x, bounds.xMin + rawW / 2, bounds.xMax - rawW / 2);
+    const y = clamp(nextBox.y ?? activeLogoBox.y, bounds.yMin + rawH / 2, bounds.yMax - rawH / 2);
     const snappedX = Math.abs(x - 0.5) <= snapThreshold ? 0.5 : x;
     const snappedY = Math.abs(y - 0.5) <= snapThreshold ? 0.5 : y;
     return { x: snappedX, y: snappedY, w: rawW, h: rawH };
@@ -8465,7 +8824,7 @@ function TasarimClientContent({ isMobile }) {
                   makeDefault
                   enableZoom
                   enablePan={false}
-                  enableRotate={true}
+                  enableRotate={false}
                   autoRotate={false}
                   autoRotateSpeed={isMobile ? 2.0 : 1.5}
                   enableDamping
@@ -8477,7 +8836,7 @@ function TasarimClientContent({ isMobile }) {
                   enabled={!camAnimating}
                   target={[0, controlsTargetY, 0]}
                   mouseButtons={{ LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null }}
-                  touches={{ ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY }}
+                  touches={{ ONE: THREE.TOUCH.NONE, TWO: THREE.TOUCH.DOLLY }}
                 />
               </Canvas>
             );
@@ -9398,6 +9757,7 @@ function TasarimClientContent({ isMobile }) {
                     box={activeLogo.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 }}
                     containerRef={sceneEditRef}
                     onChange={updateActiveLogoBox}
+                    dragBounds={logoDragBounds01}
                     rotation={Number(activeLogo?.rotation) || 0}
                     onRotateChange={(nextRot) => updateActiveLogo({ rotation: nextRot })}
                     onFrameTap={() => setSceneFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"))}
