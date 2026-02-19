@@ -4555,20 +4555,20 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
     timerRefs.current.push(
       window.setTimeout(() => {
         setCardTransition((prev) => (prev ? { ...prev, phase: "expand" } : prev));
-      }, 110)
+      }, 30)
     );
 
     timerRefs.current.push(
       window.setTimeout(() => {
         onContinue?.(modelType);
-      }, 560)
+      }, 350)
     );
 
     timerRefs.current.push(
       window.setTimeout(() => {
         transitionLockRef.current = false;
         setCardTransition(null);
-      }, 760)
+      }, 500)
     );
   };
 
@@ -4585,20 +4585,20 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
           const dy = targetCenterY - startCenterY;
           const sx = targetRect.width / Math.max(1, startRect.width);
           const sy = targetRect.height / Math.max(1, startRect.height);
-          const ease = "cubic-bezier(0.22, 1, 0.36, 1)";
+          const ease = "cubic-bezier(0.34, 1.15, 0.64, 1)";
 
           const isExpand = phase === "expand";
-          let transform = "translate3d(0px, 0px, 0px) scale(1.04)";
-          let transition = `transform 110ms ${ease}`;
+          let transform = "translate3d(0px, 0px, 0px) scale(0.97)";
+          let transition = "transform 100ms cubic-bezier(0.2, 0, 0, 1)";
           if (isExpand) {
             transform = `translate3d(${dx}px, ${dy}px, 0px) scale(${sx}, ${sy})`;
-            transition = `transform 380ms ${ease}`;
+            transition = `transform 350ms ${ease}`;
           }
           const cardRadius = isExpand ? "0px" : "20px";
           const cardShadow = isExpand
-            ? "0 30px 68px rgba(0,0,0,0.24)"
-            : "0 18px 44px rgba(0,0,0,0.20)";
-          const imageTransform = isExpand ? "scale(1.06)" : "scale(1.00)";
+            ? "0 40px 80px rgba(0,0,0,0.3)"
+            : "0 10px 30px rgba(0,0,0,0.15)";
+          const imageTransform = isExpand ? "scale(1.03)" : "scale(1.00)";
 
           return (
             <div className="fixed inset-0 z-[140] pointer-events-none">
@@ -4616,7 +4616,7 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                 style={{
                   opacity: isExpand ? 1 : 0,
                   transform: isExpand ? "translateY(0px)" : "translateY(-12px)",
-                  transition: `opacity 220ms ${ease} 120ms, transform 220ms ${ease} 120ms`,
+                  transition: `opacity 200ms ${ease} 50ms, transform 200ms ${ease} 50ms`,
                 }}
               >
                 <div className="h-[72px] mt-3 rounded-2xl border border-white/35 bg-white/75 backdrop-blur-sm shadow-[0_10px_24px_rgba(0,0,0,0.12)]" />
@@ -4627,7 +4627,7 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                 style={{
                   opacity: isExpand ? 1 : 0,
                   transform: isExpand ? "translateY(0px)" : "translateY(40px)",
-                  transition: `opacity 240ms ${ease} 120ms, transform 240ms ${ease} 120ms`,
+                  transition: `opacity 200ms ${ease} 50ms, transform 200ms ${ease} 50ms`,
                 }}
               >
                 <div className="h-[190px] rounded-3xl border border-white/35 bg-white/82 backdrop-blur-sm shadow-[0_-10px_24px_rgba(0,0,0,0.14)]" />
