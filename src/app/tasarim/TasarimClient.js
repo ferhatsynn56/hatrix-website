@@ -2494,6 +2494,7 @@ function ShrinkwrappedRubberGlyph({
   rotationZ,
   scale,
   color,
+  materialSide = THREE.FrontSide,
   shrinkwrap = true,
   stick = 0.96,
   depthBoost = 5.5,
@@ -2518,9 +2519,9 @@ function ShrinkwrappedRubberGlyph({
         polygonOffset: true,
         polygonOffsetFactor: RUBBER_TEXT_POLYGON_OFFSET_FACTOR,
         polygonOffsetUnits: RUBBER_TEXT_POLYGON_OFFSET_UNITS,
-        side: THREE.FrontSide,
+        side: materialSide,
       }),
-    [color]
+    [color, materialSide]
   );
 
   useLayoutEffect(() => {
@@ -2942,6 +2943,15 @@ function InjectionPatternStamp({
       });
     }
 
+    // Kalibra: enjeksiyon desenlerini dik aynalanmış görünümden çıkarıp
+    // model yüzeyine doğru yönde oturtmak için Y ekseninde çevir.
+    usableEntries.forEach((entry) => {
+      entry.geometry.scale(1, -1, 1);
+      entry.geometry.computeVertexNormals?.();
+      entry.geometry.computeBoundingBox?.();
+      entry.bbox = entry.geometry.boundingBox ? entry.geometry.boundingBox.clone() : entry.bbox;
+    });
+
     const unionBox = rebuildUnion(usableEntries);
     if (unionBox.isEmpty()) {
       usableEntries.forEach((entry) => entry.geometry.dispose?.());
@@ -3020,9 +3030,9 @@ function InjectionPatternStamp({
   const sideRotY = Number(profile.rotY ?? (side === "back" ? Math.PI : 0));
   const tiltX = Number.isFinite(Number(resolvedOption?.tiltX)) ? Number(resolvedOption.tiltX) : 0;
   const rz = ((Number(sideData?.injectionRotation) || 0) * Math.PI) / 180;
-  const zNudge = side === "back" ? -0.00001 : 0.00001;
+  const zNudge = side === "back" ? -0.000016 : 0.000016;
   const color = sideData?.customText?.color || "#f3f4f6";
-  const stick = clamp(Number(sideData?.injectionStick ?? sideData?.customText?.rubberStick ?? 0.995), 0.92, 1);
+  const stick = clamp(Number(sideData?.injectionStick ?? sideData?.customText?.rubberStick ?? 0.965), 0.88, 1);
   const placementKey = `${side}_${resolvedOption?.id || "none"}_${cx}_${cy}_${rz}_${stick}`;
 
   if (!isEnabled || !resolvedOption) return null;
@@ -3041,11 +3051,12 @@ function InjectionPatternStamp({
           surfaceSide={side}
           position={[0, 0, 0]}
           rotationZ={0}
-          scale={[entry.scalar, entry.scalar, entry.scalar * 0.19]}
+          scale={[entry.scalar, entry.scalar, entry.scalar * 0.24]}
           color={color}
+          materialSide={THREE.DoubleSide}
           shrinkwrap
           stick={stick}
-          depthBoost={2.6}
+          depthBoost={3.4}
           placementKey={`${placementKey}_${idx}`}
         />
       ))}
