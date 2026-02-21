@@ -9709,7 +9709,7 @@ function TasarimClientContent({ isMobile }) {
                 height: scenePlaneRect ? `${scenePlaneRect.height}px` : undefined,
                 aspectRatio: scenePlaneRect ? undefined : previewAspect,
                 transform: scenePlaneRect ? "none" : "translate(-50%, -50%)",
-                pointerEvents: sceneOverlayInteractionEnabled ? "auto" : "none",
+                pointerEvents: "none",
               }}
             >
               <div
