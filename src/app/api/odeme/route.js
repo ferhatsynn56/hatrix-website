@@ -18,7 +18,6 @@ const MODEL_BASE_PRICES = Object.freeze({
   "hoodie-v12-canavari": 750,
   "oversize-hoodie-parcali": 800,
   "polarv3": 800,
-  "polar-son": 800,
 });
 
 const MODEL_TYPE_ALIASES = Object.freeze({
@@ -45,7 +44,6 @@ const MODEL_TYPE_ALIASES = Object.freeze({
   polarv3: "polarv3",
   polarv5: "polarv3",
   polar: "polarv3",
-  "polar-son": "polarv3",
   "duz tisort": "yeni-duz-tshirt",
   "duz tshirt": "yeni-duz-tshirt",
 });

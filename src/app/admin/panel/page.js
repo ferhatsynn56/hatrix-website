@@ -43,7 +43,6 @@ const MODEL_CM_LABELS = {
   fermuarli: { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
   polar: { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
   "polarv3": { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
-  "polar-son": { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
   "yeni-duz-tshirt": { front: { w: 40, h: 54 }, back: { w: 40, h: 54 } },
   "yeni-oversize-tshirt": { front: { w: 45, h: 60 }, back: { w: 45, h: 60 } },
   "yeni-duz-sweat": { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },

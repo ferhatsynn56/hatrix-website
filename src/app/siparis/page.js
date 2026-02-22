@@ -42,7 +42,6 @@ const MODEL_TYPE_ALIASES = {
   polarv3: "polarv3",
   polarv5: "polarv3",
   polar: "polarv3",
-  "polar-son": "polarv3",
 };
 
 const normalizeFabricType = (fabricType, modelType) => {

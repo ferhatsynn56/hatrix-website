@@ -100,6 +100,7 @@ const NEW_MODELS_DIR_REMASTERED = `${NEW_MODELS_ROOT}/modelRemastered`;
 const INJECTION_MODELS_ROOT = "/models/Enjeksiyon 3D HAZIR MODELLER";
 const MODELS_WITH_HOODIE_PARTS = new Set(["hoodie-v12-canavari", "oversize-hoodie-parcali"]);
 const DEFAULT_MODEL_TYPE = "yeni-duz-tshirt";
+const BG_API_BASE_URL = (process.env.NEXT_PUBLIC_BG_API_URL || "http://127.0.0.1:8000").replace(/\/+$/, "");
 
 /* ================= MODEL PATHS ================= */
 const PRIMARY_MODEL_PATHS = Object.freeze({
@@ -108,7 +109,7 @@ const PRIMARY_MODEL_PATHS = Object.freeze({
   "yeni-duz-sweat": `${NEW_MODELS_DIR_REMASTERED}/SweatTHEND.glb`,
   "yeni-oversize-sweat": `${NEW_MODELS_DIR_REMASTERED}/SweatOwersizeTHEND.glb`,
   "yeni-fermuarli": `${NEW_MODELS_DIR_REMASTERED}/FermuarliSweat.glb`,
-  "polarv3": `${NEW_MODELS_DIR_REMASTERED}/polarv9.glb`,
+  "polarv3": `${NEW_MODELS_DIR_REMASTERED}/PolarV5.glb`,
   "hoodie-v12-canavari": `${NEW_MODELS_DIR_REMASTERED}/Classic_HoodieTHENDv1.glb`,
   "oversize-hoodie-parcali": `${NEW_MODELS_DIR_REMASTERED}/Hoodie_Owersize_THEND.glb`,
 });
@@ -136,10 +137,6 @@ const MODEL_TYPE_ALIASES = Object.freeze({
   fermuarli: "yeni-fermuarli",
   polar: "polarv3",
   polarv5: "polarv3",
-  polarv6: "polarv3",
-  polarv8: "polarv3",
-  polarv9: "polarv3",
-  "polar-son": "polarv3",
   "duz tisort": "yeni-duz-tshirt",
   "duz tshirt": "yeni-duz-tshirt",
 });
@@ -335,6 +332,30 @@ const STATIC_DECAL_DEPTH = Object.freeze({
 });
 
 const MODEL_PRINT_PROFILE_CACHE = new Map();
+const MODEL_CENTER_CACHE = new Map();
+let PRINT_PROFILE_CACHE_REV = 0;
+const PRINT_PROFILE_CACHE_SUBSCRIBERS = new Set();
+
+const notifyPrintProfileCacheChanged = () => {
+  PRINT_PROFILE_CACHE_REV += 1;
+  PRINT_PROFILE_CACHE_SUBSCRIBERS.forEach((listener) => {
+    try {
+      listener(PRINT_PROFILE_CACHE_REV);
+    } catch {
+      // no-op
+    }
+  });
+};
+
+const subscribePrintProfileCacheChanged = (listener) => {
+  if (typeof listener !== "function") return () => {};
+  PRINT_PROFILE_CACHE_SUBSCRIBERS.add(listener);
+  return () => {
+    PRINT_PROFILE_CACHE_SUBSCRIBERS.delete(listener);
+  };
+};
+
+const getPrintProfileCacheRevision = () => PRINT_PROFILE_CACHE_REV;
 const MODEL_ZIP_GAP_HINTS = Object.freeze({
   "yeni-fermuarli": 0.11,
   fermuarli: 0.11,
@@ -696,14 +717,22 @@ const registerMaterialPrintProfiles = (modelType, profiles) => {
   const nextSleeve = normalizePrintProfile(sleeveSource, "sleeve", normalized);
   const nextSleeveLeft = normalizePrintProfile(sleeveLeftSource, "sleeve_left", normalized);
   const nextSleeveRight = normalizePrintProfile(sleeveRightSource, "sleeve_right", normalized);
-  const serializedNext = JSON.stringify({
+  const serializeProfiles = (entry) =>
+    JSON.stringify({
+      front: entry?.front || null,
+      back: entry?.back || null,
+      sleeve: entry?.sleeve || null,
+      sleeveLeft: entry?.sleeveLeft || entry?.sleeve_left || null,
+      sleeveRight: entry?.sleeveRight || entry?.sleeve_right || null,
+    });
+  const serializedNext = serializeProfiles({
     front: nextFront,
     back: nextBack,
     sleeve: nextSleeve,
     sleeveLeft: nextSleeveLeft,
     sleeveRight: nextSleeveRight,
   });
-  const serializedPrev = prev ? JSON.stringify(prev) : "";
+  const serializedPrev = serializeProfiles(prev);
   if (serializedNext === serializedPrev) return false;
   MODEL_PRINT_PROFILE_CACHE.set(normalized, {
     front: nextFront,
@@ -711,7 +740,10 @@ const registerMaterialPrintProfiles = (modelType, profiles) => {
     sleeve: nextSleeve,
     sleeveLeft: nextSleeveLeft,
     sleeveRight: nextSleeveRight,
+    sleeve_left: nextSleeveLeft,
+    sleeve_right: nextSleeveRight,
   });
+  notifyPrintProfileCacheChanged();
   return true;
 };
 
@@ -870,7 +902,13 @@ const getPrintProfile = (modelType, side = "front", hoodieParts = DEFAULT_HOODIE
   const safeSide = normalizePrintSide(side);
   const cached = MODEL_PRINT_PROFILE_CACHE.get(normalized);
   const staticProfile = STATIC_PRINT_PROFILES[normalized]?.[safeSide] || DEFAULT_PRINT_PROFILE[safeSide];
-  const baseSource = cached?.[safeSide] || staticProfile;
+  const cachedSource =
+    safeSide === "sleeve_left"
+      ? cached?.sleeve_left || cached?.sleeveLeft
+      : safeSide === "sleeve_right"
+        ? cached?.sleeve_right || cached?.sleeveRight
+        : cached?.[safeSide];
+  const baseSource = cachedSource || staticProfile;
   const base = normalizePrintProfile(baseSource, safeSide, normalized);
   if (safeSide !== "front") return base;
   return applyHoodiePocketClampToFront(base, normalized, hoodieParts);
@@ -1785,6 +1823,214 @@ const loadImg = (src) =>
     promise.then(resolve).catch(reject);
     img.src = key;
   });
+
+const releaseCachedImageSource = (src) => {
+  const key = String(src || "");
+  if (!key) return;
+  const cached = IMAGE_CACHE.get(key);
+  if (cached?.img) {
+    cached.img.onload = null;
+    cached.img.onerror = null;
+    try {
+      cached.img.src = "";
+    } catch { }
+  }
+  IMAGE_CACHE.delete(key);
+};
+
+const canvasToPngBlob = (canvas) =>
+  new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), "image/png");
+  });
+
+async function cropTransparentPng(inputBlob, opts = {}) {
+  const safeBlob =
+    inputBlob instanceof Blob
+      ? inputBlob
+      : new Blob([inputBlob], { type: "image/png" });
+  const alphaThreshold = clamp(Math.round(Number(opts?.alphaThreshold ?? 1)), 0, 255);
+  const padding = Math.max(0, Math.round(Number(opts?.padding ?? 0)));
+  if (typeof document === "undefined") {
+    const file = new File([safeBlob], "no-bg.png", { type: "image/png" });
+    return {
+      file,
+      blob: safeBlob,
+      width: 0,
+      height: 0,
+      sourceWidth: 0,
+      sourceHeight: 0,
+      trimmed: false,
+    };
+  }
+
+  const tmpUrl = URL.createObjectURL(safeBlob);
+  try {
+    const img = await loadImg(tmpUrl);
+    const sourceWidth = Math.max(1, img.naturalWidth || img.width || 1);
+    const sourceHeight = Math.max(1, img.naturalHeight || img.height || 1);
+
+    const srcCanvas = document.createElement("canvas");
+    srcCanvas.width = sourceWidth;
+    srcCanvas.height = sourceHeight;
+    const srcCtx = srcCanvas.getContext("2d", { willReadFrequently: true });
+    if (!srcCtx) {
+      const fallbackFile = new File([safeBlob], "no-bg.png", { type: "image/png" });
+      return {
+        file: fallbackFile,
+        blob: safeBlob,
+        width: sourceWidth,
+        height: sourceHeight,
+        sourceWidth,
+        sourceHeight,
+        trimmed: false,
+      };
+    }
+
+    srcCtx.clearRect(0, 0, sourceWidth, sourceHeight);
+    srcCtx.drawImage(img, 0, 0, sourceWidth, sourceHeight);
+    const { data } = srcCtx.getImageData(0, 0, sourceWidth, sourceHeight);
+
+    let minX = sourceWidth;
+    let minY = sourceHeight;
+    let maxX = -1;
+    let maxY = -1;
+
+    for (let y = 0; y < sourceHeight; y += 1) {
+      const rowOffset = y * sourceWidth * 4;
+      for (let x = 0; x < sourceWidth; x += 1) {
+        const a = data[rowOffset + x * 4 + 3];
+        if (a <= alphaThreshold) continue;
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+
+    if (maxX < minX || maxY < minY) {
+      const emptyCanvas = document.createElement("canvas");
+      emptyCanvas.width = 1;
+      emptyCanvas.height = 1;
+      const emptyBlob = (await canvasToPngBlob(emptyCanvas)) || new Blob([], { type: "image/png" });
+      const emptyFile = new File([emptyBlob], "no-bg.png", { type: "image/png" });
+      return {
+        file: emptyFile,
+        blob: emptyBlob,
+        width: 1,
+        height: 1,
+        sourceWidth,
+        sourceHeight,
+        trimmed: true,
+      };
+    }
+
+    minX = Math.max(0, minX - padding);
+    minY = Math.max(0, minY - padding);
+    maxX = Math.min(sourceWidth - 1, maxX + padding);
+    maxY = Math.min(sourceHeight - 1, maxY + padding);
+
+    const cropWidth = Math.max(1, maxX - minX + 1);
+    const cropHeight = Math.max(1, maxY - minY + 1);
+    const trimmed = cropWidth !== sourceWidth || cropHeight !== sourceHeight;
+
+    let resultBlob = safeBlob;
+    if (trimmed) {
+      const outCanvas = document.createElement("canvas");
+      outCanvas.width = cropWidth;
+      outCanvas.height = cropHeight;
+      const outCtx = outCanvas.getContext("2d");
+      if (outCtx) {
+        outCtx.clearRect(0, 0, cropWidth, cropHeight);
+        outCtx.drawImage(srcCanvas, minX, minY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+        resultBlob = (await canvasToPngBlob(outCanvas)) || safeBlob;
+      }
+      outCanvas.width = 1;
+      outCanvas.height = 1;
+    }
+
+    const file = new File([resultBlob], "no-bg.png", { type: "image/png" });
+    srcCanvas.width = 1;
+    srcCanvas.height = 1;
+    return {
+      file,
+      blob: resultBlob,
+      width: cropWidth,
+      height: cropHeight,
+      sourceWidth,
+      sourceHeight,
+      trimmed,
+    };
+  } finally {
+    releaseCachedImageSource(tmpUrl);
+    try {
+      URL.revokeObjectURL(tmpUrl);
+    } catch { }
+  }
+}
+
+const recomputeLogoBoxAfterTrim = ({
+  box,
+  sourceWidth,
+  sourceHeight,
+  croppedWidth,
+  croppedHeight,
+  bounds = null,
+  preserveVisibleSize = false,
+}) => {
+  const current = {
+    x: Number(box?.x) || 0.5,
+    y: Number(box?.y) || 0.5,
+    w: Number(box?.w) || 0.7,
+    h: Number(box?.h) || 0.45,
+  };
+  const minW = 0.12;
+  const minH = 0.12;
+  const safeBounds = {
+    xMin: clamp(Number(bounds?.xMin ?? 0), 0, 1),
+    xMax: clamp(Number(bounds?.xMax ?? 1), 0, 1),
+    yMin: clamp(Number(bounds?.yMin ?? 0), 0, 1),
+    yMax: clamp(Number(bounds?.yMax ?? 1), 0, 1),
+  };
+  const maxW = Math.max(minW, safeBounds.xMax - safeBounds.xMin);
+  const maxH = Math.max(minH, safeBounds.yMax - safeBounds.yMin);
+
+  const srcW = Math.max(1, Number(sourceWidth) || 1);
+  const srcH = Math.max(1, Number(sourceHeight) || 1);
+  const cropW = Math.max(1, Number(croppedWidth) || srcW);
+  const cropH = Math.max(1, Number(croppedHeight) || srcH);
+  const aspect = clamp(cropW / cropH, 0.08, 12);
+
+  let nextW;
+  let nextH;
+
+  if (preserveVisibleSize) {
+    const widthRatio = clamp(cropW / srcW, 0.05, 4);
+    const heightRatio = clamp(cropH / srcH, 0.05, 4);
+    nextW = current.w * widthRatio;
+    nextH = current.h * heightRatio;
+  } else {
+    const area = Math.max(minW * minH, current.w * current.h);
+    nextW = Math.sqrt(area * aspect);
+    nextH = nextW / aspect;
+  }
+
+  nextW = clamp(nextW, minW, maxW);
+  nextH = nextW / aspect;
+  if (nextH < minH) {
+    nextH = minH;
+    nextW = nextH * aspect;
+  } else if (nextH > maxH) {
+    nextH = maxH;
+    nextW = nextH * aspect;
+  }
+  nextW = clamp(nextW, minW, maxW);
+  nextH = clamp(nextH, minH, maxH);
+
+  const x = clamp(current.x, safeBounds.xMin + nextW / 2, safeBounds.xMax - nextW / 2);
+  const y = clamp(current.y, safeBounds.yMin + nextH / 2, safeBounds.yMax - nextH / 2);
+
+  return { x, y, w: nextW, h: nextH };
+};
 
 async function optimizeUploadDataUrl(file) {
   if (!file || !String(file.type || "").startsWith("image/")) {
@@ -4055,17 +4301,19 @@ function Real3DModel({
 
   const normalizedModel = normalizeModelType(modelType);
   const DTF_DECAL_DEPTH = STATIC_DECAL_DEPTH[normalizedModel] ?? 0.18;
-  const backDecalDepth =
+  const frontDecalDepth =
     normalizedModel === "polarv3" ? Math.min(DTF_DECAL_DEPTH, 0.22) : DTF_DECAL_DEPTH;
+  const backDecalDepth =
+    normalizedModel === "polarv3" ? Math.min(DTF_DECAL_DEPTH, 0.12) : DTF_DECAL_DEPTH;
   const sleeveDecalDepth =
-    normalizedModel === "polarv3" ? Math.min(DTF_DECAL_DEPTH, 0.16) : DTF_DECAL_DEPTH;
-  const DTF_SURFACE_OFFSET = 0.008;
-  const sleeveSurfaceOffset = normalizedModel === "polarv3" ? 0.0032 : DTF_SURFACE_OFFSET;
+    normalizedModel === "polarv3" ? Math.min(DTF_DECAL_DEPTH, 0.12) : DTF_DECAL_DEPTH;
+  const baseSurfaceOffset = normalizedModel === "polarv3" ? 0.0012 : 0.008;
+  const frontSurfaceOffset = normalizedModel === "polarv3" ? 0.0014 : baseSurfaceOffset;
+  const backSurfaceOffset = normalizedModel === "polarv3" ? 0.0008 : baseSurfaceOffset;
+  const sleeveSurfaceOffset = normalizedModel === "polarv3" ? 0.0012 : baseSurfaceOffset;
   const EMBOSS_DECAL_DEPTH_1 = 0.032;
   const EMBOSS_DECAL_DEPTH_2 = 0.027;
   const EMBOSS_DECAL_DEPTH_3 = 0.022;
-  const frontDecalRotY = 0;
-  const backDecalRotY = Math.PI;
 
   const frontProfile = useMemo(() => {
     const normalized = normalizeModelType(modelType);
@@ -4141,12 +4389,14 @@ function Real3DModel({
   const backW = backProfile.xMax - backProfile.xMin;
   const backH = backProfile.yTop - backProfile.yBot;
   const backCY = (backProfile.yTop + backProfile.yBot) / 2;
+  const frontDecalRotY = Number.isFinite(Number(frontProfile?.rotY)) ? Number(frontProfile.rotY) : 0;
+  const backDecalRotY = Number.isFinite(Number(backProfile?.rotY)) ? Number(backProfile.rotY) : Math.PI;
 
   const materialInset = 0.985;
 
-  const torsoZOffsetFront = 0.001;
-  const torsoZOffsetBack = -0.001;
-  const torsoZOffsetSleeve = normalizedModel === "polarv3" ? 0.0003 : 0.001;
+  const torsoZOffsetFront = normalizedModel === "polarv3" ? 0.0002 : 0.001;
+  const torsoZOffsetBack = normalizedModel === "polarv3" ? -0.0002 : -0.001;
+  const torsoZOffsetSleeve = normalizedModel === "polarv3" ? 0.0001 : 0.001;
   const frontDecalNormal = useMemo(
     () => new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(0, frontDecalRotY, 0)).normalize(),
     [frontDecalRotY]
@@ -4157,19 +4407,19 @@ function Real3DModel({
   );
   const frontDecalPosition = useMemo(
     () => [
-      frontDecalNormal.x * DTF_SURFACE_OFFSET,
-      frontCY + frontDecalNormal.y * DTF_SURFACE_OFFSET,
-      frontProfile.z + torsoZOffsetFront + frontDecalNormal.z * DTF_SURFACE_OFFSET,
+      frontDecalNormal.x * frontSurfaceOffset,
+      frontCY + frontDecalNormal.y * frontSurfaceOffset,
+      frontProfile.z + torsoZOffsetFront + frontDecalNormal.z * frontSurfaceOffset,
     ],
-    [frontCY, frontProfile.z, frontDecalNormal, torsoZOffsetFront]
+    [frontCY, frontProfile.z, frontDecalNormal, torsoZOffsetFront, frontSurfaceOffset]
   );
   const backDecalPosition = useMemo(
     () => [
-      backDecalNormal.x * DTF_SURFACE_OFFSET,
-      backCY + backDecalNormal.y * DTF_SURFACE_OFFSET,
-      backProfile.z + torsoZOffsetBack + backDecalNormal.z * DTF_SURFACE_OFFSET,
+      backDecalNormal.x * backSurfaceOffset,
+      backCY + backDecalNormal.y * backSurfaceOffset,
+      backProfile.z + torsoZOffsetBack + backDecalNormal.z * backSurfaceOffset,
     ],
-    [backCY, backProfile.z, backDecalNormal, torsoZOffsetBack]
+    [backCY, backProfile.z, backDecalNormal, torsoZOffsetBack, backSurfaceOffset]
   );
   const buildSleeveDecalTarget = useCallback(
     (profile, key) => {
@@ -4300,6 +4550,11 @@ function Real3DModel({
     return center;
   }, [root, decalHost]);
 
+  useEffect(() => {
+    const normalized = normalizeModelType(modelType);
+    MODEL_CENTER_CACHE.set(normalized, modelCenter.clone());
+  }, [modelType, modelCenter.x, modelCenter.y, modelCenter.z]);
+
   return (
     <group dispose={null} position={[0, -0.08, 0]}>
       <group position={[-modelCenter.x, -modelCenter.y, -modelCenter.z]}>
@@ -4313,7 +4568,7 @@ function Real3DModel({
                 mesh={decalHostRef}
                 position={frontDecalPosition}
                 rotation={[0, frontDecalRotY, 0]}
-                scale={[frontW * materialInset, frontH * materialInset, DTF_DECAL_DEPTH]}
+                scale={[frontW * materialInset, frontH * materialInset, frontDecalDepth]}
                 renderOrder={999}
               >
                 <meshBasicMaterial
@@ -4322,11 +4577,11 @@ function Real3DModel({
                   color="#ffffff"
                   transparent
                   alphaTest={0.02}
-                  depthTest={false}
+                  depthTest={true}
                   depthWrite={false}
-                  polygonOffset
-                  polygonOffsetFactor={-10}
-                  polygonOffsetUnits={-4}
+                  polygonOffset={true}
+                  polygonOffsetFactor={-1}
+                  polygonOffsetUnits={-1}
                   premultipliedAlpha
                   side={THREE.DoubleSide}
                 />
@@ -4471,11 +4726,11 @@ function Real3DModel({
                   color="#ffffff"
                   transparent
                   alphaTest={0.02}
-                  depthTest={false}
+                  depthTest={true}
                   depthWrite={false}
-                  polygonOffset
-                  polygonOffsetFactor={-10}
-                  polygonOffsetUnits={-4}
+                  polygonOffset={true}
+                  polygonOffsetFactor={-1}
+                  polygonOffsetUnits={-1}
                   premultipliedAlpha
                   side={THREE.DoubleSide}
                 />
@@ -4532,13 +4787,13 @@ function Real3DModel({
                   color="#ffffff"
                   transparent
                   alphaTest={0.02}
-                  depthTest={false}
+                  depthTest={true}
                   depthWrite={false}
-                  polygonOffset
-                  polygonOffsetFactor={-10}
-                  polygonOffsetUnits={-4}
+                  polygonOffset={true}
+                  polygonOffsetFactor={-1}
+                  polygonOffsetUnits={-1}
                   premultipliedAlpha
-                  side={THREE.FrontSide}
+                  side={THREE.DoubleSide}
                 />
               </Decal>
             )}
@@ -4559,13 +4814,13 @@ function Real3DModel({
                   color="#ffffff"
                   transparent
                   alphaTest={0.02}
-                  depthTest={false}
+                  depthTest={true}
                   depthWrite={false}
-                  polygonOffset
-                  polygonOffsetFactor={-10}
-                  polygonOffsetUnits={-4}
+                  polygonOffset={true}
+                  polygonOffsetFactor={-1}
+                  polygonOffsetUnits={-1}
                   premultipliedAlpha
-                  side={THREE.FrontSide}
+                  side={THREE.DoubleSide}
                 />
               </Decal>
             )}
@@ -5054,6 +5309,13 @@ function DesignModelItem({
 
   const resolveTapSideFromEvent = (evt) => {
     if (view === "sleeve_left" || view === "sleeve_right") return view;
+    const intersections = Array.isArray(evt?.intersections) ? evt.intersections : [];
+    const normalHit = intersections.find((hit) => hit?.face?.normal && hit?.object?.matrixWorld);
+    if (normalHit?.face?.normal && normalHit?.object?.matrixWorld) {
+      const worldNormal = normalHit.face.normal.clone().transformDirection(normalHit.object.matrixWorld).normalize();
+      if (worldNormal.z > INTERACTION_SIDE_EPSILON) return "front";
+      if (worldNormal.z < -INTERACTION_SIDE_EPSILON) return "back";
+    }
     const point = evt?.point;
     const group = groupRef.current;
     if (!point || !group) return null;
@@ -7108,10 +7370,15 @@ function TasarimClientContent({ isMobile }) {
   const [sceneModelSelectionId, setSceneModelSelectionId] = useState(null);
   const [showPlacementPanel, setShowPlacementPanel] = useState(false);
   const [scenePlaneRect, setScenePlaneRect] = useState(null);
+  const [printProfileRevision, setPrintProfileRevision] = useState(() => getPrintProfileCacheRevision());
+  const [bgRemovalLoading, setBgRemovalLoading] = useState(false);
+  const [bgRemovalNotice, setBgRemovalNotice] = useState("");
+  const [bgRemovalNoticeType, setBgRemovalNoticeType] = useState("idle");
   const logoCountTrackRef = useRef({});
   const prevActiveTabRef = useRef("upload");
   const placementPanelIntentRef = useRef(false);
   const lastGlobalUiEventTsRef = useRef(0);
+  const bgRemovedObjectUrlsRef = useRef(new Map());
 
   useEffect(() => {
     if (!isMobile && runtimeLowPerfMode) {
@@ -7131,6 +7398,20 @@ function TasarimClientContent({ isMobile }) {
       window.removeEventListener("click", markInteraction, true);
     };
   }, []);
+
+  useEffect(() => subscribePrintProfileCacheChanged(setPrintProfileRevision), []);
+
+  useEffect(
+    () => () => {
+      bgRemovedObjectUrlsRef.current.forEach((url) => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch { }
+      });
+      bgRemovedObjectUrlsRef.current.clear();
+    },
+    []
+  );
 
   const toggleLockAspect = () => {
     setLockAspect((prev) => {
@@ -7152,7 +7433,7 @@ function TasarimClientContent({ isMobile }) {
     const modelType = currentActiveDesign?.modelType || "tshirt";
     const side = resolveEditableSide(currentSide);
     return getPrintProfile(modelType, side, currentActiveDesign?.hoodieV12Parts);
-  }, [currentActiveDesign?.modelType, currentActiveDesign?.hoodieV12Parts, currentSide]);
+  }, [currentActiveDesign?.modelType, currentActiveDesign?.hoodieV12Parts, currentSide, printProfileRevision]);
   const previewAspect = useMemo(() => {
     if (printBounds) {
       const w = printBounds.xMax - printBounds.xMin;
@@ -7227,6 +7508,31 @@ function TasarimClientContent({ isMobile }) {
   const showSceneTextFrame = Boolean(sceneTextSelectionVisible && hasSceneText);
   const showSceneInjectionFrame = Boolean(sceneInjectionSelectionVisible && hasSceneInjection && !textEditingMode);
   const isSceneInjectionCompact = (sceneInjectionBox?.w || 0) < 0.24 || (sceneInjectionBox?.h || 0) < 0.18;
+
+  useEffect(() => {
+    setBgRemovalNotice("");
+    setBgRemovalNoticeType("idle");
+  }, [activeId, currentSide, activeLogo?.id]);
+
+  useEffect(() => {
+    const liveLogoUrlById = new Map();
+    (designs || []).forEach((d) => {
+      Object.values(d?.sides || {}).forEach((sideEntry) => {
+        (sideEntry?.logos || []).forEach((logo) => {
+          if (!logo?.id || !logo?.url) return;
+          liveLogoUrlById.set(logo.id, String(logo.url));
+        });
+      });
+    });
+    for (const [logoId, objectUrl] of bgRemovedObjectUrlsRef.current.entries()) {
+      if (liveLogoUrlById.get(logoId) !== objectUrl) {
+        try {
+          URL.revokeObjectURL(objectUrl);
+        } catch { }
+        bgRemovedObjectUrlsRef.current.delete(logoId);
+      }
+    }
+  }, [designs]);
 
   useEffect(() => {
     setSceneSelectionVisible(false);
@@ -7416,6 +7722,131 @@ function TasarimClientContent({ isMobile }) {
     updateSide({ logos: nextLogos });
   };
 
+  const handleRemoveActiveImageBackground = async () => {
+    const targetLogo = activeLogo;
+    const sourceUrl = String(targetLogo?.url || "").trim();
+    if (!targetLogo?.id || !sourceUrl) {
+      setBgRemovalNotice("Önce görsel yükleyin.");
+      setBgRemovalNoticeType("error");
+      return;
+    }
+    if (bgRemovalLoading) return;
+
+    const targetDesignId = activeId;
+    const targetSide = resolveEditableSide(currentSide);
+    const targetLogoId = targetLogo.id;
+    const targetBounds = logoDragBounds01 || { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
+    const preserveVisibleSizeAfterTrim = false;
+
+    setBgRemovalLoading(true);
+    setBgRemovalNotice("");
+    setBgRemovalNoticeType("idle");
+
+    try {
+      const sourceResponse = await fetch(sourceUrl);
+      if (!sourceResponse.ok) {
+        throw new Error("Seçili görsel okunamadı.");
+      }
+      const sourceBlob = await sourceResponse.blob();
+      if (!sourceBlob || sourceBlob.size === 0) {
+        throw new Error("Seçili görsel verisi bulunamadı.");
+      }
+      const sourceType = sourceBlob.type || "image/png";
+      const ext = sourceType.includes("jpeg") ? "jpg" : sourceType.includes("webp") ? "webp" : "png";
+      const sourceFile = new File([sourceBlob], `upload.${ext}`, { type: sourceType });
+
+      const formData = new FormData();
+      formData.append("file", sourceFile);
+
+      const response = await fetch(`${BG_API_BASE_URL}/remove-bg`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) {
+        throw new Error(`Arka plan silinemedi (${response.status}).`);
+      }
+
+      const resultBlob = await response.blob();
+      if (!resultBlob || resultBlob.size === 0) {
+        throw new Error("Sunucudan geçerli görsel dönmedi.");
+      }
+
+      const pngBlob = new Blob([await resultBlob.arrayBuffer()], { type: "image/png" });
+      const trimmed = await cropTransparentPng(pngBlob, { alphaThreshold: 1, padding: 0 });
+      const noBgFile =
+        trimmed?.file instanceof File
+          ? trimmed.file
+          : new File([trimmed?.blob || pngBlob], "no-bg.png", { type: "image/png" });
+      const nextUrl = URL.createObjectURL(noBgFile);
+      const nextBoxRaw = recomputeLogoBoxAfterTrim({
+        box: targetLogo?.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 },
+        sourceWidth: trimmed?.sourceWidth,
+        sourceHeight: trimmed?.sourceHeight,
+        croppedWidth: trimmed?.width,
+        croppedHeight: trimmed?.height,
+        bounds: targetBounds,
+        preserveVisibleSize: preserveVisibleSizeAfterTrim,
+      });
+      const nextBox = {
+        ...nextBoxRaw,
+        x: Math.abs((nextBoxRaw?.x ?? 0.5) - 0.5) <= snapThreshold ? 0.5 : Number(nextBoxRaw?.x ?? 0.5),
+        y: Math.abs((nextBoxRaw?.y ?? 0.5) - 0.5) <= snapThreshold ? 0.5 : Number(nextBoxRaw?.y ?? 0.5),
+      };
+
+      const hasTargetLogoNow = (sideData?.logos || []).some((logo) => logo?.id === targetLogoId);
+      if (!hasTargetLogoNow) {
+        try {
+          URL.revokeObjectURL(nextUrl);
+        } catch { }
+        setBgRemovalNotice("Seçili görsel bulunamadı, tekrar deneyin.");
+        setBgRemovalNoticeType("error");
+        return;
+      }
+
+      const previousGeneratedUrl = bgRemovedObjectUrlsRef.current.get(targetLogoId);
+
+      setDesigns((prev) =>
+        prev.map((d) => {
+          if (d.id !== targetDesignId) return d;
+          const sideState = normalizeSideData(d?.sides?.[targetSide]);
+          const nextLogos = (sideState.logos || []).map((logo) => {
+            if (logo.id !== targetLogoId) return logo;
+            return { ...logo, url: nextUrl, box: nextBox };
+          });
+          return {
+            ...d,
+            sides: {
+              ...(d?.sides || {}),
+              [targetSide]: {
+                ...sideState,
+                logos: nextLogos,
+                activeLogoId: sideState.activeLogoId || targetLogoId,
+              },
+            },
+          };
+        })
+      );
+
+      if (previousGeneratedUrl && previousGeneratedUrl !== nextUrl) {
+        try {
+          URL.revokeObjectURL(previousGeneratedUrl);
+        } catch { }
+      }
+      bgRemovedObjectUrlsRef.current.set(targetLogoId, nextUrl);
+
+      setBgRemovalNotice("Arka plan silindi.");
+      setBgRemovalNoticeType("success");
+    } catch (error) {
+      console.error("Arka plan silme hatasi:", error);
+      const message = error?.message || "Arka plan silinirken bir hata oluştu.";
+      setBgRemovalNotice(message);
+      setBgRemovalNoticeType("error");
+      alert(message);
+    } finally {
+      setBgRemovalLoading(false);
+    }
+  };
+
   const updateInjectionPlacement = (nextBox) => {
     if (!hasSceneInjection) return;
     const w = sceneInjectionBox.w;
@@ -7449,8 +7880,17 @@ function TasarimClientContent({ isMobile }) {
   const handleDeleteActiveImage = () => {
     const currentId = sideData.activeLogoId || sideData.logos?.[0]?.id;
     if (!currentId) return;
+    const previousGeneratedUrl = bgRemovedObjectUrlsRef.current.get(currentId);
+    if (previousGeneratedUrl) {
+      try {
+        URL.revokeObjectURL(previousGeneratedUrl);
+      } catch { }
+      bgRemovedObjectUrlsRef.current.delete(currentId);
+    }
     const next = (sideData.logos || []).filter((l) => l.id !== currentId);
     updateSide({ logos: next, activeLogoId: next[0]?.id || null });
+    setBgRemovalNotice("");
+    setBgRemovalNoticeType("idle");
     clearSceneSelection();
   };
 
@@ -8495,6 +8935,16 @@ function TasarimClientContent({ isMobile }) {
         printBounds.rotY ??
         getDefaultSideRotationY(currentActiveDesign?.modelType, currentSide, currentActiveDesign?.hoodieV12Parts)
       );
+      const normalizedModelType = normalizeModelType(currentActiveDesign?.modelType || DEFAULT_MODEL_TYPE);
+      const cachedModelCenter = MODEL_CENTER_CACHE.get(normalizedModelType);
+      const modelCenter =
+        cachedModelCenter && cachedModelCenter.isVector3
+          ? cachedModelCenter
+          : new THREE.Vector3(
+            Number(cachedModelCenter?.x) || 0,
+            Number(cachedModelCenter?.y) || 0,
+            Number(cachedModelCenter?.z) || 0
+          );
       const modelScale = (Number(layout?.scale) || 1) + 0.05;
       const modelX = Number(layout?.x) || 0;
       const modelZ = Number(layout?.z) || 0;
@@ -8502,14 +8952,27 @@ function TasarimClientContent({ isMobile }) {
       const userRotate = modelUserRotateRef.current?.[activeId] || { x: 0, y: 0 };
       const modelRotY = (Number(layout?.rotY) || 0) + (Number(userRotate?.y) || 0);
       const modelRotX = Number(userRotate?.x) || 0;
-      const zOffset = currentSide === "back" ? -0.001 : isSleeveSide(currentSide) ? 0 : 0.001;
+      const printW = Math.max(0.001, Number(printBounds.xMax) - Number(printBounds.xMin));
+      const printH = Math.max(0.001, Number(printBounds.yTop) - Number(printBounds.yBot));
+      const planeCenterLocal = new THREE.Vector3(
+        (Number(printBounds.xMin) + Number(printBounds.xMax)) / 2,
+        (Number(printBounds.yTop) + Number(printBounds.yBot)) / 2,
+        Number(printBounds.z) || 0
+      );
+      const planeXAxis = new THREE.Vector3(1, 0, 0).applyAxisAngle(yAxis, sideRotY).normalize();
+      const planeYAxis = new THREE.Vector3(0, 1, 0);
+      const planeNormal = new THREE.Vector3(0, 0, 1).applyAxisAngle(yAxis, sideRotY).normalize();
+      const surfaceNudge = isSleeveSide(currentSide) ? 0.0009 : 0.0012;
+      planeCenterLocal.addScaledVector(planeNormal, surfaceNudge);
 
       const toWorld = (nx, ny) => {
-        const x = printBounds.xMin + nx * (printBounds.xMax - printBounds.xMin);
-        const y = printBounds.yTop - ny * (printBounds.yTop - printBounds.yBot);
-        const z = (printBounds.z || 0) + zOffset;
-        const v = new THREE.Vector3(x, y, z);
-        v.applyAxisAngle(yAxis, sideRotY);
+        const dx = (nx - 0.5) * printW;
+        const dy = (0.5 - ny) * printH;
+        const v = planeCenterLocal
+          .clone()
+          .addScaledVector(planeXAxis, dx)
+          .addScaledVector(planeYAxis, dy);
+        v.sub(modelCenter);
         v.multiplyScalar(modelScale);
         euler.set(modelRotX, modelRotY, 0);
         v.applyEuler(euler);
@@ -9906,17 +10369,36 @@ function TasarimClientContent({ isMobile }) {
                         Sıfırla
                       </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleDeleteActiveImage}
-                      disabled={!activeLogo}
-                      className={`w-full py-1.5 rounded-lg text-[10px] font-bold uppercase border ${activeLogo
-                        ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
-                        : "border-zinc-600 bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                        }`}
-                    >
-                      Görseli Sil
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={handleRemoveActiveImageBackground}
+                        disabled={!activeLogo || bgRemovalLoading}
+                        title={!activeLogo ? "Önce görsel yükleyin" : "Seçili görselin arka planını sil"}
+                        className={`py-1.5 rounded-lg text-[10px] font-bold uppercase border ${!activeLogo || bgRemovalLoading
+                          ? "border-zinc-600 bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                          : "border-cyan-300 bg-cyan-50 text-cyan-700 hover:bg-cyan-100"
+                          }`}
+                      >
+                        {bgRemovalLoading ? "Siliniyor..." : "Arka Planı Sil"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeleteActiveImage}
+                        disabled={!activeLogo}
+                        className={`py-1.5 rounded-lg text-[10px] font-bold uppercase border ${activeLogo
+                          ? "border-red-300 bg-red-50 text-red-600 hover:bg-red-100"
+                          : "border-zinc-600 bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                          }`}
+                      >
+                        Görseli Sil
+                      </button>
+                    </div>
+                    {bgRemovalNotice && (
+                      <p className={`text-[10px] ${bgRemovalNoticeType === "error" ? "text-red-400" : bgRemovalNoticeType === "success" ? "text-emerald-400" : "text-zinc-400"}`}>
+                        {bgRemovalNotice}
+                      </p>
+                    )}
                   </div>
                 )}
 
