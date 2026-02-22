@@ -111,14 +111,14 @@ const resolveBgRemoveEndpoint = () => {
 
 /* ================= MODEL PATHS ================= */
 const PRIMARY_MODEL_PATHS = Object.freeze({
-  "yeni-duz-tshirt": `${NEW_MODELS_DIR_REMASTERED}/T-shirtTHEND.glb`,
-  "yeni-oversize-tshirt": `${NEW_MODELS_DIR_REMASTERED}/T-shirtTHEND.glb`,
-  "yeni-duz-sweat": `${NEW_MODELS_DIR_REMASTERED}/SweatTHEND.glb`,
-  "yeni-oversize-sweat": `${NEW_MODELS_DIR_REMASTERED}/SweatOwersizeTHEND.glb`,
-  "yeni-fermuarli": `${NEW_MODELS_DIR_REMASTERED}/FermuarliSweat.glb`,
+  "yeni-duz-tshirt": `${NEW_MODELS_DIR_REMASTERED}/Tshirt.glb`,
+  "yeni-oversize-tshirt": `${NEW_MODELS_DIR_REMASTERED}/Tshirt.glb`,
+  "yeni-duz-sweat": `${NEW_MODELS_DIR_REMASTERED}/Sweat.glb`,
+  "yeni-oversize-sweat": `${NEW_MODELS_DIR_REMASTERED}/OwersizeSweat.glb`,
+  "yeni-fermuarli": `${NEW_MODELS_DIR_REMASTERED}/FermuarlıSweat.glb`,
   "polarv3": `${NEW_MODELS_DIR_REMASTERED}/PolarV5.glb`,
-  "hoodie-v12-canavari": `${NEW_MODELS_DIR_REMASTERED}/Classic_HoodieTHENDv1.glb`,
-  "oversize-hoodie-parcali": `${NEW_MODELS_DIR_REMASTERED}/Hoodie_Owersize_THEND.glb`,
+  "hoodie-v12-canavari": `${NEW_MODELS_DIR_REMASTERED}/Hoodie.glb`,
+  "oversize-hoodie-parcali": `${NEW_MODELS_DIR_REMASTERED}/Hoodie_Owersize.glb`,
 });
 
 const MODEL_TYPE_ALIASES = Object.freeze({
