@@ -100,7 +100,14 @@ const NEW_MODELS_DIR_REMASTERED = `${NEW_MODELS_ROOT}/modelRemastered`;
 const INJECTION_MODELS_ROOT = "/models/Enjeksiyon 3D HAZIR MODELLER";
 const MODELS_WITH_HOODIE_PARTS = new Set(["hoodie-v12-canavari", "oversize-hoodie-parcali"]);
 const DEFAULT_MODEL_TYPE = "yeni-duz-tshirt";
-const BG_API_BASE_URL = (process.env.NEXT_PUBLIC_BG_API_URL || "http://127.0.0.1:8000").replace(/\/+$/, "");
+const BG_REMOVE_LOCAL_ENDPOINT = "http://127.0.0.1:8000/remove-bg";
+const BG_REMOVE_PROD_ENDPOINT = "https://bg-remove-3c6vakelbq-ew.a.run.app/remove-bg";
+const resolveBgRemoveEndpoint = () => {
+  if (typeof window === "undefined") return BG_REMOVE_PROD_ENDPOINT;
+  const host = String(window.location?.hostname || "").toLowerCase();
+  if (host === "localhost" || host === "127.0.0.1") return BG_REMOVE_LOCAL_ENDPOINT;
+  return BG_REMOVE_PROD_ENDPOINT;
+};
 
 /* ================= MODEL PATHS ================= */
 const PRIMARY_MODEL_PATHS = Object.freeze({
@@ -6258,7 +6265,7 @@ function EditorPanel({
   const logoCount = logos.length;
   const canUploadMoreLogos = logoCount < MAX_LOGOS_PER_SIDE;
 
-  const handleAddPrint = ({ url, kind = "logo", emboss = false, box = null } = {}) => {
+  const handleAddPrint = ({ url, kind = "logo", emboss = false, box = null, sourceFile = null } = {}) => {
     const safeUrl = String(url || "").trim();
     if (!safeUrl) return null;
     const sideKey = resolveViewSide(view);
@@ -6274,6 +6281,7 @@ function EditorPanel({
     const nextLogo = {
       id: makeId(),
       url: safeUrl,
+      ...(sourceFile instanceof File ? { sourceFile } : {}),
       technique: PRINT_TECHNIQUES.DTF,
       box: box || { x: 0.5, y: isBackSide ? 0.58 : isSleevePrintSide ? 0.55 : 0.6, w: 0.7, h: 0.45 },
       rotation: 0,
@@ -6310,7 +6318,7 @@ function EditorPanel({
     if (!file) return;
     try {
       const optimizedUrl = await optimizeUploadDataUrl(file, { targetSide: currentView });
-      const addedId = handleAddPrint({ url: optimizedUrl, kind: "logo", emboss: false });
+      const addedId = handleAddPrint({ url: optimizedUrl, kind: "logo", emboss: false, sourceFile: file });
       if (!addedId) return;
       onRequestDrawerCollapse?.();
       onRequestShowEditorOverlay?.();
@@ -7379,6 +7387,7 @@ function TasarimClientContent({ isMobile }) {
   const placementPanelIntentRef = useRef(false);
   const lastGlobalUiEventTsRef = useRef(0);
   const bgRemovedObjectUrlsRef = useRef(new Map());
+  const logoSourceFilesRef = useRef(new Map());
 
   useEffect(() => {
     if (!isMobile && runtimeLowPerfMode) {
@@ -7409,6 +7418,7 @@ function TasarimClientContent({ isMobile }) {
         } catch { }
       });
       bgRemovedObjectUrlsRef.current.clear();
+      logoSourceFilesRef.current.clear();
     },
     []
   );
@@ -7516,11 +7526,16 @@ function TasarimClientContent({ isMobile }) {
 
   useEffect(() => {
     const liveLogoUrlById = new Map();
+    const liveLogoIds = new Set();
     (designs || []).forEach((d) => {
       Object.values(d?.sides || {}).forEach((sideEntry) => {
         (sideEntry?.logos || []).forEach((logo) => {
           if (!logo?.id || !logo?.url) return;
+          liveLogoIds.add(logo.id);
           liveLogoUrlById.set(logo.id, String(logo.url));
+          if (logo?.sourceFile instanceof File) {
+            logoSourceFilesRef.current.set(logo.id, logo.sourceFile);
+          }
         });
       });
     });
@@ -7530,6 +7545,11 @@ function TasarimClientContent({ isMobile }) {
           URL.revokeObjectURL(objectUrl);
         } catch { }
         bgRemovedObjectUrlsRef.current.delete(logoId);
+      }
+    }
+    for (const logoId of logoSourceFilesRef.current.keys()) {
+      if (!liveLogoIds.has(logoId)) {
+        logoSourceFilesRef.current.delete(logoId);
       }
     }
   }, [designs]);
@@ -7737,28 +7757,40 @@ function TasarimClientContent({ isMobile }) {
     const targetLogoId = targetLogo.id;
     const targetBounds = logoDragBounds01 || { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
     const preserveVisibleSizeAfterTrim = false;
+    const endpoint = resolveBgRemoveEndpoint();
 
     setBgRemovalLoading(true);
     setBgRemovalNotice("");
     setBgRemovalNoticeType("idle");
 
     try {
-      const sourceResponse = await fetch(sourceUrl);
-      if (!sourceResponse.ok) {
-        throw new Error("Seçili görsel okunamadı.");
+      let sourceFile = null;
+      const inStateFile =
+        targetLogo?.sourceFile instanceof File
+          ? targetLogo.sourceFile
+          : logoSourceFilesRef.current.get(targetLogoId) instanceof File
+            ? logoSourceFilesRef.current.get(targetLogoId)
+            : null;
+      if (inStateFile instanceof File) {
+        sourceFile = inStateFile;
+      } else {
+        const sourceResponse = await fetch(sourceUrl);
+        if (!sourceResponse.ok) {
+          throw new Error("Seçili görsel okunamadı.");
+        }
+        const sourceBlob = await sourceResponse.blob();
+        if (!sourceBlob || sourceBlob.size === 0) {
+          throw new Error("Seçili görsel verisi bulunamadı.");
+        }
+        const sourceType = sourceBlob.type || "image/png";
+        const ext = sourceType.includes("jpeg") ? "jpg" : sourceType.includes("webp") ? "webp" : "png";
+        sourceFile = new File([sourceBlob], `upload.${ext}`, { type: sourceType });
       }
-      const sourceBlob = await sourceResponse.blob();
-      if (!sourceBlob || sourceBlob.size === 0) {
-        throw new Error("Seçili görsel verisi bulunamadı.");
-      }
-      const sourceType = sourceBlob.type || "image/png";
-      const ext = sourceType.includes("jpeg") ? "jpg" : sourceType.includes("webp") ? "webp" : "png";
-      const sourceFile = new File([sourceBlob], `upload.${ext}`, { type: sourceType });
 
       const formData = new FormData();
       formData.append("file", sourceFile);
 
-      const response = await fetch(`${BG_API_BASE_URL}/remove-bg`, {
+      const response = await fetch(endpoint, {
         method: "POST",
         body: formData,
       });
@@ -7772,7 +7804,7 @@ function TasarimClientContent({ isMobile }) {
       }
 
       const pngBlob = new Blob([await resultBlob.arrayBuffer()], { type: "image/png" });
-      const trimmed = await cropTransparentPng(pngBlob, { alphaThreshold: 1, padding: 0 });
+      const trimmed = await cropTransparentPng(pngBlob, { alphaThreshold: 1, padding: 6 });
       const noBgFile =
         trimmed?.file instanceof File
           ? trimmed.file
@@ -7811,7 +7843,7 @@ function TasarimClientContent({ isMobile }) {
           const sideState = normalizeSideData(d?.sides?.[targetSide]);
           const nextLogos = (sideState.logos || []).map((logo) => {
             if (logo.id !== targetLogoId) return logo;
-            return { ...logo, url: nextUrl, box: nextBox };
+            return { ...logo, url: nextUrl, box: nextBox, sourceFile: noBgFile };
           });
           return {
             ...d,
@@ -7833,6 +7865,7 @@ function TasarimClientContent({ isMobile }) {
         } catch { }
       }
       bgRemovedObjectUrlsRef.current.set(targetLogoId, nextUrl);
+      logoSourceFilesRef.current.set(targetLogoId, noBgFile);
 
       setBgRemovalNotice("Arka plan silindi.");
       setBgRemovalNoticeType("success");
@@ -7887,6 +7920,7 @@ function TasarimClientContent({ isMobile }) {
       } catch { }
       bgRemovedObjectUrlsRef.current.delete(currentId);
     }
+    logoSourceFilesRef.current.delete(currentId);
     const next = (sideData.logos || []).filter((l) => l.id !== currentId);
     updateSide({ logos: next, activeLogoId: next[0]?.id || null });
     setBgRemovalNotice("");
