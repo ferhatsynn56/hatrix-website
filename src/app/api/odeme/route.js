@@ -17,6 +17,7 @@ const MODEL_BASE_PRICES = Object.freeze({
   "yeni-fermuarli": 650,
   "hoodie-v12-canavari": 750,
   "oversize-hoodie-parcali": 800,
+  "polarv3": 800,
   "polar-son": 800,
 });
 
@@ -41,7 +42,10 @@ const MODEL_TYPE_ALIASES = Object.freeze({
   "hoodie-oversize-cepli": "oversize-hoodie-parcali",
   "hoodie-oversize-ceplipli": "oversize-hoodie-parcali",
   fermuarli: "yeni-fermuarli",
-  polar: "polar-son",
+  polarv3: "polarv3",
+  polarv5: "polarv3",
+  polar: "polarv3",
+  "polar-son": "polarv3",
   "duz tisort": "yeni-duz-tshirt",
   "duz tshirt": "yeni-duz-tshirt",
 });

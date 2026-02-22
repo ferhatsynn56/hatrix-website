@@ -22,7 +22,7 @@ const MODEL_PATHS = {
   "yeni-duz-sweat": `${NEW_MODELS_DIR_REMASTERED}/SweatTHEND.glb`,
   "yeni-oversize-sweat": `${NEW_MODELS_DIR_REMASTERED}/SweatOwersizeTHEND.glb`,
   "yeni-fermuarli": `${NEW_MODELS_DIR_REMASTERED}/FermuarliSweat.glb`,
-  "polar-son": `${NEW_MODELS_DIR_REMASTERED}/PolarTHEND.glb`,
+  "polarv3": `${NEW_MODELS_DIR_REMASTERED}/PolarV5.glb`,
   "hoodie-v12-canavari": `${NEW_MODELS_DIR_REMASTERED}/Classic_HoodieTHENDv1.glb`,
   "oversize-hoodie-parcali": `${NEW_MODELS_DIR_REMASTERED}/Hoodie_Owersize_THEND.glb`,
 };
@@ -39,8 +39,10 @@ const MODEL_TYPE_ALIASES = {
   "oversize-hoodie-parcali": "oversize-hoodie-parcali",
   fermuarli: "yeni-fermuarli",
   "yeni-fermuarli": "yeni-fermuarli",
-  polar: "polar-son",
-  "polar-son": "polar-son",
+  polarv3: "polarv3",
+  polarv5: "polarv3",
+  polar: "polarv3",
+  "polar-son": "polarv3",
 };
 
 const normalizeFabricType = (fabricType, modelType) => {
@@ -90,9 +92,11 @@ const normalizeHoodieParts = (parts) => ({
 const resolvePrintSideFromMaterialName = (name = "") => {
   const key = String(name || "").toLowerCase().trim();
   if (!key) return null;
-  if (!(key.includes("baski") || key.includes("print"))) return null;
+  if ((/(^|[._\s-])(sol[_\s-]?kol|left[_\s-]?sleeve|sleeve[_\s-]?left)($|[._\s-])/i).test(key)) return "front";
+  if ((/(^|[._\s-])(sag[_\s-]?kol|sağ[_\s-]?kol|right[_\s-]?sleeve|sleeve[_\s-]?right)($|[._\s-])/i).test(key)) return "front";
+  if ((/(^|[._\s-])(kol|sleeve)($|[._\s-])/i).test(key)) return "front";
+  if ((/(^|[._\s-])(on|ön|front|fore)($|[._\s-])/i).test(key)) return "front";
   if (key.includes("arka") || key.includes("back")) return "back";
-  if (key.includes("on") || key.includes("front")) return "front";
   return null;
 };
 

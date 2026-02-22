@@ -108,7 +108,7 @@ const PRIMARY_MODEL_PATHS = Object.freeze({
   "yeni-duz-sweat": `${NEW_MODELS_DIR_REMASTERED}/SweatTHEND.glb`,
   "yeni-oversize-sweat": `${NEW_MODELS_DIR_REMASTERED}/SweatOwersizeTHEND.glb`,
   "yeni-fermuarli": `${NEW_MODELS_DIR_REMASTERED}/FermuarliSweat.glb`,
-  "polar-son": `${NEW_MODELS_DIR_REMASTERED}/PolarTHEND.glb`,
+  "polarv3": `${NEW_MODELS_DIR_REMASTERED}/polarv9.glb`,
   "hoodie-v12-canavari": `${NEW_MODELS_DIR_REMASTERED}/Classic_HoodieTHENDv1.glb`,
   "oversize-hoodie-parcali": `${NEW_MODELS_DIR_REMASTERED}/Hoodie_Owersize_THEND.glb`,
 });
@@ -134,7 +134,12 @@ const MODEL_TYPE_ALIASES = Object.freeze({
   "hoodie-oversize-cepli": "oversize-hoodie-parcali",
   "hoodie-oversize-ceplipli": "oversize-hoodie-parcali",
   fermuarli: "yeni-fermuarli",
-  polar: "polar-son",
+  polar: "polarv3",
+  polarv5: "polarv3",
+  polarv6: "polarv3",
+  polarv8: "polarv3",
+  polarv9: "polarv3",
+  "polar-son": "polarv3",
   "duz tisort": "yeni-duz-tshirt",
   "duz tshirt": "yeni-duz-tshirt",
 });
@@ -189,7 +194,7 @@ const AVAILABLE_MODELS = [
   "yeni-duz-sweat",
   "yeni-oversize-sweat",
   "yeni-fermuarli",
-  "polar-son",
+  "polarv3",
   "hoodie-v12-canavari",
   "oversize-hoodie-parcali",
 ];
@@ -214,7 +219,7 @@ const MODEL_LABELS = {
   "oversize-hoodie-parcali": "Oversize Hoodie Parçalı",
   fermuarli: "Fermuarlı",
   polar: "Polar",
-  "polar-son": "Polar Son",
+  "polarv3": "Polar",
   "yeni-duz-tshirt": "Yeni Düz Tshirt",
   "yeni-oversize-tshirt": "Yeni Oversize Tshirt",
   "yeni-duz-sweat": "Yeni Düz Sweat",
@@ -231,7 +236,7 @@ const MODEL_SELECTION_GROUPS = [
   {
     id: "sweatshirt",
     title: "Sweatshirt",
-    models: ["yeni-duz-sweat", "yeni-oversize-sweat", "yeni-fermuarli", "polar-son"],
+    models: ["yeni-duz-sweat", "yeni-oversize-sweat", "yeni-fermuarli", "polarv3"],
   },
   {
     id: "hoodie",
@@ -246,7 +251,7 @@ const MODEL_SELECTION_CARD_LABELS = Object.freeze({
   "yeni-duz-sweat": "Klasik",
   "yeni-oversize-sweat": "Oversize",
   "yeni-fermuarli": "Fermuarlı Sweatshirt",
-  "polar-son": "Polar",
+  "polarv3": "Polar",
   "hoodie-v12-canavari": "Klasik",
   "oversize-hoodie-parcali": "Oversize",
 });
@@ -275,6 +280,9 @@ const getModelGroupTitle = (modelType) => {
 const DEFAULT_PRINT_PROFILE = Object.freeze({
   front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
   back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
+  sleeve: { xMin: -0.15, xMax: 0.15, yTop: 0.2, yBot: -0.2, z: 0.0, rotY: -Math.PI / 2 },
+  sleeve_left: { xMin: 0.2, xMax: 0.262, yTop: 0.22, yBot: -0.11, z: -0.02, rotY: Math.PI / 2 },
+  sleeve_right: { xMin: -0.262, xMax: -0.2, yTop: 0.22, yBot: -0.11, z: -0.02, rotY: -Math.PI / 2 },
 });
 
 const STATIC_PRINT_PROFILES = Object.freeze({
@@ -298,9 +306,12 @@ const STATIC_PRINT_PROFILES = Object.freeze({
     front: { xMin: -0.3200, xMax: 0.3200, yTop: 0.2750, yBot: -0.2750, z: 0.1378, rotY: 0 },
     back: { xMin: -0.2150, xMax: 0.2150, yTop: 0.3100, yBot: -0.3100, z: -0.1386, rotY: Math.PI },
   },
-  "polar-son": {
-    front: { xMin: -0.2600, xMax: 0.2600, yTop: 0.2600, yBot: -0.2600, z: 0.1457, rotY: 0 },
-    back: { xMin: -0.2150, xMax: 0.2150, yTop: 0.3100, yBot: -0.3100, z: -0.1461, rotY: Math.PI },
+  "polarv3": {
+    front: { xMin: -0.1930, xMax: 0.1920, yTop: 0.2760, yBot: -0.2980, z: 0.1440, rotY: 0 },
+    back: { xMin: -0.1920, xMax: 0.1910, yTop: 0.2880, yBot: -0.3090, z: -0.1450, rotY: Math.PI },
+    sleeve: { xMin: -0.1500, xMax: 0.1500, yTop: 0.2000, yBot: -0.2000, z: 0.0, rotY: -Math.PI / 2 },
+    sleeve_left: { xMin: 0.2015, xMax: 0.2613, yTop: 0.2209, yBot: -0.1052, z: -0.02, rotY: Math.PI / 2 },
+    sleeve_right: { xMin: -0.2617, xMax: -0.2004, yTop: 0.2159, yBot: -0.0855, z: -0.02, rotY: -Math.PI / 2 },
   },
   "hoodie-v12-canavari": {
     front: { xMin: -0.1600, xMax: 0.1600, yTop: 0.1900, yBot: -0.1400, z: 0.1091, rotY: 0 },
@@ -318,7 +329,7 @@ const STATIC_DECAL_DEPTH = Object.freeze({
   "yeni-duz-sweat": 0.17,
   "yeni-oversize-sweat": 0.17,
   "yeni-fermuarli": 0.16,
-  "polar-son": 0.17,
+  "polarv3": 0.45,
   "hoodie-v12-canavari": 0.09,
   "oversize-hoodie-parcali": 0.09,
 });
@@ -327,8 +338,8 @@ const MODEL_PRINT_PROFILE_CACHE = new Map();
 const MODEL_ZIP_GAP_HINTS = Object.freeze({
   "yeni-fermuarli": 0.11,
   fermuarli: 0.11,
-  "polar-son": 0.1,
-  polar: 0.1,
+  "polarv3": 0,
+  polar: 0,
 });
 
 const HOODIE_POCKET_FRONT_YBOT = Object.freeze({
@@ -336,7 +347,7 @@ const HOODIE_POCKET_FRONT_YBOT = Object.freeze({
   "oversize-hoodie-parcali": -0.15,
 });
 
-const CENTER_ZIP_MODEL_TYPES = new Set(["fermuarli", "yeni-fermuarli", "polar", "polar-son"]);
+const CENTER_ZIP_MODEL_TYPES = new Set(["fermuarli", "yeni-fermuarli", "polar", "polarv3"]);
 const ZIP_STRIPE_TOP01 = 0.0;
 const ZIP_STRIPE_BOTTOM01 = 0.25; // 1'e yaklastikca asagiya uzar
 const hasCenterZip = (modelType) => {
@@ -346,12 +357,23 @@ const hasCenterZip = (modelType) => {
   return CENTER_ZIP_MODEL_TYPES.has(raw) || CENTER_ZIP_MODEL_TYPES.has(normalized);
 };
 
+const FRONT_PRINT_RE = /(^|[._\s-])(on|ön|front|fore)($|[._\s-])/i;
+const BACK_PRINT_RE = /(^|[._\s-])(arka|back|rear)($|[._\s-])/i;
+const SLEEVE_LEFT_PRINT_RE = /(^|[._\s-])(sol[_\s-]?kol|left[_\s-]?sleeve|sleeve[_\s-]?left)($|[._\s-])/i;
+const SLEEVE_RIGHT_PRINT_RE = /(^|[._\s-])(sag[_\s-]?kol|sağ[_\s-]?kol|right[_\s-]?sleeve|sleeve[_\s-]?right)($|[._\s-])/i;
+const SLEEVE_PRINT_RE = /(^|[._\s-])(kol|sleeve)($|[._\s-])/i;
+const PRINT_SIDE_KEYS = Object.freeze(["front", "back", "sleeve", "sleeve_left", "sleeve_right"]);
+
+const normalizePrintSide = (side) => (PRINT_SIDE_KEYS.includes(side) ? side : "front");
+
 const resolvePrintSideFromMaterialName = (name = "") => {
   const key = String(name || "").toLowerCase().trim();
   if (!key) return null;
-  if (!(key.includes("baski") || key.includes("print"))) return null;
-  if (key.includes("arka") || key.includes("back")) return "back";
-  if (key.includes("on") || key.includes("front")) return "front";
+  if (SLEEVE_LEFT_PRINT_RE.test(key)) return "sleeve_left";
+  if (SLEEVE_RIGHT_PRINT_RE.test(key)) return "sleeve_right";
+  if (SLEEVE_PRINT_RE.test(key)) return "sleeve";
+  if (BACK_PRINT_RE.test(key)) return "back";
+  if (FRONT_PRINT_RE.test(key)) return "front";
   return null;
 };
 
@@ -371,6 +393,13 @@ const PRINT_MESH_NAME_HINTS = [
   "baski_alan",
   "baski-alan",
   "baski alan",
+  "baski_on",
+  "baski_arka",
+  "baski.arka",
+  "sol_kol",
+  "sag_kol",
+  "left_sleeve",
+  "right_sleeve",
 ];
 
 const looksLikeNamedPrintMesh = (name = "") => {
@@ -381,13 +410,18 @@ const looksLikeNamedPrintMesh = (name = "") => {
 
 const getPrintableGroupsForMesh = (mesh) => {
   if (!(mesh && (mesh.isMesh || mesh.isSkinnedMesh) && mesh.geometry?.attributes?.position)) return [];
+  const cached =
+    mesh?.userData?.__printableGroupsCache &&
+    mesh.userData.__printableGroupsCache.sourceGeometry === mesh.geometry
+      ? mesh.userData.__printableGroupsCache.groups
+      : null;
   const geometry = mesh.geometry;
   const index = geometry.index;
   const groups = geometry.groups?.length
     ? geometry.groups
     : [{ start: 0, count: index ? index.count : geometry.attributes.position.count, materialIndex: 0 }];
   const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-  return groups
+  const resolved = groups
     .map((group) => {
       const mat = materials[group.materialIndex] || materials[0];
       const side = resolvePrintSideFromMaterialName(mat?.name || "");
@@ -400,6 +434,14 @@ const getPrintableGroupsForMesh = (mesh) => {
       };
     })
     .filter(Boolean);
+  if (resolved.length > 0) {
+    mesh.userData.__printableGroupsCache = {
+      sourceGeometry: mesh.geometry,
+      groups: resolved,
+    };
+    return resolved;
+  }
+  return Array.isArray(cached) ? cached : [];
 };
 
 const PRINT_PROXY_CACHE = new WeakMap();
@@ -413,10 +455,10 @@ const createPrintableProxyGeometry = (sourceMesh, printableGroups) => {
   const positionAttr = geometry.attributes.position;
   const attrs = geometry.attributes;
   const indexCount = indexAttr ? indexAttr.count : positionAttr.count;
-  const sideBuckets = { front: [], back: [] };
+  const sideBuckets = { front: [], back: [], sleeve: [], sleeve_left: [], sleeve_right: [] };
 
   printableGroups.forEach((entry) => {
-    const side = entry.side === "back" ? "back" : "front";
+    const side = normalizePrintSide(entry.side);
     const start = Math.max(0, Number(entry.start) || 0);
     const count = Math.max(0, Number(entry.count) || 0);
     const end = Math.min(indexCount, start + count);
@@ -427,7 +469,12 @@ const createPrintableProxyGeometry = (sourceMesh, printableGroups) => {
     }
   });
 
-  const totalVertexRefs = sideBuckets.front.length + sideBuckets.back.length;
+  const totalVertexRefs =
+    sideBuckets.front.length +
+    sideBuckets.back.length +
+    sideBuckets.sleeve.length +
+    sideBuckets.sleeve_left.length +
+    sideBuckets.sleeve_right.length;
   if (totalVertexRefs < 3) return null;
 
   const sourceToProxy = new Map();
@@ -441,6 +488,9 @@ const createPrintableProxyGeometry = (sourceMesh, printableGroups) => {
   };
   const frontProxyIndices = sideBuckets.front.map(mapIndex);
   const backProxyIndices = sideBuckets.back.map(mapIndex);
+  const sleeveProxyIndices = sideBuckets.sleeve.map(mapIndex);
+  const sleeveLeftProxyIndices = sideBuckets.sleeve_left.map(mapIndex);
+  const sleeveRightProxyIndices = sideBuckets.sleeve_right.map(mapIndex);
   const vertexCount = sourceToProxy.size;
   if (vertexCount < 3) return null;
 
@@ -457,7 +507,12 @@ const createPrintableProxyGeometry = (sourceMesh, printableGroups) => {
     outGeometry.setAttribute(attrName, new THREE.BufferAttribute(out, attr.itemSize, attr.normalized));
   });
 
-  const totalIndexCount = frontProxyIndices.length + backProxyIndices.length;
+  const totalIndexCount =
+    frontProxyIndices.length +
+    backProxyIndices.length +
+    sleeveProxyIndices.length +
+    sleeveLeftProxyIndices.length +
+    sleeveRightProxyIndices.length;
   const IndexArrayCtor = vertexCount > 65535 ? Uint32Array : Uint16Array;
   const outIndices = new IndexArrayCtor(totalIndexCount);
   let cursor = 0;
@@ -471,11 +526,29 @@ const createPrintableProxyGeometry = (sourceMesh, printableGroups) => {
     cursor += 1;
   });
   const backCount = backProxyIndices.length;
+  sleeveProxyIndices.forEach((idx) => {
+    outIndices[cursor] = idx;
+    cursor += 1;
+  });
+  const sleeveCount = sleeveProxyIndices.length;
+  sleeveLeftProxyIndices.forEach((idx) => {
+    outIndices[cursor] = idx;
+    cursor += 1;
+  });
+  const sleeveLeftCount = sleeveLeftProxyIndices.length;
+  sleeveRightProxyIndices.forEach((idx) => {
+    outIndices[cursor] = idx;
+    cursor += 1;
+  });
+  const sleeveRightCount = sleeveRightProxyIndices.length;
 
   outGeometry.setIndex(new THREE.BufferAttribute(outIndices, 1));
   outGeometry.clearGroups();
   if (frontCount > 0) outGeometry.addGroup(0, frontCount, 0);
   if (backCount > 0) outGeometry.addGroup(frontCount, backCount, 1);
+  if (sleeveCount > 0) outGeometry.addGroup(frontCount + backCount, sleeveCount, 2);
+  if (sleeveLeftCount > 0) outGeometry.addGroup(frontCount + backCount + sleeveCount, sleeveLeftCount, 3);
+  if (sleeveRightCount > 0) outGeometry.addGroup(frontCount + backCount + sleeveCount + sleeveLeftCount, sleeveRightCount, 4);
   outGeometry.computeBoundingBox();
   outGeometry.computeBoundingSphere();
   return outGeometry;
@@ -497,12 +570,21 @@ const getOrCreatePrintableProxyMesh = (sourceMesh, printableGroups) => {
 
   const matFront = new THREE.MeshBasicMaterial({ name: "Baski_On", side: THREE.DoubleSide, transparent: true, opacity: 0 });
   const matBack = new THREE.MeshBasicMaterial({ name: "Baski_Arka", side: THREE.DoubleSide, transparent: true, opacity: 0 });
+  const matSleeve = new THREE.MeshBasicMaterial({ name: "Baski_Kol", side: THREE.DoubleSide, transparent: true, opacity: 0 });
+  const matSleeveLeft = new THREE.MeshBasicMaterial({ name: "Baski_Sol_Kol", side: THREE.DoubleSide, transparent: true, opacity: 0 });
+  const matSleeveRight = new THREE.MeshBasicMaterial({ name: "Baski_Sag_Kol", side: THREE.DoubleSide, transparent: true, opacity: 0 });
   matFront.depthWrite = false;
   matBack.depthWrite = false;
+  matSleeve.depthWrite = false;
+  matSleeveLeft.depthWrite = false;
+  matSleeveRight.depthWrite = false;
   matFront.colorWrite = false;
   matBack.colorWrite = false;
+  matSleeve.colorWrite = false;
+  matSleeveLeft.colorWrite = false;
+  matSleeveRight.colorWrite = false;
 
-  const proxy = new THREE.Mesh(proxyGeometry, [matFront, matBack]);
+  const proxy = new THREE.Mesh(proxyGeometry, [matFront, matBack, matSleeve, matSleeveLeft, matSleeveRight]);
   proxy.name = `${sourceMesh.name || "Mesh"}__print_proxy`;
   proxy.matrixAutoUpdate = false;
   proxy.userData.__printProxySource = sourceMesh;
@@ -525,7 +607,15 @@ const syncPrintableProxyMesh = (mesh) => {
 };
 
 const normalizePrintProfile = (profile, side = "front", modelType = DEFAULT_MODEL_TYPE) => {
-  const fallback = DEFAULT_PRINT_PROFILE[side] || DEFAULT_PRINT_PROFILE.front;
+  const fallbackKey =
+    side === "sleeve_left" || side === "sleeve_right"
+      ? side
+      : side === "sleeve"
+        ? "sleeve"
+        : side === "back"
+          ? "back"
+          : "front";
+  const fallback = DEFAULT_PRINT_PROFILE[fallbackKey] || DEFAULT_PRINT_PROFILE.front;
   const raw = profile && typeof profile === "object" ? profile : {};
   let xMin = Number.isFinite(Number(raw.xMin)) ? Number(raw.xMin) : fallback.xMin;
   let xMax = Number.isFinite(Number(raw.xMax)) ? Number(raw.xMax) : fallback.xMax;
@@ -544,9 +634,15 @@ const normalizePrintProfile = (profile, side = "front", modelType = DEFAULT_MODE
   const z = Number.isFinite(Number(raw.z)) ? Number(raw.z) : fallback.z;
   const rotY = Number.isFinite(Number(raw.rotY))
     ? Number(raw.rotY)
-    : side === "front"
-      ? 0
-      : Math.PI;
+    : side === "back"
+      ? Math.PI
+      : side === "sleeve_left"
+        ? Math.PI / 2
+        : side === "sleeve_right"
+          ? -Math.PI / 2
+      : side === "sleeve"
+        ? -Math.PI / 2
+        : 0;
 
   const next = { xMin, xMax, yTop, yBot, z, rotY };
   const zipGap01 = Number(raw.zipGap01);
@@ -569,17 +665,53 @@ const getCenterZipGap01 = (modelType) => {
 const registerMaterialPrintProfiles = (modelType, profiles) => {
   const normalized = normalizeModelType(modelType);
   if (!profiles || typeof profiles !== "object") return false;
+  const prev = MODEL_PRINT_PROFILE_CACHE.get(normalized) || {};
+  const staticProfiles = STATIC_PRINT_PROFILES[normalized] || {};
+  const pickProfileSource = (provided, previousValue, staticValue, fallbackKey) => {
+    if (provided && typeof provided === "object") return provided;
+    if (previousValue && typeof previousValue === "object") return previousValue;
+    return staticValue && typeof staticValue === "object" ? staticValue : DEFAULT_PRINT_PROFILE[fallbackKey];
+  };
+  const frontSource = pickProfileSource(profiles.front, prev.front, staticProfiles.front, "front");
+  const backSource = pickProfileSource(profiles.back, prev.back, staticProfiles.back, "back");
+  const sleeveSource = pickProfileSource(profiles.sleeve, prev.sleeve, staticProfiles.sleeve, "sleeve");
+  const sleeveLeftSource = pickProfileSource(
+    profiles.sleeveLeft || profiles.sleeve_left,
+    prev.sleeveLeft || prev.sleeve_left,
+    staticProfiles.sleeve_left,
+    "sleeve_left"
+  );
+  const sleeveRightSource = pickProfileSource(
+    profiles.sleeveRight || profiles.sleeve_right,
+    prev.sleeveRight || prev.sleeve_right,
+    staticProfiles.sleeve_right,
+    "sleeve_right"
+  );
   const nextFront = normalizePrintProfile(
-    { ...(profiles.front || {}), zipGap01: Number(profiles.front?.zipGap01) || getCenterZipGap01(normalized) },
+    { ...frontSource, zipGap01: Number(frontSource?.zipGap01) || getCenterZipGap01(normalized) },
     "front",
     normalized
   );
-  const nextBack = normalizePrintProfile(profiles.back, "back", normalized);
-  const prev = MODEL_PRINT_PROFILE_CACHE.get(normalized);
-  const serializedNext = JSON.stringify({ front: nextFront, back: nextBack });
+  const nextBack = normalizePrintProfile(backSource, "back", normalized);
+  const nextSleeve = normalizePrintProfile(sleeveSource, "sleeve", normalized);
+  const nextSleeveLeft = normalizePrintProfile(sleeveLeftSource, "sleeve_left", normalized);
+  const nextSleeveRight = normalizePrintProfile(sleeveRightSource, "sleeve_right", normalized);
+  const serializedNext = JSON.stringify({
+    front: nextFront,
+    back: nextBack,
+    sleeve: nextSleeve,
+    sleeveLeft: nextSleeveLeft,
+    sleeveRight: nextSleeveRight,
+  });
   const serializedPrev = prev ? JSON.stringify(prev) : "";
   if (serializedNext === serializedPrev) return false;
-  MODEL_PRINT_PROFILE_CACHE.set(normalized, { front: nextFront, back: nextBack });
+  MODEL_PRINT_PROFILE_CACHE.set(normalized, {
+    front: nextFront,
+    back: nextBack,
+    sleeve: nextSleeve,
+    sleeveLeft: nextSleeveLeft,
+    sleeveRight: nextSleeveRight,
+  });
   return true;
 };
 
@@ -589,12 +721,27 @@ const extractPrintProfilesFromMaterials = (hostMesh, modelType) => {
   }
   hostMesh.updateWorldMatrix(true, false);
   const tmp = new THREE.Vector3();
+  const makeBounds = () => ({
+    minX: Infinity,
+    maxX: -Infinity,
+    minY: Infinity,
+    maxY: -Infinity,
+    minZ: Infinity,
+    maxZ: -Infinity,
+    count: 0,
+    sumNx: 0,
+    sumNz: 0,
+    normalCount: 0,
+  });
   const sideBounds = {
-    front: { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: Infinity, maxZ: -Infinity, count: 0 },
-    back: { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: Infinity, maxZ: -Infinity, count: 0 },
+    front: makeBounds(),
+    back: makeBounds(),
+    sleeve: makeBounds(),
+    sleeve_left: makeBounds(),
+    sleeve_right: makeBounds(),
   };
 
-  const updateBounds = (side, p) => {
+  const updateBounds = (side, p, nx = null, nz = null) => {
     const b = sideBounds[side];
     b.minX = Math.min(b.minX, p.x);
     b.maxX = Math.max(b.maxX, p.x);
@@ -603,6 +750,9 @@ const extractPrintProfilesFromMaterials = (hostMesh, modelType) => {
     b.minZ = Math.min(b.minZ, p.z);
     b.maxZ = Math.max(b.maxZ, p.z);
     b.count += 1;
+    if (Number.isFinite(nx)) b.sumNx += Number(nx);
+    if (Number.isFinite(nz)) b.sumNz += Number(nz);
+    if (Number.isFinite(nx) || Number.isFinite(nz)) b.normalCount += 1;
   };
 
   const geometry = hostMesh.geometry;
@@ -626,17 +776,24 @@ const extractPrintProfilesFromMaterials = (hostMesh, modelType) => {
       const vi = index ? (index.array ? index.array[i] : index.getX(i)) : i;
       if (!Number.isFinite(vi) || vi < 0 || vi >= position.count) continue;
       let side = matSide;
+      let nx = null;
+      let nz = null;
       if (normal && vi < normal.count) {
-        const nz = Number(normal.getZ(vi));
+        nx = Number(normal.getX(vi));
+        nz = Number(normal.getZ(vi));
         if (!side && allowNormalSplit && Number.isFinite(nz)) {
-          side = nz >= 0 ? "front" : "back";
+          if (Number.isFinite(nx) && Math.abs(nx) > Math.abs(nz) * 1.2) {
+            side = "sleeve";
+          } else {
+            side = nz >= 0 ? "front" : "back";
+          }
         }
-        if (side === "front" && Number.isFinite(nz) && nz < 0.05) continue;
-        if (side === "back" && Number.isFinite(nz) && nz > -0.05) continue;
+        if (!matSide && side === "front" && Number.isFinite(nz) && nz < 0.05) continue;
+        if (!matSide && side === "back" && Number.isFinite(nz) && nz > -0.05) continue;
       }
       if (!side) continue;
       tmp.fromBufferAttribute(position, vi);
-      updateBounds(side, tmp);
+      updateBounds(side, tmp, nx, nz);
     }
   });
 
@@ -647,13 +804,30 @@ const extractPrintProfilesFromMaterials = (hostMesh, modelType) => {
     const rawH = b.maxY - b.minY;
     if (!(rawW > 0.02) || !(rawH > 0.02)) return null;
 
-    const padX = Math.min(rawW * 0.08, 0.03);
-    const padY = Math.min(rawH * 0.09, 0.035);
-    const xMin = b.minX + padX;
-    const xMax = b.maxX - padX;
-    const yTop = b.maxY - padY;
-    const yBot = b.minY + padY;
-    const z = side === "front" ? b.maxZ + 0.0008 : b.minZ - 0.0008;
+    // Materyal tabanli baski alanini birebir kullan:
+    // sadece sayisal titreşimi engellemek icin cok kucuk bir trim uyguluyoruz.
+    const edgeTrimX = Math.min(rawW * 0.005, 0.0025);
+    const edgeTrimY = Math.min(rawH * 0.005, 0.0025);
+    const xMin = b.minX + edgeTrimX;
+    const xMax = b.maxX - edgeTrimX;
+    const yTop = b.maxY - edgeTrimY;
+    const yBot = b.minY + edgeTrimY;
+    const avgNz = b.normalCount > 0 ? b.sumNz / b.normalCount : null;
+    const avgNx = b.normalCount > 0 ? b.sumNx / b.normalCount : null;
+    let z = (b.maxZ + b.minZ) / 2;
+    let rotY = 0;
+    if (side === "front" || side === "back") {
+      const outwardToPositiveZ = Number.isFinite(avgNz) ? avgNz >= 0 : side === "front";
+      z = outwardToPositiveZ ? b.maxZ + 0.0008 : b.minZ - 0.0008;
+      rotY = outwardToPositiveZ ? 0 : Math.PI;
+    } else {
+      const outwardToPositiveX = Number.isFinite(avgNx)
+        ? avgNx >= 0
+        : side === "sleeve_left";
+      rotY = outwardToPositiveX ? Math.PI / 2 : -Math.PI / 2;
+    }
+    const normalizedSide =
+      side === "sleeve_left" || side === "sleeve_right" ? side : side === "sleeve" ? "sleeve" : side;
 
     return normalizePrintProfile(
       {
@@ -662,10 +836,10 @@ const extractPrintProfilesFromMaterials = (hostMesh, modelType) => {
         yTop,
         yBot,
         z,
-        rotY: side === "front" ? 0 : Math.PI,
+        rotY,
         zipGap01: getCenterZipGap01(modelType),
       },
-      side,
+      normalizedSide,
       modelType
     );
   };
@@ -673,8 +847,11 @@ const extractPrintProfilesFromMaterials = (hostMesh, modelType) => {
   const result = {
     front: toProfile("front"),
     back: toProfile("back"),
+    sleeve: toProfile("sleeve"),
+    sleeveLeft: toProfile("sleeve_left"),
+    sleeveRight: toProfile("sleeve_right"),
   };
-  if (!result.front && !result.back) return null;
+  if (!result.front && !result.back && !result.sleeve && !result.sleeveLeft && !result.sleeveRight) return null;
   return result;
 };
 
@@ -690,10 +867,24 @@ const applyHoodiePocketClampToFront = (baseProfile, modelType, hoodieParts = DEF
 
 const getPrintProfile = (modelType, side = "front", hoodieParts = DEFAULT_HOODIE_PARTS) => {
   const normalized = normalizeModelType(modelType);
+  const safeSide = normalizePrintSide(side);
   const cached = MODEL_PRINT_PROFILE_CACHE.get(normalized);
-  const base = normalizePrintProfile(cached?.[side], side, normalized);
-  if (side !== "front") return base;
+  const staticProfile = STATIC_PRINT_PROFILES[normalized]?.[safeSide] || DEFAULT_PRINT_PROFILE[safeSide];
+  const baseSource = cached?.[safeSide] || staticProfile;
+  const base = normalizePrintProfile(baseSource, safeSide, normalized);
+  if (safeSide !== "front") return base;
   return applyHoodiePocketClampToFront(base, normalized, hoodieParts);
+};
+
+const getDefaultSideRotationY = (modelType, side = "front", hoodieParts = DEFAULT_HOODIE_PARTS) => {
+  const safeSide = normalizePrintSide(side);
+  const profile = getPrintProfile(modelType, safeSide, hoodieParts);
+  if (Number.isFinite(Number(profile?.rotY))) return Number(profile.rotY);
+  if (safeSide === "back") return Math.PI;
+  if (safeSide === "sleeve_left") return Math.PI / 2;
+  if (safeSide === "sleeve_right") return -Math.PI / 2;
+  if (safeSide === "sleeve") return -Math.PI / 2;
+  return 0;
 };
 
 const estimateTextHalfBounds01 = (textState = {}) => {
@@ -783,7 +974,7 @@ const CM_LABELS = {
   "oversize-sweat": { front: { w: 58, h: 58 }, back: { w: 58, h: 58 } },
   fermuarli: { front: { w: 64, h: 55 }, back: { w: 64, h: 55 } },
   polar: { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
-  "polar-son": { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
+  "polarv3": { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
   "yeni-duz-tshirt": { front: { w: 40, h: 54 }, back: { w: 40, h: 54 } },
   "yeni-oversize-tshirt": { front: { w: 45, h: 60 }, back: { w: 45, h: 60 } },
   "yeni-duz-sweat": { front: { w: 52, h: 52 }, back: { w: 43, h: 62 } },
@@ -800,7 +991,7 @@ const MODEL_BASE_PRICES = Object.freeze({
   "yeni-fermuarli": 650,
   "hoodie-v12-canavari": 750,
   "oversize-hoodie-parcali": 800,
-  "polar-son": 800,
+  "polarv3": 800,
 });
 const LAUNCH_DISCOUNT_RATE = 0.2; // Current visible prices are launch-discounted prices.
 const LARGE_PRINT_AREA_THRESHOLD_01 = 0.4; // 5'te 2
@@ -1595,7 +1786,7 @@ const loadImg = (src) =>
     img.src = key;
   });
 
-async function optimizeUploadDataUrl(file, opts = {}) {
+async function optimizeUploadDataUrl(file) {
   if (!file || !String(file.type || "").startsWith("image/")) {
     throw new Error("Desteklenmeyen dosya türü.");
   }
@@ -1612,7 +1803,6 @@ async function optimizeUploadDataUrl(file, opts = {}) {
     const tier = getDeviceTier();
     const tierLimit = tier === 1 ? 1024 : tier === 2 ? 1536 : 2048;
 
-    const targetSide = opts?.targetSide === "back" ? "back" : "front";
     const baseMaxRenderSide = getUploadRenderSideLimit(mobile);
     const maxRenderSide = mobile ? Math.min(baseMaxRenderSide, tierLimit) : baseMaxRenderSide;
     const opaqueQuality = lowPerf ? 0.82 : mobile ? 0.88 : 0.93;
@@ -1828,8 +2018,29 @@ const hasSideContent = (sd) => {
   return false;
 };
 
+const POLAR_DESIGN_SIDES = ["front", "back", "sleeve_left", "sleeve_right"];
+const DESIGN_SIDES = POLAR_DESIGN_SIDES;
 const UI_SIDES = ["front", "back"];
-const UI_VIEWS = ["front", "back"];
+const DEFAULT_UI_VIEWS = ["front", "back"];
+const getAvailableViewsForModel = (modelType) =>
+  normalizeModelType(modelType) === "polarv3" ? POLAR_DESIGN_SIDES : DEFAULT_UI_VIEWS;
+const isSleeveSide = (side) => side === "sleeve_left" || side === "sleeve_right" || side === "sleeve";
+const resolveEditableSide = (side, fallback = "front") => {
+  const raw = String(side || "").toLowerCase().trim();
+  if (!raw) return fallback;
+  if (raw === "sleeve" || raw === "left" || raw === "sol" || raw === "sol-kol") return "sleeve_left";
+  if (raw === "right" || raw === "sag" || raw === "sağ" || raw === "sag-kol" || raw === "sağ-kol") {
+    return "sleeve_right";
+  }
+  return DESIGN_SIDES.includes(raw) ? raw : fallback;
+};
+const getSideLabel = (side) => {
+  if (side === "back") return "ARKA";
+  if (side === "sleeve_left") return "SOL KOL";
+  if (side === "sleeve_right") return "SAĞ KOL";
+  if (side === "sleeve") return "KOL";
+  return "ÖN";
+};
 
 const createDesign = (type = DEFAULT_MODEL_TYPE) => {
   const normalizedType = normalizeModelType(type);
@@ -1848,11 +2059,17 @@ const createDesign = (type = DEFAULT_MODEL_TYPE) => {
     printTypesBySide: {
       front: [],
       back: [],
+      sleeve_left: [],
+      sleeve_right: [],
+      sleeve: [],
     },
     size: "M",
     sides: {
       front: createSideData(),
       back: createSideData(),
+      sleeve_left: createSideData(),
+      sleeve_right: createSideData(),
+      sleeve: createSideData(),
       left: createSideData(),
       right: createSideData(),
     },
@@ -1864,6 +2081,8 @@ const restoreDesignFromCheckoutItem = (item) => {
   const modelType = normalizeModelType(item?.modelType || details?.model || DEFAULT_MODEL_TYPE);
   const base = createDesign(modelType);
   const srcSides = details?.sides || item?.sides || {};
+  const sleeveLeftSource = srcSides.sleeve_left || srcSides.left || srcSides.sleeve || {};
+  const sleeveRightSource = srcSides.sleeve_right || srcSides.right || srcSides.sleeve || {};
   const restoredPrintTypesBySide = normalizePrintTypesBySide(
     details?.printTypesBySide || item?.printTypesBySide,
     details?.printTypes || item?.printTypes
@@ -1904,8 +2123,29 @@ const restoreDesignFromCheckoutItem = (item) => {
           ),
         },
       }),
-      left: normalizeSideData(srcSides.left),
-      right: normalizeSideData(srcSides.right),
+      sleeve_left: normalizeSideData({
+        ...sleeveLeftSource,
+        customText: {
+          ...(sleeveLeftSource?.customText || {}),
+          technique: normalizePrintTechnique(
+            sleeveLeftSource?.customText?.technique,
+            printTypeIdsToTechnique(restoredPrintTypesBySide.sleeve_left, PRINT_TECHNIQUES.DTF)
+          ),
+        },
+      }),
+      sleeve_right: normalizeSideData({
+        ...sleeveRightSource,
+        customText: {
+          ...(sleeveRightSource?.customText || {}),
+          technique: normalizePrintTechnique(
+            sleeveRightSource?.customText?.technique,
+            printTypeIdsToTechnique(restoredPrintTypesBySide.sleeve_right, PRINT_TECHNIQUES.DTF)
+          ),
+        },
+      }),
+      sleeve: normalizeSideData(srcSides.sleeve || sleeveLeftSource),
+      left: normalizeSideData(srcSides.left || sleeveLeftSource),
+      right: normalizeSideData(srcSides.right || sleeveRightSource),
     },
   };
   return restored;
@@ -1915,6 +2155,9 @@ const normalizePrintTypesBySide = (bySide, legacy = []) => {
   const base = {
     front: [],
     back: [],
+    sleeve_left: [],
+    sleeve_right: [],
+    sleeve: [],
   };
   const legacyListRaw = Array.isArray(legacy) ? legacy : [];
   const legacyList = legacyListRaw.filter((id) => id === "dtf" || id === "rubber");
@@ -1923,6 +2166,9 @@ const normalizePrintTypesBySide = (bySide, legacy = []) => {
   // Check if we have explicit side data
   const hasFront = Array.isArray(raw.front);
   const hasBack = Array.isArray(raw.back);
+  const hasSleeveLeft = Array.isArray(raw.sleeve_left) || Array.isArray(raw.left);
+  const hasSleeveRight = Array.isArray(raw.sleeve_right) || Array.isArray(raw.right);
+  const hasSleeve = Array.isArray(raw.sleeve);
 
   const orderMap = { dtf: 0, rubber: 1 };
   const normalizeSideList = (sideList = []) =>
@@ -1934,16 +2180,33 @@ const normalizePrintTypesBySide = (bySide, legacy = []) => {
   // This prevents back-side selections (rendering into legacy) from polluting front side
   const frontSource = hasFront ? raw.front : legacyList;
   const backSource = hasBack ? raw.back : [];
+  const sleeveLeftSource = hasSleeveLeft ? raw.sleeve_left || raw.left : hasSleeve ? raw.sleeve : [];
+  const sleeveRightSource = hasSleeveRight ? raw.sleeve_right || raw.right : hasSleeve ? raw.sleeve : [];
+  const sleeveSource = hasSleeve ? raw.sleeve : [];
 
   const front = normalizeSideList(frontSource);
   const back = normalizeSideList(backSource);
-  return { front, back };
+  const sleeve_left = normalizeSideList(sleeveLeftSource);
+  const sleeve_right = normalizeSideList(sleeveRightSource);
+  const sleeve = normalizeSideList([...sleeveSource, ...sleeve_left, ...sleeve_right]);
+  return { ...base, front, back, sleeve_left, sleeve_right, sleeve };
 };
 
+const mergePrintTypesForLegacy = (bySide = {}) =>
+  Array.from(
+    new Set([
+      ...(bySide.front || []),
+      ...(bySide.back || []),
+      ...(bySide.sleeve_left || []),
+      ...(bySide.sleeve_right || []),
+      ...(bySide.sleeve || []),
+    ])
+  );
+
 const getPrintTypesForSide = (design, side = "front") => {
-  const safeSide = side === "back" ? "back" : "front";
+  const safeSide = resolveEditableSide(side);
   const bySide = normalizePrintTypesBySide(design?.printTypesBySide, design?.printTypes);
-  return bySide[safeSide];
+  return bySide[safeSide] || [];
 };
 
 const normalizeHoodieParts = (parts) => ({
@@ -1953,13 +2216,15 @@ const normalizeHoodieParts = (parts) => ({
 
 const normalizePdfPlacement = (placement, side = "front") => {
   const p = placement && typeof placement === "object" ? placement : {};
+  const safeSide = resolveEditableSide(side);
+  const normalizedPlacementSide = resolveEditableSide(p.side, safeSide);
   return {
     x: clamp(Number.isFinite(Number(p.x)) ? Number(p.x) : DEFAULT_PDF_PLACEMENT.x, 0.06, 0.94),
     y: clamp(Number.isFinite(Number(p.y)) ? Number(p.y) : DEFAULT_PDF_PLACEMENT.y, 0.06, 0.94),
     w: clamp(Number.isFinite(Number(p.w)) ? Number(p.w) : DEFAULT_PDF_PLACEMENT.w, 0.12, 0.9),
     h: clamp(Number.isFinite(Number(p.h)) ? Number(p.h) : DEFAULT_PDF_PLACEMENT.h, 0.08, 0.9),
     rotation: clamp(Number.isFinite(Number(p.rotation)) ? Number(p.rotation) : 0, -180, 180),
-    side: p.side === "back" ? "back" : side === "back" ? "back" : "front",
+    side: normalizedPlacementSide,
   };
 };
 
@@ -1973,7 +2238,7 @@ const getHoodieVariantLabel = (parts) => {
 
 const getActiveSides = (design) =>
   Object.entries(design.sides)
-    .filter(([k]) => UI_SIDES.includes(k))
+    .filter(([k]) => DESIGN_SIDES.includes(k))
     .filter(([_, sd]) => hasSideContent(sd));
 
 const getModelBasePrice = (modelType) => {
@@ -2049,7 +2314,7 @@ const roundTo = (value, digits = 2) => {
 
 const getModelPrintCm = (modelType, side = "front") => {
   const safeModel = normalizeModelType(modelType);
-  const sideKey = side === "back" ? "back" : "front";
+  const sideKey = resolveEditableSide(side);
   const modelCm = CM_LABELS[safeModel] || CM_LABELS[DEFAULT_MODEL_TYPE] || {};
   const cm = modelCm[sideKey] || modelCm.front || { w: 0, h: 0 };
   return {
@@ -2062,7 +2327,7 @@ const buildRubberSpecsBySide = (design) => {
   const bySide = normalizePrintTypesBySide(design?.printTypesBySide, design?.printTypes);
   const out = {};
 
-  UI_SIDES.forEach((side) => {
+  DESIGN_SIDES.forEach((side) => {
     const sideTypes = Array.isArray(bySide?.[side]) ? bySide[side] : [];
     const sideData = design?.sides?.[side];
     const t = sideData?.customText || {};
@@ -2392,6 +2657,8 @@ function CameraController({ view, count, onAnimatingChange }) {
 /* ================= CANVAS TEXTURE (OPTIMIZED) ================= */
 function useDesignCanvas(sideData, opts = {}) {
   const [canvas, setCanvas] = useState(null);
+  const sideKey = resolveEditableSide(opts?.sideKey || "front");
+  const isBackCanvas = sideKey === "back";
 
   const logos = sideData?.logos || [];
   const includeEmbossLogos = opts?.includeEmbossLogos === true;
@@ -2490,7 +2757,12 @@ function useDesignCanvas(sideData, opts = {}) {
 
       const drawLogo = async (l) => {
         const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
-        const rotation = (l.rotation || 0) * (Math.PI / 180);
+        let rotationDeg = Number(l.rotation || 0);
+        // Legacy uyumluluk:
+        // Eskiden back tarafa eklenen görseller default 180° kaydediliyordu.
+        // Bu, yeni projeksiyon yönünde ters algılanıyor; sadece tam 180° ise nötrle.
+        if (isBackCanvas && Math.abs(Math.abs(rotationDeg) - 180) < 0.001) rotationDeg = 0;
+        const rotation = rotationDeg * (Math.PI / 180);
         const fx = getLogoStyle(l);
         const emboss = isEmbossSticker(l);
         const img = await loadImg(l.url).catch(() => null);
@@ -2556,6 +2828,7 @@ function useDesignCanvas(sideData, opts = {}) {
     logoSignature,
     textSignature,
     posSignature,
+    sideKey,
     opts?.clearCenterStripe01,
     opts?.disableText,
     CANVAS_SIZE,
@@ -2570,11 +2843,25 @@ function useDesignCanvas(sideData, opts = {}) {
 }
 
 /* ================= 3D MODEL HELPERS ================= */
-function pickDecalHostMesh(root, modelType) {
+function pickDecalHostMesh(root, modelType, preferredSide = "front") {
+  const requestedSide = resolveEditableSide(preferredSide, "front");
+  const preferredSides =
+    requestedSide === "sleeve_left"
+      ? new Set(["sleeve_left", "sleeve"])
+      : requestedSide === "sleeve_right"
+        ? new Set(["sleeve_right", "sleeve"])
+        : new Set([requestedSide]);
   const namedPrintMeshCandidates = [];
   const printableCandidates = [];
   const candidates = [];
   const fallbackCandidates = [];
+  const entrySupportsPreferredSide = (entry) => {
+    if (!entry?.sides || entry.sides.size === 0) return true;
+    for (const side of preferredSides) {
+      if (entry.sides.has(side)) return true;
+    }
+    return false;
+  };
 
   root.traverse((o) => {
     if (!(o && (o.isMesh || o.isSkinnedMesh) && o.geometry?.attributes?.position)) return;
@@ -2591,18 +2878,28 @@ function pickDecalHostMesh(root, modelType) {
     const hasPrintableGroups = printableGroups.length > 0;
 
     if (looksLikeNamedPrintMesh(o?.name)) {
-      namedPrintMeshCandidates.push({ o, score: volume * 9 + size.y * size.x });
+      const guessedSide = resolvePrintSideFromMaterialName(o?.name || "");
+      namedPrintMeshCandidates.push({
+        o,
+        score: volume * 9 + size.y * size.x,
+        sides: guessedSide ? new Set([normalizePrintSide(guessedSide)]) : new Set(),
+      });
       return;
     }
 
     if (hasPrintableGroups) {
-      const proxy = getOrCreatePrintableProxyMesh(o, printableGroups);
+      const preferredPrintableGroups = printableGroups.filter((entry) =>
+        preferredSides.has(normalizePrintSide(entry?.side))
+      );
+      const groupsForCurrentView = preferredPrintableGroups.length > 0 ? preferredPrintableGroups : printableGroups;
+      const printableSides = new Set(groupsForCurrentView.map((entry) => normalizePrintSide(entry?.side)).filter(Boolean));
+      const proxy = getOrCreatePrintableProxyMesh(o, groupsForCurrentView);
       if (proxy) {
         syncPrintableProxyMesh(proxy);
-        printableCandidates.push({ o: proxy, score: volume * 7 + size.y * size.x });
+        printableCandidates.push({ o: proxy, score: volume * 7 + size.y * size.x, sides: printableSides });
         return;
       }
-      printableCandidates.push({ o, score: volume * 4 + size.y * size.x });
+      printableCandidates.push({ o, score: volume * 4 + size.y * size.x, sides: printableSides });
       return;
     }
 
@@ -2637,9 +2934,13 @@ function pickDecalHostMesh(root, modelType) {
   });
 
   namedPrintMeshCandidates.sort((a, b) => b.score - a.score);
+  const preferredNamed = namedPrintMeshCandidates.find(entrySupportsPreferredSide);
+  if (preferredNamed?.o) return preferredNamed.o;
   if (namedPrintMeshCandidates[0]?.o) return namedPrintMeshCandidates[0].o;
 
   printableCandidates.sort((a, b) => b.score - a.score);
+  const preferredPrintable = printableCandidates.find(entrySupportsPreferredSide);
+  if (preferredPrintable?.o) return preferredPrintable.o;
   if (printableCandidates[0]?.o) return printableCandidates[0].o;
 
   candidates.sort((a, b) => b.score - a.score);
@@ -2717,7 +3018,7 @@ function shrinkwrapGlyphMeshToSurface(
   const normalLocal = new THREE.Vector3();
   const snappedWorld = new THREE.Vector3();
   const targetWorldInverse = targetMesh.matrixWorld.clone().invert();
-  const expectedSide = surfaceSide === "back" ? "back" : "front";
+  const expectedSide = normalizePrintSide(surfaceSide);
   const expectedLocalNormalSign = expectedSide === "back" ? -1 : 1;
 
   const castDist = 0.18;
@@ -2747,7 +3048,10 @@ function shrinkwrapGlyphMeshToSurface(
       }
       if (normal.dot(dir) < 0) normal.multiplyScalar(-1);
       normalLocal.copy(normal).transformDirection(targetWorldInverse).normalize();
-      const localSideScore = normalLocal.z * expectedLocalNormalSign;
+      const localSideScore =
+        expectedSide === "sleeve"
+          ? Math.abs(normalLocal.x) - Math.abs(normalLocal.z) * 0.25
+          : normalLocal.z * expectedLocalNormalSign;
       const worldDirScore = normal.dot(dir);
       return {
         hit,
@@ -3035,7 +3339,21 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
     const rz = ((Number(textState?.rotation) || 0) * Math.PI) / 180;
     const stickLift = (1 - rubberStick) * 0.00032;
     const zNudge = side === "back" ? -(0.000012 + stickLift) : 0.000012 + stickLift;
-    const sideRotY = Number(textState?.surfaceRotationY ?? profile.rotY ?? (side === "back" ? Math.PI : 0));
+    const sideRotY = Number(
+      textState?.surfaceRotationY ??
+      profile.rotY ??
+      (
+        side === "back"
+          ? Math.PI
+          : side === "sleeve_left"
+            ? Math.PI / 2
+            : side === "sleeve_right"
+              ? -Math.PI / 2
+              : side === "sleeve"
+                ? -Math.PI / 2
+                : 0
+      )
+    );
     const textColor = textState?.color || "#f4f4f4";
     const placementKey = `${side}_${cx}_${cy}_${profile.z || 0}_${sideRotY}_${rz}`;
 
@@ -3119,7 +3437,21 @@ const SdfTextLayer = React.memo(function SdfTextLayer({
   const safeTextPos = clampTextPos(sideData?.textPos, textState);
   const cx = profile.xMin + safeTextPos.x * areaW;
   const cy = profile.yTop - safeTextPos.y * areaH;
-  const sideRotY = Number(textState?.surfaceRotationY ?? profile.rotY ?? (side === "back" ? Math.PI : 0));
+  const sideRotY = Number(
+    textState?.surfaceRotationY ??
+    profile.rotY ??
+    (
+      side === "back"
+        ? Math.PI
+        : side === "sleeve_left"
+          ? Math.PI / 2
+          : side === "sleeve_right"
+            ? -Math.PI / 2
+            : side === "sleeve"
+              ? -Math.PI / 2
+              : 0
+    )
+  );
   const rz = ((Number(textState?.rotation) || 0) * Math.PI) / 180;
   const fontSize = clamp((Number(textState?.size) || 150) / 5200, 0.018, 0.085);
   const maxWidth = clamp(areaW * 0.9, 0.06, 0.45);
@@ -3343,7 +3675,18 @@ function InjectionPatternStamp({
   };
   const cx = profile.xMin + safePos.x * areaW;
   const cy = profile.yTop - safePos.y * areaH;
-  const sideRotY = Number(profile.rotY ?? (side === "back" ? Math.PI : 0));
+  const sideRotY = Number(
+    profile.rotY ??
+      (side === "back"
+        ? Math.PI
+        : side === "sleeve_left"
+          ? Math.PI / 2
+          : side === "sleeve_right"
+            ? -Math.PI / 2
+            : side === "sleeve"
+              ? -Math.PI / 2
+              : 0)
+  );
   const tiltX = Number.isFinite(Number(resolvedOption?.tiltX)) ? Number(resolvedOption.tiltX) : 0;
   const rz = ((Number(sideData?.injectionRotation) || 0) * Math.PI) / 180;
   const zNudge = side === "back" ? -0.000016 : 0.000016;
@@ -3385,6 +3728,8 @@ function Real3DModel({
   stringColor,
   frontCanvas,
   backCanvas,
+  sleeveLeftCanvas,
+  sleeveRightCanvas,
   modelType,
   hoodieV12Parts,
   fabricType,
@@ -3392,6 +3737,8 @@ function Real3DModel({
   isMobile,
   frontSideData,
   backSideData,
+  sleeveLeftSideData,
+  sleeveRightSideData,
   frontPrintTypes = [],
   backPrintTypes = [],
   perfProfile,
@@ -3531,9 +3878,9 @@ function Real3DModel({
     const showStrings = !!hoodieV12Parts?.strings;
     const showPocket = !!hoodieV12Parts?.pocket;
 
-    const looksLikeLace = (o) => {
-      const n = (o?.name || "").toLowerCase();
-      const mn = (o?.material?.name || "").toLowerCase();
+    const looksLikeLaceIdentity = (meshName = "", materialName = "") => {
+      const n = String(meshName || "").toLowerCase();
+      const mn = String(materialName || "").toLowerCase();
       return (
         n.includes("string") ||
         n.includes("lace") ||
@@ -3548,15 +3895,27 @@ function Real3DModel({
       );
     };
 
-    const resolveBodyMaterialForMesh = (o) => {
-      const meshName = String(o?.name || "").toLowerCase();
-      const materialName = String(o?.material?.name || "").toLowerCase();
+    const resolveBodyMaterialForIdentity = (meshName = "", materialName = "") => {
       const identity = `${meshName} ${materialName}`;
       const matchesBack = BACK_SURFACE_RE.test(identity);
       const matchesFront = FRONT_SURFACE_RE.test(identity);
       if (matchesBack && !matchesFront) return backBodyMaterial;
       if (matchesFront && !matchesBack) return frontBodyMaterial;
       return activeViewBodyMaterial;
+    };
+
+    const resolveMaterialForEntry = (o, materialEntry, opts = {}) => {
+      const meshName = String(o?.name || "").toLowerCase();
+      const materialName = String(materialEntry?.name || "").toLowerCase();
+      if (opts.forceLace) return laceMaterial;
+      if (!opts.forceBody && looksLikeLaceIdentity(meshName, materialName)) return laceMaterial;
+      return resolveBodyMaterialForIdentity(meshName, materialName);
+    };
+
+    const applyResolvedMaterial = (o, opts = {}) => {
+      const matEntries = Array.isArray(o.material) ? o.material : [o.material];
+      const mapped = matEntries.map((entry) => resolveMaterialForEntry(o, entry, opts));
+      o.material = Array.isArray(o.material) ? mapped : mapped[0];
     };
 
     root.traverse((o) => {
@@ -3567,20 +3926,20 @@ function Real3DModel({
         const meshName = (o?.name || "").toLowerCase();
         if (meshName.includes("hoodie_ipler") || meshName.includes("_ip") || meshName.includes("ipler")) {
           o.visible = showStrings;
-          o.material = laceMaterial;
+          applyResolvedMaterial(o, { forceLace: true });
           return;
         }
         if (meshName.includes("hoodie_cep") || meshName.includes("_cep") || meshName.includes("cep")) {
           o.visible = showPocket;
-          o.material = resolveBodyMaterialForMesh(o);
+          applyResolvedMaterial(o, { forceBody: true });
           return;
         }
         o.visible = true;
-        o.material = resolveBodyMaterialForMesh(o);
+        applyResolvedMaterial(o, { forceBody: true });
         return;
       }
       o.visible = true;
-      o.material = looksLikeLace(o) ? laceMaterial : resolveBodyMaterialForMesh(o);
+      applyResolvedMaterial(o);
     });
   }, [
     root,
@@ -3598,10 +3957,47 @@ function Real3DModel({
     () => makeCanvasTexture(frontCanvas, { maxAnisotropy, useMipmaps: allowMipmaps }),
     [frontCanvas, maxAnisotropy, allowMipmaps]
   );
+
+  useEffect(() => {
+    if (frontTex) frontTex.needsUpdate = true;
+  }, [frontTex, frontCanvas]);
+
   const backTex = useMemo(
     () => makeCanvasTexture(backCanvas, { maxAnisotropy, useMipmaps: allowMipmaps }),
     [backCanvas, maxAnisotropy, allowMipmaps]
   );
+
+  useEffect(() => {
+    if (backTex) {
+      backTex.needsUpdate = true;
+      const normalizedModel = normalizeModelType(modelType);
+      if (normalizedModel === "polarv3") {
+        backTex.repeat.set(1, 1);
+        backTex.offset.set(0, 0);
+      } else {
+        backTex.repeat.set(-1, 1);
+        backTex.offset.set(1, 0);
+      }
+    }
+  }, [backTex, backCanvas, modelType]);
+
+  const sleeveLeftTex = useMemo(
+    () => makeCanvasTexture(sleeveLeftCanvas, { maxAnisotropy, useMipmaps: allowMipmaps }),
+    [sleeveLeftCanvas, maxAnisotropy, allowMipmaps]
+  );
+
+  useEffect(() => {
+    if (sleeveLeftTex) sleeveLeftTex.needsUpdate = true;
+  }, [sleeveLeftTex, sleeveLeftCanvas]);
+
+  const sleeveRightTex = useMemo(
+    () => makeCanvasTexture(sleeveRightCanvas, { maxAnisotropy, useMipmaps: allowMipmaps }),
+    [sleeveRightCanvas, maxAnisotropy, allowMipmaps]
+  );
+
+  useEffect(() => {
+    if (sleeveRightTex) sleeveRightTex.needsUpdate = true;
+  }, [sleeveRightTex, sleeveRightCanvas]);
 
   useEffect(
     () => () => {
@@ -3613,7 +4009,6 @@ function Real3DModel({
   useEffect(
     () => () => {
       backTex?.dispose?.();
-      // Expanded cleanup
       if (backTex?.source?.data?.close) {
         try { backTex.source.data.close(); } catch (e) { }
       }
@@ -3621,7 +4016,27 @@ function Real3DModel({
     [backTex]
   );
 
-  const decalHost = useMemo(() => pickDecalHostMesh(root, modelType), [root, modelType]);
+  useEffect(
+    () => () => {
+      sleeveLeftTex?.dispose?.();
+      if (sleeveLeftTex?.source?.data?.close) {
+        try { sleeveLeftTex.source.data.close(); } catch (e) { }
+      }
+    },
+    [sleeveLeftTex]
+  );
+
+  useEffect(
+    () => () => {
+      sleeveRightTex?.dispose?.();
+      if (sleeveRightTex?.source?.data?.close) {
+        try { sleeveRightTex.source.data.close(); } catch (e) { }
+      }
+    },
+    [sleeveRightTex]
+  );
+
+  const decalHost = useMemo(() => pickDecalHostMesh(root, modelType, view), [root, modelType, view]);
   const decalHostRef = useMemo(() => ({ current: decalHost }), [decalHost]);
   const materialProfiles = useMemo(
     () => extractPrintProfilesFromMaterials(decalHost, modelType),
@@ -3638,8 +4053,14 @@ function Real3DModel({
     registerMaterialPrintProfiles(modelType, materialProfiles);
   }, [modelType, materialProfiles]);
 
-  const DTF_DECAL_DEPTH = STATIC_DECAL_DEPTH[normalizeModelType(modelType)] ?? 0.18;
+  const normalizedModel = normalizeModelType(modelType);
+  const DTF_DECAL_DEPTH = STATIC_DECAL_DEPTH[normalizedModel] ?? 0.18;
+  const backDecalDepth =
+    normalizedModel === "polarv3" ? Math.min(DTF_DECAL_DEPTH, 0.22) : DTF_DECAL_DEPTH;
+  const sleeveDecalDepth =
+    normalizedModel === "polarv3" ? Math.min(DTF_DECAL_DEPTH, 0.16) : DTF_DECAL_DEPTH;
   const DTF_SURFACE_OFFSET = 0.008;
+  const sleeveSurfaceOffset = normalizedModel === "polarv3" ? 0.0032 : DTF_SURFACE_OFFSET;
   const EMBOSS_DECAL_DEPTH_1 = 0.032;
   const EMBOSS_DECAL_DEPTH_2 = 0.027;
   const EMBOSS_DECAL_DEPTH_3 = 0.022;
@@ -3648,49 +4069,70 @@ function Real3DModel({
 
   const frontProfile = useMemo(() => {
     const normalized = normalizeModelType(modelType);
+    const hardcoded = getPrintProfile(modelType, "front", hoodieV12Parts);
+    const dynamicFront = materialProfiles?.front
+      ? normalizePrintProfile(materialProfiles.front, "front", modelType)
+      : null;
+    if (dynamicFront) {
+      return applyHoodiePocketClampToFront(dynamicFront, modelType, hoodieV12Parts);
+    }
     const staticFront = STATIC_PRINT_PROFILES[normalized]?.front;
     if (staticFront) {
       const base = normalizePrintProfile(staticFront, "front", modelType);
       return applyHoodiePocketClampToFront(base, modelType, hoodieV12Parts);
     }
-    const dynamicFront = materialProfiles?.front
-      ? normalizePrintProfile(materialProfiles.front, "front", modelType)
-      : null;
-    if (dynamicFront) {
-      const hardcoded = getPrintProfile(modelType, "front", hoodieV12Parts);
-      const clamped = {
-        ...dynamicFront,
-        xMin: Math.max(dynamicFront.xMin, hardcoded.xMin),
-        xMax: Math.min(dynamicFront.xMax, hardcoded.xMax),
-        yTop: Math.min(dynamicFront.yTop, hardcoded.yTop),
-        yBot: Math.max(dynamicFront.yBot, hardcoded.yBot),
-      };
-      return applyHoodiePocketClampToFront(clamped, modelType, hoodieV12Parts);
-    }
-    return getPrintProfile(modelType, "front", hoodieV12Parts);
+    return hardcoded;
   }, [materialProfiles?.front, modelType, hoodieV12Parts]);
 
   const backProfile = useMemo(() => {
     const normalized = normalizeModelType(modelType);
-    const staticBack = STATIC_PRINT_PROFILES[normalized]?.back;
-    if (staticBack) {
-      return normalizePrintProfile(staticBack, "back", modelType);
-    }
+    const hardcoded = getPrintProfile(modelType, "back", hoodieV12Parts);
     const dynamicBack = materialProfiles?.back
       ? normalizePrintProfile(materialProfiles.back, "back", modelType)
       : null;
     if (dynamicBack) {
-      const hardcoded = getPrintProfile(modelType, "back", hoodieV12Parts);
-      return {
-        ...dynamicBack,
-        xMin: Math.max(dynamicBack.xMin, hardcoded.xMin),
-        xMax: Math.min(dynamicBack.xMax, hardcoded.xMax),
-        yTop: Math.min(dynamicBack.yTop, hardcoded.yTop),
-        yBot: Math.max(dynamicBack.yBot, hardcoded.yBot),
-      };
+      return dynamicBack;
     }
-    return getPrintProfile(modelType, "back", hoodieV12Parts);
+    const staticBack = STATIC_PRINT_PROFILES[normalized]?.back;
+    if (staticBack) {
+      return normalizePrintProfile(staticBack, "back", modelType);
+    }
+    return hardcoded;
   }, [materialProfiles?.back, modelType, hoodieV12Parts]);
+
+  const sleeveProfiles = useMemo(() => {
+    const normalized = normalizeModelType(modelType);
+    const dynamicLeft = materialProfiles?.sleeveLeft
+      ? normalizePrintProfile(materialProfiles.sleeveLeft, "sleeve_left", modelType)
+      : materialProfiles?.sleeve_left
+        ? normalizePrintProfile(materialProfiles.sleeve_left, "sleeve_left", modelType)
+        : null;
+    const dynamicRight = materialProfiles?.sleeveRight
+      ? normalizePrintProfile(materialProfiles.sleeveRight, "sleeve_right", modelType)
+      : materialProfiles?.sleeve_right
+        ? normalizePrintProfile(materialProfiles.sleeve_right, "sleeve_right", modelType)
+        : null;
+    const staticLeft = normalizePrintProfile(
+      STATIC_PRINT_PROFILES[normalized]?.sleeve_left || DEFAULT_PRINT_PROFILE.sleeve_left,
+      "sleeve_left",
+      modelType
+    );
+    const staticRight = normalizePrintProfile(
+      STATIC_PRINT_PROFILES[normalized]?.sleeve_right || DEFAULT_PRINT_PROFILE.sleeve_right,
+      "sleeve_right",
+      modelType
+    );
+    return {
+      left: dynamicLeft || staticLeft,
+      right: dynamicRight || staticRight,
+    };
+  }, [
+    materialProfiles?.sleeveLeft,
+    materialProfiles?.sleeveRight,
+    materialProfiles?.sleeve_left,
+    materialProfiles?.sleeve_right,
+    modelType,
+  ]);
 
   const frontW = frontProfile.xMax - frontProfile.xMin;
   const frontH = frontProfile.yTop - frontProfile.yBot;
@@ -3699,10 +4141,12 @@ function Real3DModel({
   const backW = backProfile.xMax - backProfile.xMin;
   const backH = backProfile.yTop - backProfile.yBot;
   const backCY = (backProfile.yTop + backProfile.yBot) / 2;
+
   const materialInset = 0.985;
 
   const torsoZOffsetFront = 0.001;
   const torsoZOffsetBack = -0.001;
+  const torsoZOffsetSleeve = normalizedModel === "polarv3" ? 0.0003 : 0.001;
   const frontDecalNormal = useMemo(
     () => new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(0, frontDecalRotY, 0)).normalize(),
     [frontDecalRotY]
@@ -3727,9 +4171,42 @@ function Real3DModel({
     ],
     [backCY, backProfile.z, backDecalNormal, torsoZOffsetBack]
   );
+  const buildSleeveDecalTarget = useCallback(
+    (profile, key) => {
+      if (!profile) return null;
+      const w = profile.xMax - profile.xMin;
+      const h = profile.yTop - profile.yBot;
+      if (!(w > 0.02) || !(h > 0.02)) return null;
+      const cy = (profile.yTop + profile.yBot) / 2;
+      const rotY = Number(profile.rotY) || 0;
+      const normal = new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(0, rotY, 0)).normalize();
+      return {
+        key,
+        rotY,
+        w,
+        h,
+        position: [
+          (profile.xMin + profile.xMax) / 2 + normal.x * sleeveSurfaceOffset,
+          cy + normal.y * sleeveSurfaceOffset,
+          profile.z + torsoZOffsetSleeve + normal.z * sleeveSurfaceOffset,
+        ],
+      };
+    },
+    [sleeveSurfaceOffset, torsoZOffsetSleeve]
+  );
+  const sleeveLeftDecalTarget = useMemo(
+    () => buildSleeveDecalTarget(sleeveProfiles?.left, "sleeve-left"),
+    [buildSleeveDecalTarget, sleeveProfiles?.left]
+  );
+  const sleeveRightDecalTarget = useMemo(
+    () => buildSleeveDecalTarget(sleeveProfiles?.right, "sleeve-right"),
+    [buildSleeveDecalTarget, sleeveProfiles?.right]
+  );
 
   const showFront = view === "front";
   const showBack = view === "back";
+  const showSleeveLeft = view === "sleeve_left";
+  const showSleeveRight = view === "sleeve_right";
   const frontHasRubber =
     normalizePrintTechnique(
       frontSideData?.customText?.technique,
@@ -3837,6 +4314,7 @@ function Real3DModel({
                 position={frontDecalPosition}
                 rotation={[0, frontDecalRotY, 0]}
                 scale={[frontW * materialInset, frontH * materialInset, DTF_DECAL_DEPTH]}
+                renderOrder={999}
               >
                 <meshBasicMaterial
                   map={frontTex}
@@ -3844,13 +4322,13 @@ function Real3DModel({
                   color="#ffffff"
                   transparent
                   alphaTest={0.02}
-                  depthTest
+                  depthTest={false}
                   depthWrite={false}
                   polygonOffset
                   polygonOffsetFactor={-10}
                   polygonOffsetUnits={-4}
                   premultipliedAlpha
-                  side={THREE.FrontSide}
+                  side={THREE.DoubleSide}
                 />
               </Decal>
             )}
@@ -3888,6 +4366,8 @@ function Real3DModel({
                         polygonOffset
                         polygonOffsetFactor={-10}
                         side={THREE.FrontSide}
+                        blending={THREE.NormalBlending}
+                        depthTest={true}
                       />
                     </Decal>
                     <Decal
@@ -3982,7 +4462,8 @@ function Real3DModel({
                 mesh={decalHostRef}
                 position={backDecalPosition}
                 rotation={[0, backDecalRotY, 0]}
-                scale={[backW * materialInset, backH * materialInset, DTF_DECAL_DEPTH]}
+                scale={[backW * materialInset, backH * materialInset, backDecalDepth]}
+                renderOrder={999}
               >
                 <meshBasicMaterial
                   map={backTex}
@@ -3990,13 +4471,13 @@ function Real3DModel({
                   color="#ffffff"
                   transparent
                   alphaTest={0.02}
-                  depthTest
+                  depthTest={false}
                   depthWrite={false}
                   polygonOffset
                   polygonOffsetFactor={-10}
                   polygonOffsetUnits={-4}
                   premultipliedAlpha
-                  side={THREE.FrontSide}
+                  side={THREE.DoubleSide}
                 />
               </Decal>
             )}
@@ -4035,6 +4516,60 @@ function Real3DModel({
               />
             )}
 
+            {showSleeveLeft && sleeveLeftTex && sleeveLeftDecalTarget && (
+              <Decal
+                key={sleeveLeftDecalTarget.key}
+                raycast={NO_RAYCAST}
+                mesh={decalHostRef}
+                position={sleeveLeftDecalTarget.position}
+                rotation={[0, sleeveLeftDecalTarget.rotY || 0, 0]}
+                scale={[sleeveLeftDecalTarget.w * materialInset, sleeveLeftDecalTarget.h * materialInset, sleeveDecalDepth]}
+                renderOrder={999}
+              >
+                <meshBasicMaterial
+                  map={sleeveLeftTex}
+                  toneMapped={false}
+                  color="#ffffff"
+                  transparent
+                  alphaTest={0.02}
+                  depthTest={false}
+                  depthWrite={false}
+                  polygonOffset
+                  polygonOffsetFactor={-10}
+                  polygonOffsetUnits={-4}
+                  premultipliedAlpha
+                  side={THREE.FrontSide}
+                />
+              </Decal>
+            )}
+
+            {showSleeveRight && sleeveRightTex && sleeveRightDecalTarget && (
+              <Decal
+                key={sleeveRightDecalTarget.key}
+                raycast={NO_RAYCAST}
+                mesh={decalHostRef}
+                position={sleeveRightDecalTarget.position}
+                rotation={[0, sleeveRightDecalTarget.rotY || 0, 0]}
+                scale={[sleeveRightDecalTarget.w * materialInset, sleeveRightDecalTarget.h * materialInset, sleeveDecalDepth]}
+                renderOrder={999}
+              >
+                <meshBasicMaterial
+                  map={sleeveRightTex}
+                  toneMapped={false}
+                  color="#ffffff"
+                  transparent
+                  alphaTest={0.02}
+                  depthTest={false}
+                  depthWrite={false}
+                  polygonOffset
+                  polygonOffsetFactor={-10}
+                  polygonOffsetUnits={-4}
+                  premultipliedAlpha
+                  side={THREE.FrontSide}
+                />
+              </Decal>
+            )}
+
             {showBack &&
               backEmbossLogos.map((logo, idx) => {
                 const tex = backEmbossTextures[idx];
@@ -4068,6 +4603,8 @@ function Real3DModel({
                         polygonOffset
                         polygonOffsetFactor={-10}
                         side={THREE.FrontSide}
+                        blending={THREE.NormalBlending}
+                        depthTest={true}
                       />
                     </Decal>
                     <Decal
@@ -4498,15 +5035,25 @@ function DesignModelItem({
   const tapSideHintRef = useRef(null);
   const frontMeshRef = useRef({ side: "front" });
   const backMeshRef = useRef({ side: "back" });
+  const sleeveLeftMeshRef = useRef({ side: "sleeve_left" });
+  const sleeveRightMeshRef = useRef({ side: "sleeve_right" });
 
   const ROT_SPEED = isMobile ? 0.016 : 0.012;
   const clampRotX = (v) => Math.max(isMobile ? -0.9 : -0.75, Math.min(isMobile ? 0.9 : 0.75, v));
   const clampRotY = (v) => (Number.isFinite(v) ? v : 0);
   const isColorMode = interactionMode === "color";
-  const targetMeshRef = view === "back" ? backMeshRef : frontMeshRef;
+  const targetMeshRef =
+    view === "back"
+      ? backMeshRef
+      : view === "sleeve_left"
+        ? sleeveLeftMeshRef
+        : view === "sleeve_right"
+          ? sleeveRightMeshRef
+          : frontMeshRef;
   const hitVolumeScale = isMobile ? [1.58, 1.86, 1.32] : [1.46, 1.72, 1.24];
 
   const resolveTapSideFromEvent = (evt) => {
+    if (view === "sleeve_left" || view === "sleeve_right") return view;
     const point = evt?.point;
     const group = groupRef.current;
     if (!point || !group) return null;
@@ -4593,6 +5140,7 @@ function DesignModelItem({
     design.sides.front || EMPTY_SIDE,
     isZipper
       ? {
+        sideKey: "front",
         clearCenterStripe01: gap01,
         disableText: frontHasRubber,
         canvasSize: textureCanvasSize,
@@ -4602,6 +5150,7 @@ function DesignModelItem({
         disabled: !frontCanvasEnabled,
       }
       : {
+        sideKey: "front",
         disableText: frontHasRubber,
         canvasSize: textureCanvasSize,
         includeEmbossLogos: lowPerformanceMode,
@@ -4611,12 +5160,33 @@ function DesignModelItem({
       }
   );
   const backCanvas = useDesignCanvas(design.sides.back || EMPTY_SIDE, {
+    sideKey: "back",
     disableText: backHasRubber,
     canvasSize: textureCanvasSize,
     includeEmbossLogos: lowPerformanceMode,
     updateDebounceMs: textureDebounceMs,
     lowQuality: lowPerformanceMode,
     disabled: !backCanvasEnabled,
+  });
+  const sleeveLeftCanvasEnabled = getAvailableViewsForModel(design?.modelType).includes("sleeve_left");
+  const sleeveLeftCanvas = useDesignCanvas(design.sides.sleeve_left || design.sides.left || EMPTY_SIDE, {
+    sideKey: "sleeve_left",
+    disableText: false,
+    canvasSize: textureCanvasSize,
+    includeEmbossLogos: lowPerformanceMode,
+    updateDebounceMs: textureDebounceMs,
+    lowQuality: lowPerformanceMode,
+    disabled: !sleeveLeftCanvasEnabled,
+  });
+  const sleeveRightCanvasEnabled = getAvailableViewsForModel(design?.modelType).includes("sleeve_right");
+  const sleeveRightCanvas = useDesignCanvas(design.sides.sleeve_right || design.sides.right || EMPTY_SIDE, {
+    sideKey: "sleeve_right",
+    disableText: false,
+    canvasSize: textureCanvasSize,
+    includeEmbossLogos: lowPerformanceMode,
+    updateDebounceMs: textureDebounceMs,
+    lowQuality: lowPerformanceMode,
+    disabled: !sleeveRightCanvasEnabled,
   });
 
   if (hidden) return null;
@@ -4721,8 +5291,12 @@ function DesignModelItem({
         stringColor={design.stringColor}
         frontCanvas={frontCanvas}
         backCanvas={backCanvas}
+        sleeveLeftCanvas={sleeveLeftCanvas}
+        sleeveRightCanvas={sleeveRightCanvas}
         frontSideData={design.sides.front || EMPTY_SIDE}
         backSideData={design.sides.back || EMPTY_SIDE}
+        sleeveLeftSideData={design.sides.sleeve_left || design.sides.left || EMPTY_SIDE}
+        sleeveRightSideData={design.sides.sleeve_right || design.sides.right || EMPTY_SIDE}
         modelType={design.modelType}
         hoodieV12Parts={design.hoodieV12Parts}
         fabricType={design.fabricType}
@@ -5246,7 +5820,7 @@ function EditorPanel({
   const isDrawerLayout = layout === "drawer";
   const isMobileDrawer = isDrawerLayout && isMobile;
 
-  const resolveViewSide = (nextView) => (nextView === "back" ? "back" : "front");
+  const resolveViewSide = (nextView) => resolveEditableSide(nextView);
   const currentView = resolveViewSide(view);
   const currentSide = currentView;
   const sideData = useMemo(() => normalizeSideData(design?.sides?.[currentSide]), [design, currentSide]);
@@ -5292,7 +5866,7 @@ function EditorPanel({
         ...liveText,
         text: nextText,
         technique: liveTechnique,
-        surfaceRotationY: currentSide === "back" ? Math.PI : 0,
+        surfaceRotationY: getDefaultSideRotationY(design?.modelType, currentSide, design?.hoodieV12Parts),
         ...(liveTechnique === PRINT_TECHNIQUES.RUBBER ? { font: RUBBER_FONT_OPTION.value } : {}),
       };
       const nextTextPos = clampTextPos(liveSideData?.textPos, nextCustomText);
@@ -5311,8 +5885,8 @@ function EditorPanel({
 
   if (!design) return null;
 
-  const sideLabel = currentSide === "front" ? "ÖN" : "ARKA";
-  const cm = CM_LABELS[design.modelType]?.[currentSide] || { w: 0, h: 0 };
+  const sideLabel = getSideLabel(currentSide);
+  const cm = getModelPrintCm(design.modelType, currentSide);
 
   const t = sideData?.customText || {};
   const effectivePrintTypes = Array.from(
@@ -5325,11 +5899,11 @@ function EditorPanel({
   );
   const setCurrentSidePrintTypes = (nextTypes) => {
     const bySide = normalizePrintTypesBySide(design.printTypesBySide, design.printTypes);
-    const safeSide = currentSide === "back" ? "back" : "front";
+    const safeSide = resolveEditableSide(currentSide);
     const normalizedNextRaw = Array.isArray(nextTypes) ? Array.from(new Set(nextTypes)) : [];
     const normalizedNext = Array.from(new Set(normalizedNextRaw)).filter(id => id === "dtf" || id === "rubber");
     const nextBySide = { ...bySide, [safeSide]: normalizedNext };
-    const mergedLegacy = Array.from(new Set([...(nextBySide.front || []), ...(nextBySide.back || [])]));
+    const mergedLegacy = mergePrintTypesForLegacy(nextBySide);
     updateDesign({
       printTypesBySide: nextBySide,
       printTypes: mergedLegacy,
@@ -5357,7 +5931,7 @@ function EditorPanel({
       updateDesign({ stringColor: safeColor });
       return;
     }
-    const safeSide = currentSide === "back" ? "back" : "front";
+    const safeSide = resolveEditableSide(currentSide);
     const liveSide = normalizeSideData(design?.sides?.[safeSide]);
     updateDesign({
       ...(safeSide === "front" ? { color: safeColor } : {}),
@@ -5377,7 +5951,7 @@ function EditorPanel({
       ? normalizePrintTechnique(safePatch?.technique, t.technique || PRINT_TECHNIQUES.DTF)
       : t.technique || PRINT_TECHNIQUES.DTF;
     if (!Object.prototype.hasOwnProperty.call(safePatch, "surfaceRotationY")) {
-      safePatch.surfaceRotationY = currentSide === "back" ? Math.PI : 0;
+      safePatch.surfaceRotationY = getDefaultSideRotationY(design?.modelType, currentSide, design?.hoodieV12Parts);
     }
     if (nextTechnique === PRINT_TECHNIQUES.RUBBER) {
       safePatch.font = RUBBER_FONT_OPTION.value;
@@ -5434,19 +6008,20 @@ function EditorPanel({
 
     const profile = getPrintProfile(design?.modelType || DEFAULT_MODEL_TYPE, sideKey, design?.hoodieV12Parts);
     const isBackSide = sideKey === "back";
+    const isSleevePrintSide = isSleeveSide(sideKey);
     const nextLogo = {
       id: makeId(),
       url: safeUrl,
       technique: PRINT_TECHNIQUES.DTF,
-      box: box || { x: 0.5, y: isBackSide ? 0.58 : 0.6, w: 0.7, h: 0.45 },
-      rotation: isBackSide ? 180 : 0,
+      box: box || { x: 0.5, y: isBackSide ? 0.58 : isSleevePrintSide ? 0.55 : 0.6, w: 0.7, h: 0.45 },
+      rotation: 0,
       z: 0,
       kind: kind === "sticker" ? "sticker" : "logo",
       emboss: Boolean(emboss),
       // Back-view placement metadata: used to keep side intent explicit and debuggable.
       surfaceSide: sideKey,
-      surfaceRotationY: Number(profile?.rotY ?? (isBackSide ? Math.PI : 0)),
-      surfaceZ: Number(profile?.z ?? (isBackSide ? -0.148 : 0.147)),
+      surfaceRotationY: Number(profile?.rotY ?? getDefaultSideRotationY(design?.modelType, sideKey, design?.hoodieV12Parts)),
+      surfaceZ: Number(profile?.z ?? (isBackSide ? -0.148 : isSleevePrintSide ? 0 : 0.147)),
       ...LOGO_STYLE_DEFAULTS,
     };
     const nextSide = {
@@ -5456,7 +6031,7 @@ function EditorPanel({
     };
     const bySide = normalizePrintTypesBySide(design?.printTypesBySide, design?.printTypes);
     bySide[sideKey] = Array.from(new Set([...(bySide[sideKey] || []), "dtf"]));
-    const mergedLegacy = Array.from(new Set([...(bySide.front || []), ...(bySide.back || [])]));
+    const mergedLegacy = mergePrintTypesForLegacy(bySide);
 
     updateDesign({
       sides: {
@@ -6569,13 +7144,13 @@ function TasarimClientContent({ isMobile }) {
 
   // Editor overlay için gerekli değişkenler
   const currentActiveDesign = designs.find(d => d.id === activeId);
-  const currentSide = view;
-  const sideLabel = currentSide === "front" ? "ÖN" : "ARKA";
+  const currentSide = resolveEditableSide(view);
+  const sideLabel = getSideLabel(currentSide);
   const sideData = normalizeSideData(currentActiveDesign?.sides?.[currentSide]);
-  const printCm = CM_LABELS[currentActiveDesign?.modelType]?.[currentSide] || { w: 0, h: 0 };
+  const printCm = getModelPrintCm(currentActiveDesign?.modelType, currentSide);
   const printBounds = useMemo(() => {
     const modelType = currentActiveDesign?.modelType || "tshirt";
-    const side = currentSide === "back" ? "back" : "front";
+    const side = resolveEditableSide(currentSide);
     return getPrintProfile(modelType, side, currentActiveDesign?.hoodieV12Parts);
   }, [currentActiveDesign?.modelType, currentActiveDesign?.hoodieV12Parts, currentSide]);
   const previewAspect = useMemo(() => {
@@ -6751,7 +7326,11 @@ function TasarimClientContent({ isMobile }) {
       ? normalizePrintTechnique(safePatch?.technique, customText?.technique || PRINT_TECHNIQUES.DTF)
       : normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.DTF);
     if (!Object.prototype.hasOwnProperty.call(safePatch, "surfaceRotationY")) {
-      safePatch.surfaceRotationY = currentSide === "back" ? Math.PI : 0;
+      safePatch.surfaceRotationY = getDefaultSideRotationY(
+        currentActiveDesign?.modelType,
+        currentSide,
+        currentActiveDesign?.hoodieV12Parts
+      );
     }
     if (nextTechnique === PRINT_TECHNIQUES.RUBBER) {
       safePatch.font = RUBBER_FONT_OPTION.value;
@@ -6789,7 +7368,7 @@ function TasarimClientContent({ isMobile }) {
     setDesigns((prev) =>
       prev.map((d) => {
         if (d.id !== activeId) return d;
-        const safeSide = currentSide === "back" ? "back" : "front";
+        const safeSide = resolveEditableSide(currentSide);
         const bySide = normalizePrintTypesBySide(d.printTypesBySide, d.printTypes);
         bySide[safeSide] = Array.from(
           new Set([...(bySide[safeSide] || []), techniqueToPrintTypeId(technique)])
@@ -6797,7 +7376,7 @@ function TasarimClientContent({ isMobile }) {
         return {
           ...d,
           printTypesBySide: bySide,
-          printTypes: Array.from(new Set([...(bySide.front || []), ...(bySide.back || [])])),
+          printTypes: mergePrintTypesForLegacy(bySide),
         };
       })
     );
@@ -6921,7 +7500,7 @@ function TasarimClientContent({ isMobile }) {
 
   const handleSceneModelTap = (designId, sideHint = null) => {
     if (!designId) return;
-    if (sideHint === "front" || sideHint === "back") {
+    if (DESIGN_SIDES.includes(sideHint) && availableViewSides.includes(sideHint)) {
       if (sideHint !== view) {
         setView(sideHint);
       }
@@ -7288,7 +7867,7 @@ function TasarimClientContent({ isMobile }) {
   const allLogoUrls = useMemo(() => {
     const urls = [];
     designs.forEach((designItem) => {
-      UI_SIDES.forEach((sideKey) => {
+      DESIGN_SIDES.forEach((sideKey) => {
         (designItem?.sides?.[sideKey]?.logos || []).forEach((layer) => {
           if (layer?.url) urls.push(layer.url);
         });
@@ -7318,7 +7897,18 @@ function TasarimClientContent({ isMobile }) {
   }, [designs]);
 
   const activeDesign = useMemo(() => designs.find((d) => d.id === activeId) || designs[0], [designs, activeId]);
-  const activeSideKeyForFlow = view === "back" ? "back" : "front";
+  const availableViewSides = useMemo(
+    () => getAvailableViewsForModel(activeDesign?.modelType || selectedModelType || safeInitial),
+    [activeDesign?.modelType, selectedModelType, safeInitial]
+  );
+
+  useEffect(() => {
+    if (!availableViewSides.includes(view)) {
+      setView("front");
+    }
+  }, [availableViewSides, view]);
+
+  const activeSideKeyForFlow = resolveEditableSide(view);
   const hasDtfForActiveSide =
     getPrintTypesForSide(activeDesign, activeSideKeyForFlow).includes("dtf") ||
     Boolean((activeDesign?.sides?.[activeSideKeyForFlow]?.logos || []).length);
@@ -7357,9 +7947,10 @@ function TasarimClientContent({ isMobile }) {
     }
     setMobilePrimaryTab("design");
     if (!["print", "upload", "text", "pattern", "editor", "color"].includes(activeTab)) {
+      const activeViewSide = resolveEditableSide(view);
       const currentSideHasDtf =
-        getPrintTypesForSide(activeDesign, view).includes("dtf") ||
-        Boolean((activeDesign?.sides?.[view]?.logos || []).length);
+        getPrintTypesForSide(activeDesign, activeViewSide).includes("dtf") ||
+        Boolean((activeDesign?.sides?.[activeViewSide]?.logos || []).length);
       setActiveTab(currentSideHasDtf ? "upload" : "print");
     }
     setPanelProgress(0);
@@ -7417,7 +8008,7 @@ function TasarimClientContent({ isMobile }) {
     { id: "text", label: "Yazı", icon: FileText },
     { id: "upload", label: "Görsel", icon: ImageIcon },
   ];
-  const currentView = view === "back" ? "back" : "front";
+  const currentView = resolveEditableSide(view);
   const activeSideKey = currentView;
   const activeSideData = activeDesign?.sides?.[activeSideKey];
   const activeSideTechnique = normalizePrintTechnique(
@@ -7455,7 +8046,7 @@ function TasarimClientContent({ isMobile }) {
           },
         };
         bySide[safeSide] = mergedSideTypes;
-        const mergedLegacy = Array.from(new Set([...(bySide.front || []), ...(bySide.back || [])]));
+        const mergedLegacy = mergePrintTypesForLegacy(bySide);
         return {
           ...d,
           sides: { ...d.sides, [safeSide]: nextSide },
@@ -7482,7 +8073,7 @@ function TasarimClientContent({ isMobile }) {
       activeSideData?.customText?.technique,
       printTypeIdsToTechnique(activePrintTypesBase, PRINT_TECHNIQUES.DTF)
     );
-    const safeSide = activeSideKey === "back" ? "back" : "front";
+    const safeSide = resolveEditableSide(activeSideKey);
 
     if (currentlySelected) {
       if (typeId === "dtf" && hasSideLogos) {
@@ -7515,8 +8106,8 @@ function TasarimClientContent({ isMobile }) {
             nextTechnique = PRINT_TECHNIQUES.RUBBER;
           }
 
-          bySide[safeSide] = normalizePrintTypesBySide({ front: nextTypes, back: [] }).front;
-          const mergedLegacy = Array.from(new Set([...(bySide.front || []), ...(bySide.back || [])]));
+          bySide[safeSide] = normalizePrintTypesBySide({ [safeSide]: nextTypes })[safeSide];
+          const mergedLegacy = mergePrintTypesForLegacy(bySide);
           const nextSide = {
             ...prevSide,
             ...(clearInjection ? { injectionModelId: null } : {}),
@@ -7570,7 +8161,7 @@ function TasarimClientContent({ isMobile }) {
       setMobilePrimaryTab("design");
       setPanelProgress(0);
     }
-    const safeSide = activeSideKey === "back" ? "back" : "front";
+    const safeSide = resolveEditableSide(activeSideKey);
     setDesigns((prev) =>
       prev.map((d) => {
         if (d.id !== activeId) return d;
@@ -7586,7 +8177,7 @@ function TasarimClientContent({ isMobile }) {
           };
         } else {
           const mergedSideTypes = Array.from(new Set([...(bySide[safeSide] || []), "rubber"]));
-          bySide[safeSide] = normalizePrintTypesBySide({ front: mergedSideTypes, back: [] }).front;
+          bySide[safeSide] = normalizePrintTypesBySide({ [safeSide]: mergedSideTypes })[safeSide];
           nextSide = {
             ...prevSide,
             injectionModelId: opt.id,
@@ -7600,7 +8191,7 @@ function TasarimClientContent({ isMobile }) {
           };
         }
 
-        const mergedLegacy = Array.from(new Set([...(bySide.front || []), ...(bySide.back || [])]));
+        const mergedLegacy = mergePrintTypesForLegacy(bySide);
         return {
           ...d,
           sides: {
@@ -7713,7 +8304,7 @@ function TasarimClientContent({ isMobile }) {
   useEffect(() => {
     if (!rubberActiveForSide) return;
     if ((customText?.font || "") === RUBBER_FONT_OPTION.value) return;
-    const safeSide = currentSide === "back" ? "back" : "front";
+    const safeSide = resolveEditableSide(currentSide);
     setDesigns((prev) =>
       prev.map((d) => {
         if (d.id !== activeId) return d;
@@ -7748,7 +8339,10 @@ function TasarimClientContent({ isMobile }) {
 
   const updateActive = (patch) => {
     if (patch?.__setView) {
-      setView(patch.__setView);
+      const requestedSide = resolveEditableSide(patch.__setView);
+      if (availableViewSides.includes(requestedSide)) {
+        setView(requestedSide);
+      }
       const { __setView, ...rest } = patch;
       patch = rest;
     }
@@ -7836,7 +8430,15 @@ function TasarimClientContent({ isMobile }) {
   };
 
   const layoutFor = (designId) => {
-    const sceneRotY = (captureView || view) === "back" ? Math.PI : 0;
+    const sceneSide = resolveEditableSide(captureView || view);
+    const sceneRotY =
+      sceneSide === "back"
+        ? Math.PI
+        : sceneSide === "sleeve_left"
+          ? Math.PI / 2
+          : sceneSide === "sleeve_right"
+            ? -Math.PI / 2
+            : 0;
     if (captureId) {
       if (designId !== captureId) return { hidden: true, x: -999, z: -999, rotY: 0, scale: 1 };
       return { hidden: false, x: 0, z: 0, rotY: sceneRotY, scale: 1.05 };
@@ -7889,7 +8491,10 @@ function TasarimClientContent({ isMobile }) {
       const canvasRect = gl.domElement.getBoundingClientRect();
       const rootRect = sceneRootRef.current?.getBoundingClientRect() || { left: 0, top: 0 };
       const layout = layoutFor(activeId);
-      const sideRotY = Number(printBounds.rotY ?? (currentSide === "back" ? Math.PI : 0));
+      const sideRotY = Number(
+        printBounds.rotY ??
+        getDefaultSideRotationY(currentActiveDesign?.modelType, currentSide, currentActiveDesign?.hoodieV12Parts)
+      );
       const modelScale = (Number(layout?.scale) || 1) + 0.05;
       const modelX = Number(layout?.x) || 0;
       const modelZ = Number(layout?.z) || 0;
@@ -7897,7 +8502,7 @@ function TasarimClientContent({ isMobile }) {
       const userRotate = modelUserRotateRef.current?.[activeId] || { x: 0, y: 0 };
       const modelRotY = (Number(layout?.rotY) || 0) + (Number(userRotate?.y) || 0);
       const modelRotX = Number(userRotate?.x) || 0;
-      const zOffset = currentSide === "back" ? -0.001 : 0.001;
+      const zOffset = currentSide === "back" ? -0.001 : isSleeveSide(currentSide) ? 0 : 0.001;
 
       const toWorld = (nx, ny) => {
         const x = printBounds.xMin + nx * (printBounds.xMax - printBounds.xMin);
@@ -7998,12 +8603,12 @@ function TasarimClientContent({ isMobile }) {
   const handleFinishCheckout = async () => {
     const hasAnyContent = designs.some((d) => Object.values(d.sides).some((sd) => hasSideContent(sd)));
     if (!hasAnyContent) {
-      alert("Lütfen en az bir üründe (ÖN/ARKA) logo/yazı ekleyin.");
+      alert("Lütfen en az bir üründe (ÖN/ARKA/SOL KOL/SAĞ KOL) logo/yazı ekleyin.");
       return;
     }
 
     const invalidTechniqueDesign = designs.find((d) =>
-      UI_SIDES.some((sideKey) => {
+      DESIGN_SIDES.some((sideKey) => {
         const sd = d?.sides?.[sideKey] || EMPTY_SIDE;
         const logos = Array.isArray(sd?.logos) ? sd.logos : [];
         const textTechnique = normalizePrintTechnique(sd?.customText?.technique, PRINT_TECHNIQUES.DTF);
@@ -8076,7 +8681,7 @@ function TasarimClientContent({ isMobile }) {
         const rubberSpecsBySide = buildRubberSpecsBySide(d);
         const textTechniqueBySide = {};
         const imageTechniquesBySide = {};
-        UI_SIDES.forEach((sideKey) => {
+        DESIGN_SIDES.forEach((sideKey) => {
           const sd = d?.sides?.[sideKey] || EMPTY_SIDE;
           textTechniqueBySide[sideKey] = normalizePrintTechnique(
             sd?.customText?.technique,
@@ -8292,7 +8897,7 @@ function TasarimClientContent({ isMobile }) {
   };
 
   const handleViewChange = (nextSide, opts = {}) => {
-    if (nextSide !== "front" && nextSide !== "back") return;
+    if (!availableViewSides.includes(nextSide)) return;
     const openPrintPicker = opts?.openPrintPicker !== false;
     setView(nextSide);
     clearSceneSelection();
@@ -8870,7 +9475,7 @@ function TasarimClientContent({ isMobile }) {
                   className={`flex flex-col rounded-full border-2 border-zinc-700 bg-white/95 backdrop-blur shadow-[0_10px_26px_rgba(0,0,0,0.22)] ${isMobile ? "p-[3px]" : "p-1.5"
                     }`}
                 >
-                  {UI_VIEWS.map((v) => (
+                  {availableViewSides.map((v) => (
                     <button type="button"
                       key={v}
                       onPointerDown={(e) => {
@@ -8882,7 +9487,7 @@ function TasarimClientContent({ isMobile }) {
                         : "bg-white text-zinc-600 hover:bg-zinc-100"
                         }`}
                     >
-                      {v === "front" ? "ÖN" : "ARKA"}
+                      {getSideLabel(v)}
                     </button>
                   ))}
                 </div>
@@ -9727,14 +10332,14 @@ function TasarimClientContent({ isMobile }) {
                         ? "border-cyan-300/90 bg-transparent shadow-none"
                         : "border-transparent bg-transparent"
                         }`}
-                    style={{
-                      left: `${(box.x - box.w / 2) * 100}%`,
-                      top: `${(box.y - box.h / 2) * 100}%`,
-                      width: `${box.w * 100}%`,
-                      height: `${box.h * 100}%`,
-                      pointerEvents: isMobile && mobilePanelCollapsed ? "none" : "auto",
-                      touchAction: "none",
-                    }}
+                      style={{
+                        left: `${(box.x - box.w / 2) * 100}%`,
+                        top: `${(box.y - box.h / 2) * 100}%`,
+                        width: `${box.w * 100}%`,
+                        height: `${box.h * 100}%`,
+                        pointerEvents: isMobile && mobilePanelCollapsed ? "none" : "auto",
+                        touchAction: "none",
+                      }}
                       onPointerDown={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -9953,20 +10558,20 @@ function TasarimClientContent({ isMobile }) {
                         ? "border-cyan-300/90 bg-transparent shadow-none"
                         : "border-transparent bg-transparent"
                         }`}
-                    style={{
-                      left: `${(sceneTextBox.x - sceneTextBox.w / 2) * 100}%`,
-                      top: `${(sceneTextBox.y - sceneTextBox.h / 2) * 100}%`,
-                      width: `${sceneTextBox.w * 100}%`,
-                      height: `${sceneTextBox.h * 100}%`,
-                      pointerEvents:
-                        isMobile && mobilePanelCollapsed
-                          ? "none"
-                          : showSceneTextFrame
+                      style={{
+                        left: `${(sceneTextBox.x - sceneTextBox.w / 2) * 100}%`,
+                        top: `${(sceneTextBox.y - sceneTextBox.h / 2) * 100}%`,
+                        width: `${sceneTextBox.w * 100}%`,
+                        height: `${sceneTextBox.h * 100}%`,
+                        pointerEvents:
+                          isMobile && mobilePanelCollapsed
                             ? "none"
-                            : "auto",
-                      touchAction: "none",
-                      zIndex: showSceneTextFrame ? 62 : 61,
-                    }}
+                            : showSceneTextFrame
+                              ? "none"
+                              : "auto",
+                        touchAction: "none",
+                        zIndex: showSceneTextFrame ? 62 : 61,
+                      }}
                       onPointerDown={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
