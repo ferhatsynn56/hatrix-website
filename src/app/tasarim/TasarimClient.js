@@ -3477,13 +3477,23 @@ function shrinkwrapGlyphMeshToSurface(
   if (!targetGeometry.boundsTree) {
     targetGeometry.boundsTree = new MeshBVH(targetGeometry);
   }
+  targetGeometry.computeBoundingBox?.();
+  const targetBounds = targetGeometry.boundingBox;
 
   targetMesh.updateWorldMatrix(true, true);
   mesh.updateWorldMatrix(true, false);
 
   const raycaster = new THREE.Raycaster();
   raycaster.firstHitOnly = true;
-  raycaster.far = 5;
+  const targetMaxSpan = targetBounds
+    ? Math.max(
+      Math.abs(targetBounds.max.x - targetBounds.min.x),
+      Math.abs(targetBounds.max.y - targetBounds.min.y),
+      Math.abs(targetBounds.max.z - targetBounds.min.z)
+    )
+    : 0;
+  const castDist = clamp(targetMaxSpan > 0 ? targetMaxSpan * 1.2 : 0.32, 0.22, 1.6);
+  raycaster.far = Math.max(1.25, castDist * 3.4);
 
   const meshQuat = new THREE.Quaternion();
   mesh.getWorldQuaternion(meshQuat);
@@ -3507,9 +3517,11 @@ function shrinkwrapGlyphMeshToSurface(
   const snappedWorld = new THREE.Vector3();
   const targetWorldInverse = targetMesh.matrixWorld.clone().invert();
   const expectedSide = normalizePrintSide(surfaceSide);
+  const isSleeveLeft = expectedSide === "sleeve_left";
+  const isSleeveRight = expectedSide === "sleeve_right";
+  const isSleeveGeneric = expectedSide === "sleeve";
   const expectedLocalNormalSign = expectedSide === "back" ? -1 : 1;
 
-  const castDist = 0.18;
   for (let i = 0; i < pos.count; i += 1) {
     local.fromBufferAttribute(pos, i);
     const localDepth = Math.max(0, local.z);
@@ -3536,10 +3548,14 @@ function shrinkwrapGlyphMeshToSurface(
       }
       if (normal.dot(dir) < 0) normal.multiplyScalar(-1);
       normalLocal.copy(normal).transformDirection(targetWorldInverse).normalize();
-      const localSideScore =
-        expectedSide === "sleeve"
-          ? Math.abs(normalLocal.x) - Math.abs(normalLocal.z) * 0.25
-          : normalLocal.z * expectedLocalNormalSign;
+      let localSideScore = normalLocal.z * expectedLocalNormalSign;
+      if (isSleeveGeneric) {
+        localSideScore = Math.abs(normalLocal.x) - Math.abs(normalLocal.z) * 0.25;
+      } else if (isSleeveLeft) {
+        localSideScore = normalLocal.x;
+      } else if (isSleeveRight) {
+        localSideScore = -normalLocal.x;
+      }
       const worldDirScore = normal.dot(dir);
       return {
         hit,
@@ -3558,7 +3574,7 @@ function shrinkwrapGlyphMeshToSurface(
 
     let selected = null;
     if (candidates.length > 0) {
-      const sideMatched = candidates.filter((entry) => entry.score > -0.05);
+      const sideMatched = candidates.filter((entry) => entry.score > -0.18);
       const source = sideMatched.length > 0 ? sideMatched : candidates;
       source.sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
@@ -3807,8 +3823,8 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
     const effectiveRubberLetterSpacing = clamp(rubberLetterSpacing, 0.2, maxRubberLetterSpacing);
     const rubberStick = clamp(Number(textState?.rubberStick ?? 0.96), 0.7, 1);
     const zScale = clamp((0.058 * maxRawD) / 0.024, 0.045, 0.11);
-    const depthBoost = 0.72;
-    const maxWorldLift = 0.00078;
+    const depthBoost = 0.66;
+    const maxWorldLift = 0.00058;
     const placedW = basePlacedW * effectiveRubberLetterSpacing;
     const placedH = totalRawH * glyphScale * scaleY;
 
@@ -3836,9 +3852,9 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
         side === "back"
           ? Math.PI
           : side === "sleeve_left"
-            ? Math.PI / 2
+            ? -Math.PI / 2
             : side === "sleeve_right"
-              ? -Math.PI / 2
+              ? Math.PI / 2
               : side === "sleeve"
                 ? -Math.PI / 2
                 : 0
@@ -3938,9 +3954,9 @@ const SdfTextLayer = React.memo(function SdfTextLayer({
       side === "back"
         ? Math.PI
         : side === "sleeve_left"
-          ? Math.PI / 2
+          ? -Math.PI / 2
           : side === "sleeve_right"
-            ? -Math.PI / 2
+            ? Math.PI / 2
             : side === "sleeve"
               ? -Math.PI / 2
               : 0
@@ -4174,9 +4190,9 @@ function InjectionPatternStamp({
       (side === "back"
         ? Math.PI
         : side === "sleeve_left"
-          ? Math.PI / 2
+          ? -Math.PI / 2
           : side === "sleeve_right"
-            ? -Math.PI / 2
+            ? Math.PI / 2
             : side === "sleeve"
               ? -Math.PI / 2
               : 0)
@@ -4527,8 +4543,37 @@ function Real3DModel({
   );
 
   const decalHost = useMemo(() => pickDecalHostMesh(root, modelType, view), [root, modelType, view]);
-  const decalHostRef = useMemo(() => ({ current: decalHost }), [decalHost]);
-  const centerHost = useMemo(() => pickDecalHostMesh(root, modelType, "front"), [root, modelType]);
+  const frontDecalHost = useMemo(() => pickDecalHostMesh(root, modelType, "front"), [root, modelType]);
+  const backDecalHost = useMemo(() => pickDecalHostMesh(root, modelType, "back"), [root, modelType]);
+  const sleeveLeftDecalHost = useMemo(() => pickDecalHostMesh(root, modelType, "sleeve_left"), [root, modelType]);
+  const sleeveRightDecalHost = useMemo(() => pickDecalHostMesh(root, modelType, "sleeve_right"), [root, modelType]);
+  const anyDecalHost =
+    frontDecalHost ||
+    backDecalHost ||
+    sleeveLeftDecalHost ||
+    sleeveRightDecalHost ||
+    decalHost ||
+    null;
+  const frontDecalHostRef = useMemo(
+    () => ({ current: frontDecalHost || anyDecalHost }),
+    [frontDecalHost, anyDecalHost]
+  );
+  const backDecalHostRef = useMemo(
+    () => ({ current: backDecalHost || anyDecalHost }),
+    [backDecalHost, anyDecalHost]
+  );
+  const sleeveLeftDecalHostRef = useMemo(
+    () => ({ current: sleeveLeftDecalHost || anyDecalHost }),
+    [sleeveLeftDecalHost, anyDecalHost]
+  );
+  const sleeveRightDecalHostRef = useMemo(
+    () => ({ current: sleeveRightDecalHost || anyDecalHost }),
+    [sleeveRightDecalHost, anyDecalHost]
+  );
+  const centerHost = useMemo(
+    () => frontDecalHost || anyDecalHost,
+    [frontDecalHost, anyDecalHost]
+  );
   const materialProfiles = useMemo(
     () => extractPrintProfilesFromMaterials(decalHost, modelType),
     [decalHost, modelType]
@@ -4847,12 +4892,12 @@ function Real3DModel({
       <group position={[-modelCenter.x, -modelCenter.y, -modelCenter.z]}>
         <primitive object={root} />
 
-        {decalHost && (
+        {anyDecalHost && (
           <>
             {showFront && (
               <Decal
                 raycast={NO_RAYCAST}
-                mesh={decalHostRef}
+                mesh={frontDecalHostRef}
                 position={frontDecalPosition}
                 rotation={[0, frontDecalRotY, 0]}
                 scale={[frontW * materialInset, frontH * materialInset, frontDecalDepth]}
@@ -4875,7 +4920,7 @@ function Real3DModel({
             {showFront && frontTex && (
               <Decal
                 raycast={NO_RAYCAST}
-                mesh={decalHostRef}
+                mesh={frontDecalHostRef}
                 position={frontDecalPosition}
                 rotation={[0, frontDecalRotY, 0]}
                 scale={[frontW * materialInset, frontH * materialInset, frontDecalDepth]}
@@ -4913,7 +4958,7 @@ function Real3DModel({
                   <React.Fragment key={`emboss-front-wrap-${logo.id || idx}`}>
                     <Decal
                       raycast={NO_RAYCAST}
-                      mesh={decalHostRef}
+                      mesh={frontDecalHostRef}
                       position={[cx, cy, frontProfile.z + torsoZOffsetFront + 0.0026]}
                       rotation={[0, frontProfile.rotY || 0, rz]}
                       scale={[decalW * 1.12, decalH * 1.12, EMBOSS_DECAL_DEPTH_1]}
@@ -4937,7 +4982,7 @@ function Real3DModel({
                     </Decal>
                     <Decal
                       raycast={NO_RAYCAST}
-                      mesh={decalHostRef}
+                      mesh={frontDecalHostRef}
                       position={[cx, cy, frontProfile.z + torsoZOffsetFront + 0.0036]}
                       rotation={[0, frontProfile.rotY || 0, rz]}
                       scale={[decalW * 1.085, decalH * 1.085, EMBOSS_DECAL_DEPTH_2]}
@@ -4961,7 +5006,7 @@ function Real3DModel({
                     </Decal>
                     <Decal
                       raycast={NO_RAYCAST}
-                      mesh={decalHostRef}
+                      mesh={frontDecalHostRef}
                       position={[cx, cy, frontProfile.z + torsoZOffsetFront + 0.0052]}
                       rotation={[0, frontProfile.rotY || 0, rz]}
                       scale={[decalW, decalH, EMBOSS_DECAL_DEPTH_3]}
@@ -5006,7 +5051,7 @@ function Real3DModel({
                   areaH={frontH}
                   enabled={frontHasRubber}
                   glyphLibrary={glyphLibrary}
-                  decalHost={decalHost}
+                  decalHost={frontDecalHost || anyDecalHost}
                 />
               ))}
             {showFront && frontInjectionOption && (
@@ -5017,14 +5062,14 @@ function Real3DModel({
                 profile={frontProfile}
                 areaW={frontW}
                 areaH={frontH}
-                targetMesh={decalHost}
+                targetMesh={frontDecalHost || anyDecalHost}
               />
             )}
 
             {showBack && (
               <Decal
                 raycast={NO_RAYCAST}
-                mesh={decalHostRef}
+                mesh={backDecalHostRef}
                 position={backDecalPosition}
                 rotation={[0, backDecalRotY, 0]}
                 scale={[backW * materialInset, backH * materialInset, backDecalDepth]}
@@ -5047,7 +5092,7 @@ function Real3DModel({
             {showBack && backTex && (
               <Decal
                 raycast={NO_RAYCAST}
-                mesh={decalHostRef}
+                mesh={backDecalHostRef}
                 position={backDecalPosition}
                 rotation={[0, backDecalRotY, 0]}
                 scale={[backW * materialInset, backH * materialInset, backDecalDepth]}
@@ -5089,7 +5134,7 @@ function Real3DModel({
                   areaH={backH}
                   enabled={backHasRubber}
                   glyphLibrary={glyphLibrary}
-                  decalHost={decalHost}
+                  decalHost={backDecalHost || anyDecalHost}
                 />
               ))}
             {showBack && backInjectionOption && (
@@ -5100,7 +5145,7 @@ function Real3DModel({
                 profile={backProfile}
                 areaW={backW}
                 areaH={backH}
-                targetMesh={decalHost}
+                targetMesh={backDecalHost || anyDecalHost}
               />
             )}
 
@@ -5108,7 +5153,7 @@ function Real3DModel({
               <Decal
                 key={`${sleeveLeftDecalTarget.key}-pulse`}
                 raycast={NO_RAYCAST}
-                mesh={decalHostRef}
+                mesh={sleeveLeftDecalHostRef}
                 position={sleeveLeftDecalTarget.position}
                 rotation={[0, sleeveLeftDecalTarget.rotY || 0, 0]}
                 scale={[sleeveLeftDecalTarget.w * materialInset, sleeveLeftDecalTarget.h * materialInset, sleeveDecalDepth]}
@@ -5132,7 +5177,7 @@ function Real3DModel({
               <Decal
                 key={sleeveLeftDecalTarget.key}
                 raycast={NO_RAYCAST}
-                mesh={decalHostRef}
+                mesh={sleeveLeftDecalHostRef}
                 position={sleeveLeftDecalTarget.position}
                 rotation={[0, sleeveLeftDecalTarget.rotY || 0, 0]}
                 scale={[sleeveLeftDecalTarget.w * materialInset, sleeveLeftDecalTarget.h * materialInset, sleeveDecalDepth]}
@@ -5159,7 +5204,7 @@ function Real3DModel({
               <Decal
                 key={`${sleeveRightDecalTarget.key}-pulse`}
                 raycast={NO_RAYCAST}
-                mesh={decalHostRef}
+                mesh={sleeveRightDecalHostRef}
                 position={sleeveRightDecalTarget.position}
                 rotation={[0, sleeveRightDecalTarget.rotY || 0, 0]}
                 scale={[sleeveRightDecalTarget.w * materialInset, sleeveRightDecalTarget.h * materialInset, sleeveDecalDepth]}
@@ -5183,7 +5228,7 @@ function Real3DModel({
               <Decal
                 key={sleeveRightDecalTarget.key}
                 raycast={NO_RAYCAST}
-                mesh={decalHostRef}
+                mesh={sleeveRightDecalHostRef}
                 position={sleeveRightDecalTarget.position}
                 rotation={[0, sleeveRightDecalTarget.rotY || 0, 0]}
                 scale={[sleeveRightDecalTarget.w * materialInset, sleeveRightDecalTarget.h * materialInset, sleeveDecalDepth]}
@@ -5221,7 +5266,7 @@ function Real3DModel({
                   <React.Fragment key={`emboss-back-wrap-${logo.id || idx}`}>
                     <Decal
                       raycast={NO_RAYCAST}
-                      mesh={decalHostRef}
+                      mesh={backDecalHostRef}
                       position={[cx, cy, backProfile.z + torsoZOffsetBack - 0.0026]}
                       rotation={[0, backProfile.rotY || Math.PI, rz]}
                       scale={[decalW * 1.12, decalH * 1.12, EMBOSS_DECAL_DEPTH_1]}
@@ -5245,7 +5290,7 @@ function Real3DModel({
                     </Decal>
                     <Decal
                       raycast={NO_RAYCAST}
-                      mesh={decalHostRef}
+                      mesh={backDecalHostRef}
                       position={[cx, cy, backProfile.z + torsoZOffsetBack - 0.0036]}
                       rotation={[0, backProfile.rotY || Math.PI, rz]}
                       scale={[decalW * 1.085, decalH * 1.085, EMBOSS_DECAL_DEPTH_2]}
@@ -5269,7 +5314,7 @@ function Real3DModel({
                     </Decal>
                     <Decal
                       raycast={NO_RAYCAST}
-                      mesh={decalHostRef}
+                      mesh={backDecalHostRef}
                       position={[cx, cy, backProfile.z + torsoZOffsetBack - 0.0052]}
                       rotation={[0, backProfile.rotY || Math.PI, rz]}
                       scale={[decalW, decalH, EMBOSS_DECAL_DEPTH_3]}
@@ -8194,8 +8239,8 @@ function TasarimClientContent({ isMobile }) {
   };
 
   const sanitizeLogoBox = (nextBox) => {
-    const minW = clamp(Number(minLogoSize01?.w) || 0.12, 0.01, 1);
-    const minH = clamp(Number(minLogoSize01?.h) || 0.12, 0.01, 1);
+    const minW = clamp(Number.isFinite(Number(minLogoSize01?.w)) ? Number(minLogoSize01.w) : 0.01, 0.01, 1);
+    const minH = clamp(Number.isFinite(Number(minLogoSize01?.h)) ? Number(minLogoSize01.h) : 0.01, 0.01, 1);
     const bounds = logoDragBounds01 || { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
     const maxW = Math.max(minW, bounds.xMax - bounds.xMin);
     const maxH = Math.max(minH, bounds.yMax - bounds.yMin);
@@ -8564,8 +8609,8 @@ function TasarimClientContent({ isMobile }) {
     const nextCm = toNumber(raw);
     if (!Number.isFinite(nextCm)) return null;
     const safeRatio = activeLogoBox.w > 0 ? activeLogoBox.h / activeLogoBox.w : 1;
-    const minW = clamp(Number(minLogoSize01?.w) || 0.12, 0.01, 1);
-    const minH = clamp(Number(minLogoSize01?.h) || 0.12, 0.01, 1);
+    const minW = clamp(Number.isFinite(Number(minLogoSize01?.w)) ? Number(minLogoSize01.w) : 0.01, 0.01, 1);
+    const minH = clamp(Number.isFinite(Number(minLogoSize01?.h)) ? Number(minLogoSize01.h) : 0.01, 0.01, 1);
     const nextW = clamp(nextCm / printCm.w, minW, 0.95);
     const nextH = lockAspect ? clamp(nextW * safeRatio, minH, 0.95) : activeLogoBox.h;
     updateActiveLogoBox({ ...activeLogoBox, w: nextW, h: nextH });
@@ -8581,8 +8626,8 @@ function TasarimClientContent({ isMobile }) {
     const nextCm = toNumber(raw);
     if (!Number.isFinite(nextCm)) return null;
     const safeRatio = activeLogoBox.w > 0 ? activeLogoBox.h / activeLogoBox.w : 1;
-    const minW = clamp(Number(minLogoSize01?.w) || 0.12, 0.01, 1);
-    const minH = clamp(Number(minLogoSize01?.h) || 0.12, 0.01, 1);
+    const minW = clamp(Number.isFinite(Number(minLogoSize01?.w)) ? Number(minLogoSize01.w) : 0.01, 0.01, 1);
+    const minH = clamp(Number.isFinite(Number(minLogoSize01?.h)) ? Number(minLogoSize01.h) : 0.01, 0.01, 1);
     const nextH = clamp(nextCm / printCm.h, minH, 0.95);
     const nextW = lockAspect ? clamp(nextH / safeRatio, minW, 0.95) : activeLogoBox.w;
     updateActiveLogoBox({ ...activeLogoBox, w: nextW, h: nextH });
@@ -8598,8 +8643,8 @@ function TasarimClientContent({ isMobile }) {
       if (!isEditingCmH) setCmInputH("");
       return;
     }
-    if (!isEditingCmW) setCmInputW((activeLogoBox.w * printCm.w).toFixed(1));
-    if (!isEditingCmH) setCmInputH((activeLogoBox.h * printCm.h).toFixed(1));
+    if (!isEditingCmW) setCmInputW(String(roundTo(activeLogoBox.w * printCm.w, 2)));
+    if (!isEditingCmH) setCmInputH(String(roundTo(activeLogoBox.h * printCm.h, 2)));
   }, [
     activeLogo?.id,
     activeLogoBox.w,
@@ -10032,6 +10077,8 @@ function TasarimClientContent({ isMobile }) {
       activeBottomTab === "tasarla") &&
     !pickerOpen &&
     !drawerMenuOpen;
+  const scenePanelProgress =
+    isMobile && dragState.current.dragging ? dragState.current.startProgress : panelProgress;
 
   useEffect(() => {
     if (!isMobile || flowStep !== "design") return;
@@ -10046,11 +10093,11 @@ function TasarimClientContent({ isMobile }) {
       : new THREE.Vector3(0, isPlacementPanelVisible ? -0.11 : -0.1, 0);
     const targetPos = new THREE.Vector3(
       0,
-      THREE.MathUtils.lerp(0.255, 0.225, panelProgress),
+      THREE.MathUtils.lerp(0.255, 0.225, scenePanelProgress),
       THREE.MathUtils.lerp(
         isPlacementPanelVisible ? 2.26 : 2.34,
         isPlacementPanelVisible ? 2.08 : 2.16,
-        panelProgress
+        scenePanelProgress
       )
     );
     const targetTarget = new THREE.Vector3(
@@ -10058,7 +10105,7 @@ function TasarimClientContent({ isMobile }) {
       THREE.MathUtils.lerp(
         isPlacementPanelVisible ? -0.11 : -0.1,
         isPlacementPanelVisible ? -0.125 : -0.12,
-        panelProgress
+        scenePanelProgress
       ),
       0
     );
@@ -10105,7 +10152,7 @@ function TasarimClientContent({ isMobile }) {
       if (panelCameraAnimRef.current) cancelAnimationFrame(panelCameraAnimRef.current);
       panelCameraAnimRef.current = 0;
     };
-  }, [isMobile, flowStep, panelProgress, isPlacementPanelVisible, drawerHeight, cameraReadyTick]);
+  }, [isMobile, flowStep, scenePanelProgress, isPlacementPanelVisible, drawerHeight, cameraReadyTick]);
 
   useEffect(() => {
     if (!isMobile || flowStep !== "design" || typeof window === "undefined") return;
@@ -10120,16 +10167,16 @@ function TasarimClientContent({ isMobile }) {
       const camera = cameraRef.current;
       const controls = controlsRef.current;
       if (!camera || !controls) return;
-      const camY = THREE.MathUtils.lerp(0.255, 0.225, panelProgress);
+      const camY = THREE.MathUtils.lerp(0.255, 0.225, scenePanelProgress);
       const camZ = THREE.MathUtils.lerp(
         isPlacementPanelVisible ? 2.26 : 2.34,
         isPlacementPanelVisible ? 2.08 : 2.16,
-        panelProgress
+        scenePanelProgress
       );
       const targetY = THREE.MathUtils.lerp(
         isPlacementPanelVisible ? -0.11 : -0.1,
         isPlacementPanelVisible ? -0.125 : -0.12,
-        panelProgress
+        scenePanelProgress
       );
       camera.position.set(0, camY, camZ);
       controls.target.set(0, targetY, 0);
@@ -10151,7 +10198,7 @@ function TasarimClientContent({ isMobile }) {
       window.removeEventListener("popstate", onPageShow);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [isMobile, flowStep, panelProgress, isPlacementPanelVisible]);
+  }, [isMobile, flowStep, scenePanelProgress, isPlacementPanelVisible]);
 
   const renderPanel = (
     <EditorPanel
@@ -10330,7 +10377,7 @@ function TasarimClientContent({ isMobile }) {
                 : isPrintAreaOpen
                   ? "-3%"
                   : "-5%";
-            const mobilePanelProgress = clamp(mobileDrawerVisibilityRatio, 0, 1);
+            const mobilePanelProgress = clamp(1 - scenePanelProgress, 0, 1);
             const mobileScaleClosed = isPrintAreaOpen ? 1.1 : 1.14;
             const mobileScaleOpen = isPrintAreaOpen ? 0.94 : 0.98;
             const mobileScale = THREE.MathUtils.lerp(mobileScaleClosed, mobileScaleOpen, mobilePanelProgress);
@@ -10353,15 +10400,15 @@ function TasarimClientContent({ isMobile }) {
                     ? 1.8
                     : 1.72
               : isSleeveView
-                ? THREE.MathUtils.lerp(1.08, 0.92, panelProgress)
-                : THREE.MathUtils.lerp(mobileMinZoomOpen, mobileMinZoomClosed, panelProgress);
+                ? THREE.MathUtils.lerp(1.08, 0.92, scenePanelProgress)
+                : THREE.MathUtils.lerp(mobileMinZoomOpen, mobileMinZoomClosed, scenePanelProgress);
             const controlsTargetY = isMobile
               ? isSleeveView
-                ? THREE.MathUtils.lerp(-0.01, -0.02, panelProgress)
+                ? THREE.MathUtils.lerp(-0.01, -0.02, scenePanelProgress)
                 : THREE.MathUtils.lerp(
                   isPlacementPanelVisible ? -0.11 : -0.1,
                   isPlacementPanelVisible ? -0.125 : -0.12,
-                  panelProgress
+                  scenePanelProgress
                 )
               : isSleeveView
                 ? -0.01
@@ -10833,7 +10880,7 @@ function TasarimClientContent({ isMobile }) {
                             type="text"
                             inputMode="decimal"
                             min="0"
-                            step="0.1"
+                            step="0.01"
                             value={cmInputW}
                             disabled={sizeControlDisabled}
                             onChange={(e) => {
@@ -10848,11 +10895,11 @@ function TasarimClientContent({ isMobile }) {
                               setIsEditingCmW(false);
                               const applied = applyWidthCmInput(cmInputW);
                               if (!applied) {
-                                if (printCm.w) setCmInputW((activeLogoBox.w * printCm.w).toFixed(1));
+                                if (printCm.w) setCmInputW(String(roundTo(activeLogoBox.w * printCm.w, 2)));
                                 return;
                               }
-                              setCmInputW(applied.cmW.toFixed(1));
-                              if (lockAspect) setCmInputH(applied.cmH.toFixed(1));
+                              setCmInputW(String(roundTo(applied.cmW, 2)));
+                              if (lockAspect) setCmInputH(String(roundTo(applied.cmH, 2)));
                             }}
                             onKeyDown={(e) => {
                               if (e.key === "Enter") e.currentTarget.blur();
@@ -10865,7 +10912,7 @@ function TasarimClientContent({ isMobile }) {
                             type="text"
                             inputMode="decimal"
                             min="0"
-                            step="0.1"
+                            step="0.01"
                             value={cmInputH}
                             disabled={sizeControlDisabled}
                             onChange={(e) => {
@@ -10880,11 +10927,11 @@ function TasarimClientContent({ isMobile }) {
                               setIsEditingCmH(false);
                               const applied = applyHeightCmInput(cmInputH);
                               if (!applied) {
-                                if (printCm.h) setCmInputH((activeLogoBox.h * printCm.h).toFixed(1));
+                                if (printCm.h) setCmInputH(String(roundTo(activeLogoBox.h * printCm.h, 2)));
                                 return;
                               }
-                              setCmInputH(applied.cmH.toFixed(1));
-                              if (lockAspect) setCmInputW(applied.cmW.toFixed(1));
+                              setCmInputH(String(roundTo(applied.cmH, 2)));
+                              if (lockAspect) setCmInputW(String(roundTo(applied.cmW, 2)));
                             }}
                             onKeyDown={(e) => {
                               if (e.key === "Enter") e.currentTarget.blur();
@@ -10935,7 +10982,7 @@ function TasarimClientContent({ isMobile }) {
                       </div>
                       <input
                         type="range"
-                        min={Number(minLogoSize01?.w || 0.12).toFixed(4)}
+                        min={clamp(Number.isFinite(Number(minLogoSize01?.w)) ? Number(minLogoSize01.w) : 0.01, 0.01, 1).toFixed(4)}
                         max="0.95"
                         step="0.005"
                         value={activeLogoBox.w}
@@ -10952,7 +10999,7 @@ function TasarimClientContent({ isMobile }) {
                       </div>
                       <input
                         type="range"
-                        min={Number(minLogoSize01?.h || 0.12).toFixed(4)}
+                        min={clamp(Number.isFinite(Number(minLogoSize01?.h)) ? Number(minLogoSize01.h) : 0.01, 0.01, 1).toFixed(4)}
                         max="0.95"
                         step="0.005"
                         value={activeLogoBox.h}
