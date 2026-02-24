@@ -3071,28 +3071,36 @@ function HdriEnvironment({ urls = [], enabled = true }) {
 }
 
 /* ================= KAMERA KONTROLCÜSÜ ================= */
-function CameraController({ view, count, focusKey = 0, controlsRef = null, onAnimatingChange }) {
+function CameraController({ view, count, focusKey = 0, controlsRef = null, onAnimatingChange, modelType = DEFAULT_MODEL_TYPE }) {
   const { camera } = useThree();
   const isAnimating = useRef(false);
   const extra = Math.min(0.9, Math.max(0, (count - 1) * 0.22));
+  const normalizedModelType = normalizeModelType(modelType);
+  const isLongModel =
+    normalizedModelType.includes("hoodie") ||
+    normalizedModelType.includes("sweat") ||
+    normalizedModelType === "polarv3" ||
+    normalizedModelType === "yeni-fermuarli";
+  const frontBackDistance = 1.9 + extra + (isLongModel ? 0.16 : 0);
+  const sleeveDistance = 1.04 + extra * 0.42 + (isLongModel ? 0.03 : 0);
 
   const positions = useMemo(
     () => ({
-      front: new THREE.Vector3(0, 0.24, 1.9 + extra),
-      back: new THREE.Vector3(0, 0.24, 1.9 + extra),
-      sleeve_left: new THREE.Vector3(0, 0.29, 1.04 + extra * 0.42),
-      sleeve_right: new THREE.Vector3(0, 0.29, 1.04 + extra * 0.42),
+      front: new THREE.Vector3(0, isLongModel ? 0.235 : 0.24, frontBackDistance),
+      back: new THREE.Vector3(0, isLongModel ? 0.235 : 0.24, frontBackDistance),
+      sleeve_left: new THREE.Vector3(0, isLongModel ? 0.275 : 0.29, sleeveDistance),
+      sleeve_right: new THREE.Vector3(0, isLongModel ? 0.275 : 0.29, sleeveDistance),
     }),
-    [extra]
+    [frontBackDistance, sleeveDistance, isLongModel]
   );
   const targets = useMemo(
     () => ({
-      front: new THREE.Vector3(0, -0.08, 0),
-      back: new THREE.Vector3(0, -0.08, 0),
-      sleeve_left: new THREE.Vector3(0, -0.015, 0),
-      sleeve_right: new THREE.Vector3(0, -0.015, 0),
+      front: new THREE.Vector3(0, isLongModel ? -0.095 : -0.08, 0),
+      back: new THREE.Vector3(0, isLongModel ? -0.095 : -0.08, 0),
+      sleeve_left: new THREE.Vector3(0, isLongModel ? -0.024 : -0.015, 0),
+      sleeve_right: new THREE.Vector3(0, isLongModel ? -0.024 : -0.015, 0),
     }),
-    []
+    [isLongModel]
   );
 
   useEffect(() => {
@@ -5812,6 +5820,7 @@ function DesignModelItem({
   onUserRotate,
   onModelTap,
   onPrintAreaTap,
+  multiTouchActive = false,
   onModelLongPress,
   onDeleteModel,
   isInteractionSuppressed,
@@ -6024,6 +6033,20 @@ function DesignModelItem({
         document.body.style.cursor = "default";
       }}
       onPointerDown={(e) => {
+        const isTouchPointer = e.pointerType === "touch";
+        if (isTouchPointer && multiTouchActive) {
+          clearHoldTimer();
+          dragRef.current.active = false;
+          tapSideHintRef.current = null;
+          return;
+        }
+        if (isSleeveView) {
+          const tapSideHint = resolveTapSideFromEvent(e);
+          const resolvedTapSide = tapSideHint || targetMeshRef.current.side;
+          onSelect(design.id);
+          if (isColorMode) onModelTap?.(design.id, resolvedTapSide);
+          return;
+        }
         e.stopPropagation();
         if (typeof isInteractionSuppressed === "function" && isInteractionSuppressed()) {
           clearHoldTimer();
@@ -6058,6 +6081,13 @@ function DesignModelItem({
         if (e.target?.setPointerCapture) e.target.setPointerCapture(e.pointerId);
       }}
       onPointerMove={(e) => {
+        if (isSleeveView || (e.pointerType === "touch" && multiTouchActive)) {
+          if (dragRef.current.active) {
+            dragRef.current.active = false;
+            document.body.style.cursor = "default";
+          }
+          return;
+        }
         if (enableLongPressDelete && holdRef.current.pid === e.pointerId && holdRef.current.timer) {
           const holdDx = Math.abs(e.clientX - holdRef.current.startX);
           const holdDy = Math.abs(e.clientY - holdRef.current.startY);
@@ -6080,6 +6110,11 @@ function DesignModelItem({
         });
       }}
       onPointerUp={(e) => {
+        if (isSleeveView || (e.pointerType === "touch" && multiTouchActive)) {
+          if (holdRef.current.pid === e.pointerId) clearHoldTimer();
+          if (dragRef.current.pid === e.pointerId) dragRef.current.active = false;
+          return;
+        }
         const tapSideHint = tapSideHintRef.current;
         tapSideHintRef.current = null;
         const fallbackSide = targetMeshRef.current.side;
@@ -7874,6 +7909,7 @@ function TasarimClientContent({ isMobile }) {
   const safeInitial = presetModelFromQuery || AVAILABLE_MODELS[0];
 
   const [view, setView] = useState("front");
+  const [activePrintAreaSelection, setActivePrintAreaSelection] = useState(null);
   const [designs, setDesigns] = useState(() => [
     { ...initialDesignRef.current, modelType: safeInitial },
   ]);
@@ -7895,6 +7931,7 @@ function TasarimClientContent({ isMobile }) {
   const [isTextUpdatePending, startTextUpdateTransition] = useTransition();
   const [runtimeLowPerfMode, setRuntimeLowPerfMode] = useState(false);
   const [isInteracting, setIsInteracting] = useState(false); // For real-time rotation
+  const [multiTouchActive, setMultiTouchActive] = useState(false);
   const [webglResetKey, setWebglResetKey] = useState(0);
   const [glCanvasEl, setGlCanvasEl] = useState(null);
   const lastStableViewportHeightRef = useRef(0);
@@ -7936,6 +7973,32 @@ function TasarimClientContent({ isMobile }) {
   }, [isMobile, glCanvasEl, handleRuntimeLowPerfChange]);
 
   useEffect(() => {
+    if (!isMobile || !glCanvasEl) return;
+    const opts = { passive: true };
+    const syncTouchState = (event) => {
+      const touchCount = Number(event?.touches?.length) || 0;
+      const next = touchCount >= 2;
+      setMultiTouchActive((prev) => (prev === next ? prev : next));
+    };
+    const resetTouchState = () => {
+      setMultiTouchActive(false);
+    };
+    glCanvasEl.addEventListener("touchstart", syncTouchState, opts);
+    glCanvasEl.addEventListener("touchmove", syncTouchState, opts);
+    glCanvasEl.addEventListener("touchend", syncTouchState, opts);
+    glCanvasEl.addEventListener("touchcancel", resetTouchState, opts);
+    window.addEventListener("blur", resetTouchState);
+    return () => {
+      glCanvasEl.removeEventListener("touchstart", syncTouchState, opts);
+      glCanvasEl.removeEventListener("touchmove", syncTouchState, opts);
+      glCanvasEl.removeEventListener("touchend", syncTouchState, opts);
+      glCanvasEl.removeEventListener("touchcancel", resetTouchState, opts);
+      window.removeEventListener("blur", resetTouchState);
+      setMultiTouchActive(false);
+    };
+  }, [isMobile, glCanvasEl]);
+
+  useEffect(() => {
     if (!isMobile || runtimeLowPerfMode || flowStep !== "design") return;
     let rafId = 0;
     let lastTs = performance.now();
@@ -7974,7 +8037,6 @@ function TasarimClientContent({ isMobile }) {
   const [captureId, setCaptureId] = useState(null);
   const [camAnimating, setCamAnimating] = useState(false);
   const [viewFocusKey, setViewFocusKey] = useState(0);
-  const [sleeveMenuOpen, setSleeveMenuOpen] = useState(false);
   const [printAreaPulse, setPrintAreaPulse] = useState({ side: null, key: 0 });
   const lockToastTimerRef = useRef(null);
   const previewRef = useRef(null);
@@ -9034,33 +9096,21 @@ function TasarimClientContent({ isMobile }) {
   }, [designs]);
 
   const activeDesign = useMemo(() => designs.find((d) => d.id === activeId) || designs[0], [designs, activeId]);
+  useEffect(() => {
+    setActivePrintAreaSelection(null);
+  }, [activeId]);
   const availableViewSides = useMemo(
     () => getAvailableViewsForModel(activeDesign?.modelType || selectedModelType || safeInitial),
     [activeDesign?.modelType, selectedModelType, safeInitial]
   );
-  const hasFrontView = availableViewSides.includes("front");
-  const hasBackView = availableViewSides.includes("back");
-  const hasSleeveLeftView = availableViewSides.includes("sleeve_left");
-  const hasSleeveRightView = availableViewSides.includes("sleeve_right");
-  const hasSleeveViews = hasSleeveLeftView || hasSleeveRightView;
-  const preferredSleeveView = hasSleeveLeftView ? "sleeve_left" : hasSleeveRightView ? "sleeve_right" : null;
-  const isSleeveViewSelected = view === "sleeve_left" || view === "sleeve_right";
+  const hasActivePrintAreaSelection = Boolean(activePrintAreaSelection);
 
   useEffect(() => {
     if (!availableViewSides.includes(view)) {
       setView("front");
+      setActivePrintAreaSelection(null);
     }
   }, [availableViewSides, view]);
-
-  useEffect(() => {
-    if (!hasSleeveViews) setSleeveMenuOpen(false);
-  }, [hasSleeveViews]);
-
-  useEffect(() => {
-    if (!isSleeveViewSelected && sleeveMenuOpen) {
-      setSleeveMenuOpen(false);
-    }
-  }, [isSleeveViewSelected, sleeveMenuOpen]);
 
   const activeSideKeyForFlow = resolveEditableSide(view);
   const hasDtfForActiveSide =
@@ -9563,6 +9613,7 @@ function TasarimClientContent({ isMobile }) {
     setDesigns([next]);
     setActiveId(next.id);
     setView("front");
+    setActivePrintAreaSelection(null);
     setActiveTab("print");
     setMobilePrimaryTab("design");
     setPanelProgress(0);
@@ -10089,7 +10140,6 @@ function TasarimClientContent({ isMobile }) {
       setViewFocusKey((prev) => prev + 1);
     }
     setView(nextSide);
-    setSleeveMenuOpen(isNextSleeveView);
     clearSceneSelection();
     if (isMobile && perf.lowPerformanceMode) {
       const keepSideUrls = new Set(
@@ -10145,6 +10195,7 @@ function TasarimClientContent({ isMobile }) {
       if (!nextSide || !availableSidesForDesign.includes(nextSide)) return;
 
       const pulseSide = normalizedSideRaw === "sleeve" ? "sleeve" : nextSide;
+      setActivePrintAreaSelection(nextSide);
       const applyFocus = () =>
         switchSideAndOpenPrintPicker(nextSide, {
           pulseSideOverride: pulseSide,
@@ -10165,15 +10216,25 @@ function TasarimClientContent({ isMobile }) {
     [activeId, designs, safeInitial, switchSideAndOpenPrintPicker]
   );
 
-  const openSleeveSidePicker = () => {
-    if (!hasSleeveViews || !preferredSleeveView) return;
-    if (isSleeveViewSelected) {
-      setSleeveMenuOpen((prev) => !prev);
-      triggerPrintAreaPulse("sleeve");
+  const clearPrintAreaSelection = useCallback(() => {
+    setActivePrintAreaSelection(null);
+    clearSceneSelection();
+    setShowPlacementPanel(false);
+    if (activeId) {
+      modelUserRotateRef.current[activeId] = { x: 0, y: 0 };
+    }
+    if (view !== "front") {
+      setView("front");
+    }
+    setViewFocusKey((prev) => prev + 1);
+  }, [activeId, clearSceneSelection, view]);
+  const topRightActionLabel = hasActivePrintAreaSelection ? "Bitti" : loading ? "Hazırlanıyor..." : "Sipariş Ver";
+  const handleTopRightAction = () => {
+    if (hasActivePrintAreaSelection) {
+      clearPrintAreaSelection();
       return;
     }
-    setSleeveMenuOpen(true);
-    switchSideAndOpenPrintPicker(preferredSleeveView, { pulseSideOverride: "sleeve" });
+    handleFinishCheckout();
   };
 
   const effectiveView = captureView || view;
@@ -10236,6 +10297,35 @@ function TasarimClientContent({ isMobile }) {
     !drawerMenuOpen;
   const scenePanelProgress =
     isMobile && dragState.current.dragging ? dragState.current.startProgress : panelProgress;
+  const normalizedActiveModelType = normalizeModelType(activeDesign?.modelType || safeInitial);
+  const isLongActiveModel =
+    normalizedActiveModelType.includes("hoodie") ||
+    normalizedActiveModelType.includes("sweat") ||
+    normalizedActiveModelType === "polarv3" ||
+    normalizedActiveModelType === "yeni-fermuarli";
+  const isSleeveFocusedView = effectiveView === "sleeve_left" || effectiveView === "sleeve_right";
+  const getMobileCameraPose = useCallback(() => {
+    if (isSleeveFocusedView) {
+      return {
+        camY: THREE.MathUtils.lerp(isLongActiveModel ? 0.275 : 0.29, isLongActiveModel ? 0.26 : 0.275, scenePanelProgress),
+        camZ: THREE.MathUtils.lerp(1.14, 1.0, scenePanelProgress),
+        targetY: THREE.MathUtils.lerp(isLongActiveModel ? -0.02 : -0.015, isLongActiveModel ? -0.03 : -0.02, scenePanelProgress),
+      };
+    }
+    return {
+      camY: THREE.MathUtils.lerp(isLongActiveModel ? 0.245 : 0.255, isLongActiveModel ? 0.215 : 0.225, scenePanelProgress),
+      camZ: THREE.MathUtils.lerp(
+        isPlacementPanelVisible ? (isLongActiveModel ? 2.34 : 2.26) : isLongActiveModel ? 2.44 : 2.34,
+        isPlacementPanelVisible ? (isLongActiveModel ? 2.16 : 2.08) : isLongActiveModel ? 2.26 : 2.16,
+        scenePanelProgress
+      ),
+      targetY: THREE.MathUtils.lerp(
+        isPlacementPanelVisible ? (isLongActiveModel ? -0.125 : -0.11) : isLongActiveModel ? -0.112 : -0.1,
+        isPlacementPanelVisible ? (isLongActiveModel ? -0.14 : -0.125) : isLongActiveModel ? -0.132 : -0.12,
+        scenePanelProgress
+      ),
+    };
+  }, [isSleeveFocusedView, isLongActiveModel, scenePanelProgress, isPlacementPanelVisible]);
 
   useEffect(() => {
     if (!isMobile || flowStep !== "design") return;
@@ -10243,29 +10333,14 @@ function TasarimClientContent({ isMobile }) {
     if (!camera) return;
     const controls = controlsRef.current;
     if (panelCameraAnimRef.current) cancelAnimationFrame(panelCameraAnimRef.current);
+    const targetPose = getMobileCameraPose();
 
     const startPos = camera.position.clone();
     const startTarget = controls
       ? controls.target.clone()
-      : new THREE.Vector3(0, isPlacementPanelVisible ? -0.11 : -0.1, 0);
-    const targetPos = new THREE.Vector3(
-      0,
-      THREE.MathUtils.lerp(0.255, 0.225, scenePanelProgress),
-      THREE.MathUtils.lerp(
-        isPlacementPanelVisible ? 2.26 : 2.34,
-        isPlacementPanelVisible ? 2.08 : 2.16,
-        scenePanelProgress
-      )
-    );
-    const targetTarget = new THREE.Vector3(
-      0,
-      THREE.MathUtils.lerp(
-        isPlacementPanelVisible ? -0.11 : -0.1,
-        isPlacementPanelVisible ? -0.125 : -0.12,
-        scenePanelProgress
-      ),
-      0
-    );
+      : new THREE.Vector3(0, targetPose.targetY, 0);
+    const targetPos = new THREE.Vector3(0, targetPose.camY, targetPose.camZ);
+    const targetTarget = new THREE.Vector3(0, targetPose.targetY, 0);
     if (dragState.current.dragging) {
       camera.position.copy(targetPos);
       camera.position.x = 0;
@@ -10309,7 +10384,7 @@ function TasarimClientContent({ isMobile }) {
       if (panelCameraAnimRef.current) cancelAnimationFrame(panelCameraAnimRef.current);
       panelCameraAnimRef.current = 0;
     };
-  }, [isMobile, flowStep, scenePanelProgress, isPlacementPanelVisible, drawerHeight, cameraReadyTick]);
+  }, [isMobile, flowStep, drawerHeight, cameraReadyTick, getMobileCameraPose]);
 
   useEffect(() => {
     if (!isMobile || flowStep !== "design" || typeof window === "undefined") return;
@@ -10324,19 +10399,9 @@ function TasarimClientContent({ isMobile }) {
       const camera = cameraRef.current;
       const controls = controlsRef.current;
       if (!camera || !controls) return;
-      const camY = THREE.MathUtils.lerp(0.255, 0.225, scenePanelProgress);
-      const camZ = THREE.MathUtils.lerp(
-        isPlacementPanelVisible ? 2.26 : 2.34,
-        isPlacementPanelVisible ? 2.08 : 2.16,
-        scenePanelProgress
-      );
-      const targetY = THREE.MathUtils.lerp(
-        isPlacementPanelVisible ? -0.11 : -0.1,
-        isPlacementPanelVisible ? -0.125 : -0.12,
-        scenePanelProgress
-      );
-      camera.position.set(0, camY, camZ);
-      controls.target.set(0, targetY, 0);
+      const targetPose = getMobileCameraPose();
+      camera.position.set(0, targetPose.camY, targetPose.camZ);
+      controls.target.set(0, targetPose.targetY, 0);
       controls.update();
     };
 
@@ -10355,7 +10420,7 @@ function TasarimClientContent({ isMobile }) {
       window.removeEventListener("popstate", onPageShow);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [isMobile, flowStep, scenePanelProgress, isPlacementPanelVisible]);
+  }, [isMobile, flowStep, getMobileCameraPose]);
 
   const renderPanel = (
     <EditorPanel
@@ -10439,12 +10504,12 @@ function TasarimClientContent({ isMobile }) {
             </div>
 
             <button type="button"
-              onClick={handleFinishCheckout}
-              disabled={loading}
-              className={`h-9 px-4 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
+              onClick={handleTopRightAction}
+              disabled={!hasActivePrintAreaSelection && loading}
+              className={`h-9 px-4 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${!hasActivePrintAreaSelection && loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
                 }`}
             >
-              {loading ? "HAZIR..." : "BİTTİ"}
+              {topRightActionLabel}
             </button>
           </div>
         ) : (
@@ -10472,12 +10537,12 @@ function TasarimClientContent({ isMobile }) {
 
             <div className="flex items-center gap-2 pointer-events-auto">
               <button type="button"
-                onClick={handleFinishCheckout}
-                disabled={loading}
-                className={`px-4 py-2 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
+                onClick={handleTopRightAction}
+                disabled={!hasActivePrintAreaSelection && loading}
+                className={`px-4 py-2 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${!hasActivePrintAreaSelection && loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
                   }`}
               >
-                {loading ? "HAZIRLANIYOR..." : "BİTTİ"}
+                {topRightActionLabel}
               </button>
             </div>
           </>
@@ -10542,8 +10607,15 @@ function TasarimClientContent({ isMobile }) {
             const mobileShiftOpen = isPlacementPanelVisible ? -13 : -14;
             const mobileShiftY = THREE.MathUtils.lerp(mobileShiftClosed, mobileShiftOpen, mobilePanelProgress);
             const isSleeveView = effectiveView === "sleeve_left" || effectiveView === "sleeve_right";
+            const normalizedActiveModel = normalizeModelType(activeDesign?.modelType || safeInitial);
+            const isLongModel =
+              normalizedActiveModel.includes("hoodie") ||
+              normalizedActiveModel.includes("sweat") ||
+              normalizedActiveModel === "polarv3" ||
+              normalizedActiveModel === "yeni-fermuarli";
             const mobileMinZoomOpen = isPlacementPanelVisible ? 1.84 : 1.78;
             const mobileMinZoomClosed = isPlacementPanelVisible ? 1.56 : 1.5;
+            const longModelDistanceBoost = isLongModel ? 0.16 : 0;
             const minZoomDistance = !isMobile
               ? isSleeveView
                 ? isPlacementPanelVisible
@@ -10552,24 +10624,35 @@ function TasarimClientContent({ isMobile }) {
                     ? 0.98
                     : 0.92
                 : isPlacementPanelVisible
-                  ? 1.98
+                  ? 1.98 + longModelDistanceBoost
                   : drawerOpen
-                    ? 1.8
-                    : 1.72
+                    ? 1.8 + longModelDistanceBoost
+                    : 1.72 + longModelDistanceBoost
               : isSleeveView
                 ? THREE.MathUtils.lerp(1.08, 0.92, scenePanelProgress)
-                : THREE.MathUtils.lerp(mobileMinZoomOpen, mobileMinZoomClosed, scenePanelProgress);
+                : THREE.MathUtils.lerp(
+                  mobileMinZoomOpen + longModelDistanceBoost,
+                  mobileMinZoomClosed + longModelDistanceBoost,
+                  scenePanelProgress
+                );
             const controlsTargetY = isMobile
               ? isSleeveView
                 ? THREE.MathUtils.lerp(-0.01, -0.02, scenePanelProgress)
                 : THREE.MathUtils.lerp(
-                  isPlacementPanelVisible ? -0.11 : -0.1,
-                  isPlacementPanelVisible ? -0.125 : -0.12,
+                  isPlacementPanelVisible ? (isLongModel ? -0.125 : -0.11) : isLongModel ? -0.112 : -0.1,
+                  isPlacementPanelVisible ? (isLongModel ? -0.14 : -0.125) : isLongModel ? -0.132 : -0.12,
                   scenePanelProgress
                 )
               : isSleeveView
                 ? -0.01
-                : -0.1;
+                : isLongModel
+                  ? -0.112
+                  : -0.1;
+            const allowSleeveOrbit = isSleeveView;
+            const orbitMinAzimuthAngle = allowSleeveOrbit ? -0.3 : -Infinity;
+            const orbitMaxAzimuthAngle = allowSleeveOrbit ? 0.3 : Infinity;
+            const orbitMinPolarAngle = allowSleeveOrbit ? Math.PI / 2 - 0.2 : 0;
+            const orbitMaxPolarAngle = allowSleeveOrbit ? Math.PI / 2 + 0.2 : Math.PI;
             return (
               <Canvas
                 frameloop={isInteracting ? "always" : (perf.frameloop || "always")}
@@ -10627,7 +10710,9 @@ function TasarimClientContent({ isMobile }) {
                 }}
                 camera={{
                   position: isMobile ? [0, 0.255, 2.34] : [0, 0.26, 2.2],
-                  fov: isMobile ? (isPlacementPanelVisible ? 34 : 33) : 31,
+                  fov: isMobile
+                    ? (isPlacementPanelVisible ? 34 : 33) + (isLongModel ? 1.2 : 0)
+                    : 31 + (isLongModel ? 0.8 : 0),
                 }}
                 shadows={!perf.disableShadows}
               >
@@ -10654,6 +10739,7 @@ function TasarimClientContent({ isMobile }) {
                   focusKey={viewFocusKey}
                   controlsRef={controlsRef}
                   onAnimatingChange={setCamAnimating}
+                  modelType={activeDesign?.modelType || safeInitial}
                 />
 
                 <Suspense fallback={<ThreeDotsLoader />}>
@@ -10678,13 +10764,20 @@ function TasarimClientContent({ isMobile }) {
                         targetRotY={layout.rotY}
                         targetScale={layout.scale}
                         hidden={layout.hidden}
-                        disableDrag={isLogoDragging || activeTab === "color"}
+                        disableDrag={
+                          isLogoDragging ||
+                          activeTab === "color" ||
+                          effectiveView === "sleeve_left" ||
+                          effectiveView === "sleeve_right" ||
+                          multiTouchActive
+                        }
                         isMobile={isMobile}
                         interactionMode={activeTab}
                         perfProfile={perf}
                         onUserRotate={handleModelUserRotate}
                         onModelTap={handleSceneModelTap}
                         onPrintAreaTap={handlePrintAreaTap}
+                        multiTouchActive={multiTouchActive}
                         onModelLongPress={handleSceneModelLongPress}
                         onDeleteModel={handleDeleteSceneModel}
                         isInteractionSuppressed={isModelTapSuppressed}
@@ -10701,7 +10794,7 @@ function TasarimClientContent({ isMobile }) {
                   makeDefault
                   enableZoom
                   enablePan={false}
-                  enableRotate={false}
+                  enableRotate={allowSleeveOrbit}
                   autoRotate={false}
                   autoRotateSpeed={isMobile ? 2.0 : 1.5}
                   enableDamping
@@ -10709,11 +10802,22 @@ function TasarimClientContent({ isMobile }) {
                   zoomSpeed={isMobile ? 0.95 : 0.7}
                   minDistance={minZoomDistance}
                   maxDistance={isMobile ? 4.6 : 4.2}
+                  minAzimuthAngle={orbitMinAzimuthAngle}
+                  maxAzimuthAngle={orbitMaxAzimuthAngle}
+                  minPolarAngle={orbitMinPolarAngle}
+                  maxPolarAngle={orbitMaxPolarAngle}
                   zoomToCursor={false}
                   enabled={!camAnimating}
                   target={[0, controlsTargetY, 0]}
-                  mouseButtons={{ LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null }}
-                  touches={{ ONE: THREE.TOUCH.NONE, TWO: THREE.TOUCH.DOLLY }}
+                  mouseButtons={{
+                    LEFT: allowSleeveOrbit ? THREE.MOUSE.ROTATE : null,
+                    MIDDLE: THREE.MOUSE.DOLLY,
+                    RIGHT: null,
+                  }}
+                  touches={{
+                    ONE: allowSleeveOrbit ? THREE.TOUCH.ROTATE : THREE.TOUCH.NONE,
+                    TWO: THREE.TOUCH.DOLLY_PAN,
+                  }}
                 />
               </Canvas>
             );
