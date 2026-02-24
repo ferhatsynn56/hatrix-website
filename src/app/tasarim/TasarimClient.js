@@ -1177,7 +1177,7 @@ const TEXT_LAYOUT_OPTIONS = [
 
 const HDR_ENV_DESKTOP_PATH = "/hdr/white_studio_06_4k.exr";
 const HDR_ENV_MOBILE_PATH = "/hdr/studio_small_03_2k.exr";
-const RUBBER_GLYPH_MODEL_PATH = `${NEW_MODELS_ROOT}/Harfler-IsaretlerSon.glb`;
+const RUBBER_GLYPH_MODEL_PATH = `${NEW_MODELS_ROOT}/Harf_inklabı.glb`;
 const HDR_SOURCE_CACHE = new Map();
 
 const getHdriSourceTexture = (url) => {
@@ -3465,7 +3465,7 @@ function makeCanvasTexture(canvas, opts = {}) {
 
 // Rubber text yüzeye çok yakın olduğunda Z-fighting oluşabiliyor.
 // Bu offset/polygon ayarları text'i modelin üstünde stabil tutar.
-const RUBBER_TEXT_BASE_SURFACE_OFFSET = 0.00008;
+const RUBBER_TEXT_BASE_SURFACE_OFFSET = 0.0001;
 const RUBBER_TEXT_STICK_SURFACE_OFFSET = 0.00026;
 const RUBBER_TEXT_MAX_WORLD_LIFT = 0.00105;
 const RUBBER_TEXT_POLYGON_OFFSET_FACTOR = -8;
@@ -3507,7 +3507,9 @@ function shrinkwrapGlyphMeshToSurface(
   const dir = new THREE.Vector3(0, 0, 1).applyQuaternion(meshQuat).normalize();
 
   mesh.geometry.computeBoundingBox?.();
-  const maxLocalDepth = Math.max(0.0001, mesh.geometry.boundingBox?.max?.z || 0.0001);
+  const localMinDepth = Number(mesh.geometry.boundingBox?.min?.z ?? 0);
+  const localMaxDepth = Number(mesh.geometry.boundingBox?.max?.z ?? 0.0001);
+  const maxLocalDepth = Math.max(0.0001, localMaxDepth - localMinDepth);
   const scaleZ = Math.max(0.0001, Math.abs(mesh.scale.z || 1));
   const rawWorldDepth = maxLocalDepth * scaleZ * Math.max(0.05, depthBoost);
   const worldDepth = clamp(rawWorldDepth, 0.00004, Math.max(0.00008, Number(maxWorldLift) || RUBBER_TEXT_MAX_WORLD_LIFT));
@@ -3531,7 +3533,7 @@ function shrinkwrapGlyphMeshToSurface(
 
   for (let i = 0; i < pos.count; i += 1) {
     local.fromBufferAttribute(pos, i);
-    const localDepth = Math.max(0, local.z);
+    const localDepth = clamp(local.z - localMinDepth, 0, maxLocalDepth);
     world.copy(local);
     mesh.localToWorld(world);
 
@@ -5827,6 +5829,7 @@ function DesignModelItem({
   printAreaPulseSide = null,
   printAreaPulseKey = 0,
   totalDesignCount = 1,
+  restrictRotation = false,
 }) {
   const groupRef = useRef(null);
   const userRotRef = useRef({ x: 0, y: 0 });
@@ -5839,13 +5842,20 @@ function DesignModelItem({
   const sleeveRightMeshRef = useRef({ side: "sleeve_right" });
 
   const isSleeveView = view === "sleeve_left" || view === "sleeve_right";
+  const isRotationRestricted = Boolean(restrictRotation);
   const ROT_SPEED = isSleeveView ? (isMobile ? 0.007 : 0.0058) : isMobile ? 0.016 : 0.012;
   const clampRotX = (v) => {
-    const maxRotX = isSleeveView ? (isMobile ? 0.12 : 0.1) : isMobile ? 0.9 : 0.75;
+    const maxRotX = isSleeveView
+      ? (isMobile ? 0.12 : 0.1)
+      : isRotationRestricted
+        ? (isMobile ? 0.08 : 0.06)
+        : isMobile
+          ? 0.9
+          : 0.75;
     return clamp(Number.isFinite(v) ? v : 0, -maxRotX, maxRotX);
   };
   const clampRotY = (v) => {
-    const maxRotY = isSleeveView ? 0.2 : isMobile ? 1.4 : 1.6;
+    const maxRotY = isSleeveView ? 0.2 : isRotationRestricted ? 0.18 : isMobile ? Math.PI : Math.PI * 1.05;
     return clamp(Number.isFinite(v) ? v : 0, -maxRotY, maxRotY);
   };
   const isColorMode = interactionMode === "color";
@@ -10769,8 +10779,10 @@ function TasarimClientContent({ isMobile }) {
                           activeTab === "color" ||
                           effectiveView === "sleeve_left" ||
                           effectiveView === "sleeve_right" ||
-                          multiTouchActive
+                          multiTouchActive ||
+                          hasActivePrintAreaSelection
                         }
+                        restrictRotation={hasActivePrintAreaSelection}
                         isMobile={isMobile}
                         interactionMode={activeTab}
                         perfProfile={perf}
