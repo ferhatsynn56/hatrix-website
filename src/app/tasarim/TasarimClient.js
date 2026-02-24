@@ -260,6 +260,17 @@ const MODEL_SELECTION_CARD_LABELS = Object.freeze({
   "oversize-hoodie-parcali": "Oversize",
 });
 
+const MODEL_SELECTION_POSTERS = Object.freeze({
+  "yeni-duz-tshirt": "/urungorsel/800x800/800.jpg",
+  "yeni-oversize-tshirt": "/urungorsel/800x800/conceptttt.jpg",
+  "yeni-duz-sweat": "/urungorsel/800x800/11ss.jpg",
+  "yeni-oversize-sweat": "/urungorsel/800x800/AY-AGE.jpg",
+  "yeni-fermuarli": "/urungorsel/IMG_7626.png",
+  "polarv3": "/urungorsel/girisFoto1.png",
+  "hoodie-v12-canavari": "/urungorsel/800x800/hoodie.jpg",
+  "oversize-hoodie-parcali": "/urungorsel/800x800/hoodie.jpg",
+});
+
 const INJECTION_PATTERN_OPTIONS = Object.freeze([
   { id: "focus", label: "Focus", path: `${INJECTION_MODELS_ROOT}/focusSONNN.glb` },
   { id: "brave", label: "Brave", path: `${INJECTION_MODELS_ROOT}/braveSONNN.glb` },
@@ -285,8 +296,8 @@ const DEFAULT_PRINT_PROFILE = Object.freeze({
   front: { xMin: -0.16, xMax: 0.16, yTop: 0.265, yBot: -0.31, z: 0.147, rotY: 0 },
   back: { xMin: -0.16, xMax: 0.16, yTop: 0.31, yBot: -0.32, z: -0.148, rotY: Math.PI },
   sleeve: { xMin: -0.15, xMax: 0.15, yTop: 0.2, yBot: -0.2, z: 0.0, rotY: -Math.PI / 2 },
-  sleeve_left: { xMin: 0.2, xMax: 0.262, yTop: 0.22, yBot: -0.11, z: -0.02, rotY: Math.PI / 2 },
-  sleeve_right: { xMin: -0.262, xMax: -0.2, yTop: 0.22, yBot: -0.11, z: -0.02, rotY: -Math.PI / 2 },
+  sleeve_left: { xMin: 0.2, xMax: 0.262, yTop: 0.22, yBot: -0.11, z: -0.02, rotY: -Math.PI / 2 },
+  sleeve_right: { xMin: -0.262, xMax: -0.2, yTop: 0.22, yBot: -0.11, z: -0.02, rotY: Math.PI / 2 },
 });
 
 const STATIC_PRINT_PROFILES = Object.freeze({
@@ -314,8 +325,8 @@ const STATIC_PRINT_PROFILES = Object.freeze({
     front: { xMin: -0.1930, xMax: 0.1920, yTop: 0.2760, yBot: -0.2980, z: 0.1440, rotY: 0 },
     back: { xMin: -0.1920, xMax: 0.1910, yTop: 0.2880, yBot: -0.3090, z: -0.1450, rotY: Math.PI },
     sleeve: { xMin: -0.1500, xMax: 0.1500, yTop: 0.2000, yBot: -0.2000, z: 0.0, rotY: -Math.PI / 2 },
-    sleeve_left: { xMin: 0.2015, xMax: 0.2613, yTop: 0.2209, yBot: -0.1052, z: -0.02, rotY: Math.PI / 2 },
-    sleeve_right: { xMin: -0.2617, xMax: -0.2004, yTop: 0.2159, yBot: -0.0855, z: -0.02, rotY: -Math.PI / 2 },
+    sleeve_left: { xMin: 0.2015, xMax: 0.2613, yTop: 0.2209, yBot: -0.1052, z: -0.02, rotY: -Math.PI / 2 },
+    sleeve_right: { xMin: -0.2617, xMax: -0.2004, yTop: 0.2159, yBot: -0.0855, z: -0.02, rotY: Math.PI / 2 },
   },
   "hoodie-v12-canavari": {
     front: { xMin: -0.1600, xMax: 0.1600, yTop: 0.1900, yBot: -0.1400, z: 0.1091, rotY: 0 },
@@ -394,14 +405,39 @@ const PRINT_SIDE_KEYS = Object.freeze(["front", "back", "sleeve", "sleeve_left",
 
 const normalizePrintSide = (side) => (PRINT_SIDE_KEYS.includes(side) ? side : "front");
 
+const normalizePrintNameSearchKey = (name = "") => {
+  const raw = String(name || "").trim();
+  if (!raw) return "";
+  const ascii = raw
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\u0131/g, "i")
+    .replace(/\u0130/g, "I");
+  return ascii
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
 const resolvePrintSideFromMaterialName = (name = "") => {
-  const key = String(name || "").toLowerCase().trim();
+  const key = normalizePrintNameSearchKey(name);
   if (!key) return null;
   if (SLEEVE_LEFT_PRINT_RE.test(key)) return "sleeve_left";
   if (SLEEVE_RIGHT_PRINT_RE.test(key)) return "sleeve_right";
   if (SLEEVE_PRINT_RE.test(key)) return "sleeve";
   if (BACK_PRINT_RE.test(key)) return "back";
   if (FRONT_PRINT_RE.test(key)) return "front";
+  const compact = key.replace(/\s+/g, "");
+  if (compact.includes("solkol") || compact.includes("leftsleeve") || compact.includes("sleeveleft")) return "sleeve_left";
+  if (compact.includes("sagkol") || compact.includes("rightsleeve") || compact.includes("sleeveright")) return "sleeve_right";
+  if (compact.includes("kol") || compact.includes("sleeve")) return "sleeve";
+  if (compact.includes("baskiarka") || compact.includes("arkabaski") || compact.includes("printback") || compact.includes("backprint")) return "back";
+  if (compact.includes("baskion") || compact.includes("onbaski") || compact.includes("printfront") || compact.includes("frontprint")) return "front";
+  if (compact.includes("arka") || compact.includes("back") || compact.includes("rear")) return "back";
+  if ((compact.includes("front") || compact.includes("fore")) && !compact.includes("kapuson")) return "front";
+  if (/(tshirt|sweat|hoodie|polar)on$/.test(compact) && !compact.includes("kapuson")) return "front";
   return null;
 };
 
@@ -433,7 +469,16 @@ const PRINT_MESH_NAME_HINTS = [
 const looksLikeNamedPrintMesh = (name = "") => {
   const key = String(name || "").toLowerCase().trim();
   if (!key) return false;
-  return PRINT_MESH_NAME_HINTS.some((hint) => key.includes(hint));
+  const normalized = normalizePrintNameSearchKey(name);
+  const compact = normalized.replace(/\s+/g, "");
+  return PRINT_MESH_NAME_HINTS.some((hint) => {
+    const hintRaw = String(hint || "").toLowerCase();
+    if (hintRaw && key.includes(hintRaw)) return true;
+    const hintNormalized = normalizePrintNameSearchKey(hintRaw);
+    if (hintNormalized && normalized.includes(hintNormalized)) return true;
+    const hintCompact = hintNormalized.replace(/\s+/g, "");
+    return Boolean(hintCompact && compact.includes(hintCompact));
+  });
 };
 
 const getPrintableGroupsForMesh = (mesh) => {
@@ -926,8 +971,8 @@ const getDefaultSideRotationY = (modelType, side = "front", hoodieParts = DEFAUL
   const profile = getPrintProfile(modelType, safeSide, hoodieParts);
   if (Number.isFinite(Number(profile?.rotY))) return Number(profile.rotY);
   if (safeSide === "back") return Math.PI;
-  if (safeSide === "sleeve_left") return Math.PI / 2;
-  if (safeSide === "sleeve_right") return -Math.PI / 2;
+  if (safeSide === "sleeve_left") return -Math.PI / 2;
+  if (safeSide === "sleeve_right") return Math.PI / 2;
   if (safeSide === "sleeve") return -Math.PI / 2;
   return 0;
 };
@@ -1540,6 +1585,152 @@ const DebouncedTextDraftInput = React.memo(function DebouncedTextDraftInput({
   );
 });
 
+const FONT_PICKER_FALLBACK_FAMILY = 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
+
+const buildFontPreviewStyle = (fontValue, loaded = true) => ({
+  fontFamily: loaded ? String(fontValue || FONT_PICKER_FALLBACK_FAMILY) : FONT_PICKER_FALLBACK_FAMILY,
+  fontWeight: 700,
+  fontSize: "13px",
+  lineHeight: 1.2,
+  letterSpacing: "0.01em",
+});
+
+const FontFamilyPicker = React.memo(function FontFamilyPicker({
+  options = [],
+  value = "",
+  onChange,
+  disabled = false,
+}) {
+  const rootRef = useRef(null);
+  const [open, setOpen] = useState(false);
+  const [loadedByValue, setLoadedByValue] = useState({});
+  const safeOptions = Array.isArray(options) && options.length > 0 ? options : FONT_OPTIONS;
+  const selectedOption = useMemo(
+    () => safeOptions.find((opt) => opt.value === value) || safeOptions[0] || null,
+    [safeOptions, value]
+  );
+
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onGlobalPointerDown = (event) => {
+      const target = event?.target;
+      if (target instanceof Element && rootRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    window.addEventListener("pointerdown", onGlobalPointerDown, true);
+    return () => {
+      window.removeEventListener("pointerdown", onGlobalPointerDown, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (typeof document === "undefined" || !document.fonts?.load || !document.fonts?.check) return;
+    if (!open && !value) return;
+    let cancelled = false;
+    const probe = async () => {
+      const checks = {};
+      await Promise.all(
+        safeOptions.map(async (opt) => {
+          const sample = `700 14px ${opt.value}`;
+          let loaded = false;
+          try {
+            loaded = document.fonts.check(sample);
+            if (!loaded) {
+              await document.fonts.load(sample);
+              loaded = document.fonts.check(sample);
+            }
+          } catch {
+            loaded = false;
+          }
+          checks[opt.value] = loaded;
+        })
+      );
+      if (!cancelled) {
+        setLoadedByValue((prev) => ({ ...prev, ...checks }));
+      }
+    };
+    probe();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, value, safeOptions]);
+
+  const isFontLoaded = useCallback(
+    (fontValue) => {
+      if (!fontValue) return true;
+      if (Object.prototype.hasOwnProperty.call(loadedByValue, fontValue)) {
+        return Boolean(loadedByValue[fontValue]);
+      }
+      if (typeof document === "undefined" || !document.fonts?.check) return true;
+      try {
+        return document.fonts.check(`700 14px ${fontValue}`);
+      } catch {
+        return true;
+      }
+    },
+    [loadedByValue]
+  );
+
+  const selectedLoaded = isFontLoaded(selectedOption?.value);
+
+  return (
+    <div ref={rootRef} className="relative" onPointerDown={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((prev) => !prev)}
+        className={`w-full rounded-md border border-zinc-600 bg-zinc-900/60 text-white px-2 py-1 text-left flex items-center justify-between gap-2 ${disabled ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-800"
+          }`}
+      >
+        <div className="min-w-0 flex items-center gap-1.5">
+          <span className="truncate" style={buildFontPreviewStyle(selectedOption?.value, selectedLoaded)}>
+            {selectedOption?.label || "Font"}
+          </span>
+          {!selectedLoaded && (
+            <span className="shrink-0 text-[9px] text-zinc-400">Yükleniyor...</span>
+          )}
+        </div>
+        <ChevronDown size={14} className={`shrink-0 transition-transform ${open ? "rotate-180" : "rotate-0"}`} />
+      </button>
+
+      {open && !disabled && (
+        <div className="absolute left-0 right-0 mt-1 max-h-52 overflow-y-auto rounded-md border border-zinc-600 bg-zinc-900 shadow-xl z-[140]">
+          {safeOptions.map((opt) => {
+            const loaded = isFontLoaded(opt.value);
+            const active = opt.value === value;
+            return (
+              <button
+                type="button"
+                key={`font-picker-opt-${opt.value}`}
+                onClick={() => {
+                  onChange?.(opt.value);
+                  setOpen(false);
+                }}
+                className={`w-full px-2 py-2 flex items-center justify-between gap-2 text-left border-b border-zinc-700/70 last:border-b-0 ${active ? "bg-zinc-700/70 text-white" : "text-zinc-200 hover:bg-zinc-800"
+                  }`}
+              >
+                <div className="min-w-0 flex items-center gap-1.5">
+                  <span className="truncate" style={buildFontPreviewStyle(opt.value, loaded)}>
+                    {opt.label}
+                  </span>
+                  {!loaded && (
+                    <span className="shrink-0 text-[9px] text-zinc-400">Yükleniyor...</span>
+                  )}
+                </div>
+                {active && <Check size={13} className="shrink-0 text-cyan-300" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+});
+
 const drawStyledText = (ctx, t, centerX, centerY, fontSize) => {
   const text = String(t?.text || "").trim();
   if (!text) return;
@@ -1982,6 +2173,8 @@ const recomputeLogoBoxAfterTrim = ({
   croppedWidth,
   croppedHeight,
   bounds = null,
+  minW01 = 0.12,
+  minH01 = 0.12,
   preserveVisibleSize = false,
 }) => {
   const current = {
@@ -1990,8 +2183,8 @@ const recomputeLogoBoxAfterTrim = ({
     w: Number(box?.w) || 0.7,
     h: Number(box?.h) || 0.45,
   };
-  const minW = 0.12;
-  const minH = 0.12;
+  const minW = clamp(Number(minW01) || 0.12, 0.01, 1);
+  const minH = clamp(Number(minH01) || 0.12, 0.01, 1);
   const safeBounds = {
     xMin: clamp(Number(bounds?.xMin ?? 0), 0, 1),
     xMax: clamp(Number(bounds?.xMax ?? 1), 0, 1),
@@ -2276,7 +2469,7 @@ const DESIGN_SIDES = POLAR_DESIGN_SIDES;
 const UI_SIDES = ["front", "back"];
 const DEFAULT_UI_VIEWS = ["front", "back"];
 const getAvailableViewsForModel = (modelType) =>
-  normalizeModelType(modelType) === "polarv3" ? POLAR_DESIGN_SIDES : DEFAULT_UI_VIEWS;
+  AVAILABLE_MODELS.includes(normalizeModelType(modelType)) ? DESIGN_SIDES : DEFAULT_UI_VIEWS;
 const isSleeveSide = (side) => side === "sleeve_left" || side === "sleeve_right" || side === "sleeve";
 const resolveEditableSide = (side, fallback = "front") => {
   const raw = String(side || "").toLowerCase().trim();
@@ -2565,6 +2758,8 @@ const roundTo = (value, digits = 2) => {
   return Math.round(n * p) / p;
 };
 
+const MIN_LOGO_SIZE_CM = 4;
+
 const getModelPrintCm = (modelType, side = "front") => {
   const safeModel = normalizeModelType(modelType);
   const sideKey = resolveEditableSide(side);
@@ -2574,6 +2769,18 @@ const getModelPrintCm = (modelType, side = "front") => {
     w: Number(cm.w) || 0,
     h: Number(cm.h) || 0,
   };
+};
+
+const getLogoMinSize01 = (printCm, bounds = null, minCm = MIN_LOGO_SIZE_CM) => {
+  const cmW = Math.max(0, Number(printCm?.w) || 0);
+  const cmH = Math.max(0, Number(printCm?.h) || 0);
+  const boundsW = clamp(Number(bounds?.xMax ?? 1) - Number(bounds?.xMin ?? 0), 0.001, 1);
+  const boundsH = clamp(Number(bounds?.yMax ?? 1) - Number(bounds?.yMin ?? 0), 0.001, 1);
+  const minByCmW = cmW > 0 ? minCm / cmW : 0;
+  const minByCmH = cmH > 0 ? minCm / cmH : 0;
+  const safeMinW = clamp(Math.max(0.01, minByCmW), 0.01, boundsW);
+  const safeMinH = clamp(Math.max(0.01, minByCmH), 0.01, boundsH);
+  return { w: safeMinW, h: safeMinH };
 };
 
 const buildRubberSpecsBySide = (design) => {
@@ -2865,7 +3072,7 @@ function HdriEnvironment({ urls = [], enabled = true }) {
 }
 
 /* ================= KAMERA KONTROLCÜSÜ ================= */
-function CameraController({ view, count, onAnimatingChange }) {
+function CameraController({ view, count, focusKey = 0, controlsRef = null, onAnimatingChange }) {
   const { camera } = useThree();
   const isAnimating = useRef(false);
   const extra = Math.min(0.9, Math.max(0, (count - 1) * 0.22));
@@ -2874,14 +3081,26 @@ function CameraController({ view, count, onAnimatingChange }) {
     () => ({
       front: new THREE.Vector3(0, 0.24, 1.9 + extra),
       back: new THREE.Vector3(0, 0.24, 1.9 + extra),
+      sleeve_left: new THREE.Vector3(0, 0.29, 1.04 + extra * 0.42),
+      sleeve_right: new THREE.Vector3(0, 0.29, 1.04 + extra * 0.42),
     }),
     [extra]
+  );
+  const targets = useMemo(
+    () => ({
+      front: new THREE.Vector3(0, -0.08, 0),
+      back: new THREE.Vector3(0, -0.08, 0),
+      sleeve_left: new THREE.Vector3(0, -0.015, 0),
+      sleeve_right: new THREE.Vector3(0, -0.015, 0),
+    }),
+    []
   );
 
   useEffect(() => {
     isAnimating.current = true;
     onAnimatingChange?.(true);
     const targetPos = positions[view] || positions.front;
+    const targetLookAt = targets[view] || targets.front;
     const startPos = camera.position.clone();
     const start = Date.now();
     const dur = 860;
@@ -2890,7 +3109,13 @@ function CameraController({ view, count, onAnimatingChange }) {
       const t = Math.min((Date.now() - start) / dur, 1);
       const eased = 1 - Math.pow(1 - t, 5);
       camera.position.lerpVectors(startPos, targetPos, eased);
-      camera.lookAt(0, -0.08, 0);
+      const controls = controlsRef?.current || null;
+      if (controls) {
+        controls.target.copy(targetLookAt);
+        controls.update?.();
+      } else {
+        camera.lookAt(targetLookAt);
+      }
       if (t < 1) requestAnimationFrame(tick);
       else {
         isAnimating.current = false;
@@ -2902,7 +3127,7 @@ function CameraController({ view, count, onAnimatingChange }) {
       isAnimating.current = false;
       onAnimatingChange?.(false);
     };
-  }, [view, camera, positions, onAnimatingChange]);
+  }, [view, focusKey, camera, positions, targets, controlsRef, onAnimatingChange]);
 
   return null;
 }
@@ -3098,6 +3323,8 @@ function useDesignCanvas(sideData, opts = {}) {
 /* ================= 3D MODEL HELPERS ================= */
 function pickDecalHostMesh(root, modelType, preferredSide = "front") {
   const requestedSide = resolveEditableSide(preferredSide, "front");
+  const isSleeveRequest =
+    requestedSide === "sleeve_left" || requestedSide === "sleeve_right" || requestedSide === "sleeve";
   const preferredSides =
     requestedSide === "sleeve_left"
       ? new Set(["sleeve_left", "sleeve"])
@@ -3189,12 +3416,17 @@ function pickDecalHostMesh(root, modelType, preferredSide = "front") {
   namedPrintMeshCandidates.sort((a, b) => b.score - a.score);
   const preferredNamed = namedPrintMeshCandidates.find(entrySupportsPreferredSide);
   if (preferredNamed?.o) return preferredNamed.o;
-  if (namedPrintMeshCandidates[0]?.o) return namedPrintMeshCandidates[0].o;
 
   printableCandidates.sort((a, b) => b.score - a.score);
   const preferredPrintable = printableCandidates.find(entrySupportsPreferredSide);
   if (preferredPrintable?.o) return preferredPrintable.o;
-  if (printableCandidates[0]?.o) return printableCandidates[0].o;
+  if (isSleeveRequest) {
+    if (printableCandidates[0]?.o) return printableCandidates[0].o;
+    if (namedPrintMeshCandidates[0]?.o) return namedPrintMeshCandidates[0].o;
+  } else {
+    if (namedPrintMeshCandidates[0]?.o) return namedPrintMeshCandidates[0].o;
+    if (printableCandidates[0]?.o) return printableCandidates[0].o;
+  }
 
   candidates.sort((a, b) => b.score - a.score);
   if (candidates[0]?.o) return candidates[0].o;
@@ -3226,17 +3458,19 @@ function makeCanvasTexture(canvas, opts = {}) {
 
 // Rubber text yüzeye çok yakın olduğunda Z-fighting oluşabiliyor.
 // Bu offset/polygon ayarları text'i modelin üstünde stabil tutar.
-const RUBBER_TEXT_BASE_SURFACE_OFFSET = 0.00014;
-const RUBBER_TEXT_STICK_SURFACE_OFFSET = 0.00042;
-const RUBBER_TEXT_POLYGON_OFFSET_FACTOR = -12;
-const RUBBER_TEXT_POLYGON_OFFSET_UNITS = -6;
+const RUBBER_TEXT_BASE_SURFACE_OFFSET = 0.00008;
+const RUBBER_TEXT_STICK_SURFACE_OFFSET = 0.00026;
+const RUBBER_TEXT_MAX_WORLD_LIFT = 0.00105;
+const RUBBER_TEXT_POLYGON_OFFSET_FACTOR = -8;
+const RUBBER_TEXT_POLYGON_OFFSET_UNITS = -4;
 
 function shrinkwrapGlyphMeshToSurface(
   mesh,
   targetMesh,
   epsilon = 0.00002,
   depthBoost = 5.5,
-  surfaceSide = "front"
+  surfaceSide = "front",
+  maxWorldLift = RUBBER_TEXT_MAX_WORLD_LIFT
 ) {
   if (!mesh?.geometry?.attributes?.position || !targetMesh?.geometry) return;
   const targetGeometry = targetMesh.geometry;
@@ -3258,7 +3492,8 @@ function shrinkwrapGlyphMeshToSurface(
   mesh.geometry.computeBoundingBox?.();
   const maxLocalDepth = Math.max(0.0001, mesh.geometry.boundingBox?.max?.z || 0.0001);
   const scaleZ = Math.max(0.0001, Math.abs(mesh.scale.z || 1));
-  const worldDepth = maxLocalDepth * scaleZ * Math.max(0.1, depthBoost);
+  const rawWorldDepth = maxLocalDepth * scaleZ * Math.max(0.05, depthBoost);
+  const worldDepth = clamp(rawWorldDepth, 0.00004, Math.max(0.00008, Number(maxWorldLift) || RUBBER_TEXT_MAX_WORLD_LIFT));
 
   const pos = mesh.geometry.attributes.position;
   const local = new THREE.Vector3();
@@ -3349,7 +3584,7 @@ function shrinkwrapGlyphMeshToSurface(
     }
 
     const depthRatio = clamp(localDepth / maxLocalDepth, 0, 1);
-    const depthOffset = depthRatio * worldDepth;
+    const depthOffset = clamp(depthRatio * worldDepth, 0, worldDepth);
     snappedWorld.copy(hit.point).addScaledVector(normalWorld, epsilon + depthOffset);
     mesh.worldToLocal(snappedWorld);
     pos.setXYZ(i, snappedWorld.x, snappedWorld.y, snappedWorld.z);
@@ -3371,6 +3606,7 @@ function ShrinkwrappedRubberGlyph({
   shrinkwrap = true,
   stick = 0.96,
   depthBoost = 5.5,
+  maxWorldLift = RUBBER_TEXT_MAX_WORLD_LIFT,
   placementKey = "",
 }) {
   const meshRef = useRef(null);
@@ -3411,12 +3647,12 @@ function ShrinkwrappedRubberGlyph({
         RUBBER_TEXT_BASE_SURFACE_OFFSET +
         (1 - clamp(stick, 0.7, 1)) * RUBBER_TEXT_STICK_SURFACE_OFFSET;
       try {
-        shrinkwrapGlyphMeshToSurface(mesh, targetMesh, eps, depthBoost, surfaceSide);
+        shrinkwrapGlyphMeshToSurface(mesh, targetMesh, eps, depthBoost, surfaceSide, maxWorldLift);
       } catch (err) {
         console.warn("Rubber shrinkwrap failed:", err);
       }
     }
-  }, [baseGeometry, targetMesh, surfaceSide, px, py, pz, rotationZ, sx, sy, sz, shrinkwrap, stick, depthBoost, placementKey]);
+  }, [baseGeometry, targetMesh, surfaceSide, px, py, pz, rotationZ, sx, sy, sz, shrinkwrap, stick, depthBoost, maxWorldLift, placementKey]);
 
   useEffect(
     () => () => {
@@ -3570,8 +3806,9 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
     const maxRubberLetterSpacing = clamp((areaW * 0.94) / Math.max(0.001, basePlacedW), 0.2, 3);
     const effectiveRubberLetterSpacing = clamp(rubberLetterSpacing, 0.2, maxRubberLetterSpacing);
     const rubberStick = clamp(Number(textState?.rubberStick ?? 0.96), 0.7, 1);
-    const zScale = clamp((0.07 * maxRawD) / 0.024, 0.06, 0.17);
-    const depthBoost = 3.2;
+    const zScale = clamp((0.058 * maxRawD) / 0.024, 0.045, 0.11);
+    const depthBoost = 0.72;
+    const maxWorldLift = 0.00078;
     const placedW = basePlacedW * effectiveRubberLetterSpacing;
     const placedH = totalRawH * glyphScale * scaleY;
 
@@ -3591,7 +3828,7 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
     );
     const rz = ((Number(textState?.rotation) || 0) * Math.PI) / 180;
     const stickLift = (1 - rubberStick) * 0.00032;
-    const zNudge = side === "back" ? -(0.000012 + stickLift) : 0.000012 + stickLift;
+    const zNudge = side === "back" ? -(0.000008 + stickLift) : 0.000008 + stickLift;
     const sideRotY = Number(
       textState?.surfaceRotationY ??
       profile.rotY ??
@@ -3620,6 +3857,7 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
       zScale,
       rubberStick,
       depthBoost,
+      maxWorldLift,
       textColor,
       groupPosition: [cx, cy, (profile.z || 0) + zNudge],
       groupRotation: [0, sideRotY, rz],
@@ -3640,6 +3878,7 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
     zScale,
     rubberStick,
     depthBoost,
+    maxWorldLift,
     textColor,
     groupPosition,
     groupRotation,
@@ -3663,9 +3902,11 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
             rotationZ={(row.rotDeg * Math.PI) / 180}
             scale={[glyphScale * scaleX, glyphScale * scaleY, zScale]}
             color={textColor}
+            materialSide={THREE.DoubleSide}
             shrinkwrap
             stick={rubberStick}
             depthBoost={depthBoost}
+            maxWorldLift={maxWorldLift}
             placementKey={placementKey}
           />
         );
@@ -3995,6 +4236,8 @@ function Real3DModel({
   frontPrintTypes = [],
   backPrintTypes = [],
   perfProfile,
+  printAreaPulseSide = null,
+  printAreaPulseKey = 0,
 }) {
   const { gl } = useThree();
   const allowMipmaps = perfProfile?.enableMipmaps !== false;
@@ -4223,16 +4466,10 @@ function Real3DModel({
   useEffect(() => {
     if (backTex) {
       backTex.needsUpdate = true;
-      const normalizedModel = normalizeModelType(modelType);
-      if (normalizedModel === "polarv3") {
-        backTex.repeat.set(1, 1);
-        backTex.offset.set(0, 0);
-      } else {
-        backTex.repeat.set(-1, 1);
-        backTex.offset.set(1, 0);
-      }
+      backTex.repeat.set(1, 1);
+      backTex.offset.set(0, 0);
     }
-  }, [backTex, backCanvas, modelType]);
+  }, [backTex, backCanvas]);
 
   const sleeveLeftTex = useMemo(
     () => makeCanvasTexture(sleeveLeftCanvas, { maxAnisotropy, useMipmaps: allowMipmaps }),
@@ -4307,13 +4544,11 @@ function Real3DModel({
   }, [modelType, materialProfiles]);
 
   const normalizedModel = normalizeModelType(modelType);
-  const DTF_DECAL_DEPTH = STATIC_DECAL_DEPTH[normalizedModel] ?? 0.18;
-  const frontDecalDepth =
-    normalizedModel === "polarv3" ? Math.min(DTF_DECAL_DEPTH, 0.22) : DTF_DECAL_DEPTH;
-  const backDecalDepth =
-    normalizedModel === "polarv3" ? Math.min(DTF_DECAL_DEPTH, 0.12) : DTF_DECAL_DEPTH;
-  const sleeveDecalDepth =
-    normalizedModel === "polarv3" ? Math.min(DTF_DECAL_DEPTH, 0.12) : DTF_DECAL_DEPTH;
+  const isPolarModel = normalizedModel === "polarv3";
+  const DTF_DECAL_DEPTH = STATIC_DECAL_DEPTH[normalizedModel] ?? 0.2;
+  const frontDecalDepth = isPolarModel ? Math.min(DTF_DECAL_DEPTH, 0.22) : Math.max(DTF_DECAL_DEPTH, 0.22);
+  const backDecalDepth = isPolarModel ? Math.min(DTF_DECAL_DEPTH, 0.12) : Math.max(DTF_DECAL_DEPTH, 0.2);
+  const sleeveDecalDepth = isPolarModel ? Math.min(DTF_DECAL_DEPTH, 0.12) : Math.max(DTF_DECAL_DEPTH, 0.18);
   const baseSurfaceOffset = normalizedModel === "polarv3" ? 0.0012 : 0.008;
   const frontSurfaceOffset = normalizedModel === "polarv3" ? 0.0014 : baseSurfaceOffset;
   const backSurfaceOffset = normalizedModel === "polarv3" ? 0.0008 : baseSurfaceOffset;
@@ -4460,10 +4695,25 @@ function Real3DModel({
     [buildSleeveDecalTarget, sleeveProfiles?.right]
   );
 
-  const showFront = view === "front";
-  const showBack = view === "back";
-  const showSleeveLeft = view === "sleeve_left";
-  const showSleeveRight = view === "sleeve_right";
+  const [printAreaPulseState, setPrintAreaPulseState] = useState({ side: null, on: false });
+  useEffect(() => {
+    const safeSide = resolveEditableSide(printAreaPulseSide, "");
+    if (!safeSide || !printAreaPulseKey) return undefined;
+    setPrintAreaPulseState({ side: safeSide, on: true });
+    const t1 = window.setTimeout(() => setPrintAreaPulseState({ side: safeSide, on: false }), 120);
+    const t2 = window.setTimeout(() => setPrintAreaPulseState({ side: safeSide, on: true }), 270);
+    const t3 = window.setTimeout(() => setPrintAreaPulseState({ side: null, on: false }), 440);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+    };
+  }, [printAreaPulseSide, printAreaPulseKey]);
+  const pulseOpacity = printAreaPulseState.on ? 0.24 : 0;
+  const frontPulseOpacity = printAreaPulseState.side === "front" ? pulseOpacity : 0;
+  const backPulseOpacity = printAreaPulseState.side === "back" ? pulseOpacity : 0;
+  const sleeveLeftPulseOpacity = printAreaPulseState.side === "sleeve_left" ? pulseOpacity : 0;
+  const sleeveRightPulseOpacity = printAreaPulseState.side === "sleeve_right" ? pulseOpacity : 0;
   const frontHasRubber =
     normalizePrintTechnique(
       frontSideData?.customText?.technique,
@@ -4486,6 +4736,22 @@ function Real3DModel({
   );
   const frontEmbossUrls = useMemo(() => frontEmbossLogos.map((l) => l.url), [frontEmbossLogos]);
   const backEmbossUrls = useMemo(() => backEmbossLogos.map((l) => l.url), [backEmbossLogos]);
+  const showFront = Boolean(
+    frontTex ||
+    frontHasRubber ||
+    frontInjectionOption ||
+    frontEmbossLogos.length > 0 ||
+    frontPulseOpacity > 0
+  );
+  const showBack = Boolean(
+    backTex ||
+    backHasRubber ||
+    backInjectionOption ||
+    backEmbossLogos.length > 0 ||
+    backPulseOpacity > 0
+  );
+  const showSleeveLeft = Boolean(sleeveLeftTex || sleeveLeftPulseOpacity > 0);
+  const showSleeveRight = Boolean(sleeveRightTex || sleeveRightPulseOpacity > 0);
   const frontEmbossTextures = useTexture(frontEmbossUrls);
   const backEmbossTextures = useTexture(backEmbossUrls);
   const trackedEmbossTexturesRef = useRef([]);
@@ -4569,6 +4835,29 @@ function Real3DModel({
 
         {decalHost && (
           <>
+            {showFront && (
+              <Decal
+                raycast={NO_RAYCAST}
+                mesh={decalHostRef}
+                position={frontDecalPosition}
+                rotation={[0, frontDecalRotY, 0]}
+                scale={[frontW * materialInset, frontH * materialInset, frontDecalDepth]}
+                renderOrder={998}
+              >
+                <meshBasicMaterial
+                  color="#7dd3fc"
+                  transparent
+                  opacity={frontPulseOpacity}
+                  depthTest={true}
+                  depthWrite={false}
+                  polygonOffset={true}
+                  polygonOffsetFactor={-2}
+                  polygonOffsetUnits={-2}
+                  side={THREE.DoubleSide}
+                />
+              </Decal>
+            )}
+
             {showFront && frontTex && (
               <Decal
                 raycast={NO_RAYCAST}
@@ -4718,6 +5007,29 @@ function Real3DModel({
               />
             )}
 
+            {showBack && (
+              <Decal
+                raycast={NO_RAYCAST}
+                mesh={decalHostRef}
+                position={backDecalPosition}
+                rotation={[0, backDecalRotY, 0]}
+                scale={[backW * materialInset, backH * materialInset, backDecalDepth]}
+                renderOrder={998}
+              >
+                <meshBasicMaterial
+                  color="#7dd3fc"
+                  transparent
+                  opacity={backPulseOpacity}
+                  depthTest={true}
+                  depthWrite={false}
+                  polygonOffset={true}
+                  polygonOffsetFactor={-2}
+                  polygonOffsetUnits={-2}
+                  side={THREE.DoubleSide}
+                />
+              </Decal>
+            )}
+
             {showBack && backTex && (
               <Decal
                 raycast={NO_RAYCAST}
@@ -4778,6 +5090,30 @@ function Real3DModel({
               />
             )}
 
+            {showSleeveLeft && sleeveLeftDecalTarget && (
+              <Decal
+                key={`${sleeveLeftDecalTarget.key}-pulse`}
+                raycast={NO_RAYCAST}
+                mesh={decalHostRef}
+                position={sleeveLeftDecalTarget.position}
+                rotation={[0, sleeveLeftDecalTarget.rotY || 0, 0]}
+                scale={[sleeveLeftDecalTarget.w * materialInset, sleeveLeftDecalTarget.h * materialInset, sleeveDecalDepth]}
+                renderOrder={998}
+              >
+                <meshBasicMaterial
+                  color="#7dd3fc"
+                  transparent
+                  opacity={sleeveLeftPulseOpacity}
+                  depthTest={true}
+                  depthWrite={false}
+                  polygonOffset={true}
+                  polygonOffsetFactor={-2}
+                  polygonOffsetUnits={-2}
+                  side={THREE.DoubleSide}
+                />
+              </Decal>
+            )}
+
             {showSleeveLeft && sleeveLeftTex && sleeveLeftDecalTarget && (
               <Decal
                 key={sleeveLeftDecalTarget.key}
@@ -4800,6 +5136,30 @@ function Real3DModel({
                   polygonOffsetFactor={-1}
                   polygonOffsetUnits={-1}
                   premultipliedAlpha
+                  side={THREE.DoubleSide}
+                />
+              </Decal>
+            )}
+
+            {showSleeveRight && sleeveRightDecalTarget && (
+              <Decal
+                key={`${sleeveRightDecalTarget.key}-pulse`}
+                raycast={NO_RAYCAST}
+                mesh={decalHostRef}
+                position={sleeveRightDecalTarget.position}
+                rotation={[0, sleeveRightDecalTarget.rotY || 0, 0]}
+                scale={[sleeveRightDecalTarget.w * materialInset, sleeveRightDecalTarget.h * materialInset, sleeveDecalDepth]}
+                renderOrder={998}
+              >
+                <meshBasicMaterial
+                  color="#7dd3fc"
+                  transparent
+                  opacity={sleeveRightPulseOpacity}
+                  depthTest={true}
+                  depthWrite={false}
+                  polygonOffset={true}
+                  polygonOffsetFactor={-2}
+                  polygonOffsetUnits={-2}
                   side={THREE.DoubleSide}
                 />
               </Decal>
@@ -4941,6 +5301,8 @@ function ResizeFrame({
   disableResize = false,
   largeHandles = false,
   dragBounds = null,
+  minWidth = 0.12,
+  minHeight = 0.12,
 }) {
   const dragRef = useRef(null);
   const rafRef = useRef(0);
@@ -5020,8 +5382,8 @@ function ResizeFrame({
     }
 
     const { x: px, y: py } = getPointer01(e, s.rect);
-    const minW = 0.12;
-    const minH = 0.12;
+    const minW = clamp(Number(minWidth) || 0.12, 0.01, 1);
+    const minH = clamp(Number(minHeight) || 0.12, 0.01, 1);
     const bounds = s.bounds || { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
     const maxWBound = Math.max(minW, bounds.xMax - bounds.xMin);
     const maxHBound = Math.max(minH, bounds.yMax - bounds.yMin);
@@ -5289,6 +5651,10 @@ function DesignModelItem({
   onModelTap,
   onModelLongPress,
   onDeleteModel,
+  isInteractionSuppressed,
+  printAreaPulseSide = null,
+  printAreaPulseKey = 0,
+  totalDesignCount = 1,
 }) {
   const groupRef = useRef(null);
   const userRotRef = useRef({ x: 0, y: 0 });
@@ -5399,8 +5765,8 @@ function DesignModelItem({
 
   const lowPerformanceMode = Boolean(perfProfile?.lowPerformanceMode);
   const singleSideTextureMode = Boolean(perfProfile?.singleSideTextureMode);
-  const frontCanvasEnabled = !singleSideTextureMode || view === "front";
-  const backCanvasEnabled = !singleSideTextureMode || view === "back";
+  const frontCanvasEnabled = !singleSideTextureMode || view === "front" || hasSideContent(design?.sides?.front);
+  const backCanvasEnabled = !singleSideTextureMode || view === "back" || hasSideContent(design?.sides?.back);
   const textureCanvasSize = isActive
     ? Number(perfProfile?.activeCanvasSize || (isMobile ? 3072 : 3840))
     : Number(perfProfile?.idleCanvasSize || (isMobile ? 1664 : 2304));
@@ -5476,6 +5842,10 @@ function DesignModelItem({
       }}
       onPointerDown={(e) => {
         e.stopPropagation();
+        if (typeof isInteractionSuppressed === "function" && isInteractionSuppressed()) {
+          clearHoldTimer();
+          return;
+        }
         const tapSideHint = resolveTapSideFromEvent(e);
         tapSideHintRef.current = tapSideHint;
         const resolvedTapSide = tapSideHint || targetMeshRef.current.side;
@@ -5549,7 +5919,7 @@ function DesignModelItem({
         if (e.target?.releasePointerCapture) e.target.releasePointerCapture(e.pointerId);
       }}
     >
-      {isActive && !isColorMode && (
+      {isActive && !isColorMode && totalDesignCount <= 1 && (
         <mesh position={[0, -0.03, 0]} scale={hitVolumeScale}>
           <sphereGeometry args={[0.72, 20, 16]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
@@ -5574,6 +5944,8 @@ function DesignModelItem({
         frontPrintTypes={printTypesBySide.front}
         backPrintTypes={printTypesBySide.back}
         perfProfile={perfProfile}
+        printAreaPulseSide={printAreaPulseSide}
+        printAreaPulseKey={printAreaPulseKey}
       />
       {showModelDeleteButton && (
         <Html position={[0, 0.42, 0]} center distanceFactor={6} occlude={false} zIndexRange={[180, 260]}>
@@ -5673,12 +6045,13 @@ function StyledTextPreview({ textState, className = "" }) {
   );
 }
 
-function ModelSelectionPreview3D({ modelType, paused = false }) {
+function ModelSelectionPreview3D({ modelType, paused = false, onReady }) {
   const modelPathRaw = MODEL_PATHS[normalizeModelType(modelType)] || MODEL_PATHS[DEFAULT_MODEL_TYPE];
   const gltf = useGLTF(toSafeUrl(modelPathRaw));
   const groupRef = useRef(null);
   const pausedProgressRef = useRef(0);
   const wasPausedRef = useRef(false);
+  const readyNotifiedRef = useRef(false);
   const hasSkinned = useMemo(() => {
     let found = false;
     gltf.scene.traverse((o) => {
@@ -5718,12 +6091,82 @@ function ModelSelectionPreview3D({ modelType, paused = false }) {
     });
   }, [root]);
 
+  useEffect(() => {
+    if (readyNotifiedRef.current) return;
+    readyNotifiedRef.current = true;
+    onReady?.();
+  }, [onReady]);
+
   return (
     <group ref={groupRef} position={[0, -0.08, 0]}>
       <Center>
         <primitive object={root} />
       </Center>
     </group>
+  );
+}
+
+function ModelSelectionCardPreview({
+  modelType,
+  isMobileViewport = false,
+  previewIndex = 0,
+  forceLivePreview = false,
+}) {
+  const [showLivePreview, setShowLivePreview] = useState(true);
+  const [liveLoaded, setLiveLoaded] = useState(false);
+
+  useEffect(() => {
+    if (forceLivePreview) setShowLivePreview(true);
+  }, [forceLivePreview]);
+  const shouldAnimate = true;
+
+  return (
+    <div data-model-preview className="relative aspect-square rounded-[20px] overflow-hidden border border-zinc-200 bg-[#F7F7F7]">
+      <div
+        className={`absolute inset-0 transition-opacity duration-200 ${
+          liveLoaded ? "opacity-0" : "opacity-100"
+        }`}
+        style={{
+          background:
+            "radial-gradient(circle at 30% 24%, rgba(255,255,255,0.9), rgba(238,241,244,0.9) 42%, rgba(226,230,236,0.9) 100%)",
+        }}
+      >
+        <div className="absolute inset-0 animate-pulse opacity-40" />
+      </div>
+
+      {showLivePreview && (
+        <div className="absolute inset-0">
+          <Canvas
+            frameloop="always"
+            dpr={isMobileViewport ? [1, 1.35] : [1, 1.3]}
+            camera={{ position: [0, 0.28, 2.12], fov: 30 }}
+            gl={{
+              antialias: false,
+              alpha: false,
+              powerPreference: "high-performance",
+            }}
+            onCreated={({ gl }) => {
+              gl.outputColorSpace = THREE.SRGBColorSpace;
+              gl.toneMapping = THREE.ACESFilmicToneMapping;
+              gl.toneMappingExposure = 0.60;
+            }}
+          >
+            <color attach="background" args={["#F7F7F7"]} />
+            <ambientLight intensity={0.45} />
+            <hemisphereLight intensity={0.15} groundColor="#252525" />
+            <directionalLight position={[4, 7, 5]} intensity={0.45} />
+            <directionalLight position={[-4, 5, -4]} intensity={0.15} />
+            <Suspense fallback={null}>
+              <ModelSelectionPreview3D
+                modelType={modelType}
+                paused={false}
+                onReady={() => setLiveLoaded(true)}
+              />
+            </Suspense>
+          </Canvas>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -5961,8 +6404,7 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                   const transitionActive = Boolean(cardTransition);
                   const transitionSelected = cardTransition?.modelType === modelType;
                   const isPressed = pressedModel === modelType;
-                  // Allow animation on mobile for continuous rotation - user request
-                  const previewShouldAnimate = true;
+                  const previewIndex = Math.max(0, AVAILABLE_MODELS.indexOf(modelType));
                   let cardScale = 1;
                   if (isPressed) cardScale = 0.96;
                   if (transitionSelected) cardScale = cardTransition?.phase === "expand" ? 1.04 : 1.04;
@@ -6003,35 +6445,12 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
                       }}
                       aria-pressed={active}
                     >
-                      <div data-model-preview className="aspect-square rounded-[20px] overflow-hidden border border-zinc-200 bg-[#F7F7F7]">
-                        <Canvas
-                          frameloop={isMobileViewport ? "always" : "always"}
-                          dpr={isMobileViewport ? [1, 1.6] : [1, 1.45]}
-                          camera={{ position: [0, 0.28, 2.12], fov: 30 }}
-                          gl={{
-                            antialias: true,
-                            alpha: false,
-                            powerPreference: isMobileViewport ? "default" : "high-performance",
-                          }}
-                          onCreated={({ gl }) => {
-                            gl.outputColorSpace = THREE.SRGBColorSpace;
-                            gl.toneMapping = THREE.ACESFilmicToneMapping;
-                            gl.toneMappingExposure = 0.60;
-                          }}
-                        >
-                          <color attach="background" args={["#F7F7F7"]} />
-                          <ambientLight intensity={0.45} />
-                          <hemisphereLight intensity={0.15} groundColor="#252525" />
-                          <directionalLight position={[4, 7, 5]} intensity={0.45} />
-                          <directionalLight position={[-4, 5, -4]} intensity={0.15} />
-                          <Suspense fallback={null}>
-                            <ModelSelectionPreview3D
-                              modelType={modelType}
-                              paused={false}
-                            />
-                          </Suspense>
-                        </Canvas>
-                      </div>
+                      <ModelSelectionCardPreview
+                        modelType={modelType}
+                        isMobileViewport={isMobileViewport}
+                        previewIndex={previewIndex}
+                        forceLivePreview={transitionSelected || isPressed || active}
+                      />
                       <p className="mt-2 text-[16px] md:text-[18px] font-medium text-zinc-900 leading-tight">{shortLabel}</p>
                       <p className="mt-0.5 text-[12px] md:text-[13px] font-normal text-zinc-500">{getModelGroupTitle(modelType)}</p>
                     </button>
@@ -6156,6 +6575,10 @@ function EditorPanel({
 
   const sideLabel = getSideLabel(currentSide);
   const cm = getModelPrintCm(design.modelType, currentSide);
+  const panelLogoMinSize01 = useMemo(
+    () => getLogoMinSize01(cm, null, MIN_LOGO_SIZE_CM),
+    [cm.w, cm.h]
+  );
 
   const t = sideData?.customText || {};
   const effectivePrintTypes = Array.from(
@@ -6610,6 +7033,8 @@ function EditorPanel({
                   updateSide({ logos: nextLogos });
                 }}
                 disableResize={isEmbossSticker(activeLogo)}
+                minWidth={panelLogoMinSize01.w}
+                minHeight={panelLogoMinSize01.h}
               />
             )}
 
@@ -6967,6 +7392,8 @@ function EditorPanel({
                       updateSide({ logos: nextLogos });
                     }}
                     disableResize={isEmbossSticker(activeLogo)}
+                    minWidth={panelLogoMinSize01.w}
+                    minHeight={panelLogoMinSize01.h}
                   />
                 )}
 
@@ -7362,6 +7789,8 @@ function TasarimClientContent({ isMobile }) {
   const [captureView, setCaptureView] = useState(null);
   const [captureId, setCaptureId] = useState(null);
   const [camAnimating, setCamAnimating] = useState(false);
+  const [viewFocusKey, setViewFocusKey] = useState(0);
+  const [printAreaPulse, setPrintAreaPulse] = useState({ side: null, key: 0 });
   const lockToastTimerRef = useRef(null);
   const previewRef = useRef(null);
   const sceneEditRef = useRef(null);
@@ -7388,6 +7817,37 @@ function TasarimClientContent({ isMobile }) {
   const lastGlobalUiEventTsRef = useRef(0);
   const bgRemovedObjectUrlsRef = useRef(new Map());
   const logoSourceFilesRef = useRef(new Map());
+  const modelTapSuppressedUntilRef = useRef(0);
+  const suppressModelTapTemporarily = useCallback((durationMs = 280) => {
+    if (!isMobile) return;
+    const safeDuration = clamp(Number(durationMs) || 280, 80, 1200);
+    modelTapSuppressedUntilRef.current = Date.now() + safeDuration;
+  }, [isMobile]);
+  const isModelTapSuppressed = useCallback(() => {
+    if (!isMobile) return false;
+    return Date.now() < modelTapSuppressedUntilRef.current;
+  }, [isMobile]);
+  const applySceneSelection = useCallback((item = null, opts = {}) => {
+    const safeItem = item && typeof item === "object" ? item : null;
+    const type = safeItem?.type || null;
+    setSelectedSceneItem(safeItem);
+    setSceneSelectionVisible(type === "logo");
+    setSceneTextSelectionVisible(type === "text");
+    setSceneInjectionSelectionVisible(type === "pattern");
+    if (opts?.resetModes !== false) {
+      setSceneFrameMode("resize");
+      setSceneTextFrameMode("resize");
+      setSceneInjectionFrameMode("resize");
+    }
+  }, []);
+  const triggerPrintAreaPulse = useCallback((side) => {
+    const safeSide = resolveEditableSide(side, "");
+    if (!safeSide) return;
+    setPrintAreaPulse((prev) => ({
+      side: safeSide,
+      key: prev.key + 1,
+    }));
+  }, []);
 
   useEffect(() => {
     if (!isMobile && runtimeLowPerfMode) {
@@ -7487,8 +7947,14 @@ function TasarimClientContent({ isMobile }) {
     : [];
   const isZipperFront = hasCenterZip(currentActiveDesign?.modelType) && currentSide === "front";
   const gap01 = getCenterZipGap01(currentActiveDesign?.modelType);
-  const textEditingMode = editorControlTab === "text" && showPlacementPanel;
-  const showSceneFrame = Boolean(sceneSelectionVisible && activeLogo && !textEditingMode);
+  const selectedSceneType = selectedSceneItem?.type || null;
+  const selectedSceneId = selectedSceneItem?.id || null;
+  const showSceneFrame = Boolean(
+    sceneSelectionVisible &&
+    activeLogo &&
+    selectedSceneType === "logo" &&
+    (!selectedSceneId || activeLogo.id === selectedSceneId)
+  );
   const isSceneFrameCompact = (activeLogoBox?.w || 0) < 0.30 || (activeLogoBox?.h || 0) < 0.22;
   const hasSceneText = Boolean((customText?.text || "").trim());
   const hasSceneInjection = Boolean(sideData?.injectionModelId);
@@ -7515,8 +7981,12 @@ function TasarimClientContent({ isMobile }) {
     }),
     [safeTextPos.x, safeTextPos.y, textHalfBounds.halfW01, textHalfBounds.halfH01]
   );
-  const showSceneTextFrame = Boolean(sceneTextSelectionVisible && hasSceneText);
-  const showSceneInjectionFrame = Boolean(sceneInjectionSelectionVisible && hasSceneInjection && !textEditingMode);
+  const showSceneTextFrame = Boolean(sceneTextSelectionVisible && hasSceneText && selectedSceneType === "text");
+  const showSceneInjectionFrame = Boolean(
+    sceneInjectionSelectionVisible &&
+    hasSceneInjection &&
+    selectedSceneType === "pattern"
+  );
   const isSceneInjectionCompact = (sceneInjectionBox?.w || 0) < 0.24 || (sceneInjectionBox?.h || 0) < 0.18;
 
   useEffect(() => {
@@ -7555,14 +8025,8 @@ function TasarimClientContent({ isMobile }) {
   }, [designs]);
 
   useEffect(() => {
-    setSceneSelectionVisible(false);
-    setSceneTextSelectionVisible(false);
-    setSceneInjectionSelectionVisible(false);
-    setSceneFrameMode("resize");
-    setSceneTextFrameMode("resize");
-    setSceneInjectionFrameMode("resize");
-    setSelectedSceneItem(null);
-  }, [activeId, currentSide]);
+    applySceneSelection(null);
+  }, [activeId, currentSide, applySceneSelection]);
 
   useEffect(() => {
     const key = `${activeId}_${currentSide}`;
@@ -7571,40 +8035,28 @@ function TasarimClientContent({ isMobile }) {
     logoCountTrackRef.current[key] = nextCount;
     if (typeof prevCount === "number" && prevCount !== nextCount) {
       // Yeni görsel eklendiğinde çerçeve otomatik açılmasın.
-      setSceneSelectionVisible(false);
-      setSceneTextSelectionVisible(false);
-      setSceneInjectionSelectionVisible(false);
-      setSceneFrameMode("resize");
-      setSceneTextFrameMode("resize");
-      setSceneInjectionFrameMode("resize");
-      setSelectedSceneItem(null);
+      applySceneSelection(null);
     }
-  }, [activeId, currentSide, logos.length]);
+  }, [activeId, currentSide, logos.length, applySceneSelection]);
 
   useEffect(() => {
     if (hasSceneText) return;
-    setSceneTextSelectionVisible(false);
-    setSceneTextFrameMode("resize");
-  }, [hasSceneText]);
+    if (selectedSceneType === "text") applySceneSelection(null);
+  }, [hasSceneText, selectedSceneType, applySceneSelection]);
 
   useEffect(() => {
     if (hasSceneInjection) return;
-    setSceneInjectionSelectionVisible(false);
-    setSceneInjectionFrameMode("resize");
-  }, [hasSceneInjection]);
+    if (selectedSceneType === "pattern") applySceneSelection(null);
+  }, [hasSceneInjection, selectedSceneType, applySceneSelection]);
 
   useEffect(() => {
     if (!hasSceneInjection || activeTab !== "pattern") return;
-    setSceneInjectionSelectionVisible(true);
-    setSceneInjectionFrameMode("resize");
-    setSceneSelectionVisible(false);
-    setSceneTextSelectionVisible(false);
-    setSelectedSceneItem({
+    applySceneSelection({
       id: `pattern_${sideData?.injectionModelId}_${currentSide}`,
       type: "pattern",
       side: currentSide,
     });
-  }, [activeTab, hasSceneInjection, sideData?.injectionModelId, currentSide]);
+  }, [activeTab, hasSceneInjection, sideData?.injectionModelId, currentSide, applySceneSelection]);
 
   // Editor overlay için updateSide fonksiyonu
   const updateSide = (patch) => {
@@ -7645,6 +8097,10 @@ function TasarimClientContent({ isMobile }) {
       yMax: clamp(to01Y(meshYBot), 0, 1),
     };
   }, [printBounds?.xMin, printBounds?.xMax, printBounds?.yTop, printBounds?.yBot]);
+  const minLogoSize01 = useMemo(
+    () => getLogoMinSize01(printCm, logoDragBounds01, MIN_LOGO_SIZE_CM),
+    [printCm?.w, printCm?.h, logoDragBounds01?.xMin, logoDragBounds01?.xMax, logoDragBounds01?.yMin, logoDragBounds01?.yMax]
+  );
 
   const bumpCustomText = (patch, opts = {}) => {
     const safePatch = patch && typeof patch === "object" ? { ...patch } : {};
@@ -7715,8 +8171,8 @@ function TasarimClientContent({ isMobile }) {
   };
 
   const sanitizeLogoBox = (nextBox) => {
-    const minW = 0.12;
-    const minH = 0.12;
+    const minW = clamp(Number(minLogoSize01?.w) || 0.12, 0.01, 1);
+    const minH = clamp(Number(minLogoSize01?.h) || 0.12, 0.01, 1);
     const bounds = logoDragBounds01 || { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
     const maxW = Math.max(minW, bounds.xMax - bounds.xMin);
     const maxH = Math.max(minH, bounds.yMax - bounds.yMin);
@@ -7817,6 +8273,8 @@ function TasarimClientContent({ isMobile }) {
         croppedWidth: trimmed?.width,
         croppedHeight: trimmed?.height,
         bounds: targetBounds,
+        minW01: minLogoSize01?.w,
+        minH01: minLogoSize01?.h,
         preserveVisibleSize: preserveVisibleSizeAfterTrim,
       });
       const nextBox = {
@@ -7889,16 +8347,32 @@ function TasarimClientContent({ isMobile }) {
     updateSide({ injectionPos: { x, y } });
   };
 
-  const clearSceneSelection = () => {
-    setSceneSelectionVisible(false);
-    setSceneTextSelectionVisible(false);
-    setSceneInjectionSelectionVisible(false);
-    setSceneFrameMode("resize");
-    setSceneTextFrameMode("resize");
-    setSceneInjectionFrameMode("resize");
+  const clearSceneSelection = useCallback(() => {
+    applySceneSelection(null);
     setSceneModelSelectionId(null);
-    setSelectedSceneItem(null);
-  };
+  }, [applySceneSelection]);
+
+  useEffect(() => {
+    if (!isPrintAreaOpen) return;
+    if (!sceneSelectionVisible && !sceneTextSelectionVisible && !sceneInjectionSelectionVisible) return;
+    const onGlobalPointerDown = (event) => {
+      if (isLogoDragging) return;
+      const target = event?.target;
+      if (target instanceof Element && sceneEditRef.current?.contains(target)) return;
+      clearSceneSelection();
+    };
+    window.addEventListener("pointerdown", onGlobalPointerDown, true);
+    return () => {
+      window.removeEventListener("pointerdown", onGlobalPointerDown, true);
+    };
+  }, [
+    isPrintAreaOpen,
+    sceneSelectionVisible,
+    sceneTextSelectionVisible,
+    sceneInjectionSelectionVisible,
+    isLogoDragging,
+    clearSceneSelection,
+  ]);
 
   const handlePlacementDone = () => {
     placementPanelIntentRef.current = false;
@@ -7931,18 +8405,14 @@ function TasarimClientContent({ isMobile }) {
   const handleDeleteInjectionPattern = () => {
     if (!hasSceneInjection) return;
     updateSide({ injectionModelId: null });
-    setSceneInjectionSelectionVisible(false);
-    setSceneInjectionFrameMode("resize");
-    setSelectedSceneItem(null);
+    applySceneSelection(null);
   };
 
   const openPlacementPanelFromScene = (controlTab = "logo") => {
     if (controlTab === "pattern") {
       setActiveTab("pattern");
       setShowPlacementPanel(false);
-      setSceneInjectionSelectionVisible(true);
-      setSceneInjectionFrameMode("resize");
-      setSelectedSceneItem({
+      applySceneSelection({
         id: `pattern_${sideData?.injectionModelId || "none"}_${currentSide}`,
         type: "pattern",
         side: currentSide,
@@ -7959,9 +8429,11 @@ function TasarimClientContent({ isMobile }) {
     setShowPlacementPanel(true);
     setActiveTab("editor");
     if (controlTab === "text") {
-      setSelectedSceneItem({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
+      applySceneSelection({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
     } else if (activeLogo?.id) {
-      setSelectedSceneItem({ id: activeLogo.id, type: "logo", side: currentSide });
+      applySceneSelection({ id: activeLogo.id, type: "logo", side: currentSide });
+    } else {
+      applySceneSelection(null);
     }
     if (isMobile) {
       setMobilePrimaryTab("design");
@@ -7974,7 +8446,7 @@ function TasarimClientContent({ isMobile }) {
 
   const handleSceneModelTap = (designId, sideHint = null) => {
     if (!designId) return;
-    if (DESIGN_SIDES.includes(sideHint) && availableViewSides.includes(sideHint)) {
+    if (!isMobile && DESIGN_SIDES.includes(sideHint) && availableViewSides.includes(sideHint)) {
       if (sideHint !== view) {
         setView(sideHint);
       }
@@ -7984,14 +8456,14 @@ function TasarimClientContent({ isMobile }) {
       setActiveId(designId);
       return;
     }
+    if (sceneSelectionVisible || sceneTextSelectionVisible || sceneInjectionSelectionVisible) {
+      clearSceneSelection();
+      return;
+    }
 
     const preferInjection = activeTab === "pattern";
     if (preferInjection && hasSceneInjection) {
-      setSceneInjectionSelectionVisible(true);
-      setSceneInjectionFrameMode("resize");
-      setSceneSelectionVisible(false);
-      setSceneTextSelectionVisible(false);
-      setSelectedSceneItem({
+      applySceneSelection({
         id: `pattern_${sideData?.injectionModelId}_${currentSide}`,
         type: "pattern",
         side: currentSide,
@@ -7999,40 +8471,36 @@ function TasarimClientContent({ isMobile }) {
       return;
     }
 
-    const preferText = editorControlTab === "text" || rubberActiveForSide;
-    if (preferText && hasSceneText) {
-      setSceneTextSelectionVisible(true);
-      setSceneTextFrameMode("resize");
-      setSceneSelectionVisible(false);
-      setSceneInjectionSelectionVisible(false);
-      setSelectedSceneItem({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
+    const hasLogo = Boolean(activeLogo);
+    if (hasLogo && hasSceneText) {
+      const nextType =
+        selectedSceneType === "logo"
+          ? "text"
+          : selectedSceneType === "text"
+            ? "logo"
+            : editorControlTab === "text"
+              ? "text"
+              : "logo";
+      if (nextType === "text") {
+        applySceneSelection({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
+      } else {
+        applySceneSelection({ id: activeLogo.id, type: "logo", side: currentSide });
+      }
       return;
     }
 
     if (activeLogo) {
-      setSceneSelectionVisible(true);
-      setSceneFrameMode("resize");
-      setSceneTextSelectionVisible(false);
-      setSceneInjectionSelectionVisible(false);
-      setSelectedSceneItem({ id: activeLogo.id, type: "logo", side: currentSide });
+      applySceneSelection({ id: activeLogo.id, type: "logo", side: currentSide });
       return;
     }
 
     if (hasSceneText) {
-      setSceneTextSelectionVisible(true);
-      setSceneTextFrameMode("resize");
-      setSceneSelectionVisible(false);
-      setSceneInjectionSelectionVisible(false);
-      setSelectedSceneItem({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
+      applySceneSelection({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
       return;
     }
 
     if (hasSceneInjection) {
-      setSceneInjectionSelectionVisible(true);
-      setSceneInjectionFrameMode("resize");
-      setSceneSelectionVisible(false);
-      setSceneTextSelectionVisible(false);
-      setSelectedSceneItem({
+      applySceneSelection({
         id: `pattern_${sideData?.injectionModelId}_${currentSide}`,
         type: "pattern",
         side: currentSide,
@@ -8044,9 +8512,7 @@ function TasarimClientContent({ isMobile }) {
     if (!designId || isEditorActive) return;
     setActiveId(designId);
     setSceneModelSelectionId(designId);
-    setSceneSelectionVisible(false);
-    setSceneTextSelectionVisible(false);
-    setSceneInjectionSelectionVisible(false);
+    applySceneSelection(null);
   };
 
   const handleDeleteSceneModel = (designId) => {
@@ -8075,8 +8541,10 @@ function TasarimClientContent({ isMobile }) {
     const nextCm = toNumber(raw);
     if (!Number.isFinite(nextCm)) return null;
     const safeRatio = activeLogoBox.w > 0 ? activeLogoBox.h / activeLogoBox.w : 1;
-    const nextW = clamp(nextCm / printCm.w, 0.12, 0.95);
-    const nextH = lockAspect ? clamp(nextW * safeRatio, 0.12, 0.95) : activeLogoBox.h;
+    const minW = clamp(Number(minLogoSize01?.w) || 0.12, 0.01, 1);
+    const minH = clamp(Number(minLogoSize01?.h) || 0.12, 0.01, 1);
+    const nextW = clamp(nextCm / printCm.w, minW, 0.95);
+    const nextH = lockAspect ? clamp(nextW * safeRatio, minH, 0.95) : activeLogoBox.h;
     updateActiveLogoBox({ ...activeLogoBox, w: nextW, h: nextH });
     return {
       cmW: nextW * printCm.w,
@@ -8090,8 +8558,10 @@ function TasarimClientContent({ isMobile }) {
     const nextCm = toNumber(raw);
     if (!Number.isFinite(nextCm)) return null;
     const safeRatio = activeLogoBox.w > 0 ? activeLogoBox.h / activeLogoBox.w : 1;
-    const nextH = clamp(nextCm / printCm.h, 0.12, 0.95);
-    const nextW = lockAspect ? clamp(nextH / safeRatio, 0.12, 0.95) : activeLogoBox.w;
+    const minW = clamp(Number(minLogoSize01?.w) || 0.12, 0.01, 1);
+    const minH = clamp(Number(minLogoSize01?.h) || 0.12, 0.01, 1);
+    const nextH = clamp(nextCm / printCm.h, minH, 0.95);
+    const nextW = lockAspect ? clamp(nextH / safeRatio, minW, 0.95) : activeLogoBox.w;
     updateActiveLogoBox({ ...activeLogoBox, w: nextW, h: nextH });
     return {
       cmW: nextW * printCm.w,
@@ -8722,14 +9192,13 @@ function TasarimClientContent({ isMobile }) {
         const enteringFromText = prev === "text";
         setEditorControlTab(enteringFromText ? "text" : "logo");
         if (enteringFromText && hasSceneText) {
-          setSceneTextSelectionVisible(true);
-          setSceneTextFrameMode("resize");
+          applySceneSelection({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
         }
       }
       placementPanelIntentRef.current = false;
     }
     prevActiveTabRef.current = activeTab;
-  }, [activeTab, hasSceneText]);
+  }, [activeTab, hasSceneText, activeId, currentSide, applySceneSelection, clearSceneSelection]);
 
   useEffect(() => {
     if (!drawerOpen) setDrawerMenuOpen(false);
@@ -8905,13 +9374,14 @@ function TasarimClientContent({ isMobile }) {
 
   const layoutFor = (designId) => {
     const sceneSide = resolveEditableSide(captureView || view);
+    const layoutDesign = designs.find((d) => d.id === designId) || activeDesign || null;
     const sceneRotY =
       sceneSide === "back"
         ? Math.PI
         : sceneSide === "sleeve_left"
-          ? Math.PI / 2
+          ? -Math.PI / 2
           : sceneSide === "sleeve_right"
-            ? -Math.PI / 2
+            ? Math.PI / 2
             : 0;
     if (captureId) {
       if (designId !== captureId) return { hidden: true, x: -999, z: -999, rotY: 0, scale: 1 };
@@ -8924,22 +9394,31 @@ function TasarimClientContent({ isMobile }) {
 
     const others = designs.filter((d) => d.id !== activeId);
     const idx = others.findIndex((d) => d.id === designId);
+    if (idx < 0) {
+      return { hidden: false, x: -0.8, z: -0.8, rotY: sceneRotY + 0.7, scale: isMobile ? 0.75 : 0.86 };
+    }
 
     if (isMobile) {
+      const columns = 2;
+      const col = idx % columns;
+      const row = Math.floor(idx / columns);
       return {
         hidden: false,
-        x: -0.36 - idx * 0.3,
-        z: -0.86 - idx * 0.22,
-        rotY: sceneRotY + 0.64,
-        scale: 0.78,
+        x: -0.58 - col * 0.52,
+        z: -0.78 - row * 0.56 - col * 0.05,
+        rotY: sceneRotY + 0.66,
+        scale: 0.74,
       };
     }
+    const columns = 3;
+    const col = idx % columns;
+    const row = Math.floor(idx / columns);
     return {
       hidden: false,
-      x: -0.86 - idx * 0.42,
-      z: -0.82 - idx * 0.28,
-      rotY: sceneRotY + 0.82,
-      scale: 0.9,
+      x: -0.92 - col * 0.48,
+      z: -0.8 - row * 0.58 - col * 0.04,
+      rotY: sceneRotY + 0.8,
+      scale: 0.85,
     };
   };
 
@@ -9310,6 +9789,8 @@ function TasarimClientContent({ isMobile }) {
   const onDrawerPointerDown = (e) => {
     if (!isMobile) return;
     e.preventDefault();
+    e.stopPropagation();
+    suppressModelTapTemporarily(420);
     dragState.current.dragging = true;
     dragState.current.moved = false;
     dragState.current.startY = e.clientY;
@@ -9331,6 +9812,7 @@ function TasarimClientContent({ isMobile }) {
     const moved = dragState.current.moved;
     dragState.current.dragging = false;
     dragState.current.moved = false;
+    suppressModelTapTemporarily(moved ? 420 : 520);
     window.removeEventListener("pointermove", onDrawerPointerMove);
     window.removeEventListener("pointerup", onDrawerPointerUp);
     if (!moved) {
@@ -9346,6 +9828,7 @@ function TasarimClientContent({ isMobile }) {
 
   const handleMobileDrawerHandleClick = (e) => {
     e.stopPropagation();
+    suppressModelTapTemporarily(420);
     if (suppressDrawerHandleClickRef.current) return;
     toggleDrawer();
   };
@@ -9371,6 +9854,7 @@ function TasarimClientContent({ isMobile }) {
     window.removeEventListener("pointermove", onDrawerPointerMove);
     window.removeEventListener("pointerup", onDrawerPointerUp);
     if (isMobile) {
+      suppressModelTapTemporarily(420);
       setPanelProgress((prev) => (prev > 0.5 ? 0 : 1));
       return;
     }
@@ -9396,6 +9880,8 @@ function TasarimClientContent({ isMobile }) {
   const handleViewChange = (nextSide, opts = {}) => {
     if (!availableViewSides.includes(nextSide)) return;
     const openPrintPicker = opts?.openPrintPicker !== false;
+    triggerPrintAreaPulse(nextSide);
+    setViewFocusKey((prev) => prev + 1);
     setView(nextSide);
     clearSceneSelection();
     if (isMobile && perf.lowPerformanceMode) {
@@ -9791,22 +10277,35 @@ function TasarimClientContent({ isMobile }) {
             const mobileShiftClosed = isPlacementPanelVisible ? -7.5 : -4.5;
             const mobileShiftOpen = isPlacementPanelVisible ? -13 : -14;
             const mobileShiftY = THREE.MathUtils.lerp(mobileShiftClosed, mobileShiftOpen, mobilePanelProgress);
+            const isSleeveView = effectiveView === "sleeve_left" || effectiveView === "sleeve_right";
             const mobileMinZoomOpen = isPlacementPanelVisible ? 1.84 : 1.78;
             const mobileMinZoomClosed = isPlacementPanelVisible ? 1.56 : 1.5;
             const minZoomDistance = !isMobile
-              ? isPlacementPanelVisible
-                ? 1.98
-                : drawerOpen
-                  ? 1.8
-                  : 1.72
-              : THREE.MathUtils.lerp(mobileMinZoomOpen, mobileMinZoomClosed, panelProgress);
+              ? isSleeveView
+                ? isPlacementPanelVisible
+                  ? 1.05
+                  : drawerOpen
+                    ? 0.98
+                    : 0.92
+                : isPlacementPanelVisible
+                  ? 1.98
+                  : drawerOpen
+                    ? 1.8
+                    : 1.72
+              : isSleeveView
+                ? THREE.MathUtils.lerp(1.08, 0.92, panelProgress)
+                : THREE.MathUtils.lerp(mobileMinZoomOpen, mobileMinZoomClosed, panelProgress);
             const controlsTargetY = isMobile
-              ? THREE.MathUtils.lerp(
-                isPlacementPanelVisible ? -0.11 : -0.1,
-                isPlacementPanelVisible ? -0.125 : -0.12,
-                panelProgress
-              )
-              : -0.1;
+              ? isSleeveView
+                ? THREE.MathUtils.lerp(-0.01, -0.02, panelProgress)
+                : THREE.MathUtils.lerp(
+                  isPlacementPanelVisible ? -0.11 : -0.1,
+                  isPlacementPanelVisible ? -0.125 : -0.12,
+                  panelProgress
+                )
+              : isSleeveView
+                ? -0.01
+                : -0.1;
             return (
               <Canvas
                 frameloop={isInteracting ? "always" : (perf.frameloop || "always")}
@@ -9840,6 +10339,7 @@ function TasarimClientContent({ isMobile }) {
                 }}
                 dpr={perf.dpr}
                 onPointerMissed={() => {
+                  if (isLogoDragging) return;
                   clearSceneSelection();
                 }}
                 onCreated={({ gl, scene, camera }) => {
@@ -9884,7 +10384,13 @@ function TasarimClientContent({ isMobile }) {
                 <pointLight position={[0, 2.6, 2.2]} intensity={0.05} />
                 {!perf.disableShadows && <ContactShadows position={[0, -1.4, 0]} opacity={0.16} scale={7} blur={2.2} far={3.2} />}
 
-                <CameraController view={effectiveView} count={designs.length} onAnimatingChange={setCamAnimating} />
+                <CameraController
+                  view={effectiveView}
+                  count={designs.length}
+                  focusKey={viewFocusKey}
+                  controlsRef={controlsRef}
+                  onAnimatingChange={setCamAnimating}
+                />
 
                 <Suspense fallback={<ThreeDotsLoader />}>
                   {designs.map((design) => {
@@ -9916,6 +10422,10 @@ function TasarimClientContent({ isMobile }) {
                         onModelTap={handleSceneModelTap}
                         onModelLongPress={handleSceneModelLongPress}
                         onDeleteModel={handleDeleteSceneModel}
+                        isInteractionSuppressed={isModelTapSuppressed}
+                        printAreaPulseSide={design.id === activeId ? printAreaPulse.side : null}
+                        printAreaPulseKey={design.id === activeId ? printAreaPulse.key : 0}
+                        totalDesignCount={designs.length}
                       />
                     );
                   })}
@@ -10304,7 +10814,7 @@ function TasarimClientContent({ isMobile }) {
                       </div>
                       <input
                         type="range"
-                        min="0.12"
+                        min={Number(minLogoSize01?.w || 0.12).toFixed(4)}
                         max="0.95"
                         step="0.005"
                         value={activeLogoBox.w}
@@ -10321,7 +10831,7 @@ function TasarimClientContent({ isMobile }) {
                       </div>
                       <input
                         type="range"
-                        min="0.12"
+                        min={Number(minLogoSize01?.h || 0.12).toFixed(4)}
                         max="0.95"
                         step="0.005"
                         value={activeLogoBox.h}
@@ -10501,18 +11011,12 @@ function TasarimClientContent({ isMobile }) {
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
                         <label className="text-[10px] text-zinc-400">Font</label>
-                        <select
+                        <FontFamilyPicker
+                          options={placementFontOptions}
                           value={placementFontValue}
-                          onChange={(e) => bumpCustomText({ font: e.target.value })}
+                          onChange={(nextFont) => bumpCustomText({ font: nextFont })}
                           disabled={rubberActiveForSide}
-                          className="w-full rounded-md border border-zinc-600 bg-zinc-900/60 text-white px-2 py-1 text-[16px] md:text-[11px]"
-                        >
-                          {placementFontOptions.map((opt) => (
-                            <option key={`editor-text-font-${opt.value}`} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
+                        />
                       </div>
                       <div className="space-y-1">
                         <label className="text-[10px] text-zinc-400">Renk</label>
@@ -10839,7 +11343,7 @@ function TasarimClientContent({ isMobile }) {
                 style={{ touchAction: "none" }}
               >
                 {(logos || []).map((l) => {
-                  const isSelected = l.id === (sideData?.activeLogoId || sideData?.logos?.[0]?.id);
+                  const isSelected = selectedSceneType === "logo" && selectedSceneId === l.id;
                   const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
                   return (
                     <div
@@ -10861,10 +11365,7 @@ function TasarimClientContent({ isMobile }) {
                         e.stopPropagation();
                         if (!isSelected || !sceneSelectionVisible) {
                           updateSide({ activeLogoId: l.id });
-                          setSceneSelectionVisible(true);
-                          setSceneTextSelectionVisible(false);
-                          setSceneFrameMode("resize");
-                          setSelectedSceneItem({ id: l.id, type: "logo", side: currentSide });
+                          applySceneSelection({ id: l.id, type: "logo", side: currentSide });
                           return;
                         }
                         setSceneFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"));
@@ -10887,6 +11388,8 @@ function TasarimClientContent({ isMobile }) {
                     diagonalOnly={lockAspect}
                     disableResize={activeLogoIsEmboss}
                     largeHandles={isMobile}
+                    minWidth={minLogoSize01.w}
+                    minHeight={minLogoSize01.h}
                   />
                 )}
 
@@ -10937,8 +11440,6 @@ function TasarimClientContent({ isMobile }) {
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteActiveImage();
-                        setSceneSelectionVisible(false);
-                        setSceneFrameMode("resize");
                       }}
                       className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${isMobile ? "w-9 h-9" : "w-8 h-8"
                         }`}
@@ -10986,11 +11487,7 @@ function TasarimClientContent({ isMobile }) {
                       e.preventDefault();
                       e.stopPropagation();
                       if (!sceneInjectionSelectionVisible) {
-                        setSceneInjectionSelectionVisible(true);
-                        setSceneInjectionFrameMode("resize");
-                        setSceneSelectionVisible(false);
-                        setSceneTextSelectionVisible(false);
-                        setSelectedSceneItem({
+                        applySceneSelection({
                           id: `pattern_${sideData?.injectionModelId}_${currentSide}`,
                           type: "pattern",
                           side: currentSide,
@@ -11092,10 +11589,7 @@ function TasarimClientContent({ isMobile }) {
                         e.preventDefault();
                         e.stopPropagation();
                         if (!sceneTextSelectionVisible) {
-                          setSceneTextSelectionVisible(true);
-                          setSceneTextFrameMode("resize");
-                          setSceneSelectionVisible(false);
-                          setSelectedSceneItem({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
+                          applySceneSelection({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
                           return;
                         }
                         if (!showPlacementPanel || editorControlTab !== "text") {
@@ -11138,8 +11632,7 @@ function TasarimClientContent({ isMobile }) {
                           onClick={(e) => {
                             e.stopPropagation();
                             bumpCustomText({ text: "" });
-                            setSceneTextSelectionVisible(false);
-                            setSceneTextFrameMode("resize");
+                            applySceneSelection(null);
                           }}
                           className={`rounded-full border border-white/60 bg-black/70 text-white hover:bg-black/85 flex items-center justify-center shadow-md ${isMobile ? "w-9 h-9" : "w-8 h-8"
                             }`}
@@ -11337,20 +11830,6 @@ function TasarimClientContent({ isMobile }) {
                               >
                                 Yazı<br />Ekle
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setMobilePrimaryTab("design");
-                                  setPanelProgress(1);
-                                  activateDesignTool("pattern");
-                                }}
-                                className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "pattern"
-                                  ? "border-zinc-900 bg-zinc-900 text-white"
-                                  : "border-gray-300 bg-white text-gray-800"
-                                  }`}
-                              >
-                                Desen<br />Ekle
-                              </button>
                               <button type="button"
                                 onClick={openDrawerMenu}
                                 className="h-10 min-w-[96px] rounded-xl border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center justify-center gap-1"
@@ -11376,6 +11855,17 @@ function TasarimClientContent({ isMobile }) {
                                 sourceLabel="Mobil panel sec"
                                 isMobile
                               />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMobilePrimaryTab("design");
+                                  setPanelProgress(1);
+                                  activateDesignTool("pattern");
+                                }}
+                                className="w-full mt-2 h-10 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide transition hover:border-zinc-900"
+                              >
+                                Desen Ekle
+                              </button>
                             </div>
                           </div>
                         )}
