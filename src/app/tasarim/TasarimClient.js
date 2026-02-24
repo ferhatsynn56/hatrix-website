@@ -4528,6 +4528,7 @@ function Real3DModel({
 
   const decalHost = useMemo(() => pickDecalHostMesh(root, modelType, view), [root, modelType, view]);
   const decalHostRef = useMemo(() => ({ current: decalHost }), [decalHost]);
+  const centerHost = useMemo(() => pickDecalHostMesh(root, modelType, "front"), [root, modelType]);
   const materialProfiles = useMemo(
     () => extractPrintProfilesFromMaterials(decalHost, modelType),
     [decalHost, modelType]
@@ -4697,12 +4698,18 @@ function Real3DModel({
 
   const [printAreaPulseState, setPrintAreaPulseState] = useState({ side: null, on: false });
   useEffect(() => {
-    const safeSide = resolveEditableSide(printAreaPulseSide, "");
+    const rawSide = String(printAreaPulseSide || "").toLowerCase().trim();
+    const safeSide = rawSide === "sleeve" ? "sleeve" : resolveEditableSide(printAreaPulseSide, "");
     if (!safeSide || !printAreaPulseKey) return undefined;
+    const isSleevePulse =
+      safeSide === "sleeve_left" || safeSide === "sleeve_right" || safeSide === "sleeve";
+    const blinkOffMs = isSleevePulse ? 220 : 120;
+    const blinkOnMs = isSleevePulse ? 520 : 270;
+    const resetMs = isSleevePulse ? 980 : 440;
     setPrintAreaPulseState({ side: safeSide, on: true });
-    const t1 = window.setTimeout(() => setPrintAreaPulseState({ side: safeSide, on: false }), 120);
-    const t2 = window.setTimeout(() => setPrintAreaPulseState({ side: safeSide, on: true }), 270);
-    const t3 = window.setTimeout(() => setPrintAreaPulseState({ side: null, on: false }), 440);
+    const t1 = window.setTimeout(() => setPrintAreaPulseState({ side: safeSide, on: false }), blinkOffMs);
+    const t2 = window.setTimeout(() => setPrintAreaPulseState({ side: safeSide, on: true }), blinkOnMs);
+    const t3 = window.setTimeout(() => setPrintAreaPulseState({ side: null, on: false }), resetMs);
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
@@ -4712,8 +4719,15 @@ function Real3DModel({
   const pulseOpacity = printAreaPulseState.on ? 0.24 : 0;
   const frontPulseOpacity = printAreaPulseState.side === "front" ? pulseOpacity : 0;
   const backPulseOpacity = printAreaPulseState.side === "back" ? pulseOpacity : 0;
-  const sleeveLeftPulseOpacity = printAreaPulseState.side === "sleeve_left" ? pulseOpacity : 0;
-  const sleeveRightPulseOpacity = printAreaPulseState.side === "sleeve_right" ? pulseOpacity : 0;
+  const sleevePulseOpacity = pulseOpacity * 1.4;
+  const sleeveLeftPulseOpacity =
+    printAreaPulseState.side === "sleeve_left" || printAreaPulseState.side === "sleeve"
+      ? sleevePulseOpacity
+      : 0;
+  const sleeveRightPulseOpacity =
+    printAreaPulseState.side === "sleeve_right" || printAreaPulseState.side === "sleeve"
+      ? sleevePulseOpacity
+      : 0;
   const frontHasRubber =
     normalizePrintTechnique(
       frontSideData?.customText?.technique,
@@ -4811,17 +4825,17 @@ function Real3DModel({
     }
     const center = fallbackCenter.clone();
 
-    if (decalHost?.geometry) {
-      decalHost.geometry.computeBoundingBox?.();
-      const hostBox = decalHost.geometry.boundingBox;
+    if (centerHost?.geometry) {
+      centerHost.geometry.computeBoundingBox?.();
+      const hostBox = centerHost.geometry.boundingBox;
       if (hostBox) {
-        const torsoCenter = hostBox.getCenter(new THREE.Vector3()).applyMatrix4(decalHost.matrixWorld);
+        const torsoCenter = hostBox.getCenter(new THREE.Vector3()).applyMatrix4(centerHost.matrixWorld);
         center.x = torsoCenter.x;
         return center;
       }
     }
     return center;
-  }, [root, decalHost]);
+  }, [root, centerHost]);
 
   useEffect(() => {
     const normalized = normalizeModelType(modelType);
@@ -7790,6 +7804,7 @@ function TasarimClientContent({ isMobile }) {
   const [captureId, setCaptureId] = useState(null);
   const [camAnimating, setCamAnimating] = useState(false);
   const [viewFocusKey, setViewFocusKey] = useState(0);
+  const [sleeveMenuOpen, setSleeveMenuOpen] = useState(false);
   const [printAreaPulse, setPrintAreaPulse] = useState({ side: null, key: 0 });
   const lockToastTimerRef = useRef(null);
   const previewRef = useRef(null);
@@ -7841,6 +7856,14 @@ function TasarimClientContent({ isMobile }) {
     }
   }, []);
   const triggerPrintAreaPulse = useCallback((side) => {
+    const raw = String(side || "").toLowerCase().trim();
+    if (raw === "sleeve" || raw === "kol") {
+      setPrintAreaPulse((prev) => ({
+        side: "sleeve",
+        key: prev.key + 1,
+      }));
+      return;
+    }
     const safeSide = resolveEditableSide(side, "");
     if (!safeSide) return;
     setPrintAreaPulse((prev) => ({
@@ -8845,12 +8868,29 @@ function TasarimClientContent({ isMobile }) {
     () => getAvailableViewsForModel(activeDesign?.modelType || selectedModelType || safeInitial),
     [activeDesign?.modelType, selectedModelType, safeInitial]
   );
+  const hasFrontView = availableViewSides.includes("front");
+  const hasBackView = availableViewSides.includes("back");
+  const hasSleeveLeftView = availableViewSides.includes("sleeve_left");
+  const hasSleeveRightView = availableViewSides.includes("sleeve_right");
+  const hasSleeveViews = hasSleeveLeftView || hasSleeveRightView;
+  const preferredSleeveView = hasSleeveLeftView ? "sleeve_left" : hasSleeveRightView ? "sleeve_right" : null;
+  const isSleeveViewSelected = view === "sleeve_left" || view === "sleeve_right";
 
   useEffect(() => {
     if (!availableViewSides.includes(view)) {
       setView("front");
     }
   }, [availableViewSides, view]);
+
+  useEffect(() => {
+    if (!hasSleeveViews) setSleeveMenuOpen(false);
+  }, [hasSleeveViews]);
+
+  useEffect(() => {
+    if (!isSleeveViewSelected && sleeveMenuOpen) {
+      setSleeveMenuOpen(false);
+    }
+  }, [isSleeveViewSelected, sleeveMenuOpen]);
 
   const activeSideKeyForFlow = resolveEditableSide(view);
   const hasDtfForActiveSide =
@@ -9880,9 +9920,17 @@ function TasarimClientContent({ isMobile }) {
   const handleViewChange = (nextSide, opts = {}) => {
     if (!availableViewSides.includes(nextSide)) return;
     const openPrintPicker = opts?.openPrintPicker !== false;
-    triggerPrintAreaPulse(nextSide);
-    setViewFocusKey((prev) => prev + 1);
+    const pulseSideOverride = opts?.pulseSideOverride || null;
+    const isCurrentSleeveView = view === "sleeve_left" || view === "sleeve_right";
+    const isNextSleeveView = nextSide === "sleeve_left" || nextSide === "sleeve_right";
+    const shouldRefocusCamera =
+      nextSide !== view && !(isCurrentSleeveView && isNextSleeveView);
+    triggerPrintAreaPulse(pulseSideOverride || nextSide);
+    if (shouldRefocusCamera) {
+      setViewFocusKey((prev) => prev + 1);
+    }
     setView(nextSide);
+    setSleeveMenuOpen(isNextSleeveView);
     clearSceneSelection();
     if (isMobile && perf.lowPerformanceMode) {
       const keepSideUrls = new Set(
@@ -9893,7 +9941,9 @@ function TasarimClientContent({ isMobile }) {
       evictImageCacheDataUrls(keepSideUrls);
     }
     setMobilePrimaryTab("design");
-    setPanelProgress(0);
+    if (openPrintPicker) {
+      setPanelProgress(0);
+    }
     if (openPrintPicker) {
       setActiveTab("print");
       setDrawerOpen(true);
@@ -9910,8 +9960,18 @@ function TasarimClientContent({ isMobile }) {
     }
   };
 
-  const switchSideAndOpenPrintPicker = (nextSide) => {
-    handleViewChange(nextSide, { openPrintPicker: true });
+  const switchSideAndOpenPrintPicker = (nextSide, opts = {}) => {
+    handleViewChange(nextSide, {
+      openPrintPicker: false,
+      pulseSideOverride: opts?.pulseSideOverride || null,
+    });
+  };
+
+  const openSleeveSidePicker = () => {
+    if (!hasSleeveViews || !preferredSleeveView) return;
+    setSleeveMenuOpen(true);
+    const nextSide = isSleeveViewSelected ? view : preferredSleeveView;
+    switchSideAndOpenPrintPicker(nextSide, { pulseSideOverride: "sleeve" });
   };
 
   const effectiveView = captureView || view;
@@ -10479,24 +10539,85 @@ function TasarimClientContent({ isMobile }) {
             >
               <div className="flex flex-col items-center pointer-events-auto gap-2">
                 <div
-                  className={`flex flex-col rounded-full border-2 border-zinc-700 bg-white/95 backdrop-blur shadow-[0_10px_26px_rgba(0,0,0,0.22)] ${isMobile ? "p-[3px]" : "p-1.5"
+                  className={`min-w-[94px] rounded-2xl border-2 border-zinc-700 bg-white/95 backdrop-blur shadow-[0_10px_26px_rgba(0,0,0,0.22)] ${isMobile ? "p-1.5" : "p-2"
                     }`}
                 >
-                  {availableViewSides.map((v) => (
-                    <button type="button"
-                      key={v}
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                      }}
-                      onClick={() => switchSideAndOpenPrintPicker(v)}
-                      className={`${isMobile ? "px-3 py-1.5 text-[10px]" : "px-5 py-2.5 text-[11px]"} rounded-full font-bold uppercase tracking-widest transition-all ${view === v
-                        ? "bg-zinc-900 text-white shadow-md"
-                        : "bg-white text-zinc-600 hover:bg-zinc-100"
-                        }`}
-                    >
-                      {getSideLabel(v)}
-                    </button>
-                  ))}
+                  <div className="flex flex-col gap-1.5">
+                    {hasFrontView && (
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={() => switchSideAndOpenPrintPicker("front")}
+                        className={`${isMobile ? "px-3 py-2 text-[10px]" : "px-4 py-2.5 text-[11px]"} rounded-lg border font-black uppercase tracking-[0.14em] transition-all ${view === "front"
+                          ? "border-zinc-900 bg-zinc-900 text-white shadow-md"
+                          : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
+                          }`}
+                      >
+                        ÖN
+                      </button>
+                    )}
+                    {hasBackView && (
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={() => switchSideAndOpenPrintPicker("back")}
+                        className={`${isMobile ? "px-3 py-2 text-[10px]" : "px-4 py-2.5 text-[11px]"} rounded-lg border font-black uppercase tracking-[0.14em] transition-all ${view === "back"
+                          ? "border-zinc-900 bg-zinc-900 text-white shadow-md"
+                          : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
+                          }`}
+                      >
+                        ARKA
+                      </button>
+                    )}
+                    {hasSleeveViews && (
+                      <div className="flex flex-col gap-1.5">
+                        <button
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={openSleeveSidePicker}
+                          className={`${isMobile ? "px-3 py-2 text-[10px]" : "px-4 py-2.5 text-[11px]"} rounded-lg border font-black uppercase tracking-[0.14em] transition-all ${isSleeveViewSelected || sleeveMenuOpen
+                            ? "border-zinc-900 bg-zinc-900 text-white shadow-md"
+                            : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
+                            }`}
+                        >
+                          KOL
+                        </button>
+                        <div
+                          className={`grid gap-1.5 overflow-hidden transition-all duration-200 ${hasSleeveLeftView && hasSleeveRightView ? "grid-cols-2" : "grid-cols-1"} ${sleeveMenuOpen
+                            ? "max-h-16 opacity-100 translate-y-0"
+                            : "max-h-0 opacity-0 -translate-y-1 pointer-events-none"
+                            }`}
+                        >
+                          {hasSleeveLeftView && (
+                            <button
+                              type="button"
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={() => switchSideAndOpenPrintPicker("sleeve_left")}
+                              className={`${isMobile ? "px-2.5 py-1.5 text-[9px]" : "px-3 py-2 text-[10px]"} rounded-md border font-black uppercase tracking-[0.12em] transition-all ${view === "sleeve_left"
+                                ? "border-zinc-900 bg-zinc-800 text-white"
+                                : "border-zinc-300 bg-zinc-50 text-zinc-700 hover:bg-zinc-100"
+                                }`}
+                            >
+                              SOL
+                            </button>
+                          )}
+                          {hasSleeveRightView && (
+                            <button
+                              type="button"
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={() => switchSideAndOpenPrintPicker("sleeve_right")}
+                              className={`${isMobile ? "px-2.5 py-1.5 text-[9px]" : "px-3 py-2 text-[10px]"} rounded-md border font-black uppercase tracking-[0.12em] transition-all ${view === "sleeve_right"
+                                ? "border-zinc-900 bg-zinc-800 text-white"
+                                : "border-zinc-300 bg-zinc-50 text-zinc-700 hover:bg-zinc-100"
+                                }`}
+                            >
+                              SAĞ
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {isMobile && (
                   <div className="flex flex-col gap-1.5 rounded-2xl border border-zinc-300 bg-white/90 backdrop-blur px-1.5 py-1.5 shadow-lg">
