@@ -32,7 +32,6 @@ import {
   Move,
   Menu,
   Plus,
-  Minus,
   Trash2,
   X,
   Image as ImageIcon,
@@ -4254,6 +4253,7 @@ function Real3DModel({
   perfProfile,
   printAreaPulseSide = null,
   printAreaPulseKey = 0,
+  onPrintAreaTap = null,
 }) {
   const { gl } = useThree();
   const allowMipmaps = perfProfile?.enableMipmaps !== false;
@@ -4740,6 +4740,19 @@ function Real3DModel({
     () => buildSleeveDecalTarget(sleeveProfiles?.right, "sleeve-right"),
     [buildSleeveDecalTarget, sleeveProfiles?.right]
   );
+  const handlePrintAreaPointerDown = useCallback((e) => {
+    e.stopPropagation();
+  }, []);
+  const handlePrintAreaClick = useCallback(
+    (sideKey, e) => {
+      e.stopPropagation();
+      if (!onPrintAreaTap) return;
+      const safeSide = resolveEditableSide(sideKey, "");
+      if (!safeSide) return;
+      onPrintAreaTap(safeSide);
+    },
+    [onPrintAreaTap]
+  );
 
   const [printAreaPulseState, setPrintAreaPulseState] = useState({ side: null, on: false });
   useEffect(() => {
@@ -4894,6 +4907,96 @@ function Real3DModel({
 
         {anyDecalHost && (
           <>
+            {onPrintAreaTap && frontW > 0.02 && frontH > 0.02 && (
+              <mesh
+                position={frontDecalPosition}
+                rotation={[0, frontDecalRotY, 0]}
+                onPointerDown={handlePrintAreaPointerDown}
+                onClick={(e) => handlePrintAreaClick("front", e)}
+                renderOrder={996}
+              >
+                <planeGeometry args={[frontW * materialInset, frontH * materialInset]} />
+                <meshBasicMaterial
+                  transparent
+                  opacity={0}
+                  colorWrite={false}
+                  depthWrite={false}
+                  depthTest={false}
+                  side={THREE.DoubleSide}
+                />
+              </mesh>
+            )}
+
+            {onPrintAreaTap && backW > 0.02 && backH > 0.02 && (
+              <mesh
+                position={backDecalPosition}
+                rotation={[0, backDecalRotY, 0]}
+                onPointerDown={handlePrintAreaPointerDown}
+                onClick={(e) => handlePrintAreaClick("back", e)}
+                renderOrder={996}
+              >
+                <planeGeometry args={[backW * materialInset, backH * materialInset]} />
+                <meshBasicMaterial
+                  transparent
+                  opacity={0}
+                  colorWrite={false}
+                  depthWrite={false}
+                  depthTest={false}
+                  side={THREE.DoubleSide}
+                />
+              </mesh>
+            )}
+
+            {onPrintAreaTap && sleeveLeftDecalTarget && (
+              <mesh
+                position={sleeveLeftDecalTarget.position}
+                rotation={[0, sleeveLeftDecalTarget.rotY || 0, 0]}
+                onPointerDown={handlePrintAreaPointerDown}
+                onClick={(e) => handlePrintAreaClick("sleeve_left", e)}
+                renderOrder={996}
+              >
+                <planeGeometry
+                  args={[
+                    sleeveLeftDecalTarget.w * materialInset,
+                    sleeveLeftDecalTarget.h * materialInset,
+                  ]}
+                />
+                <meshBasicMaterial
+                  transparent
+                  opacity={0}
+                  colorWrite={false}
+                  depthWrite={false}
+                  depthTest={false}
+                  side={THREE.DoubleSide}
+                />
+              </mesh>
+            )}
+
+            {onPrintAreaTap && sleeveRightDecalTarget && (
+              <mesh
+                position={sleeveRightDecalTarget.position}
+                rotation={[0, sleeveRightDecalTarget.rotY || 0, 0]}
+                onPointerDown={handlePrintAreaPointerDown}
+                onClick={(e) => handlePrintAreaClick("sleeve_right", e)}
+                renderOrder={996}
+              >
+                <planeGeometry
+                  args={[
+                    sleeveRightDecalTarget.w * materialInset,
+                    sleeveRightDecalTarget.h * materialInset,
+                  ]}
+                />
+                <meshBasicMaterial
+                  transparent
+                  opacity={0}
+                  colorWrite={false}
+                  depthWrite={false}
+                  depthTest={false}
+                  side={THREE.DoubleSide}
+                />
+              </mesh>
+            )}
+
             {showFront && (
               <Decal
                 raycast={NO_RAYCAST}
@@ -5708,6 +5811,7 @@ function DesignModelItem({
   perfProfile,
   onUserRotate,
   onModelTap,
+  onPrintAreaTap,
   onModelLongPress,
   onDeleteModel,
   isInteractionSuppressed,
@@ -5725,9 +5829,16 @@ function DesignModelItem({
   const sleeveLeftMeshRef = useRef({ side: "sleeve_left" });
   const sleeveRightMeshRef = useRef({ side: "sleeve_right" });
 
-  const ROT_SPEED = isMobile ? 0.016 : 0.012;
-  const clampRotX = (v) => Math.max(isMobile ? -0.9 : -0.75, Math.min(isMobile ? 0.9 : 0.75, v));
-  const clampRotY = (v) => (Number.isFinite(v) ? v : 0);
+  const isSleeveView = view === "sleeve_left" || view === "sleeve_right";
+  const ROT_SPEED = isSleeveView ? (isMobile ? 0.007 : 0.0058) : isMobile ? 0.016 : 0.012;
+  const clampRotX = (v) => {
+    const maxRotX = isSleeveView ? (isMobile ? 0.12 : 0.1) : isMobile ? 0.9 : 0.75;
+    return clamp(Number.isFinite(v) ? v : 0, -maxRotX, maxRotX);
+  };
+  const clampRotY = (v) => {
+    const maxRotY = isSleeveView ? 0.2 : isMobile ? 1.4 : 1.6;
+    return clamp(Number.isFinite(v) ? v : 0, -maxRotY, maxRotY);
+  };
   const isColorMode = interactionMode === "color";
   const targetMeshRef =
     view === "back"
@@ -5738,6 +5849,19 @@ function DesignModelItem({
           ? sleeveRightMeshRef
           : frontMeshRef;
   const hitVolumeScale = isMobile ? [1.58, 1.86, 1.32] : [1.46, 1.72, 1.24];
+  const handlePrintAreaTapFromModel = useCallback(
+    (sideKey) => {
+      const safeSide = resolveEditableSide(sideKey, "");
+      if (!safeSide) return;
+      clearHoldTimer();
+      dragRef.current.active = false;
+      tapSideHintRef.current = safeSide;
+      document.body.style.cursor = "default";
+      onSelect(design.id);
+      onPrintAreaTap?.(design.id, safeSide);
+    },
+    [design.id, onPrintAreaTap, onSelect]
+  );
 
   const resolveTapSideFromEvent = (evt) => {
     if (view === "sleeve_left" || view === "sleeve_right") return view;
@@ -6005,6 +6129,7 @@ function DesignModelItem({
         perfProfile={perfProfile}
         printAreaPulseSide={printAreaPulseSide}
         printAreaPulseKey={printAreaPulseKey}
+        onPrintAreaTap={handlePrintAreaTapFromModel}
       />
       {showModelDeleteButton && (
         <Html position={[0, 0.42, 0]} center distanceFactor={6} occlude={false} zIndexRange={[180, 260]}>
@@ -9950,26 +10075,15 @@ function TasarimClientContent({ isMobile }) {
     openDrawer();
   };
 
-  const zoomModel = (direction) => {
-    const controls = controlsRef.current;
-    if (!controls) return;
-    const zoomStep = 1.12;
-    if (direction === "in") {
-      controls.dollyOut?.(zoomStep);
-    } else {
-      controls.dollyIn?.(zoomStep);
-    }
-    controls.update?.();
-  };
-
   const handleViewChange = (nextSide, opts = {}) => {
     if (!availableViewSides.includes(nextSide)) return;
     const openPrintPicker = opts?.openPrintPicker !== false;
     const pulseSideOverride = opts?.pulseSideOverride || null;
+    const forceRefocus = opts?.forceRefocus === true;
     const isCurrentSleeveView = view === "sleeve_left" || view === "sleeve_right";
     const isNextSleeveView = nextSide === "sleeve_left" || nextSide === "sleeve_right";
     const shouldRefocusCamera =
-      nextSide !== view && !(isCurrentSleeveView && isNextSleeveView);
+      forceRefocus || (nextSide !== view && !(isCurrentSleeveView && isNextSleeveView));
     triggerPrintAreaPulse(pulseSideOverride || nextSide);
     if (shouldRefocusCamera) {
       setViewFocusKey((prev) => prev + 1);
@@ -10009,14 +10123,57 @@ function TasarimClientContent({ isMobile }) {
     handleViewChange(nextSide, {
       openPrintPicker: false,
       pulseSideOverride: opts?.pulseSideOverride || null,
+      forceRefocus: opts?.forceRefocus === true,
     });
   };
 
+  const handlePrintAreaTap = useCallback(
+    (designId, sideKey) => {
+      if (!designId || !sideKey) return;
+      const clickedDesign = designs.find((d) => d.id === designId);
+      if (!clickedDesign) return;
+      const availableSidesForDesign = getAvailableViewsForModel(clickedDesign?.modelType || safeInitial);
+      const normalizedSideRaw = String(sideKey || "").toLowerCase().trim();
+      const nextSide =
+        normalizedSideRaw === "sleeve"
+          ? availableSidesForDesign.includes("sleeve_left")
+            ? "sleeve_left"
+            : availableSidesForDesign.includes("sleeve_right")
+              ? "sleeve_right"
+              : null
+          : resolveEditableSide(normalizedSideRaw, "");
+      if (!nextSide || !availableSidesForDesign.includes(nextSide)) return;
+
+      const pulseSide = normalizedSideRaw === "sleeve" ? "sleeve" : nextSide;
+      const applyFocus = () =>
+        switchSideAndOpenPrintPicker(nextSide, {
+          pulseSideOverride: pulseSide,
+          forceRefocus: true,
+        });
+
+      if (designId !== activeId) {
+        setActiveId(designId);
+        if (typeof window !== "undefined") {
+          window.requestAnimationFrame(() => applyFocus());
+        } else {
+          applyFocus();
+        }
+        return;
+      }
+      applyFocus();
+    },
+    [activeId, designs, safeInitial, switchSideAndOpenPrintPicker]
+  );
+
   const openSleeveSidePicker = () => {
     if (!hasSleeveViews || !preferredSleeveView) return;
+    if (isSleeveViewSelected) {
+      setSleeveMenuOpen((prev) => !prev);
+      triggerPrintAreaPulse("sleeve");
+      return;
+    }
     setSleeveMenuOpen(true);
-    const nextSide = isSleeveViewSelected ? view : preferredSleeveView;
-    switchSideAndOpenPrintPicker(nextSide, { pulseSideOverride: "sleeve" });
+    switchSideAndOpenPrintPicker(preferredSleeveView, { pulseSideOverride: "sleeve" });
   };
 
   const effectiveView = captureView || view;
@@ -10527,6 +10684,7 @@ function TasarimClientContent({ isMobile }) {
                         perfProfile={perf}
                         onUserRotate={handleModelUserRotate}
                         onModelTap={handleSceneModelTap}
+                        onPrintAreaTap={handlePrintAreaTap}
                         onModelLongPress={handleSceneModelLongPress}
                         onDeleteModel={handleDeleteSceneModel}
                         isInteractionSuppressed={isModelTapSuppressed}
@@ -10574,138 +10732,30 @@ function TasarimClientContent({ isMobile }) {
               : undefined
           }
         >
-          {/* Floating Controls */}
-          {(!isMobile || activeTab !== "editor" || !showPlacementPanel) && !pickerOpen && (
+          {showHoodieVariantButtons && !isMobile && !pickerOpen && (
             <div
               className="absolute z-[90] pointer-events-none transition-all duration-300"
-              style={
-                isMobile
-                  ? { right: "12px", top: "50%", transform: "translateY(-50%)" }
-                  : { bottom: controlsBottom, right: "16px" }
-              }
+              style={{ bottom: controlsBottom, right: "16px" }}
             >
-              <div className="flex flex-col items-center pointer-events-auto gap-2">
-                <div
-                  className={`min-w-[94px] rounded-2xl border-2 border-zinc-700 bg-white/95 backdrop-blur shadow-[0_10px_26px_rgba(0,0,0,0.22)] ${isMobile ? "p-1.5" : "p-2"
-                    }`}
-                >
-                  <div className="flex flex-col gap-1.5">
-                    {hasFrontView && (
-                      <button
-                        type="button"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={() => switchSideAndOpenPrintPicker("front")}
-                        className={`${isMobile ? "px-3 py-2 text-[10px]" : "px-4 py-2.5 text-[11px]"} rounded-lg border font-black uppercase tracking-[0.14em] transition-all ${view === "front"
-                          ? "border-zinc-900 bg-zinc-900 text-white shadow-md"
-                          : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
+              <div className="pointer-events-auto rounded-2xl border border-zinc-300 bg-white/95 backdrop-blur px-2 py-2 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
+                <div className="grid grid-cols-1 gap-1.5 min-w-[116px]">
+                  {HOODIE_DETAIL_OPTIONS.map((opt) => {
+                    const isEnabled = Boolean(activeHoodieParts[opt.id]);
+                    return (
+                      <button type="button"
+                        key={`floating-hoodie-${opt.id}`}
+                        onClick={() => setActiveHoodiePartEnabled(opt.id, !isEnabled)}
+                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide border transition ${isEnabled
+                          ? "bg-zinc-900 text-white border-zinc-900"
+                          : "bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-100"
                           }`}
                       >
-                        ÖN
+                        {isEnabled ? "✓ " : ""}
+                        {opt.label}
                       </button>
-                    )}
-                    {hasBackView && (
-                      <button
-                        type="button"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={() => switchSideAndOpenPrintPicker("back")}
-                        className={`${isMobile ? "px-3 py-2 text-[10px]" : "px-4 py-2.5 text-[11px]"} rounded-lg border font-black uppercase tracking-[0.14em] transition-all ${view === "back"
-                          ? "border-zinc-900 bg-zinc-900 text-white shadow-md"
-                          : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
-                          }`}
-                      >
-                        ARKA
-                      </button>
-                    )}
-                    {hasSleeveViews && (
-                      <div className="flex flex-col gap-1.5">
-                        <button
-                          type="button"
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onClick={openSleeveSidePicker}
-                          className={`${isMobile ? "px-3 py-2 text-[10px]" : "px-4 py-2.5 text-[11px]"} rounded-lg border font-black uppercase tracking-[0.14em] transition-all ${isSleeveViewSelected || sleeveMenuOpen
-                            ? "border-zinc-900 bg-zinc-900 text-white shadow-md"
-                            : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
-                            }`}
-                        >
-                          KOL
-                        </button>
-                        <div
-                          className={`grid gap-1.5 overflow-hidden transition-all duration-200 ${hasSleeveLeftView && hasSleeveRightView ? "grid-cols-2" : "grid-cols-1"} ${sleeveMenuOpen
-                            ? "max-h-16 opacity-100 translate-y-0"
-                            : "max-h-0 opacity-0 -translate-y-1 pointer-events-none"
-                            }`}
-                        >
-                          {hasSleeveLeftView && (
-                            <button
-                              type="button"
-                              onPointerDown={(e) => e.stopPropagation()}
-                              onClick={() => switchSideAndOpenPrintPicker("sleeve_left")}
-                              className={`${isMobile ? "px-2.5 py-1.5 text-[9px]" : "px-3 py-2 text-[10px]"} rounded-md border font-black uppercase tracking-[0.12em] transition-all ${view === "sleeve_left"
-                                ? "border-zinc-900 bg-zinc-800 text-white"
-                                : "border-zinc-300 bg-zinc-50 text-zinc-700 hover:bg-zinc-100"
-                                }`}
-                            >
-                              SOL
-                            </button>
-                          )}
-                          {hasSleeveRightView && (
-                            <button
-                              type="button"
-                              onPointerDown={(e) => e.stopPropagation()}
-                              onClick={() => switchSideAndOpenPrintPicker("sleeve_right")}
-                              className={`${isMobile ? "px-2.5 py-1.5 text-[9px]" : "px-3 py-2 text-[10px]"} rounded-md border font-black uppercase tracking-[0.12em] transition-all ${view === "sleeve_right"
-                                ? "border-zinc-900 bg-zinc-800 text-white"
-                                : "border-zinc-300 bg-zinc-50 text-zinc-700 hover:bg-zinc-100"
-                                }`}
-                            >
-                              SAĞ
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                    );
+                  })}
                 </div>
-                {isMobile && (
-                  <div className="flex flex-col gap-1.5 rounded-2xl border border-zinc-300 bg-white/90 backdrop-blur px-1.5 py-1.5 shadow-lg">
-                    <button type="button"
-                      onClick={() => zoomModel("in")}
-                      className="w-9 h-9 rounded-full border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center"
-                      aria-label="Yakınlaştır"
-                    >
-                      <Plus size={16} strokeWidth={2.8} />
-                    </button>
-                    <button type="button"
-                      onClick={() => zoomModel("out")}
-                      className="w-9 h-9 rounded-full border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center"
-                      aria-label="Uzaklaştır"
-                    >
-                      <Minus size={16} strokeWidth={2.8} />
-                    </button>
-                  </div>
-                )}
-                {showHoodieVariantButtons && !isMobile && (
-                  <div className="rounded-2xl border border-zinc-300 bg-white/95 backdrop-blur px-2 py-2 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
-                    <div className="grid grid-cols-1 gap-1.5 min-w-[116px]">
-                      {HOODIE_DETAIL_OPTIONS.map((opt) => {
-                        const isEnabled = Boolean(activeHoodieParts[opt.id]);
-                        return (
-                          <button type="button"
-                            key={`floating-hoodie-${opt.id}`}
-                            onClick={() => setActiveHoodiePartEnabled(opt.id, !isEnabled)}
-                            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide border transition ${isEnabled
-                              ? "bg-zinc-900 text-white border-zinc-900"
-                              : "bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-100"
-                              }`}
-                          >
-                            {isEnabled ? "✓ " : ""}
-                            {opt.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           )}
