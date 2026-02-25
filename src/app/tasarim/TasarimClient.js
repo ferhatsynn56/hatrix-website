@@ -3480,8 +3480,8 @@ function makeCanvasTexture(canvas, opts = {}) {
 
 // Rubber text yüzeye çok yakın olduğunda Z-fighting oluşabiliyor.
 // Bu offset/polygon ayarları text'i modelin üstünde stabil tutar.
-const RUBBER_TEXT_BASE_SURFACE_OFFSET = 0.0001;
-const RUBBER_TEXT_STICK_SURFACE_OFFSET = 0.00026;
+const RUBBER_TEXT_BASE_SURFACE_OFFSET = 0.000085;
+const RUBBER_TEXT_STICK_SURFACE_OFFSET = 0.00018;
 const RUBBER_TEXT_MAX_WORLD_LIFT = 0.00105;
 const RUBBER_TEXT_POLYGON_OFFSET_FACTOR = -8;
 const RUBBER_TEXT_POLYGON_OFFSET_UNITS = -4;
@@ -3539,7 +3539,14 @@ function shrinkwrapGlyphMeshToSurface(
   const normalWorld = new THREE.Vector3();
   const normalLocal = new THREE.Vector3();
   const snappedWorld = new THREE.Vector3();
+  const targetCenterWorld = new THREE.Vector3();
+  const outwardDir = new THREE.Vector3();
   const targetWorldInverse = targetMesh.matrixWorld.clone().invert();
+  if (targetBounds?.getCenter) {
+    targetCenterWorld.copy(targetBounds.getCenter(new THREE.Vector3())).applyMatrix4(targetMesh.matrixWorld);
+  } else {
+    targetMesh.getWorldPosition(targetCenterWorld);
+  }
   const expectedSide = normalizePrintSide(surfaceSide);
   const isSleeveLeft = expectedSide === "sleeve_left";
   const isSleeveRight = expectedSide === "sleeve_right";
@@ -3621,6 +3628,10 @@ function shrinkwrapGlyphMeshToSurface(
       normalWorld.copy(usedRay).multiplyScalar(-1).normalize();
     } else {
       continue;
+    }
+    outwardDir.copy(hit.point).sub(targetCenterWorld);
+    if (outwardDir.lengthSq() > 1e-8 && normalWorld.dot(outwardDir) < 0) {
+      normalWorld.multiplyScalar(-1);
     }
 
     const depthRatio = clamp(localDepth / maxLocalDepth, 0, 1);
@@ -3847,8 +3858,8 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
     const effectiveRubberLetterSpacing = clamp(rubberLetterSpacing, 0.2, maxRubberLetterSpacing);
     const rubberStick = clamp(Number(textState?.rubberStick ?? 0.96), 0.7, 1);
     const zScale = clamp((0.058 * maxRawD) / 0.024, 0.045, 0.11);
-    const depthBoost = 0.66;
-    const maxWorldLift = 0.00058;
+    const depthBoost = 0.56;
+    const maxWorldLift = 0.00046;
     const placedW = basePlacedW * effectiveRubberLetterSpacing;
     const placedH = totalRawH * glyphScale * scaleY;
 
@@ -3868,7 +3879,7 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
     );
     const rz = ((Number(textState?.rotation) || 0) * Math.PI) / 180;
     const stickLift = (1 - rubberStick) * 0.00032;
-    const zNudge = side === "back" ? -(0.000008 + stickLift) : 0.000008 + stickLift;
+    const zNudge = side === "back" ? -(0.000002 + stickLift) : 0.000002 + stickLift;
     const sideRotY = Number(
       textState?.surfaceRotationY ??
       profile.rotY ??
@@ -10212,7 +10223,7 @@ function TasarimClientContent({ isMobile }) {
 
   const switchSideAndOpenPrintPicker = (nextSide, opts = {}) => {
     handleViewChange(nextSide, {
-      openPrintPicker: true,
+      openPrintPicker: false,
       pulseSideOverride: opts?.pulseSideOverride || null,
       forceRefocus: opts?.forceRefocus === true,
     });
@@ -10237,6 +10248,15 @@ function TasarimClientContent({ isMobile }) {
 
       const pulseSide = normalizedSideRaw === "sleeve" ? "sleeve" : nextSide;
       setActivePrintAreaSelection(nextSide);
+      if (isMobile) {
+        setMobilePrimaryTab("design");
+        setActiveTab("print");
+        setPanelProgress(0);
+      } else {
+        setActiveTab("print");
+        setDrawerOpen(true);
+        setDrawerMenuOpen(false);
+      }
       const applyFocus = () =>
         switchSideAndOpenPrintPicker(nextSide, {
           pulseSideOverride: pulseSide,
@@ -10254,7 +10274,7 @@ function TasarimClientContent({ isMobile }) {
       }
       applyFocus();
     },
-    [activeId, designs, safeInitial, switchSideAndOpenPrintPicker]
+    [activeId, designs, safeInitial, switchSideAndOpenPrintPicker, isMobile]
   );
 
   const clearPrintAreaSelection = useCallback(() => {
@@ -10353,18 +10373,14 @@ function TasarimClientContent({ isMobile }) {
         targetY: THREE.MathUtils.lerp(isLongActiveModel ? -0.02 : -0.015, isLongActiveModel ? -0.03 : -0.02, scenePanelProgress),
       };
     }
+    const expandedCamZ = isPlacementPanelVisible ? (isLongActiveModel ? 2.18 : 2.1) : isLongActiveModel ? 2.28 : 2.2;
+    const collapsedCamZ = isPlacementPanelVisible ? (isLongActiveModel ? 2.34 : 2.24) : isLongActiveModel ? 2.46 : 2.36;
+    const expandedTargetY = isPlacementPanelVisible ? (isLongActiveModel ? -0.132 : -0.118) : isLongActiveModel ? -0.125 : -0.112;
+    const collapsedTargetY = isPlacementPanelVisible ? (isLongActiveModel ? -0.118 : -0.106) : isLongActiveModel ? -0.112 : -0.1;
     return {
       camY: THREE.MathUtils.lerp(isLongActiveModel ? 0.245 : 0.255, isLongActiveModel ? 0.215 : 0.225, scenePanelProgress),
-      camZ: THREE.MathUtils.lerp(
-        isPlacementPanelVisible ? (isLongActiveModel ? 2.34 : 2.26) : isLongActiveModel ? 2.44 : 2.34,
-        isPlacementPanelVisible ? (isLongActiveModel ? 2.16 : 2.08) : isLongActiveModel ? 2.26 : 2.16,
-        scenePanelProgress
-      ),
-      targetY: THREE.MathUtils.lerp(
-        isPlacementPanelVisible ? (isLongActiveModel ? -0.125 : -0.11) : isLongActiveModel ? -0.112 : -0.1,
-        isPlacementPanelVisible ? (isLongActiveModel ? -0.14 : -0.125) : isLongActiveModel ? -0.132 : -0.12,
-        scenePanelProgress
-      ),
+      camZ: THREE.MathUtils.lerp(expandedCamZ, collapsedCamZ, scenePanelProgress),
+      targetY: THREE.MathUtils.lerp(expandedTargetY, collapsedTargetY, scenePanelProgress),
     };
   }, [isSleeveFocusedView, isLongActiveModel, scenePanelProgress, isPlacementPanelVisible]);
 
@@ -10556,6 +10572,27 @@ function TasarimClientContent({ isMobile }) {
               {perf.lowPerformanceMode && (
                 <p className="text-[9px] font-black uppercase tracking-wide text-amber-700 mt-0.5">Düşük Performans Modu</p>
               )}
+              {showHoodieVariantButtons && (
+                <div className="mt-1.5 flex items-center justify-center gap-1.5 pointer-events-auto">
+                  {HOODIE_DETAIL_OPTIONS.map((opt) => {
+                    const isEnabled = Boolean(activeHoodieParts[opt.id]);
+                    return (
+                      <button
+                        type="button"
+                        key={`header-mobile-hoodie-${opt.id}`}
+                        onClick={() => setActiveHoodiePartEnabled(opt.id, !isEnabled)}
+                        className={`h-7 px-2.5 rounded-full border text-[10px] font-black uppercase tracking-wide transition ${isEnabled
+                          ? "bg-zinc-900 text-white border-zinc-900"
+                          : "bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-100"
+                          }`}
+                      >
+                        {isEnabled ? "✓ " : ""}
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <button type="button"
@@ -10586,6 +10623,27 @@ function TasarimClientContent({ isMobile }) {
                 <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">Açılışa Özel %20 İndirim</p>
                 {perf.lowPerformanceMode && (
                   <p className="text-[10px] font-black uppercase tracking-wide text-amber-700">Düşük Performans Modu</p>
+                )}
+                {showHoodieVariantButtons && (
+                  <div className="mt-1.5 flex items-center gap-1.5 pointer-events-auto">
+                    {HOODIE_DETAIL_OPTIONS.map((opt) => {
+                      const isEnabled = Boolean(activeHoodieParts[opt.id]);
+                      return (
+                        <button
+                          type="button"
+                          key={`header-desktop-hoodie-${opt.id}`}
+                          onClick={() => setActiveHoodiePartEnabled(opt.id, !isEnabled)}
+                          className={`h-7 px-2.5 rounded-full border text-[10px] font-black uppercase tracking-wide transition ${isEnabled
+                            ? "bg-zinc-900 text-white border-zinc-900"
+                            : "bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-100"
+                            }`}
+                        >
+                          {isEnabled ? "✓ " : ""}
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             </div>
@@ -10655,8 +10713,8 @@ function TasarimClientContent({ isMobile }) {
                   ? "-3%"
                   : "-5%";
             const mobilePanelProgress = clamp(1 - scenePanelProgress, 0, 1);
-            const mobileScaleClosed = isPrintAreaOpen ? 1.1 : 1.14;
-            const mobileScaleOpen = isPrintAreaOpen ? 0.94 : 0.98;
+            const mobileScaleClosed = isPrintAreaOpen ? 1.0 : 1.03;
+            const mobileScaleOpen = isPrintAreaOpen ? 0.97 : 1.0;
             const mobileScale = THREE.MathUtils.lerp(mobileScaleClosed, mobileScaleOpen, mobilePanelProgress);
             const mobileShiftClosed = isPlacementPanelVisible ? -7.5 : -4.5;
             const mobileShiftOpen = isPlacementPanelVisible ? -13 : -14;
@@ -10714,7 +10772,7 @@ function TasarimClientContent({ isMobile }) {
                 key={`scene-canvas-${perf.qualityKey}-${webglResetKey}`}
                 style={{
                   position: "absolute",
-                  left: isMobile ? "50%" : isPlacementPanelVisible ? "63%" : "50%",
+                  left: isMobile ? "49.2%" : isPlacementPanelVisible ? "63%" : "50%",
                   top: isMobile ? "50%" : desktopTop,
                   transform: isMobile
                     ? `translate(-50%, -50%) translateY(${mobileShiftY.toFixed(3)}%) scale(${mobileScale.toFixed(4)})`
@@ -10808,9 +10866,9 @@ function TasarimClientContent({ isMobile }) {
                         isActive={design.id === activeId}
                         isHovered={design.id === hoveredId}
                         isSceneFocused={sceneModelSelectionId === design.id}
-                        showModelDeleteButton={!isPrintAreaOpen && sceneModelSelectionId === design.id}
+                        showModelDeleteButton={sceneModelSelectionId === design.id}
                         canDeleteModel={designs.length > 1}
-                        enableLongPressDelete={!isPrintAreaOpen}
+                        enableLongPressDelete={activeTab !== "editor" && !isLogoDragging}
                         onSelect={setActiveId}
                         onHover={setHoveredId}
                         onUnhover={() => setHoveredId(null)}
@@ -10893,38 +10951,6 @@ function TasarimClientContent({ isMobile }) {
               : undefined
           }
         >
-          {showHoodieVariantButtons && !pickerOpen && (
-            <div
-              className="absolute z-[90] pointer-events-none transition-all duration-300"
-              style={
-                isMobile
-                  ? { top: "calc(env(safe-area-inset-top) + 56px)", right: "12px" }
-                  : { top: "76px", right: "16px" }
-              }
-            >
-              <div className="pointer-events-auto rounded-2xl border border-zinc-300 bg-white/95 backdrop-blur px-2 py-2 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
-                <div className="grid grid-cols-2 gap-1.5 min-w-[132px]">
-                  {HOODIE_DETAIL_OPTIONS.map((opt) => {
-                    const isEnabled = Boolean(activeHoodieParts[opt.id]);
-                    return (
-                      <button type="button"
-                        key={`floating-hoodie-${opt.id}`}
-                        onClick={() => setActiveHoodiePartEnabled(opt.id, !isEnabled)}
-                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide border transition ${isEnabled
-                          ? "bg-zinc-900 text-white border-zinc-900"
-                          : "bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-100"
-                          }`}
-                      >
-                        {isEnabled ? "✓ " : ""}
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Model picker modal */}
           {pickerOpen && (
             <div className="fixed inset-0 z-[95] bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4 pointer-events-auto">
