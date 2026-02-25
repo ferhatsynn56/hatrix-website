@@ -111,10 +111,10 @@ const resolveBgRemoveEndpoint = () => {
 /* ================= MODEL PATHS ================= */
 const PRIMARY_MODEL_PATHS = Object.freeze({
   "yeni-duz-tshirt": `${NEW_MODELS_DIR_REMASTERED}/Tshirt.glb`,
-  "yeni-oversize-tshirt": `${NEW_MODELS_DIR_REMASTERED}/Tshirt.glb`,
+  "yeni-oversize-tshirt": `${NEW_MODELS_DIR_REMASTERED}/oversizeTshirt.glb`,
   "yeni-duz-sweat": `${NEW_MODELS_DIR_REMASTERED}/Sweat.glb`,
-  "yeni-oversize-sweat": `${NEW_MODELS_DIR_REMASTERED}/OwersizeSweat.glb`,
-  "yeni-fermuarli": `${NEW_MODELS_DIR_REMASTERED}/FermuarlıSweat.glb`,
+  "yeni-oversize-sweat": `${NEW_MODELS_DIR_REMASTERED}/oversizeSweatshirt.glb`,
+  "yeni-fermuarli": `${NEW_MODELS_DIR_REMASTERED}/fermuarlı2.glb`,
   "polarv3": `${NEW_MODELS_DIR_REMASTERED}/PolarV5.glb`,
   "hoodie-v12-canavari": `${NEW_MODELS_DIR_REMASTERED}/Hoodie.glb`,
   "oversize-hoodie-parcali": `${NEW_MODELS_DIR_REMASTERED}/Hoodie_Owersize.glb`,
@@ -1146,8 +1146,8 @@ const FONT_OPTIONS = [
 ];
 const RUBBER_FONT_OPTION = FONT_OPTIONS[0];
 const HOODIE_DETAIL_OPTIONS = [
-  { id: "strings", label: "İpli" },
-  { id: "pocket", label: "Cepli" },
+  { id: "strings", label: "İp" },
+  { id: "pocket", label: "Cep" },
 ];
 const DEFAULT_HOODIE_PARTS = Object.freeze({
   strings: false,
@@ -3135,6 +3135,21 @@ function CameraController({ view, count, focusKey = 0, controlsRef = null, onAni
       onAnimatingChange?.(false);
     };
   }, [view, focusKey, camera, positions, targets, controlsRef, onAnimatingChange]);
+
+  return null;
+}
+
+function CameraAxisLock({ controlsRef = null, enabled = true }) {
+  const { camera } = useThree();
+
+  useFrame(() => {
+    if (!enabled) return;
+    if (Math.abs(camera.position.x) > 1e-5) camera.position.x = 0;
+    const controls = controlsRef?.current || null;
+    if (!controls?.target) return;
+    if (Math.abs(controls.target.x) > 1e-5) controls.target.x = 0;
+    if (Math.abs(controls.target.z) > 1e-5) controls.target.z = 0;
+  });
 
   return null;
 }
@@ -5855,7 +5870,7 @@ function DesignModelItem({
     return clamp(Number.isFinite(v) ? v : 0, -maxRotX, maxRotX);
   };
   const clampRotY = (v) => {
-    const maxRotY = isSleeveView ? 0.2 : isRotationRestricted ? 0.18 : isMobile ? Math.PI : Math.PI * 1.05;
+    const maxRotY = isSleeveView ? 0.2 : isRotationRestricted ? 0.95 : isMobile ? Math.PI : Math.PI * 1.05;
     return clamp(Number.isFinite(v) ? v : 0, -maxRotY, maxRotY);
   };
   const isColorMode = interactionMode === "color";
@@ -5929,6 +5944,16 @@ function DesignModelItem({
   }, []);
 
   useEffect(() => {
+    if (isActive) return;
+    dragRef.current.active = false;
+    dragRef.current.pid = null;
+    dragRef.current.moved = false;
+    tapSideHintRef.current = null;
+    clearHoldTimer();
+    document.body.style.cursor = "default";
+  }, [isActive, view]);
+
+  useEffect(() => {
     userRotRef.current = { x: 0, y: 0 };
     onUserRotate?.(design.id, { x: 0, y: 0 });
   }, [view, design.id]);
@@ -5940,8 +5965,9 @@ function DesignModelItem({
     g.position.x = THREE.MathUtils.lerp(g.position.x, targetX, Math.min(1, delta * 6));
     g.position.z = THREE.MathUtils.lerp(g.position.z, targetZ, Math.min(1, delta * 6));
 
-    const desiredRotY = targetRotY + (isActive ? userRotRef.current.y : 0);
-    const desiredRotX = isActive ? userRotRef.current.x : 0;
+    const allowUserRotation = isActive || dragRef.current.active;
+    const desiredRotY = targetRotY + (allowUserRotation ? userRotRef.current.y : 0);
+    const desiredRotX = allowUserRotation ? userRotRef.current.x : 0;
 
     g.rotation.y = THREE.MathUtils.lerp(g.rotation.y, desiredRotY, Math.min(1, delta * 10));
     g.rotation.x = THREE.MathUtils.lerp(g.rotation.x, desiredRotX, Math.min(1, delta * 10));
@@ -7896,7 +7922,7 @@ function TasarimClientContent({ isMobile }) {
   const [activeTab, setActiveTab] = useState("print");
   const [mobilePrimaryTab, setMobilePrimaryTab] = useState("design");
   // Unified bottom-sheet state: 0=open, 1=collapsed.
-  const [panelProgress, setPanelProgress] = useState(0);
+  const [panelProgress, setPanelProgress] = useState(1);
   const [uploadTechniqueToastOpen, setUploadTechniqueToastOpen] = useState(false);
   const [forceEditorOverlay, setForceEditorOverlay] = useState(false);
   const [drawerMenuOpen, setDrawerMenuOpen] = useState(false);
@@ -8644,7 +8670,7 @@ function TasarimClientContent({ isMobile }) {
     setShowPlacementPanel(false);
     clearSceneSelection();
     if (!isMobile) return;
-    setPanelProgress(0);
+    setPanelProgress(1);
     setMobilePrimaryTab("design");
     setActiveTab(editorControlTab === "text" ? "text" : "upload");
   };
@@ -9061,11 +9087,11 @@ function TasarimClientContent({ isMobile }) {
     setFlowStep("design");
     setActiveTab("print");
     setMobilePrimaryTab("design");
-    setPanelProgress(0);
+    setPanelProgress(1);
     setForceEditorOverlay(false);
     setPickerOpen(false);
     setDrawerMenuOpen(false);
-    setDrawerOpen(isMobile);
+    setDrawerOpen(false);
     router.replace(`/tasarim?model=${restored[0].modelType}`, { scroll: false });
   }, [resumeRequested, router, isMobile]);
 
@@ -9114,6 +9140,11 @@ function TasarimClientContent({ isMobile }) {
     [activeDesign?.modelType, selectedModelType, safeInitial]
   );
   const hasActivePrintAreaSelection = Boolean(activePrintAreaSelection);
+
+  useEffect(() => {
+    if (!isMobile || !hasActivePrintAreaSelection) return;
+    setPanelProgress(0);
+  }, [isMobile, hasActivePrintAreaSelection]);
 
   useEffect(() => {
     if (!availableViewSides.includes(view)) {
@@ -9626,11 +9657,11 @@ function TasarimClientContent({ isMobile }) {
     setActivePrintAreaSelection(null);
     setActiveTab("print");
     setMobilePrimaryTab("design");
-    setPanelProgress(0);
+    setPanelProgress(1);
     setForceEditorOverlay(false);
     setPickerOpen(false);
     setDrawerMenuOpen(false);
-    setDrawerOpen(isMobile);
+    setDrawerOpen(false);
     setFlowStep("design");
     router.replace(`/tasarim?model=${resolvedType}`, { scroll: false });
   };
@@ -10181,7 +10212,7 @@ function TasarimClientContent({ isMobile }) {
 
   const switchSideAndOpenPrintPicker = (nextSide, opts = {}) => {
     handleViewChange(nextSide, {
-      openPrintPicker: false,
+      openPrintPicker: true,
       pulseSideOverride: opts?.pulseSideOverride || null,
       forceRefocus: opts?.forceRefocus === true,
     });
@@ -10394,7 +10425,7 @@ function TasarimClientContent({ isMobile }) {
       if (panelCameraAnimRef.current) cancelAnimationFrame(panelCameraAnimRef.current);
       panelCameraAnimRef.current = 0;
     };
-  }, [isMobile, flowStep, drawerHeight, cameraReadyTick, getMobileCameraPose]);
+  }, [isMobile, flowStep, drawerHeight, cameraReadyTick, getMobileCameraPose, activeId]);
 
   useEffect(() => {
     if (!isMobile || flowStep !== "design" || typeof window === "undefined") return;
@@ -10430,7 +10461,21 @@ function TasarimClientContent({ isMobile }) {
       window.removeEventListener("popstate", onPageShow);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [isMobile, flowStep, getMobileCameraPose]);
+  }, [isMobile, flowStep, getMobileCameraPose, activeId]);
+
+  useEffect(() => {
+    if (flowStep !== "design") return;
+    const controls = controlsRef.current;
+    const camera = cameraRef.current;
+    if (!controls || !camera) return;
+    if (isMobile) {
+      controls.target.x = 0;
+      controls.target.z = 0;
+      camera.position.x = 0;
+    }
+    controls.enabled = true;
+    controls.update();
+  }, [flowStep, isMobile, activeId, effectiveView, cameraReadyTick]);
 
   const renderPanel = (
     <EditorPanel
@@ -10751,6 +10796,7 @@ function TasarimClientContent({ isMobile }) {
                   onAnimatingChange={setCamAnimating}
                   modelType={activeDesign?.modelType || safeInitial}
                 />
+                <CameraAxisLock controlsRef={controlsRef} enabled={isMobile && flowStep === "design"} />
 
                 <Suspense fallback={<ThreeDotsLoader />}>
                   {designs.map((design) => {
@@ -10779,8 +10825,7 @@ function TasarimClientContent({ isMobile }) {
                           activeTab === "color" ||
                           effectiveView === "sleeve_left" ||
                           effectiveView === "sleeve_right" ||
-                          multiTouchActive ||
-                          hasActivePrintAreaSelection
+                          multiTouchActive
                         }
                         restrictRotation={hasActivePrintAreaSelection}
                         isMobile={isMobile}
@@ -10848,13 +10893,17 @@ function TasarimClientContent({ isMobile }) {
               : undefined
           }
         >
-          {showHoodieVariantButtons && !isMobile && !pickerOpen && (
+          {showHoodieVariantButtons && !pickerOpen && (
             <div
               className="absolute z-[90] pointer-events-none transition-all duration-300"
-              style={{ bottom: controlsBottom, right: "16px" }}
+              style={
+                isMobile
+                  ? { top: "calc(env(safe-area-inset-top) + 56px)", right: "12px" }
+                  : { top: "76px", right: "16px" }
+              }
             >
               <div className="pointer-events-auto rounded-2xl border border-zinc-300 bg-white/95 backdrop-blur px-2 py-2 shadow-[0_10px_24px_rgba(0,0,0,0.16)]">
-                <div className="grid grid-cols-1 gap-1.5 min-w-[116px]">
+                <div className="grid grid-cols-2 gap-1.5 min-w-[132px]">
                   {HOODIE_DETAIL_OPTIONS.map((opt) => {
                     const isEnabled = Boolean(activeHoodieParts[opt.id]);
                     return (
