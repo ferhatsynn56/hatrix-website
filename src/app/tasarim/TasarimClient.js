@@ -3459,6 +3459,82 @@ function pickDecalHostMesh(root, modelType, preferredSide = "front") {
   return null;
 }
 
+function pickSurfaceContactMesh(root, modelType, preferredSide = "front") {
+  const host = pickDecalHostMesh(root, modelType, preferredSide);
+  const proxySource = host?.userData?.__printProxySource;
+  if (
+    proxySource &&
+    (proxySource.isMesh || proxySource.isSkinnedMesh) &&
+    proxySource.geometry?.attributes?.position
+  ) {
+    return proxySource;
+  }
+  if (
+    host &&
+    !host?.userData?.__printProxy &&
+    !looksLikeNamedPrintMesh(host?.name || "") &&
+    host.geometry?.attributes?.position
+  ) {
+    return host;
+  }
+
+  const requestedSide = resolveEditableSide(preferredSide, "front");
+  const isSleeveRequest =
+    requestedSide === "sleeve_left" || requestedSide === "sleeve_right" || requestedSide === "sleeve";
+  let best = null;
+
+  root.traverse((o) => {
+    if (!(o && (o.isMesh || o.isSkinnedMesh) && o.geometry?.attributes?.position)) return;
+    if (o.userData?.__printProxy) return;
+    if (looksLikeNamedPrintMesh(o?.name || "")) return;
+
+    o.geometry.computeBoundingBox?.();
+    const bb = o.geometry.boundingBox;
+    if (!bb) return;
+
+    const size = new THREE.Vector3();
+    bb.getSize(size);
+    const volume = size.x * size.y * size.z;
+    if (!Number.isFinite(volume) || volume <= 0) return;
+
+    const meshName = String(o?.name || "").toLowerCase();
+    const isAccessoryLike =
+      meshName.includes("hood") ||
+      meshName.includes("kapuson") ||
+      meshName.includes("draw") ||
+      meshName.includes("cord") ||
+      meshName.includes("ip") ||
+      meshName.includes("pocket") ||
+      meshName.includes("cep");
+
+    let score = -1;
+    if (isSleeveRequest) {
+      const sleeveHint =
+        meshName.includes("sleeve") ||
+        meshName.includes("kol") ||
+        meshName.includes("arm");
+      if (!sleeveHint && !(size.y > 0.24 && size.x > 0.09)) return;
+      score = (sleeveHint ? volume * 9 : volume * 3) + size.y * Math.max(size.x, size.z);
+    } else {
+      const hoodYMaxLimit =
+        modelType.includes("hoodie") || modelType.includes("fermuarli") ? 0.52 : 0.65;
+      const isTorsoLike =
+        size.y > 0.6 &&
+        size.x > 0.25 &&
+        bb.max.y < hoodYMaxLimit &&
+        bb.min.y < -0.15;
+      if (!isTorsoLike || isAccessoryLike) return;
+      score = volume * 8 + size.y * size.x;
+    }
+
+    if (!best || score > best.score) {
+      best = { o, score };
+    }
+  });
+
+  return best?.o || host || null;
+}
+
 function makeCanvasTexture(canvas, opts = {}) {
   if (!canvas) return null;
   const maxAnisotropy = Number(opts?.maxAnisotropy ?? 16);
@@ -3480,11 +3556,17 @@ function makeCanvasTexture(canvas, opts = {}) {
 
 // Rubber text yüzeye çok yakın olduğunda Z-fighting oluşabiliyor.
 // Bu offset/polygon ayarları text'i modelin üstünde stabil tutar.
-const RUBBER_TEXT_BASE_SURFACE_OFFSET = 0.000085;
-const RUBBER_TEXT_STICK_SURFACE_OFFSET = 0.00018;
+const RUBBER_TEXT_BASE_SURFACE_OFFSET = 0.000095;
+const RUBBER_TEXT_STICK_SURFACE_OFFSET = 0.0002;
 const RUBBER_TEXT_MAX_WORLD_LIFT = 0.00105;
-const RUBBER_TEXT_POLYGON_OFFSET_FACTOR = -8;
-const RUBBER_TEXT_POLYGON_OFFSET_UNITS = -4;
+const RUBBER_TEXT_CONTACT_LIFT = 0.000085;
+const RUBBER_TEXT_DEPTH_RETAIN_RATIO = 0.58;
+const RUBBER_TEXT_INJECTION_MAX_WORLD_LIFT = 0.00082;
+const RUBBER_TEXT_INJECTION_DEPTH_BOOST = 2.4;
+const RUBBER_TEXT_INJECTION_DEPTH_RETAIN_RATIO = 0.44;
+const SHRINKWRAP_RENDER_VERSION = "v3";
+const RUBBER_TEXT_POLYGON_OFFSET_FACTOR = -12;
+const RUBBER_TEXT_POLYGON_OFFSET_UNITS = -5;
 
 function shrinkwrapGlyphMeshToSurface(
   mesh,
@@ -3492,7 +3574,8 @@ function shrinkwrapGlyphMeshToSurface(
   epsilon = 0.00002,
   depthBoost = 5.5,
   surfaceSide = "front",
-  maxWorldLift = RUBBER_TEXT_MAX_WORLD_LIFT
+  maxWorldLift = RUBBER_TEXT_MAX_WORLD_LIFT,
+  depthRetain = 1
 ) {
   if (!mesh?.geometry?.attributes?.position || !targetMesh?.geometry) return;
   const targetGeometry = targetMesh.geometry;
@@ -3528,6 +3611,7 @@ function shrinkwrapGlyphMeshToSurface(
   const scaleZ = Math.max(0.0001, Math.abs(mesh.scale.z || 1));
   const rawWorldDepth = maxLocalDepth * scaleZ * Math.max(0.05, depthBoost);
   const worldDepth = clamp(rawWorldDepth, 0.00004, Math.max(0.00008, Number(maxWorldLift) || RUBBER_TEXT_MAX_WORLD_LIFT));
+  const safeDepthRetain = clamp(Number(depthRetain) || 0, 0, 1);
 
   const pos = mesh.geometry.attributes.position;
   const local = new THREE.Vector3();
@@ -3635,8 +3719,8 @@ function shrinkwrapGlyphMeshToSurface(
     }
 
     const depthRatio = clamp(localDepth / maxLocalDepth, 0, 1);
-    const depthOffset = clamp(depthRatio * worldDepth, 0, worldDepth);
-    snappedWorld.copy(hit.point).addScaledVector(normalWorld, epsilon + depthOffset);
+    const depthOffset = clamp(depthRatio * worldDepth * safeDepthRetain, 0, worldDepth);
+    snappedWorld.copy(hit.point).addScaledVector(normalWorld, epsilon + RUBBER_TEXT_CONTACT_LIFT + depthOffset);
     mesh.worldToLocal(snappedWorld);
     pos.setXYZ(i, snappedWorld.x, snappedWorld.y, snappedWorld.z);
   }
@@ -3658,6 +3742,7 @@ function ShrinkwrappedRubberGlyph({
   stick = 0.96,
   depthBoost = 5.5,
   maxWorldLift = RUBBER_TEXT_MAX_WORLD_LIFT,
+  depthRetain = 1,
   placementKey = "",
 }) {
   const meshRef = useRef(null);
@@ -3675,7 +3760,7 @@ function ShrinkwrappedRubberGlyph({
         sheen: 0.1,
         envMapIntensity: 0.2,
         depthTest: true,
-        depthWrite: false,
+        depthWrite: true,
         polygonOffset: true,
         polygonOffsetFactor: RUBBER_TEXT_POLYGON_OFFSET_FACTOR,
         polygonOffsetUnits: RUBBER_TEXT_POLYGON_OFFSET_UNITS,
@@ -3689,6 +3774,14 @@ function ShrinkwrappedRubberGlyph({
     if (!mesh || !baseGeometry) return;
 
     const wrapped = baseGeometry.clone();
+    wrapped.computeBoundingBox?.();
+    const wrappedMinZ = Number(wrapped.boundingBox?.min?.z ?? 0);
+    if (Number.isFinite(wrappedMinZ) && Math.abs(wrappedMinZ) > 1e-7) {
+      // Alt yüzeyi sıfıra taşı: shrinkwrap, mesh'i orta eksenden değil
+      // gerçekten alt yüzeyinden kumaşa oturtsun.
+      wrapped.translate(0, 0, -wrappedMinZ);
+      wrapped.computeBoundingBox?.();
+    }
     const prev = mesh.geometry;
     mesh.geometry = wrapped;
     if (prev && prev !== wrapped) prev.dispose?.();
@@ -3698,12 +3791,12 @@ function ShrinkwrappedRubberGlyph({
         RUBBER_TEXT_BASE_SURFACE_OFFSET +
         (1 - clamp(stick, 0.7, 1)) * RUBBER_TEXT_STICK_SURFACE_OFFSET;
       try {
-        shrinkwrapGlyphMeshToSurface(mesh, targetMesh, eps, depthBoost, surfaceSide, maxWorldLift);
+        shrinkwrapGlyphMeshToSurface(mesh, targetMesh, eps, depthBoost, surfaceSide, maxWorldLift, depthRetain);
       } catch (err) {
         console.warn("Rubber shrinkwrap failed:", err);
       }
     }
-  }, [baseGeometry, targetMesh, surfaceSide, px, py, pz, rotationZ, sx, sy, sz, shrinkwrap, stick, depthBoost, maxWorldLift, placementKey]);
+  }, [baseGeometry, targetMesh, surfaceSide, px, py, pz, rotationZ, sx, sy, sz, shrinkwrap, stick, depthBoost, maxWorldLift, depthRetain, placementKey]);
 
   useEffect(
     () => () => {
@@ -3858,8 +3951,9 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
     const effectiveRubberLetterSpacing = clamp(rubberLetterSpacing, 0.2, maxRubberLetterSpacing);
     const rubberStick = clamp(Number(textState?.rubberStick ?? 0.96), 0.7, 1);
     const zScale = clamp((0.058 * maxRawD) / 0.024, 0.045, 0.11);
-    const depthBoost = 0.56;
-    const maxWorldLift = 0.00046;
+    const depthBoost = 0.9;
+    const maxWorldLift = 0.00115;
+    const depthRetain = RUBBER_TEXT_DEPTH_RETAIN_RATIO;
     const placedW = basePlacedW * effectiveRubberLetterSpacing;
     const placedH = totalRawH * glyphScale * scaleY;
 
@@ -3909,6 +4003,7 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
       rubberStick,
       depthBoost,
       maxWorldLift,
+      depthRetain,
       textColor,
       groupPosition: [cx, cy, (profile.z || 0) + zNudge],
       groupRotation: [0, sideRotY, rz],
@@ -3930,6 +4025,7 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
     rubberStick,
     depthBoost,
     maxWorldLift,
+    depthRetain,
     textColor,
     groupPosition,
     groupRotation,
@@ -3945,7 +4041,7 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
         const y = (row.yRaw - centerRawY) * glyphScale * scaleY;
         return (
           <ShrinkwrappedRubberGlyph
-            key={`rubber-glyph-${side}-${entry.char}-${idx}`}
+            key={`rubber-glyph-${side}-${entry.char}-${idx}-${SHRINKWRAP_RENDER_VERSION}`}
             baseGeometry={entry.geometry}
             targetMesh={decalHost}
             surfaceSide={side}
@@ -3958,6 +4054,7 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
             stick={rubberStick}
             depthBoost={depthBoost}
             maxWorldLift={maxWorldLift}
+            depthRetain={depthRetain}
             placementKey={placementKey}
           />
         );
@@ -4236,7 +4333,7 @@ function InjectionPatternStamp({
   const rz = ((Number(sideData?.injectionRotation) || 0) * Math.PI) / 180;
   const zNudge = side === "back" ? -0.000016 : 0.000016;
   const color = sideData?.customText?.color || "#f3f4f6";
-  const stick = clamp(Number(sideData?.injectionStick ?? sideData?.customText?.rubberStick ?? 0.965), 0.88, 1);
+  const stick = clamp(Number(sideData?.injectionStick ?? sideData?.customText?.rubberStick ?? 0.985), 0.92, 1);
   const placementKey = `${side}_${resolvedOption?.id || "none"}_${cx}_${cy}_${rz}_${stick}`;
 
   if (!isEnabled || !resolvedOption) return null;
@@ -4249,7 +4346,7 @@ function InjectionPatternStamp({
     >
       {normalizedGeometries.map((entry, idx) => (
         <ShrinkwrappedRubberGlyph
-          key={`inj-mesh-${entry.key}`}
+          key={`inj-mesh-${entry.key}-${SHRINKWRAP_RENDER_VERSION}`}
           baseGeometry={entry.geometry}
           targetMesh={targetMesh}
           surfaceSide={side}
@@ -4260,7 +4357,9 @@ function InjectionPatternStamp({
           materialSide={THREE.DoubleSide}
           shrinkwrap
           stick={stick}
-          depthBoost={3.4}
+          depthBoost={RUBBER_TEXT_INJECTION_DEPTH_BOOST}
+          maxWorldLift={RUBBER_TEXT_INJECTION_MAX_WORLD_LIFT}
+          depthRetain={RUBBER_TEXT_INJECTION_DEPTH_RETAIN_RATIO}
           placementKey={`${placementKey}_${idx}`}
         />
       ))}
@@ -4583,6 +4682,8 @@ function Real3DModel({
   const backDecalHost = useMemo(() => pickDecalHostMesh(root, modelType, "back"), [root, modelType]);
   const sleeveLeftDecalHost = useMemo(() => pickDecalHostMesh(root, modelType, "sleeve_left"), [root, modelType]);
   const sleeveRightDecalHost = useMemo(() => pickDecalHostMesh(root, modelType, "sleeve_right"), [root, modelType]);
+  const frontSurfaceHost = useMemo(() => pickSurfaceContactMesh(root, modelType, "front"), [root, modelType]);
+  const backSurfaceHost = useMemo(() => pickSurfaceContactMesh(root, modelType, "back"), [root, modelType]);
   const anyDecalHost =
     frontDecalHost ||
     backDecalHost ||
@@ -4782,12 +4883,15 @@ function Real3DModel({
   const handlePrintAreaClick = useCallback(
     (sideKey, e) => {
       e.stopPropagation();
+      const movedPx = Number(e?.delta ?? 0);
+      const tapThreshold = isMobile ? 10 : 6;
+      if (Number.isFinite(movedPx) && movedPx > tapThreshold) return;
       if (!onPrintAreaTap) return;
       const safeSide = resolveEditableSide(sideKey, "");
       if (!safeSide) return;
       onPrintAreaTap(safeSide);
     },
-    [onPrintAreaTap]
+    [isMobile, onPrintAreaTap]
   );
 
   const [printAreaPulseState, setPrintAreaPulseState] = useState({ side: null, on: false });
@@ -5190,7 +5294,7 @@ function Real3DModel({
                   areaH={frontH}
                   enabled={frontHasRubber}
                   glyphLibrary={glyphLibrary}
-                  decalHost={frontDecalHost || anyDecalHost}
+                  decalHost={frontSurfaceHost || frontDecalHost || anyDecalHost}
                 />
               ))}
             {showFront && frontInjectionOption && (
@@ -5201,7 +5305,7 @@ function Real3DModel({
                 profile={frontProfile}
                 areaW={frontW}
                 areaH={frontH}
-                targetMesh={frontDecalHost || anyDecalHost}
+                targetMesh={frontSurfaceHost || frontDecalHost || anyDecalHost}
               />
             )}
 
@@ -5273,7 +5377,7 @@ function Real3DModel({
                   areaH={backH}
                   enabled={backHasRubber}
                   glyphLibrary={glyphLibrary}
-                  decalHost={backDecalHost || anyDecalHost}
+                  decalHost={backSurfaceHost || backDecalHost || anyDecalHost}
                 />
               ))}
             {showBack && backInjectionOption && (
@@ -5284,7 +5388,7 @@ function Real3DModel({
                 profile={backProfile}
                 areaW={backW}
                 areaH={backH}
-                targetMesh={backDecalHost || anyDecalHost}
+                targetMesh={backSurfaceHost || backDecalHost || anyDecalHost}
               />
             )}
 
@@ -5894,6 +5998,12 @@ function DesignModelItem({
           ? sleeveRightMeshRef
           : frontMeshRef;
   const hitVolumeScale = isMobile ? [1.58, 1.86, 1.32] : [1.46, 1.72, 1.24];
+  const activeHitVolumeScale =
+    totalDesignCount > 1
+      ? isMobile
+        ? [1.18, 1.42, 1.02]
+        : [1.08, 1.28, 0.98]
+      : hitVolumeScale;
   const handlePrintAreaTapFromModel = useCallback(
     (sideKey) => {
       const safeSide = resolveEditableSide(sideKey, "");
@@ -6184,8 +6294,8 @@ function DesignModelItem({
         if (e.target?.releasePointerCapture) e.target.releasePointerCapture(e.pointerId);
       }}
     >
-      {isActive && !isColorMode && totalDesignCount <= 1 && (
-        <mesh position={[0, -0.03, 0]} scale={hitVolumeScale}>
+      {isActive && !isColorMode && (
+        <mesh position={[0, -0.03, 0]} scale={activeHitVolumeScale}>
           <sphereGeometry args={[0.72, 20, 16]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
         </mesh>
