@@ -6037,13 +6037,15 @@ function DesignModelItem({
     return null;
   };
 
-  const clearHoldTimer = () => {
+  const clearHoldTimer = ({ preserveTriggered = false } = {}) => {
     if (holdRef.current.timer) {
       clearTimeout(holdRef.current.timer);
       holdRef.current.timer = null;
     }
     holdRef.current.pid = null;
-    holdRef.current.triggered = false;
+    if (!preserveTriggered) {
+      holdRef.current.triggered = false;
+    }
   };
 
   const armHoldTimer = (e) => {
@@ -6057,7 +6059,7 @@ function DesignModelItem({
       holdRef.current.triggered = true;
       onModelLongPress?.(design.id);
       document.body.style.cursor = "default";
-    }, 220);
+    }, 2000);
   };
 
   useEffect(() => {
@@ -6185,7 +6187,7 @@ function DesignModelItem({
       }}
       onPointerOut={(e) => {
         e.stopPropagation();
-        clearHoldTimer();
+        clearHoldTimer({ preserveTriggered: true });
         onUnhover();
         document.body.style.cursor = "default";
       }}
@@ -6248,7 +6250,9 @@ function DesignModelItem({
         if (enableLongPressDelete && holdRef.current.pid === e.pointerId && holdRef.current.timer) {
           const holdDx = Math.abs(e.clientX - holdRef.current.startX);
           const holdDy = Math.abs(e.clientY - holdRef.current.startY);
-          if (holdDx > 6 || holdDy > 6) clearHoldTimer();
+          if (holdDx > 6 || holdDy > 6) {
+            clearHoldTimer({ preserveTriggered: holdRef.current.triggered });
+          }
         }
         if (disableDrag) return;
         if (!dragRef.current.active || dragRef.current.pid !== e.pointerId) return;
@@ -9111,7 +9115,10 @@ function TasarimClientContent({ isMobile }) {
     };
 
     const setAppVh = ({ force = false } = {}) => {
-      const viewportHeight = window.innerHeight;
+      const vv = window.visualViewport;
+      const viewportHeight = vv
+        ? Math.round(vv.height + vv.offsetTop)
+        : window.innerHeight;
       if (!Number.isFinite(viewportHeight) || viewportHeight <= 0) return;
       const stableHeight = lastStableViewportHeightRef.current || viewportHeight;
       const keyboardLikelyOpen =
@@ -9124,11 +9131,23 @@ function TasarimClientContent({ isMobile }) {
     setAppVh({ force: true });
     const handleResize = () => setAppVh();
     const handleOrientation = () => setAppVh({ force: true });
+    const handleVisualViewportChange = () => setAppVh();
+    const handleFocusOut = () => {
+      window.setTimeout(() => {
+        setAppVh({ force: true });
+      }, 180);
+    };
     window.addEventListener("resize", handleResize, { passive: true });
     window.addEventListener("orientationchange", handleOrientation);
+    window.visualViewport?.addEventListener("resize", handleVisualViewportChange);
+    window.visualViewport?.addEventListener("scroll", handleVisualViewportChange);
+    document.addEventListener("focusout", handleFocusOut, true);
     return () => {
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("orientationchange", handleOrientation);
+      window.visualViewport?.removeEventListener("resize", handleVisualViewportChange);
+      window.visualViewport?.removeEventListener("scroll", handleVisualViewportChange);
+      document.removeEventListener("focusout", handleFocusOut, true);
       if (viewportMeta) {
         if (hadViewportMeta) {
           viewportMeta.setAttribute("content", previousViewportContent);
