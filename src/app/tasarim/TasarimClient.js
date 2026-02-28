@@ -1289,21 +1289,39 @@ const printTypeIdsToTechnique = (ids = [], fallback = PRINT_TECHNIQUES.RUBBER) =
 const PRINT_TYPE_OPTIONS = [
   {
     id: "dtf",
-    label: "DTF",
+    label: "Renkli Baskı (DTF)",
     available: true,
     previewSrc: "/urungorsel/Dosya_000.png",
     previewAlt: "DTF örnek baskı",
   },
   {
     id: "rubber",
-    label: "Rubber",
+    label: "Kabartma Yazı (Rubber)",
     available: true,
     previewSrc: "/urungorsel/E4480C49-9DA3-4E0F-A0E3-2E687F51836A.PNG",
     previewAlt: "Rubber örnek baskı",
   },
 ];
 
-function PrintTypePickerCards({ selectedIds = [], onSelect, sourceLabel = "Sec", isMobile = false }) {
+const PATTERN_PRINT_TYPE_OPTION = Object.freeze({
+  id: "pattern",
+  label: "Hazır Desen (Enjeksiyon)",
+  available: true,
+  previewSrc: null,
+  previewAlt: "Hazır desen seçenekleri",
+  fallbackText: "Desenleri Aç",
+});
+
+function PrintTypePickerCards({
+  selectedIds = [],
+  onSelect,
+  onPatternSelect,
+  patternSelected = false,
+  sourceLabel = "Sec",
+  isMobile = false,
+}) {
+  const cardOptions = [...PRINT_TYPE_OPTIONS, PATTERN_PRINT_TYPE_OPTION];
+
   return (
     <div className="mt-2 rounded-xl border border-gray-200 bg-[#f4f6f8] p-3 pointer-events-auto">
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -1311,9 +1329,16 @@ function PrintTypePickerCards({ selectedIds = [], onSelect, sourceLabel = "Sec",
         <span className="text-[10px] font-bold uppercase text-gray-500">{sourceLabel}</span>
       </div>
 
-      <div className={`grid gap-2 ${isMobile ? "grid-cols-2" : "grid-cols-4"}`}>
-        {PRINT_TYPE_OPTIONS.map((opt) => {
-          const selected = selectedIds.includes(opt.id);
+      <div
+        className={
+          isMobile
+            ? "flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            : "grid gap-2 grid-cols-3"
+        }
+      >
+        {cardOptions.map((opt) => {
+          const isPatternCard = opt.id === PATTERN_PRINT_TYPE_OPTION.id;
+          const selected = isPatternCard ? patternSelected : selectedIds.includes(opt.id);
           const disabled = !opt.available;
           return (
             <button
@@ -1321,17 +1346,22 @@ function PrintTypePickerCards({ selectedIds = [], onSelect, sourceLabel = "Sec",
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                if (!disabled) onSelect?.(opt.id);
+                if (disabled) return;
+                if (isPatternCard) {
+                  onPatternSelect?.();
+                  return;
+                }
+                onSelect?.(opt.id);
               }}
               disabled={disabled}
-              className={`rounded-xl border px-2 py-2 text-left transition overflow-hidden ${disabled
+              className={`${isMobile ? "min-w-[210px] shrink-0 snap-start" : ""} rounded-xl border px-2 py-2 text-left transition overflow-hidden ${disabled
                 ? "cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-400"
                 : selected
                   ? "border-black bg-black text-white"
                   : "border-white bg-white text-gray-700 hover:border-zinc-300"
                 }`}
             >
-              <p className="text-[11px] font-black uppercase tracking-wide">{opt.label}</p>
+              <p className="text-[10px] font-black uppercase tracking-wide leading-3 whitespace-normal">{opt.label}</p>
               <p className={`mt-0.5 text-[9px] font-bold uppercase tracking-wide ${selected ? "text-white/85" : "text-zinc-500"}`}>
                 {selected ? "Secili • Kaldir" : "Sec"}
               </p>
@@ -1349,7 +1379,7 @@ function PrintTypePickerCards({ selectedIds = [], onSelect, sourceLabel = "Sec",
                   />
                 ) : (
                   <div className="h-20 flex items-center justify-center text-[10px] font-bold uppercase text-zinc-500">
-                    Görsel Yok
+                    {opt.fallbackText || "Gorsel Yok"}
                   </div>
                 )}
               </div>
@@ -3555,15 +3585,15 @@ function makeCanvasTexture(canvas, opts = {}) {
 }
 
 // Rubber text yüzeye çok yakın olduğunda Z-fighting oluşabiliyor.
-// Bu offset/polygon ayarları text'i modelin üstünde stabil tutar.
+// Raised rubber/injection hedefi: alt yüzey flush, üst yüzey 2-3mm kabartı.
 const RUBBER_TEXT_BASE_SURFACE_OFFSET = 0.000095;
 const RUBBER_TEXT_STICK_SURFACE_OFFSET = 0.0002;
-const RUBBER_TEXT_MAX_WORLD_LIFT = 0.00105;
+const RUBBER_TEXT_MAX_WORLD_LIFT = 0.0030;
 const RUBBER_TEXT_CONTACT_LIFT = 0.000085;
-const RUBBER_TEXT_DEPTH_RETAIN_RATIO = 0.58;
-const RUBBER_TEXT_INJECTION_MAX_WORLD_LIFT = 0.00082;
-const RUBBER_TEXT_INJECTION_DEPTH_BOOST = 2.4;
-const RUBBER_TEXT_INJECTION_DEPTH_RETAIN_RATIO = 0.44;
+const RUBBER_TEXT_DEPTH_RETAIN_RATIO = 0.92;
+const RUBBER_TEXT_INJECTION_MAX_WORLD_LIFT = 0.0022;
+const RUBBER_TEXT_INJECTION_DEPTH_BOOST = 3.4;
+const RUBBER_TEXT_INJECTION_DEPTH_RETAIN_RATIO = 0.90;
 const SHRINKWRAP_RENDER_VERSION = "v3";
 const RUBBER_TEXT_POLYGON_OFFSET_FACTOR = -12;
 const RUBBER_TEXT_POLYGON_OFFSET_UNITS = -5;
@@ -3821,6 +3851,8 @@ function ShrinkwrappedRubberGlyph({
       rotation={[0, 0, rotationZ]}
       scale={scale}
       renderOrder={42}
+      castShadow
+      receiveShadow
     >
       <bufferGeometry />
       <primitive attach="material" object={materialRef} />
@@ -3951,8 +3983,8 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
     const effectiveRubberLetterSpacing = clamp(rubberLetterSpacing, 0.2, maxRubberLetterSpacing);
     const rubberStick = clamp(Number(textState?.rubberStick ?? 0.96), 0.7, 1);
     const zScale = clamp((0.058 * maxRawD) / 0.024, 0.045, 0.11);
-    const depthBoost = 0.9;
-    const maxWorldLift = 0.00115;
+    const depthBoost = 3.2;
+    const maxWorldLift = RUBBER_TEXT_MAX_WORLD_LIFT;
     const depthRetain = RUBBER_TEXT_DEPTH_RETAIN_RATIO;
     const placedW = basePlacedW * effectiveRubberLetterSpacing;
     const placedH = totalRawH * glyphScale * scaleY;
@@ -4352,7 +4384,7 @@ function InjectionPatternStamp({
           surfaceSide={side}
           position={[0, 0, 0]}
           rotationZ={0}
-          scale={[entry.scalar, entry.scalar, entry.scalar * 0.24]}
+          scale={[entry.scalar, entry.scalar, entry.scalar * 0.55]}
           color={color}
           materialSide={THREE.DoubleSide}
           shrinkwrap
@@ -6004,6 +6036,21 @@ function DesignModelItem({
         ? [1.18, 1.42, 1.02]
         : [1.08, 1.28, 0.98]
       : hitVolumeScale;
+  const hasRenderableModelHit = useCallback((evt) => {
+    const rootGroup = groupRef.current;
+    const intersections = Array.isArray(evt?.intersections) ? evt.intersections : [];
+    if (!rootGroup || intersections.length === 0) return false;
+    return intersections.some((hit) => {
+      const obj = hit?.object;
+      if (!obj || obj.userData?.__modelHitVolume) return false;
+      let node = obj;
+      while (node) {
+        if (node === rootGroup) return true;
+        node = node.parent;
+      }
+      return false;
+    });
+  }, []);
   const handlePrintAreaTapFromModel = useCallback(
     (sideKey) => {
       const safeSide = resolveEditableSide(sideKey, "");
@@ -6199,6 +6246,14 @@ function DesignModelItem({
           tapSideHintRef.current = null;
           return;
         }
+        if (!hasRenderableModelHit(e)) {
+          clearHoldTimer({ preserveTriggered: holdRef.current.triggered });
+          dragRef.current.active = false;
+          dragRef.current.pid = null;
+          tapSideHintRef.current = null;
+          document.body.style.cursor = "default";
+          return;
+        }
         if (isSleeveView) {
           const tapSideHint = resolveTapSideFromEvent(e);
           const resolvedTapSide = tapSideHint || targetMeshRef.current.side;
@@ -6299,7 +6354,11 @@ function DesignModelItem({
       }}
     >
       {isActive && !isColorMode && (
-        <mesh position={[0, -0.03, 0]} scale={activeHitVolumeScale}>
+        <mesh
+          position={[0, -0.03, 0]}
+          scale={activeHitVolumeScale}
+          userData={{ __modelHitVolume: true }}
+        >
           <sphereGeometry args={[0.72, 20, 16]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
         </mesh>
@@ -6328,7 +6387,7 @@ function DesignModelItem({
         onPrintAreaTap={handlePrintAreaTapFromModel}
       />
       {showModelDeleteButton && (
-        <Html position={[0, 0.42, 0]} center distanceFactor={6} occlude={false} zIndexRange={[180, 260]}>
+        <Html position={[0, 0.435, 0]} center distanceFactor={6} occlude={false} zIndexRange={[180, 260]}>
           <button
             type="button"
             onPointerDown={(e) => {
@@ -6341,14 +6400,14 @@ function DesignModelItem({
               if (canDeleteModel) onDeleteModel?.(design.id);
             }}
             disabled={!canDeleteModel}
-            className={`w-9 h-9 rounded-full border flex items-center justify-center shadow-lg backdrop-blur-sm ${canDeleteModel
+            className={`rounded-full border flex items-center justify-center shadow-lg backdrop-blur-sm ${canDeleteModel
               ? "border-red-300 bg-red-600/90 text-white hover:bg-red-700/95"
               : "border-zinc-400 bg-zinc-500/60 text-zinc-200 cursor-not-allowed"
-              }`}
+              } ${isMobile ? "w-8 h-8" : "w-7 h-7"}`}
             aria-label="Modeli sil"
             title={canDeleteModel ? "Modeli Sil" : "En az bir model kalmalı"}
           >
-            <X size={15} strokeWidth={3} />
+            <X size={12} strokeWidth={3.2} />
           </button>
         </Html>
       )}
@@ -6881,6 +6940,7 @@ function EditorPanel({
   forceShowEditorOverlay = false,
   suppressEditorInPanel = false,
   onOpenCategoryMenu,
+  onOpenPatternPicker,
   printTypePickerSignal = 0,
 }) {
   const isZipperFront = hasCenterZip(design.modelType) && view === "front";
@@ -7520,6 +7580,8 @@ function EditorPanel({
               <PrintTypePickerCards
                 selectedIds={effectivePrintTypes}
                 onSelect={handleSelectPrintTypeFromPanel}
+                onPatternSelect={onOpenPatternPicker}
+                patternSelected={activeTab === "pattern" || sideHasInjection}
                 sourceLabel="Panelden sec"
                 isMobile={isMobile}
               />
@@ -8048,6 +8110,7 @@ function TasarimClientContent({ isMobile }) {
   const [mobilePrimaryTab, setMobilePrimaryTab] = useState("design");
   // Unified bottom-sheet state: 0=open, 1=collapsed.
   const [panelProgress, setPanelProgress] = useState(1);
+  const [mobileCategoryStripHidden, setMobileCategoryStripHidden] = useState(false);
   const [uploadTechniqueToastOpen, setUploadTechniqueToastOpen] = useState(false);
   const [forceEditorOverlay, setForceEditorOverlay] = useState(false);
   const [drawerMenuOpen, setDrawerMenuOpen] = useState(false);
@@ -8226,6 +8289,7 @@ function TasarimClientContent({ isMobile }) {
   const bgRemovedObjectUrlsRef = useRef(new Map());
   const logoSourceFilesRef = useRef(new Map());
   const modelTapSuppressedUntilRef = useRef(0);
+  const panelDragActiveRef = useRef(false);
   const suppressModelTapTemporarily = useCallback((durationMs = 280) => {
     if (!isMobile) return;
     const safeDuration = clamp(Number(durationMs) || 280, 80, 1200);
@@ -8233,6 +8297,7 @@ function TasarimClientContent({ isMobile }) {
   }, [isMobile]);
   const isModelTapSuppressed = useCallback(() => {
     if (!isMobile) return false;
+    if (panelDragActiveRef.current) return true;
     return Date.now() < modelTapSuppressedUntilRef.current;
   }, [isMobile]);
   const applySceneSelection = useCallback((item = null, opts = {}) => {
@@ -8380,9 +8445,9 @@ function TasarimClientContent({ isMobile }) {
       sideData?.injectionPos && typeof sideData.injectionPos === "object"
         ? sideData.injectionPos
         : { x: 0.5, y: 0.58 };
-    // Enjeksiyon meshleri modele göre değiştiği için kutuyu güvenli bir çalışma alanında tut.
-    const w = clamp(0.31 * sceneInjectionScale, 0.14, 0.88);
-    const h = clamp(0.24 * sceneInjectionScale, 0.1, 0.72);
+    // Çerçeve, gerçek desene daha sıkı otursun.
+    const w = clamp(0.265 * sceneInjectionScale, 0.11, 0.8);
+    const h = clamp(0.2 * sceneInjectionScale, 0.08, 0.62);
     const x = clamp(Number(rawPos?.x ?? 0.5), w / 2, 1 - w / 2);
     const y = clamp(Number(rawPos?.y ?? 0.58), h / 2, 1 - h / 2);
     return { x, y, w, h };
@@ -8392,8 +8457,8 @@ function TasarimClientContent({ isMobile }) {
     () => ({
       x: safeTextPos.x,
       y: safeTextPos.y,
-      w: clamp(textHalfBounds.halfW01 * 2, 0.12, 0.98),
-      h: clamp(textHalfBounds.halfH01 * 2, 0.08, 0.72),
+      w: clamp(textHalfBounds.halfW01 * 2 * 0.9, 0.08, 0.92),
+      h: clamp(textHalfBounds.halfH01 * 2 * 0.88, 0.06, 0.64),
     }),
     [safeTextPos.x, safeTextPos.y, textHalfBounds.halfW01, textHalfBounds.halfH01]
   );
@@ -9331,6 +9396,7 @@ function TasarimClientContent({ isMobile }) {
       return;
     }
     setMobilePrimaryTab("design");
+    setMobileCategoryStripHidden(false);
     if (!["print", "upload", "text", "pattern", "editor", "color"].includes(activeTab)) {
       const activeViewSide = resolveEditableSide(view);
       const currentSideHasDtf =
@@ -9377,6 +9443,15 @@ function TasarimClientContent({ isMobile }) {
     setActiveTab("print");
   };
 
+  const openPatternToolFromPrintTypes = () => {
+    if (isMobile) {
+      setMobilePrimaryTab("design");
+      setPanelProgress(0);
+    }
+    setDrawerMenuOpen(false);
+    setActiveTab("pattern");
+  };
+
   const openPrintTypePickerFromHeader = () => {
     setSelectedModelType(activeDesign?.modelType || selectedModelType || safeInitial);
     setFlowStep("select");
@@ -9389,7 +9464,7 @@ function TasarimClientContent({ isMobile }) {
   const menuTabs = [
     { id: "color", label: "Renk", icon: Palette },
     { id: "print", label: "Baskı Seçim", icon: Layers },
-    { id: "pattern", label: "Desen", icon: Layers },
+    { id: "pattern", label: "Hazır Desen", icon: Layers },
     { id: "text", label: "Yazı", icon: FileText },
     { id: "upload", label: "Görsel", icon: ImageIcon },
   ];
@@ -10232,6 +10307,7 @@ function TasarimClientContent({ isMobile }) {
     if (!isMobile) return;
     e.preventDefault();
     e.stopPropagation();
+    panelDragActiveRef.current = true;
     suppressModelTapTemporarily(420);
     dragState.current.dragging = true;
     dragState.current.moved = false;
@@ -10252,6 +10328,7 @@ function TasarimClientContent({ isMobile }) {
 
   const onDrawerPointerUp = () => {
     const moved = dragState.current.moved;
+    panelDragActiveRef.current = false;
     dragState.current.dragging = false;
     dragState.current.moved = false;
     suppressModelTapTemporarily(moved ? 420 : 520);
@@ -10292,6 +10369,7 @@ function TasarimClientContent({ isMobile }) {
   };
 
   const toggleDrawer = () => {
+    panelDragActiveRef.current = false;
     dragState.current.dragging = false;
     window.removeEventListener("pointermove", onDrawerPointerMove);
     window.removeEventListener("pointerup", onDrawerPointerUp);
@@ -10468,6 +10546,13 @@ function TasarimClientContent({ isMobile }) {
     isMobile && activeBottomTab === "tasarla" && !mobilePanelCollapsed && activeTab === "print";
   const mobileDrawerVisibilityRatio = clamp(1 - panelProgress, 0, 1);
   const showMobileBottomTabs = isMobile && flowStep === "design" && !isPlacementPanelVisible && !pickerOpen;
+
+  useEffect(() => {
+    if (!isMobile) return;
+    if (mobilePanelCollapsed || mobilePrimaryTab !== "design") {
+      setMobileCategoryStripHidden(false);
+    }
+  }, [isMobile, mobilePanelCollapsed, mobilePrimaryTab]);
   const mobileBottomTabsOpacity = clamp((mobileDrawerVisibilityRatio - 0.04) / 0.96, 0, 1);
   const mobileDrawerBottom = showMobileBottomTabs
     ? `calc(${(mobileBottomTabsOpacity * 92).toFixed(2)}px + env(safe-area-inset-bottom))`
@@ -10637,6 +10722,7 @@ function TasarimClientContent({ isMobile }) {
       forceShowEditorOverlay={forceEditorOverlay}
       suppressEditorInPanel={!isMobile && forceEditorOverlay}
       onOpenCategoryMenu={openDrawerMenu}
+      onOpenPatternPicker={openPatternToolFromPrintTypes}
       printTypePickerSignal={printTypePickerSignal}
     />
   );
@@ -12310,11 +12396,17 @@ function TasarimClientContent({ isMobile }) {
                     >
                       <div className="h-full overflow-y-auto overscroll-contain" style={{ touchAction: "pan-y" }}>
                         {showDesignControls && !mobilePanelCollapsed && (
-                          <div className="pb-2 mx-4 mt-4 pointer-events-auto">
+                          <div
+                            className={`mx-4 mt-4 overflow-hidden transition-all duration-200 ease-out ${mobileCategoryStripHidden
+                              ? "max-h-0 translate-y-4 opacity-0 pointer-events-none pb-0"
+                              : "max-h-16 translate-y-0 opacity-100 pointer-events-auto pb-2"
+                              }`}
+                          >
                             <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                               <button
                                 type="button"
                                 onClick={() => {
+                                  setMobileCategoryStripHidden(true);
                                   setMobilePrimaryTab("design");
                                   setPanelProgress(1);
                                   activateDesignTool("print");
@@ -12329,6 +12421,7 @@ function TasarimClientContent({ isMobile }) {
                               <button
                                 type="button"
                                 onClick={() => {
+                                  setMobileCategoryStripHidden(true);
                                   setMobilePrimaryTab("design");
                                   setPanelProgress(1);
                                   activateDesignTool("color");
@@ -12343,6 +12436,7 @@ function TasarimClientContent({ isMobile }) {
                               <button
                                 type="button"
                                 onClick={() => {
+                                  setMobileCategoryStripHidden(true);
                                   setMobilePrimaryTab("design");
                                   setPanelProgress(1);
                                   activateDesignTool("upload");
@@ -12357,6 +12451,7 @@ function TasarimClientContent({ isMobile }) {
                               <button
                                 type="button"
                                 onClick={() => {
+                                  setMobileCategoryStripHidden(true);
                                   setMobilePrimaryTab("design");
                                   setPanelProgress(1);
                                   activateDesignTool("text");
@@ -12390,20 +12485,11 @@ function TasarimClientContent({ isMobile }) {
                               <PrintTypePickerCards
                                 selectedIds={activePrintTypes}
                                 onSelect={togglePrintTypeFromMenu}
+                                onPatternSelect={openPatternToolFromPrintTypes}
+                                patternSelected={activeTab === "pattern" || Boolean(activeSideData?.injectionModelId)}
                                 sourceLabel="Mobil panel sec"
                                 isMobile
                               />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setMobilePrimaryTab("design");
-                                  setPanelProgress(1);
-                                  activateDesignTool("pattern");
-                                }}
-                                className="w-full mt-2 h-10 rounded-xl border border-zinc-300 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide transition hover:border-zinc-900"
-                              >
-                                Desen Ekle
-                              </button>
                             </div>
                           </div>
                         )}
@@ -12619,6 +12705,8 @@ function TasarimClientContent({ isMobile }) {
                   <PrintTypePickerCards
                     selectedIds={activePrintTypes}
                     onSelect={togglePrintTypeFromMenu}
+                    onPatternSelect={openPatternToolFromPrintTypes}
+                    patternSelected={activeTab === "pattern" || Boolean(activeSideData?.injectionModelId)}
                     sourceLabel="Menuden sec"
                     isMobile={isMobile}
                   />
