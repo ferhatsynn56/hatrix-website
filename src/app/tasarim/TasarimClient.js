@@ -10544,6 +10544,7 @@ function TasarimClientContent({ isMobile }) {
     isMobile && activeBottomTab === "tasarla" && !mobilePanelCollapsed && activeTab === "print";
   const mobileDrawerVisibilityRatio = clamp(1 - panelProgress, 0, 1);
   const showMobileBottomTabs = isMobile && flowStep === "design" && !isPlacementPanelVisible && !pickerOpen;
+  const showMobileCategorySelection = !mobilePanelCollapsed && activeBottomTab === "tasarla";
   const mobileBottomTabsOpacity = clamp((mobileDrawerVisibilityRatio - 0.04) / 0.96, 0, 1);
   const mobileDrawerBottom = showMobileBottomTabs
     ? `calc(${(mobileBottomTabsOpacity * 92).toFixed(2)}px + env(safe-area-inset-bottom))`
@@ -12386,7 +12387,7 @@ function TasarimClientContent({ isMobile }) {
                               onClick={() => {
                                 activateDesignTool("print");
                               }}
-                              className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "print"
+                              className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "print"
                                 ? "border-zinc-900 bg-zinc-900 text-white"
                                 : "border-gray-300 bg-white text-gray-800"
                                 }`}
@@ -12398,7 +12399,7 @@ function TasarimClientContent({ isMobile }) {
                               onClick={() => {
                                 activateDesignTool("color");
                               }}
-                              className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "color"
+                              className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "color"
                                 ? "border-zinc-900 bg-zinc-900 text-white"
                                 : "border-gray-300 bg-white text-gray-800"
                                 }`}
@@ -12410,7 +12411,7 @@ function TasarimClientContent({ isMobile }) {
                               onClick={() => {
                                 activateDesignTool("upload");
                               }}
-                              className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "upload"
+                              className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "upload"
                                 ? "border-zinc-900 bg-zinc-900 text-white"
                                 : "border-gray-300 bg-white text-gray-800"
                                 }`}
@@ -12422,7 +12423,7 @@ function TasarimClientContent({ isMobile }) {
                               onClick={() => {
                                 activateDesignTool("text");
                               }}
-                              className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${activeTab === "text"
+                              className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "text"
                                 ? "border-zinc-900 bg-zinc-900 text-white"
                                 : "border-gray-300 bg-white text-gray-800"
                                 }`}
