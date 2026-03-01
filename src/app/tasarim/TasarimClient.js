@@ -10545,12 +10545,13 @@ function TasarimClientContent({ isMobile }) {
   const mobileDrawerVisibilityRatio = clamp(1 - panelProgress, 0, 1);
   const showMobileBottomTabs = isMobile && flowStep === "design" && !isPlacementPanelVisible && !pickerOpen;
   const showMobileCategorySelection = !mobilePanelCollapsed && activeBottomTab === "tasarla";
-  const mobileBottomTabsOpacity = clamp((mobileDrawerVisibilityRatio - 0.04) / 0.96, 0, 1);
+  const mobileBottomTabsOffset = showMobileBottomTabs ? 92 : 0;
+  const mobileBottomTabsOpacity = showMobileBottomTabs ? 1 : 0;
   const mobileDrawerBottom = showMobileBottomTabs
-    ? `calc(${(mobileBottomTabsOpacity * 92).toFixed(2)}px + env(safe-area-inset-bottom))`
+    ? `calc(${mobileBottomTabsOffset}px + env(safe-area-inset-bottom))`
     : "0px";
   const mobilePlacementPanelBottom = showMobileBottomTabs
-    ? `calc(${(mobileBottomTabsOpacity * 92).toFixed(2)}px + env(safe-area-inset-bottom) + 8px)`
+    ? `calc(${mobileBottomTabsOffset}px + env(safe-area-inset-bottom) + 8px)`
     : "calc(env(safe-area-inset-bottom) + 8px)";
   const mobileToolbarItems = [
     { id: "model", label: "Model", icon: Layers },
