@@ -305,7 +305,7 @@ const STATIC_PRINT_PROFILES = Object.freeze({
     back: { xMin: -0.2000, xMax: 0.2000, yTop: 0.2700, yBot: -0.2700, z: -0.1547, rotY: Math.PI },
   },
   "yeni-oversize-tshirt": {
-    front: { xMin: -0.2250, xMax: 0.2250, yTop: 0.2800, yBot: -0.3200, z: 0.1542, rotY: 0 },
+    front: { xMin: -0.3200, xMax: 0.3200, yTop: 0.3600, yBot: -0.4000, z: 0.1542, rotY: 0 },
     back: { xMin: -0.2250, xMax: 0.2250, yTop: 0.3000, yBot: -0.3000, z: -0.1547, rotY: Math.PI },
   },
   "yeni-duz-sweat": {
@@ -962,7 +962,22 @@ const getPrintProfile = (modelType, side = "front", hoodieParts = DEFAULT_HOODIE
   const baseSource = cachedSource || staticProfile;
   const base = normalizePrintProfile(baseSource, safeSide, normalized);
   if (safeSide !== "front") return base;
-  return applyHoodiePocketClampToFront(base, normalized, hoodieParts);
+  let nextFront = base;
+  if (normalized === "yeni-oversize-tshirt") {
+    const fullFrontHint = normalizePrintProfile(
+      { xMin: -0.32, xMax: 0.32, yTop: 0.36, yBot: -0.4, z: base.z, rotY: base.rotY },
+      "front",
+      normalized
+    );
+    nextFront = {
+      ...base,
+      xMin: Math.min(base.xMin, fullFrontHint.xMin),
+      xMax: Math.max(base.xMax, fullFrontHint.xMax),
+      yTop: Math.max(base.yTop, fullFrontHint.yTop),
+      yBot: Math.min(base.yBot, fullFrontHint.yBot),
+    };
+  }
+  return applyHoodiePocketClampToFront(nextFront, normalized, hoodieParts);
 };
 
 const getDefaultSideRotationY = (modelType, side = "front", hoodieParts = DEFAULT_HOODIE_PARTS) => {
@@ -8269,6 +8284,7 @@ function TasarimClientContent({ isMobile }) {
   const controlsRef = useRef(null);
   const panelCameraAnimRef = useRef(0);
   const mobileDrawerScrollRef = useRef(null);
+  const mobileDrawerContentAnchorRef = useRef(null);
   const [captureView, setCaptureView] = useState(null);
   const [captureId, setCaptureId] = useState(null);
   const [camAnimating, setCamAnimating] = useState(false);
@@ -9467,8 +9483,10 @@ function TasarimClientContent({ isMobile }) {
   const scrollMobileDrawerToContent = useCallback(() => {
     if (!isMobile) return;
     const scroller = mobileDrawerScrollRef.current;
-    if (!scroller) return;
-    scroller.scrollTo({ top: 88, behavior: "smooth" });
+    const anchor = mobileDrawerContentAnchorRef.current;
+    if (!scroller || !anchor) return;
+    const targetTop = Math.max(0, Number(anchor.offsetTop || 0) - 8);
+    scroller.scrollTo({ top: targetTop, behavior: "smooth" });
   }, [isMobile]);
 
   const handleMobileCategorySelect = useCallback(
@@ -9880,6 +9898,12 @@ function TasarimClientContent({ isMobile }) {
     const nd = createDesign(t);
     setDesigns((prev) => [...prev, nd]);
     setActiveId(nd.id);
+    suppressModelTapTemporarily(1200);
+    if (isMobile) {
+      setMobilePrimaryTab("design");
+      setPanelProgress(1);
+      setActiveTab("color");
+    }
     setPickerOpen(false);
   };
 
@@ -9944,7 +9968,7 @@ function TasarimClientContent({ isMobile }) {
     const others = designs.filter((d) => d.id !== activeId);
     const idx = others.findIndex((d) => d.id === designId);
     if (idx < 0) {
-      return { hidden: false, x: -0.8, z: -0.8, rotY: sceneRotY + 0.7, scale: isMobile ? 0.75 : 0.86 };
+      return { hidden: false, x: -0.54, z: -0.54, rotY: sceneRotY + 0.7, scale: isMobile ? 0.76 : 0.87 };
     }
 
     if (isMobile) {
@@ -9953,10 +9977,10 @@ function TasarimClientContent({ isMobile }) {
       const row = Math.floor(idx / columns);
       return {
         hidden: false,
-        x: -0.58 - col * 0.52,
-        z: -0.78 - row * 0.56 - col * 0.05,
+        x: -0.42 - col * 0.32,
+        z: -0.54 - row * 0.34 - col * 0.03,
         rotY: sceneRotY + 0.66,
-        scale: 0.74,
+        scale: 0.76,
       };
     }
     const columns = 3;
@@ -9964,10 +9988,10 @@ function TasarimClientContent({ isMobile }) {
     const row = Math.floor(idx / columns);
     return {
       hidden: false,
-      x: -0.92 - col * 0.48,
-      z: -0.8 - row * 0.58 - col * 0.04,
+      x: -0.68 - col * 0.34,
+      z: -0.6 - row * 0.38 - col * 0.03,
       rotY: sceneRotY + 0.8,
-      scale: 0.85,
+      scale: 0.87,
     };
   };
 
@@ -10756,6 +10780,12 @@ function TasarimClientContent({ isMobile }) {
     />
   );
 
+  const orderedSceneDesigns = useMemo(() => {
+    const activeSceneDesign = designs.find((d) => d.id === activeId) || null;
+    if (!activeSceneDesign) return designs;
+    return [...designs.filter((d) => d.id !== activeId), activeSceneDesign];
+  }, [designs, activeId]);
+
   if (flowStep === "select") {
     return (
       <ModelSelectionPanel
@@ -11101,7 +11131,7 @@ function TasarimClientContent({ isMobile }) {
                 <CameraAxisLock controlsRef={controlsRef} enabled={isMobile && flowStep === "design"} />
 
                 <Suspense fallback={<ThreeDotsLoader />}>
-                  {designs.map((design) => {
+                  {orderedSceneDesigns.map((design) => {
                     const layout = layoutFor(design.id);
                     return (
                       <DesignModelItem
@@ -12576,6 +12606,7 @@ function TasarimClientContent({ isMobile }) {
                             </div>
                           </div>
                         )}
+                        <div ref={mobileDrawerContentAnchorRef} className="h-px w-full" />
                         {showPrintTypes && (
                           <div className="mx-4 mt-[10px] rounded-2xl border border-gray-200 bg-white shadow-sm pointer-events-auto">
                             <div className="p-3 space-y-2 pointer-events-auto">
