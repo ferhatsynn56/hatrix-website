@@ -6956,6 +6956,7 @@ function EditorPanel({
   suppressEditorInPanel = false,
   onOpenCategoryMenu,
   onOpenPatternPicker,
+  hasPrintAreaSelection = false,
   printTypePickerSignal = 0,
 }) {
   const isZipperFront = hasCenterZip(design.modelType) && view === "front";
@@ -6997,8 +6998,16 @@ function EditorPanel({
     setActiveTab("color");
   }, [printTypePickerSignal, setActiveTab]);
 
+  const ensurePanelPrintAreaSelection = (fallbackTab = null) => {
+    if (hasPrintAreaSelection) return true;
+    alert("Önce model üzerinde ön, arka veya kol baskı alanı seçmelisin.");
+    if (fallbackTab) setActiveTab(fallbackTab);
+    return false;
+  };
+
   const commitEditorTextDraft = (nextText) => {
     if (!design) return;
+    if (!ensurePanelPrintAreaSelection("color")) return;
     startTextCommitTransition(() => {
       const liveSideData = normalizeSideData(design?.sides?.[currentSide]);
       const committedText = liveSideData?.customText?.text || "";
@@ -7118,6 +7127,7 @@ function EditorPanel({
   };
 
   const applyTextTechnique = (nextTechnique, { fromImageAction = false } = {}) => {
+    if (!ensurePanelPrintAreaSelection("color")) return false;
     const technique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.DTF);
     if (technique === PRINT_TECHNIQUES.RUBBER && !(printTypes || []).includes("rubber")) {
       alert("Rubber yazı için önce Baskı Seçim alanından Rubber seçmelisin.");
@@ -7320,6 +7330,7 @@ function EditorPanel({
   const handleSelectPrintTypeFromPanel = (id) => {
     const opt = PRINT_TYPE_OPTIONS.find((entry) => entry.id === id);
     if (!opt?.available) return;
+    if (!ensurePanelPrintAreaSelection("color")) return;
     if (currentView === "back") {
       togglePrintType(id);
       return;
@@ -7929,44 +7940,49 @@ function EditorPanel({
               <div className="flex items-center justify-between gap-2">
                 <p className={drawerHeadingClass}>Yazı</p>
               </div>
-
-              <div className="space-y-3">
-                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 space-y-2">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Metin</p>
-                  <DebouncedTextDraftInput
-                    key={editorTextKey}
-                    committedText={t.text || ""}
-                    onCommit={commitEditorTextDraft}
-                    pending={isTextCommitPending}
-                    maxLength={56}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-[16px] md:text-[12px] font-semibold text-gray-800"
-                    placeholder=""
-                  />
+              {!hasPrintAreaSelection ? (
+                <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-3 text-[11px] font-semibold text-gray-600">
+                  Önce model üzerinde ön, arka veya kol baskı alanı seçmelisin.
                 </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Metin</p>
+                    <DebouncedTextDraftInput
+                      key={editorTextKey}
+                      committedText={t.text || ""}
+                      onCommit={commitEditorTextDraft}
+                      pending={isTextCommitPending}
+                      maxLength={56}
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-[16px] md:text-[12px] font-semibold text-gray-800"
+                      placeholder=""
+                    />
+                  </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!String(t.text || "").trim()) {
-                        bumpText({ text: "YAZI" });
-                      }
-                      setActiveTab("editor");
-                      if (isMobileDrawer) onRequestDrawerCollapse?.();
-                    }}
-                    className="h-9 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase flex items-center justify-center gap-2"
-                  >
-                    <Move size={14} /> Modelde Düzenle
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => bumpText({ text: "" })}
-                    className="h-9 rounded-lg border border-red-200 bg-red-50 text-red-600 text-[10px] font-black uppercase flex items-center justify-center gap-1.5"
-                  >
-                    <Trash2 size={14} /> Sil
-                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!String(t.text || "").trim()) {
+                          bumpText({ text: "YAZI" });
+                        }
+                        setActiveTab("editor");
+                        if (isMobileDrawer) onRequestDrawerCollapse?.();
+                      }}
+                      className="h-9 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase flex items-center justify-center gap-2"
+                    >
+                      <Move size={14} /> Modelde Düzenle
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => bumpText({ text: "" })}
+                      className="h-9 rounded-lg border border-red-200 bg-red-50 text-red-600 text-[10px] font-black uppercase flex items-center justify-center gap-1.5"
+                    >
+                      <Trash2 size={14} /> Sil
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}
@@ -8650,6 +8666,7 @@ function TasarimClientContent({ isMobile }) {
   };
 
   const applySceneTextTechnique = (nextTechnique) => {
+    if (!ensurePrintAreaSelection("print")) return false;
     const technique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.DTF);
     if (technique === PRINT_TECHNIQUES.RUBBER && !activeSidePrintTypes.includes("rubber")) {
       alert("Rubber yazı için önce Baskı Seçim alanından Rubber seçmelisin.");
@@ -8735,15 +8752,7 @@ function TasarimClientContent({ isMobile }) {
 
     try {
       let sourceFile = null;
-      const inStateFile =
-        targetLogo?.sourceFile instanceof File
-          ? targetLogo.sourceFile
-          : logoSourceFilesRef.current.get(targetLogoId) instanceof File
-            ? logoSourceFilesRef.current.get(targetLogoId)
-            : null;
-      if (inStateFile instanceof File) {
-        sourceFile = inStateFile;
-      } else {
+      const buildUploadFileFromSourceUrl = async () => {
         const sourceResponse = await fetch(sourceUrl);
         if (!sourceResponse.ok) {
           throw new Error("Seçili görsel okunamadı.");
@@ -8752,9 +8761,32 @@ function TasarimClientContent({ isMobile }) {
         if (!sourceBlob || sourceBlob.size === 0) {
           throw new Error("Seçili görsel verisi bulunamadı.");
         }
-        const sourceType = sourceBlob.type || "image/png";
-        const ext = sourceType.includes("jpeg") ? "jpg" : sourceType.includes("webp") ? "webp" : "png";
-        sourceFile = new File([sourceBlob], `upload.${ext}`, { type: sourceType });
+        const sourceType = String(sourceBlob.type || "image/png").toLowerCase();
+        const ext = sourceType.includes("jpeg")
+          ? "jpg"
+          : sourceType.includes("webp")
+            ? "webp"
+            : sourceType.includes("png")
+              ? "png"
+              : "png";
+        return new File([sourceBlob], `upload.${ext}`, { type: sourceType || "image/png" });
+      };
+      const inStateFile =
+        targetLogo?.sourceFile instanceof File
+          ? targetLogo.sourceFile
+          : logoSourceFilesRef.current.get(targetLogoId) instanceof File
+            ? logoSourceFilesRef.current.get(targetLogoId)
+            : null;
+      if (inStateFile instanceof File) {
+        const sourceType = String(inStateFile.type || "").toLowerCase();
+        const problematicSourceFile =
+          !sourceType.startsWith("image/") ||
+          sourceType.includes("heic") ||
+          sourceType.includes("heif") ||
+          Number(inStateFile.size || 0) > 6 * 1024 * 1024;
+        sourceFile = problematicSourceFile ? await buildUploadFileFromSourceUrl() : inStateFile;
+      } else {
+        sourceFile = await buildUploadFileFromSourceUrl();
       }
 
       const formData = new FormData();
@@ -8775,6 +8807,16 @@ function TasarimClientContent({ isMobile }) {
 
       const pngBlob = new Blob([await resultBlob.arrayBuffer()], { type: "image/png" });
       const trimmed = await cropTransparentPng(pngBlob, { alphaThreshold: 1, padding: 6 });
+      const trimmedBlobSize = Number(trimmed?.blob?.size || 0);
+      const emptyTrimmedResult =
+        (Number(trimmed?.width || 0) === 1 && Number(trimmed?.height || 0) === 1) ||
+        trimmedBlobSize <= 96;
+      if (emptyTrimmedResult) {
+        const message = "Arka plan silme sonucu boş geldi (kamera fotoğrafı formatı/HEIC olabilir).";
+        setBgRemovalNotice(message);
+        setBgRemovalNoticeType("error");
+        return;
+      }
       const noBgFile =
         trimmed?.file instanceof File
           ? trimmed.file
@@ -9378,6 +9420,15 @@ function TasarimClientContent({ isMobile }) {
     [activeDesign?.modelType, selectedModelType, safeInitial]
   );
   const hasActivePrintAreaSelection = Boolean(activePrintAreaSelection);
+  const ensurePrintAreaSelection = useCallback(
+    (fallbackTab = null) => {
+      if (hasActivePrintAreaSelection) return true;
+      alert("Önce model üzerinde ön, arka veya kol baskı alanı seçmelisin.");
+      if (fallbackTab) setActiveTab(fallbackTab);
+      return false;
+    },
+    [hasActivePrintAreaSelection]
+  );
 
   useEffect(() => {
     if (!isMobile || !hasActivePrintAreaSelection) return;
@@ -9442,6 +9493,9 @@ function TasarimClientContent({ isMobile }) {
     if (isMobile) {
       setMobilePrimaryTab("design");
       setPanelProgress(0);
+    }
+    if (toolId === "upload" || toolId === "text") {
+      if (!ensurePrintAreaSelection()) return;
     }
     if (toolId === "upload") {
       if (!hasDtfForActiveSide) {
@@ -9570,6 +9624,10 @@ function TasarimClientContent({ isMobile }) {
   const togglePrintTypeFromMenu = (typeId) => {
     const opt = PRINT_TYPE_OPTIONS.find((entry) => entry.id === typeId);
     if (!opt?.available) return;
+    if (!ensurePrintAreaSelection("print")) {
+      setDrawerMenuOpen(false);
+      return;
+    }
     if (currentView === "back") {
       // Back view uses independent side state; keep print selection actions side-scoped.
     }
@@ -9718,6 +9776,10 @@ function TasarimClientContent({ isMobile }) {
   };
 
   const selectMenuTab = (id) => {
+    if ((id === "upload" || id === "text") && !ensurePrintAreaSelection()) {
+      setDrawerMenuOpen(false);
+      return;
+    }
     setActiveTab(id);
     setDrawerMenuOpen(false);
   };
@@ -10776,6 +10838,7 @@ function TasarimClientContent({ isMobile }) {
       suppressEditorInPanel={!isMobile && forceEditorOverlay}
       onOpenCategoryMenu={openDrawerMenu}
       onOpenPatternPicker={openPatternToolFromPrintTypes}
+      hasPrintAreaSelection={hasActivePrintAreaSelection}
       printTypePickerSignal={printTypePickerSignal}
     />
   );
@@ -12368,6 +12431,7 @@ function TasarimClientContent({ isMobile }) {
                   setActiveTab={setActiveTab}
                   layout="standard"
                   onRequestDrawerCollapse={() => setDrawerOpen(false)}
+                  hasPrintAreaSelection={hasActivePrintAreaSelection}
                   printTypePickerSignal={printTypePickerSignal}
                 />
               </div>
