@@ -6979,7 +6979,7 @@ function EditorPanel({
   useEffect(() => {
     if (printTypePickerSignal <= lastHandledPrintSignalRef.current) return;
     lastHandledPrintSignalRef.current = printTypePickerSignal;
-    setActiveTab("print");
+    setActiveTab("color");
   }, [printTypePickerSignal, setActiveTab]);
 
   const commitEditorTextDraft = (nextText) => {
@@ -7104,6 +7104,11 @@ function EditorPanel({
 
   const applyTextTechnique = (nextTechnique, { fromImageAction = false } = {}) => {
     const technique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.DTF);
+    if (technique === PRINT_TECHNIQUES.RUBBER && !(printTypes || []).includes("rubber")) {
+      alert("Rubber yazı için önce Baskı Seçim alanından Rubber seçmelisin.");
+      setActiveTab("print");
+      return false;
+    }
     bumpText(
       technique === PRINT_TECHNIQUES.RUBBER
         ? { technique, font: RUBBER_FONT_OPTION.value }
@@ -7199,7 +7204,9 @@ function EditorPanel({
       return;
     }
     if (!dtfActiveForSide) {
-      applyTextTechnique(PRINT_TECHNIQUES.DTF, { fromImageAction: true });
+      e.preventDefault();
+      alert("Önce Baskı Seçim alanından DTF seçmelisin.");
+      setActiveTab("print");
     }
   };
 
@@ -7210,7 +7217,10 @@ function EditorPanel({
     try {
       if (!canUploadMoreLogos) return;
       if (!dtfActiveForSide) {
-        applyTextTechnique(PRINT_TECHNIQUES.DTF, { fromImageAction: true });
+        alert("Önce Baskı Seçim alanından DTF seçmelisin.");
+        setActiveTab("print");
+        inputEl.value = "";
+        return;
       }
       const file = inputEl.files?.[0] || null;
       if (!file) return;
@@ -7685,7 +7695,9 @@ function EditorPanel({
                                     return;
                                   }
                                   if (!dtfActiveForSide) {
-                                    applyTextTechnique(PRINT_TECHNIQUES.DTF, { fromImageAction: true });
+                                    e.preventDefault();
+                                    alert("Önce Baskı Seçim alanından DTF seçmelisin.");
+                                    setActiveTab("print");
                                   }
                                 }}
                                 className={`w-full h-full flex flex-col items-start justify-center pl-4 gap-1 cursor-pointer pointer-events-auto relative z-[3] ${canUploadMoreLogos ? "text-gray-600 hover:bg-gray-100" : "text-gray-400 cursor-not-allowed"
@@ -8106,7 +8118,7 @@ function TasarimClientContent({ isMobile }) {
   const router = useRouter();
 
   // ✅ activeTab artık burada (hata bitti)
-  const [activeTab, setActiveTab] = useState("print");
+  const [activeTab, setActiveTab] = useState("color");
   const [mobilePrimaryTab, setMobilePrimaryTab] = useState("design");
   // Unified bottom-sheet state: 0=open, 1=collapsed.
   const [panelProgress, setPanelProgress] = useState(1);
@@ -8256,6 +8268,7 @@ function TasarimClientContent({ isMobile }) {
   const cameraRef = useRef(null);
   const controlsRef = useRef(null);
   const panelCameraAnimRef = useRef(0);
+  const mobileDrawerScrollRef = useRef(null);
   const [captureView, setCaptureView] = useState(null);
   const [captureId, setCaptureId] = useState(null);
   const [camAnimating, setCamAnimating] = useState(false);
@@ -8622,6 +8635,11 @@ function TasarimClientContent({ isMobile }) {
 
   const applySceneTextTechnique = (nextTechnique) => {
     const technique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.DTF);
+    if (technique === PRINT_TECHNIQUES.RUBBER && !activeSidePrintTypes.includes("rubber")) {
+      alert("Rubber yazı için önce Baskı Seçim alanından Rubber seçmelisin.");
+      setActiveTab("print");
+      return false;
+    }
     bumpCustomText(
       technique === PRINT_TECHNIQUES.RUBBER
         ? { technique, font: RUBBER_FONT_OPTION.value }
@@ -9124,7 +9142,7 @@ function TasarimClientContent({ isMobile }) {
   }, [isMobile, modelCount, isIOSDevice, runtimeLowPerfMode]);
 
   // Mobile drawer
-  const DRAWER_PEEK = 76;
+  const DRAWER_PEEK = 132;
   const CONTROLS_GAP = 56;
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerHeight, setDrawerHeight] = useState(0);
@@ -9289,7 +9307,7 @@ function TasarimClientContent({ isMobile }) {
     setSelectedModelType(restored[0].modelType);
     setView("front");
     setFlowStep("design");
-    setActiveTab("print");
+    setActiveTab("color");
     setMobilePrimaryTab("design");
     setPanelProgress(1);
     setForceEditorOverlay(false);
@@ -9389,18 +9407,17 @@ function TasarimClientContent({ isMobile }) {
   };
   const handleSelectMobilePrimaryTab = (tabId) => {
     if (!isMobile) return;
+    const isPanelCollapsed = panelProgress >= 0.98;
     if (tabId === "model") {
       setMobilePrimaryTab("model");
       setPanelProgress(0);
       return;
     }
     setMobilePrimaryTab("design");
-    if (!["print", "upload", "text", "pattern", "editor", "color"].includes(activeTab)) {
-      const activeViewSide = resolveEditableSide(view);
-      const currentSideHasDtf =
-        getPrintTypesForSide(activeDesign, activeViewSide).includes("dtf") ||
-        Boolean((activeDesign?.sides?.[activeViewSide]?.logos || []).length);
-      setActiveTab(currentSideHasDtf ? "upload" : "print");
+    if (mobilePrimaryTab !== "design" || isPanelCollapsed) {
+      setActiveTab("color");
+    } else if (!["print", "upload", "text", "pattern", "editor", "color"].includes(activeTab)) {
+      setActiveTab("color");
     }
     setPanelProgress(0);
   };
@@ -9411,13 +9428,10 @@ function TasarimClientContent({ isMobile }) {
       setPanelProgress(0);
     }
     if (toolId === "upload") {
-      // Always switch tab, try to apply technique but don't block
       if (!hasDtfForActiveSide) {
-        try {
-          applyTechniqueToActiveSide(PRINT_TECHNIQUES.DTF, { updateTextTechnique: false });
-        } catch (e) {
-          console.error("Auto-apply DTF failed", e);
-        }
+        alert("Önce Baskı Seçim alanından DTF seçmelisin.");
+        setActiveTab("print");
+        return;
       }
       setActiveTab("upload");
       return;
@@ -9449,6 +9463,26 @@ function TasarimClientContent({ isMobile }) {
     setDrawerMenuOpen(false);
     setActiveTab("pattern");
   };
+
+  const scrollMobileDrawerToContent = useCallback(() => {
+    if (!isMobile) return;
+    const scroller = mobileDrawerScrollRef.current;
+    if (!scroller) return;
+    scroller.scrollTo({ top: 88, behavior: "smooth" });
+  }, [isMobile]);
+
+  const handleMobileCategorySelect = useCallback(
+    (toolId) => {
+      const wasCollapsed = panelProgress >= 0.98;
+      activateDesignTool(toolId);
+      if (!isMobile) return;
+      const delay = wasCollapsed ? 260 : 80;
+      window.setTimeout(() => {
+        scrollMobileDrawerToContent();
+      }, delay);
+    },
+    [activateDesignTool, isMobile, panelProgress, scrollMobileDrawerToContent]
+  );
 
   const openPrintTypePickerFromHeader = () => {
     setSelectedModelType(activeDesign?.modelType || selectedModelType || safeInitial);
@@ -10545,8 +10579,10 @@ function TasarimClientContent({ isMobile }) {
   const mobileDrawerVisibilityRatio = clamp(1 - panelProgress, 0, 1);
   const showMobileBottomTabs = isMobile && flowStep === "design" && !isPlacementPanelVisible && !pickerOpen;
   const showMobileCategorySelection = !mobilePanelCollapsed && activeBottomTab === "tasarla";
-  const mobileBottomTabsOffset = showMobileBottomTabs ? 92 : 0;
-  const mobileBottomTabsOpacity = showMobileBottomTabs ? 1 : 0;
+  const showMobileBottomTabsInPeek = showMobileBottomTabs && mobilePanelCollapsed;
+  const showFloatingMobileBottomTabs = showMobileBottomTabs && !mobilePanelCollapsed;
+  const mobileBottomTabsOffset = showFloatingMobileBottomTabs ? 92 : 0;
+  const mobileBottomTabsOpacity = showFloatingMobileBottomTabs ? 1 : 0;
   const mobileDrawerBottom = showMobileBottomTabs
     ? `calc(${mobileBottomTabsOffset}px + env(safe-area-inset-bottom))`
     : "0px";
@@ -12350,7 +12386,7 @@ function TasarimClientContent({ isMobile }) {
                 {isMobile ? (
                   <>
                     <div
-                      className={`relative z-[20] bg-[#eef0f4] ${mobilePanelCollapsed ? "px-4 pt-5 pb-2" : "px-4 pt-5 pb-2 border-b border-black/10"
+                      className={`relative z-[20] bg-[#eef0f4] ${mobilePanelCollapsed ? "px-4 pt-5 pb-3" : "px-4 pt-5 pb-2 border-b border-black/10"
                         }`}
                     >
                       <button type="button"
@@ -12380,25 +12416,13 @@ function TasarimClientContent({ isMobile }) {
                         </span>
                       </button>
 
-                      {showDesignControls && (
+                      {showDesignControls && mobilePanelCollapsed && (
                         <div className={`pointer-events-auto ${mobilePanelCollapsed ? "pt-2" : "pt-1"}`}>
                           <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                             <button
                               type="button"
                               onClick={() => {
-                                activateDesignTool("print");
-                              }}
-                              className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "print"
-                                ? "border-zinc-900 bg-zinc-900 text-white"
-                                : "border-gray-300 bg-white text-gray-800"
-                                }`}
-                            >
-                              Baskı<br />Seçim
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                activateDesignTool("color");
+                                handleMobileCategorySelect("color");
                               }}
                               className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "color"
                                 ? "border-zinc-900 bg-zinc-900 text-white"
@@ -12410,7 +12434,19 @@ function TasarimClientContent({ isMobile }) {
                             <button
                               type="button"
                               onClick={() => {
-                                activateDesignTool("upload");
+                                handleMobileCategorySelect("print");
+                              }}
+                              className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "print"
+                                ? "border-zinc-900 bg-zinc-900 text-white"
+                                : "border-gray-300 bg-white text-gray-800"
+                                }`}
+                            >
+                              Baskı<br />Seçim
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleMobileCategorySelect("upload");
                               }}
                               className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "upload"
                                 ? "border-zinc-900 bg-zinc-900 text-white"
@@ -12422,7 +12458,7 @@ function TasarimClientContent({ isMobile }) {
                             <button
                               type="button"
                               onClick={() => {
-                                activateDesignTool("text");
+                                handleMobileCategorySelect("text");
                               }}
                               className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "text"
                                 ? "border-zinc-900 bg-zinc-900 text-white"
@@ -12440,6 +12476,31 @@ function TasarimClientContent({ isMobile }) {
                               Menü
                             </button>
                           </div>
+                          {showMobileBottomTabsInPeek && (
+                            <div className="grid grid-cols-2 gap-2 pt-2">
+                              {mobileToolbarItems.map((item) => {
+                                const Icon = item.icon;
+                                const isActive = mobilePrimaryTab === item.id;
+                                return (
+                                  <button
+                                    key={`mobile-peek-primary-tab-${item.id}`}
+                                    type="button"
+                                    onClick={() => handleSelectMobilePrimaryTab(item.id)}
+                                    className={`h-11 rounded-xl border text-[11px] font-black uppercase tracking-wide transition-transform duration-150 active:scale-[0.985] ${isActive
+                                      ? "border-zinc-900 bg-zinc-900 text-white"
+                                      : "border-zinc-300 bg-white text-zinc-700"
+                                      }`}
+                                    aria-label={`${item.label} sekmesini aç`}
+                                  >
+                                    <span className="flex items-center justify-center gap-1.5">
+                                      <Icon size={14} />
+                                      {item.label}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -12448,7 +12509,73 @@ function TasarimClientContent({ isMobile }) {
                       className={`relative z-[15] flex-1 min-h-0 transition-opacity duration-200 ${mobilePanelCollapsed ? "opacity-0 pointer-events-none" : "opacity-100 pointer-events-auto"
                         }`}
                     >
-                      <div className="h-full overflow-y-auto overscroll-contain" style={{ touchAction: "pan-y" }}>
+                      <div
+                        ref={mobileDrawerScrollRef}
+                        className="h-full overflow-y-auto overscroll-contain"
+                        style={{ touchAction: "pan-y" }}
+                      >
+                        {showDesignControls && !mobilePanelCollapsed && (
+                          <div className="mx-4 mt-3 pb-2 pointer-events-auto">
+                            <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleMobileCategorySelect("color");
+                                }}
+                                className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "color"
+                                  ? "border-zinc-900 bg-zinc-900 text-white"
+                                  : "border-gray-300 bg-white text-gray-800"
+                                  }`}
+                              >
+                                Renk
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleMobileCategorySelect("print");
+                                }}
+                                className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "print"
+                                  ? "border-zinc-900 bg-zinc-900 text-white"
+                                  : "border-gray-300 bg-white text-gray-800"
+                                  }`}
+                              >
+                                Baskı<br />Seçim
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleMobileCategorySelect("upload");
+                                }}
+                                className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "upload"
+                                  ? "border-zinc-900 bg-zinc-900 text-white"
+                                  : "border-gray-300 bg-white text-gray-800"
+                                  }`}
+                              >
+                                Görsel<br />Yükle
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleMobileCategorySelect("text");
+                                }}
+                                className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "text"
+                                  ? "border-zinc-900 bg-zinc-900 text-white"
+                                  : "border-gray-300 bg-white text-gray-800"
+                                  }`}
+                              >
+                                Yazı<br />Ekle
+                              </button>
+                              <button
+                                type="button"
+                                onClick={openDrawerMenu}
+                                className="h-10 min-w-[96px] rounded-xl border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center justify-center gap-1"
+                              >
+                                <Menu size={14} />
+                                Menü
+                              </button>
+                            </div>
+                          </div>
+                        )}
                         {showPrintTypes && (
                           <div className="mx-4 mt-[10px] rounded-2xl border border-gray-200 bg-white shadow-sm pointer-events-auto">
                             <div className="p-3 space-y-2 pointer-events-auto">
@@ -12592,7 +12719,7 @@ function TasarimClientContent({ isMobile }) {
             </div>
           )}
 
-          {showMobileBottomTabs && (
+          {showFloatingMobileBottomTabs && (
             <div
               className="fixed left-0 right-0 z-[70] border-t border-black/10 bg-[#e9eaee] px-3 pt-2.5"
               style={{
