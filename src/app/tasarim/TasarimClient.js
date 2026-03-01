@@ -9124,7 +9124,7 @@ function TasarimClientContent({ isMobile }) {
   }, [isMobile, modelCount, isIOSDevice, runtimeLowPerfMode]);
 
   // Mobile drawer
-  const DRAWER_PEEK = 56;
+  const DRAWER_PEEK = 76;
   const CONTROLS_GAP = 56;
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerHeight, setDrawerHeight] = useState(0);
@@ -12348,7 +12348,7 @@ function TasarimClientContent({ isMobile }) {
                 {isMobile ? (
                   <>
                     <div
-                      className={`relative z-[20] bg-[#eef0f4] ${mobilePanelCollapsed ? "px-4 pt-2 pb-2" : "px-4 pt-3 pb-2 border-b border-black/10"
+                      className={`relative z-[20] bg-[#eef0f4] ${mobilePanelCollapsed ? "px-4 pt-5 pb-2" : "px-4 pt-5 pb-2 border-b border-black/10"
                         }`}
                     >
                       <button type="button"
