@@ -6630,10 +6630,10 @@ function ModelSelectionCardPreview({
         <div className="absolute inset-0">
           <Canvas
             frameloop="always"
-            dpr={isMobileViewport ? [1, 1.35] : [1, 1.3]}
+            dpr={isMobileViewport ? [1, 1.55] : [1, 1.6]}
             camera={{ position: [0, 0.28, 2.12], fov: 30 }}
             gl={{
-              antialias: false,
+              antialias: true,
               alpha: false,
               powerPreference: "high-performance",
             }}
@@ -9252,17 +9252,17 @@ function TasarimClientContent({ isMobile }) {
       const isTier2 = tier === 2;
 
       return {
-        dpr: lowPerformanceMode ? (isTier1 ? 1.0 : 1.15) : isTier1 ? 1.1 : isTier2 ? 1.25 : 1.35,
-        antialias: !isTier1 && !isTier2 && !lowPerformanceMode,
-        shadowMap: isTier1 ? 0 : isTier2 ? 128 : 512,
+        dpr: lowPerformanceMode ? (isTier1 ? 1.1 : 1.25) : isTier1 ? 1.25 : isTier2 ? 1.45 : 1.65,
+        antialias: !(isTier1 && lowPerformanceMode),
+        shadowMap: isTier1 ? 0 : isTier2 ? 256 : 640,
         powerPreference: "default",
         lowPerformanceMode,
         runtimeLowPerformanceMode: runtimeLow,
-        activeCanvasSize: lowPerformanceMode ? (isTier1 ? 1024 : 1280) : isTier1 ? 1280 : isTier2 ? 1792 : 2304,
-        idleCanvasSize: lowPerformanceMode ? (isTier1 ? 640 : 896) : isTier1 ? 896 : 1280,
+        activeCanvasSize: lowPerformanceMode ? (isTier1 ? 1280 : 1536) : isTier1 ? 1536 : isTier2 ? 2304 : 3072,
+        idleCanvasSize: lowPerformanceMode ? (isTier1 ? 896 : 1152) : isTier1 ? 1152 : 1536,
         canvasUpdateDebounceMs: lowPerformanceMode ? 80 : isTier1 ? 64 : 36,
         exportCanvasSize: 2048, // Always keep high for export if possible, or tier based? User said scale upload.
-        anisotropyCap: lowPerformanceMode ? (isTier1 ? 2 : 4) : isTier1 ? 4 : isTier2 ? 8 : 12,
+        anisotropyCap: lowPerformanceMode ? (isTier1 ? 4 : 6) : isTier1 ? 8 : isTier2 ? 12 : 16,
         enableMipmaps: !isTier1 || !lowPerformanceMode,
         disableEmbossDecals: isTier1,
         disableShadows: isTier1,
@@ -9272,17 +9272,17 @@ function TasarimClientContent({ isMobile }) {
       };
     }
     return {
-      dpr: heavy ? 1.3 : 1.6,
-      antialias: !heavy,
-      shadowMap: heavy ? 448 : 640,
+      dpr: heavy ? 1.6 : 1.9,
+      antialias: true,
+      shadowMap: heavy ? 640 : 768,
       powerPreference: "high-performance",
       lowPerformanceMode: false,
       runtimeLowPerformanceMode: false,
-      activeCanvasSize: heavy ? 3072 : 3840,
-      idleCanvasSize: heavy ? 2048 : 2304,
+      activeCanvasSize: heavy ? 3584 : 4096,
+      idleCanvasSize: heavy ? 2560 : 3072,
       canvasUpdateDebounceMs: heavy ? 28 : 16,
-      exportCanvasSize: heavy ? 2048 : 2304,
-      anisotropyCap: heavy ? 8 : 12,
+      exportCanvasSize: heavy ? 2304 : 3072,
+      anisotropyCap: 16,
       enableMipmaps: true,
       disableEmbossDecals: false,
       disableShadows: false,
@@ -10963,7 +10963,7 @@ function TasarimClientContent({ isMobile }) {
           <div className="w-full pointer-events-auto grid grid-cols-[auto_1fr_auto] items-center gap-2">
             <button type="button"
               onClick={openPrintTypePickerFromHeader}
-              className="h-9 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
+              className="h-9 px-4 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg hover:bg-zinc-100 flex items-center justify-center"
               aria-label="Model secimine don"
             >
               Geri
@@ -11017,7 +11017,7 @@ function TasarimClientContent({ isMobile }) {
             <div className="flex items-start gap-3 pointer-events-auto">
               <button type="button"
                 onClick={openPrintTypePickerFromHeader}
-                className="mt-0.5 h-8 px-3 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center text-[10px] font-black uppercase tracking-wide shadow-sm"
+                className="mt-0.5 px-4 py-2 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg hover:bg-zinc-100 flex items-center justify-center"
                 aria-label="Model secimine don"
               >
                 Geri
