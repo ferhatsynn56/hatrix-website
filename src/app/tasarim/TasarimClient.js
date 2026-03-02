@@ -11291,7 +11291,10 @@ function TasarimClientContent({ isMobile }) {
                   onAnimatingChange={setCamAnimating}
                   modelType={activeDesign?.modelType || safeInitial}
                 />
-                <CameraAxisLock controlsRef={controlsRef} enabled={isMobile && flowStep === "design"} />
+                <CameraAxisLock
+                  controlsRef={controlsRef}
+                  enabled={isMobile && flowStep === "design" && !isSleeveFocusedView}
+                />
 
                 <Suspense fallback={<ThreeDotsLoader />}>
                   {orderedSceneDesigns.map((design) => {
@@ -12195,9 +12198,10 @@ function TasarimClientContent({ isMobile }) {
                 className="relative w-full h-full touch-none pointer-events-none"
                 style={{ touchAction: "none" }}
               >
-                {(logos || []).map((l) => {
+                {(logos || []).map((l, logoIdx) => {
                   const isSelected = selectedSceneType === "logo" && selectedSceneId === l.id;
                   const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
+                  const selectedLogoPassThrough = isSelected && selectableSceneItems.length > 1;
                   return (
                     <div
                       key={`scene-logo-${l.id}`}
@@ -12210,8 +12214,14 @@ function TasarimClientContent({ isMobile }) {
                         top: `${(box.y - box.h / 2) * 100}%`,
                         width: `${box.w * 100}%`,
                         height: `${box.h * 100}%`,
-                        pointerEvents: isMobile && mobilePanelCollapsed ? "none" : "auto",
+                        pointerEvents:
+                          isMobile && mobilePanelCollapsed
+                            ? "none"
+                            : selectedLogoPassThrough
+                              ? "none"
+                              : "auto",
                         touchAction: "none",
+                        zIndex: isSelected ? 50 : 52 + logoIdx,
                       }}
                       onPointerDown={(e) => {
                         e.preventDefault();
@@ -12335,7 +12345,8 @@ function TasarimClientContent({ isMobile }) {
                       top: `${(sceneInjectionBox.y - sceneInjectionBox.h / 2) * 100}%`,
                       width: `${sceneInjectionBox.w * 100}%`,
                       height: `${sceneInjectionBox.h * 100}%`,
-                      pointerEvents: "auto",
+                      pointerEvents:
+                        showSceneInjectionFrame && selectableSceneItems.length > 1 ? "none" : "auto",
                       touchAction: "none",
                       zIndex: showSceneInjectionFrame ? 63 : 62,
                     }}
@@ -12436,7 +12447,9 @@ function TasarimClientContent({ isMobile }) {
                         pointerEvents:
                           isMobile && mobilePanelCollapsed
                             ? "none"
-                            : "auto",
+                            : showSceneTextFrame && selectableSceneItems.length > 1
+                              ? "none"
+                              : "auto",
                         touchAction: "none",
                         zIndex: showSceneTextFrame ? 62 : 61,
                       }}
