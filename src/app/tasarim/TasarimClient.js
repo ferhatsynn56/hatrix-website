@@ -5700,6 +5700,7 @@ function ResizeFrame({
   dragBounds = null,
   minWidth = 0.12,
   minHeight = 0.12,
+  enableBodyDrag = true,
 }) {
   const dragRef = useRef(null);
   const rafRef = useRef(0);
@@ -5942,7 +5943,7 @@ function ResizeFrame({
 
   return (
     <div
-      className={`absolute border-2 rounded-lg group ${transformMode === "rotate" ? "border-cyan-300/90 border-dashed" : "border-white/75 cursor-grab active:cursor-grabbing"
+      className={`absolute border-2 rounded-lg group ${transformMode === "rotate" ? "border-cyan-300/90 border-dashed" : "border-white/75"
         }`}
       style={{
         left: pct(box.x - box.w / 2),
@@ -5950,19 +5951,25 @@ function ResizeFrame({
         width: pct(box.w),
         height: pct(box.h),
         touchAction: "none",
-        pointerEvents: "auto",
+        pointerEvents: "none",
         zIndex: 60,
       }}
-      onPointerDown={
-        transformMode === "rotate"
-          ? (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onFrameTap?.();
-          }
-          : (e) => begin("move", e)
-      }
     >
+      {(transformMode === "rotate" || enableBodyDrag) && (
+        <div
+          className={`absolute inset-0 rounded-lg ${transformMode === "rotate" ? "" : "cursor-grab active:cursor-grabbing"}`}
+          style={{ touchAction: "none", pointerEvents: "auto" }}
+          onPointerDown={
+            transformMode === "rotate"
+              ? (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onFrameTap?.();
+              }
+              : (e) => begin("move", e)
+          }
+        />
+      )}
       {!disableResize && transformMode === "resize" &&
         [
           ["lt", 0, 0],
@@ -5984,6 +5991,7 @@ function ResizeFrame({
                 top: `${ty}%`,
                 transform: "translate(-50%, -50%)",
                 touchAction: "none",
+                pointerEvents: "auto",
                 cursor:
                   key === "t" || key === "b"
                     ? "ns-resize"
@@ -6015,6 +6023,7 @@ function ResizeFrame({
               top: `${ty}%`,
               transform: "translate(-50%, -50%)",
               touchAction: "none",
+              pointerEvents: "auto",
               cursor: "grab",
             }}
             onPointerDown={(e) => begin("rotate", e)}
@@ -12212,8 +12221,8 @@ function TasarimClientContent({ isMobile }) {
                           applySceneSelection({ id: l.id, type: "logo", side: currentSide });
                           return;
                         }
-                        if (selectableSceneItems.length > 1) {
-                          cycleSceneSelection("logo");
+                        if (!showPlacementPanel || editorControlTab !== "logo") {
+                          openPlacementPanelFromScene("logo");
                         }
                       }}
                     />
@@ -12228,7 +12237,7 @@ function TasarimClientContent({ isMobile }) {
                     dragBounds={logoDragBounds01}
                     rotation={Number(activeLogo?.rotation) || 0}
                     onRotateChange={(nextRot) => updateActiveLogo({ rotation: nextRot })}
-                    onFrameTap={selectableSceneItems.length > 1 ? () => cycleSceneSelection("logo") : undefined}
+                    onFrameTap={undefined}
                     transformMode="resize"
                     onDragStateChange={setIsLogoDragging}
                     diagonalOnly={lockAspect}
@@ -12236,6 +12245,7 @@ function TasarimClientContent({ isMobile }) {
                     largeHandles={isMobile}
                     minWidth={minLogoSize01.w}
                     minHeight={minLogoSize01.h}
+                    enableBodyDrag={selectableSceneItems.length <= 1}
                   />
                 )}
 
@@ -12325,7 +12335,7 @@ function TasarimClientContent({ isMobile }) {
                       top: `${(sceneInjectionBox.y - sceneInjectionBox.h / 2) * 100}%`,
                       width: `${sceneInjectionBox.w * 100}%`,
                       height: `${sceneInjectionBox.h * 100}%`,
-                      pointerEvents: showSceneInjectionFrame ? "none" : "auto",
+                      pointerEvents: "auto",
                       touchAction: "none",
                       zIndex: showSceneInjectionFrame ? 63 : 62,
                     }}
@@ -12340,9 +12350,9 @@ function TasarimClientContent({ isMobile }) {
                         });
                         return;
                       }
-                        if (selectableSceneItems.length > 1) {
-                          cycleSceneSelection("pattern");
-                        }
+                      if (!showPlacementPanel || editorControlTab !== "logo") {
+                        openPlacementPanelFromScene("pattern");
+                      }
                     }}
                   />
                 )}
@@ -12356,11 +12366,12 @@ function TasarimClientContent({ isMobile }) {
                     onRotateChange={(nextRot) =>
                       updateSide({ injectionRotation: clamp(Math.round(nextRot), -180, 180) })
                     }
-                    onFrameTap={selectableSceneItems.length > 1 ? () => cycleSceneSelection("pattern") : undefined}
+                    onFrameTap={undefined}
                     transformMode="resize"
                     onDragStateChange={setIsLogoDragging}
                     disableResize
                     largeHandles={isMobile}
+                    enableBodyDrag={selectableSceneItems.length <= 1}
                   />
                 )}
 
@@ -12425,9 +12436,7 @@ function TasarimClientContent({ isMobile }) {
                         pointerEvents:
                           isMobile && mobilePanelCollapsed
                             ? "none"
-                            : showSceneTextFrame
-                              ? "none"
-                              : "auto",
+                            : "auto",
                         touchAction: "none",
                         zIndex: showSceneTextFrame ? 62 : 61,
                       }}
@@ -12436,10 +12445,6 @@ function TasarimClientContent({ isMobile }) {
                         e.stopPropagation();
                         if (!sceneTextSelectionVisible) {
                           applySceneSelection({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
-                          return;
-                        }
-                        if (selectableSceneItems.length > 1) {
-                          cycleSceneSelection("text");
                           return;
                         }
                         if (!showPlacementPanel || editorControlTab !== "text") {
@@ -12455,10 +12460,11 @@ function TasarimClientContent({ isMobile }) {
                         onChange={updateTextBoxFromScene}
                         rotation={Number(customText?.rotation) || 0}
                         onRotateChange={(nextRot) => bumpCustomText({ rotation: nextRot })}
-                        onFrameTap={selectableSceneItems.length > 1 ? () => cycleSceneSelection("text") : undefined}
+                        onFrameTap={undefined}
                         transformMode="resize"
                         onDragStateChange={setIsLogoDragging}
                         largeHandles={isMobile}
+                        enableBodyDrag={selectableSceneItems.length <= 1}
                       />
                     )}
 
