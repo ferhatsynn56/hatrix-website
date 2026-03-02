@@ -3920,8 +3920,11 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
       if (!ch) return null;
       const upperTr = ch.toLocaleUpperCase("tr-TR");
       const lowerTr = ch.toLocaleLowerCase("tr-TR");
+      const directMatch = glyphLibrary[ch] || (upperTr === ch ? glyphLibrary[upperTr] : null) || (lowerTr === ch ? glyphLibrary[lowerTr] : null);
+      if (directMatch) return directMatch;
+      // Harflerde case fallback yapma; buyuk harf icin kucuk harf glyph'ini basma.
+      if (upperTr !== lowerTr) return null;
       return (
-        glyphLibrary[ch] ||
         glyphLibrary[upperTr] ||
         glyphLibrary[lowerTr] ||
         glyphLibrary[ch.toUpperCase()] ||
@@ -3995,8 +3998,8 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
         rotDeg = norm * curve * rotMul;
       }
 
-      const top = yRaw + (entry.height || maxRawH);
-      const bottom = yRaw;
+      const top = yRaw + (Number.isFinite(entry.maxY) ? entry.maxY : (entry.height || maxRawH));
+      const bottom = yRaw + (Number.isFinite(entry.minY) ? entry.minY : 0);
       return { entry, baseX, yRaw, rotDeg, top, bottom };
     });
 
@@ -4576,6 +4579,8 @@ function Real3DModel({
         width: Math.max(0.001, size.x),
         height: Math.max(0.001, size.y),
         depth: Math.max(0.0002, size.z),
+        minY: bb.min.y,
+        maxY: bb.max.y,
       };
     });
     return next;
@@ -7002,6 +7007,7 @@ function EditorPanel({
   const stringPresets = ["#e6e6e6", "#ffffff", "#000000", "#c8b08a", "#a0a0a0"];
   const printTypes = design ? getPrintTypesForSide(design, currentSide) : [];
   const sideHasImages = Boolean((sideData?.logos || []).length);
+  const sideHasTextContent = Boolean(String(sideData?.customText?.text || "").trim());
   const sideTextTechnique = normalizePrintTechnique(
     sideData?.customText?.technique,
     printTypeIdsToTechnique(printTypes, PRINT_TECHNIQUES.DTF)
@@ -7009,6 +7015,10 @@ function EditorPanel({
   const dtfActiveForSide =
     printTypes.includes("dtf") || sideHasImages || sideTextTechnique === PRINT_TECHNIQUES.DTF;
   const rubberActiveForSide = sideTextTechnique === PRINT_TECHNIQUES.RUBBER;
+  const panelActiveTab =
+    activeTab === "editor"
+      ? (sideHasTextContent && !sideHasImages ? "text" : "upload")
+      : activeTab;
   const sideHasInjection = Boolean(sideData?.injectionModelId);
   const hoodieParts = normalizeHoodieParts(design?.hoodieV12Parts);
   const hoodiePartOptionsVisible = MODELS_WITH_HOODIE_PARTS.has(design?.modelType);
@@ -7615,7 +7625,7 @@ function EditorPanel({
                   setActiveTab(tab.id);
                   if (tab.id === "upload" && !isMobileDrawer) onRequestDrawerCollapse?.();
                 }}
-                className={`flex-1 py-3 text-[10px] font-bold uppercase flex flex-col items-center gap-1 ${activeTab === tab.id ? "text-white border-b-2 border-white" : "text-zinc-500"
+                className={`flex-1 py-3 text-[10px] font-bold uppercase flex flex-col items-center gap-1 ${panelActiveTab === tab.id ? "text-white border-b-2 border-white" : "text-zinc-500"
                   }`}
               >
                 <tab.icon size={14} /> {tab.label}
@@ -7636,7 +7646,7 @@ function EditorPanel({
         style={{ touchAction: "pan-y", minHeight: 0, backgroundColor: contentBackground }}
       >
         {/* PRINT TYPE */}
-        {activeTab === "print" && (
+        {panelActiveTab === "print" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-stretch justify-start gap-2.5") : "space-y-2.5"}`}>
             <div className={isDrawerLayout ? "w-full" : ""}>
               <PrintTypePickerCards
@@ -7652,7 +7662,7 @@ function EditorPanel({
         )}
 
         {/* PATTERN / ENJEKSİYON */}
-        {activeTab === "pattern" && (
+        {panelActiveTab === "pattern" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-stretch justify-start gap-2.5") : "space-y-2.5"}`}>
             <div className={`rounded-xl border border-gray-200 bg-white p-3 space-y-3 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "w-full min-h-[188px] overflow-hidden") : ""}`}>
               <InjectionPatternPickerCards
@@ -7666,7 +7676,7 @@ function EditorPanel({
         )}
 
         {/* UPLOAD / VISUAL */}
-        {activeTab === "upload" && (
+        {panelActiveTab === "upload" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-stretch justify-start gap-2.5") : "space-y-2.5"}`}>
             <div className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm flex items-center justify-between">
               <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">Baskı tipi</p>
@@ -7960,7 +7970,7 @@ function EditorPanel({
           return <div className="space-y-3">{editorInner}</div>;
         })()}
         {/* TEXT / PDF */}
-        {activeTab === "text" && (
+        {panelActiveTab === "text" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-start justify-start gap-2.5") : "space-y-2.5"}`}>
             <div className={`rounded-xl border border-gray-200 bg-white p-3 space-y-3 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "w-full min-h-[188px] overflow-hidden") : ""}`}>
               <div className="flex items-center justify-between gap-2">
@@ -8014,7 +8024,7 @@ function EditorPanel({
         )}
 
         {/* COLOR */}
-        {activeTab === "color" && (
+        {panelActiveTab === "color" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-stretch justify-start gap-2.5") : "space-y-2.5"}`}>
             <div className={`rounded-xl border border-gray-200 bg-white p-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[220px] max-w-[320px] 2xl:min-w-[260px] 2xl:max-w-[420px] h-full max-h-full min-h-[188px] flex flex-col overflow-y-auto overflow-x-hidden") : ""}`}>
               <div className="flex items-center justify-between mb-3">
@@ -8658,6 +8668,28 @@ function TasarimClientContent({ isMobile }) {
     const next = clampTextPos({ ...safeTextPos, ...patch }, customText);
     updateSide({ textPos: next });
   };
+  const updateTextBoxFromScene = useCallback(
+    (nextBox) => {
+      if (!customText) return;
+      const currentBox = sceneTextBox || { x: safeTextPos.x, y: safeTextPos.y, w: 0.2, h: 0.12 };
+      const widthRatio = clamp((Number(nextBox?.w) || currentBox.w) / Math.max(0.001, currentBox.w), 0.35, 3);
+      const heightRatio = clamp((Number(nextBox?.h) || currentBox.h) / Math.max(0.001, currentBox.h), 0.35, 3);
+      const nextTextState = {
+        ...customText,
+        scaleX: clamp((Number(customText?.scaleX) || 1) * widthRatio, 0.3, 3),
+        scaleY: clamp((Number(customText?.scaleY) || 1) * heightRatio, 0.3, 3),
+      };
+      const nextTextPos = clampTextPos(
+        {
+          x: Number.isFinite(Number(nextBox?.x)) ? Number(nextBox.x) : safeTextPos.x,
+          y: Number.isFinite(Number(nextBox?.y)) ? Number(nextBox.y) : safeTextPos.y,
+        },
+        nextTextState
+      );
+      updateSide({ customText: nextTextState, textPos: nextTextPos });
+    },
+    [customText, sceneTextBox, safeTextPos.x, safeTextPos.y, updateSide]
+  );
 
   const logoDragBounds01 = useMemo(() => {
     if (!printBounds) return { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
@@ -12435,13 +12467,12 @@ function TasarimClientContent({ isMobile }) {
                       <ResizeFrame
                         box={sceneTextBox}
                         containerRef={sceneEditRef}
-                        onChange={(nextBox) => updateTextPos({ x: nextBox.x, y: nextBox.y })}
+                        onChange={updateTextBoxFromScene}
                         rotation={Number(customText?.rotation) || 0}
                         onRotateChange={(nextRot) => bumpCustomText({ rotation: nextRot })}
                         onFrameTap={() => setSceneTextFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"))}
                         transformMode={sceneTextFrameMode}
                         onDragStateChange={setIsLogoDragging}
-                        disableResize
                         largeHandles={isMobile}
                       />
                     )}
