@@ -1285,6 +1285,19 @@ const PRINT_TECHNIQUES = Object.freeze({
   RUBBER: "RUBBER",
 });
 
+const PRINT_TYPE_LABELS = Object.freeze({
+  dtf: "Normal Baskı (Görsel + Yazılar)",
+  rubber: "Kabartma (Sadece Yazılar)",
+  pattern: "Hazır Desen (Enjeksiyon)",
+});
+
+const PRINT_AREA_MENU_LABELS = Object.freeze({
+  front: "Ön",
+  back: "Arka",
+  sleeve_left: "Sol Kol",
+  sleeve_right: "Sağ Kol",
+});
+
 const normalizePrintTechnique = (technique, fallback = PRINT_TECHNIQUES.DTF) => {
   const raw = String(technique || "").trim().toUpperCase();
   if (raw === PRINT_TECHNIQUES.DTF || raw === PRINT_TECHNIQUES.RUBBER) return raw;
@@ -1304,23 +1317,23 @@ const printTypeIdsToTechnique = (ids = [], fallback = PRINT_TECHNIQUES.RUBBER) =
 const PRINT_TYPE_OPTIONS = [
   {
     id: "dtf",
-    label: "Renkli Baskı (DTF)",
+    label: PRINT_TYPE_LABELS.dtf,
     available: true,
     previewSrc: "/urungorsel/Dosya_000.png",
-    previewAlt: "DTF örnek baskı",
+    previewAlt: "Normal baskı örnek baskı",
   },
   {
     id: "rubber",
-    label: "Kabartma Yazı (Rubber)",
+    label: PRINT_TYPE_LABELS.rubber,
     available: true,
     previewSrc: "/urungorsel/E4480C49-9DA3-4E0F-A0E3-2E687F51836A.PNG",
-    previewAlt: "Rubber örnek baskı",
+    previewAlt: "Kabartma baskı örnek yazı",
   },
 ];
 
 const PATTERN_PRINT_TYPE_OPTION = Object.freeze({
   id: "pattern",
-  label: "Hazır Desen (Enjeksiyon)",
+  label: PRINT_TYPE_LABELS.pattern,
   available: true,
   previewSrc: null,
   previewAlt: "Hazır desen seçenekleri",
@@ -2530,6 +2543,11 @@ const getSideLabel = (side) => {
   if (side === "sleeve_right") return "SAĞ KOL";
   if (side === "sleeve") return "KOL";
   return "ÖN";
+};
+
+const getPrintAreaMenuLabel = (side) => {
+  const safeSide = resolveEditableSide(side, "front");
+  return PRINT_AREA_MENU_LABELS[safeSide] || "Ön";
 };
 
 const createDesign = (type = DEFAULT_MODEL_TYPE) => {
@@ -4543,8 +4561,10 @@ function Real3DModel({
       if (!bb) return;
       const cx = (bb.min.x + bb.max.x) / 2;
       const zMin = bb.min.z;
-      // Baseline'i sabitle: tum harflerin alt zemini aynı seviyede dursun.
-      geometry.translate(-cx, -bb.min.y, -zMin);
+      // Descender (y, g, p vb.) olan harfleri yukari itme.
+      // Sadece baseline'in ustunde kalan geometriyi asagi indir.
+      const baselineShiftY = bb.min.y > 0 ? -bb.min.y : 0;
+      geometry.translate(-cx, baselineShiftY, -zMin);
       geometry.computeBoundingBox?.();
       bb = geometry.boundingBox;
       if (!bb) return;
@@ -5930,7 +5950,7 @@ function ResizeFrame({
           .map(([key, lx, ty]) => (
             <div
               key={key}
-              className={`absolute ${largeHandles ? "w-7 h-7" : "w-6 h-6"} bg-white rounded-full border border-zinc-400 shadow-sm opacity-95 transition-transform group-hover:scale-105`}
+              className={`absolute ${largeHandles ? "w-7 h-7" : "w-6 h-6"} flex items-center justify-center`}
               style={{
                 left: `${lx}%`,
                 top: `${ty}%`,
@@ -5946,7 +5966,11 @@ function ResizeFrame({
                         : "nesw-resize",
               }}
               onPointerDown={(e) => begin(key, e)}
-            />
+            >
+              <div
+                className={`rounded-full border border-zinc-400 bg-white shadow-sm opacity-95 transition-transform group-hover:scale-105 ${largeHandles ? "w-4 h-4" : "w-3.5 h-3.5"}`}
+              />
+            </div>
           ))}
       {onRotateChange && transformMode === "rotate" &&
         [
@@ -5957,7 +5981,7 @@ function ResizeFrame({
         ].map(([lx, ty], idx) => (
           <div
             key={`rot-handle-${idx}`}
-            className={`absolute ${largeHandles ? "w-8 h-8 text-[13px]" : "w-7 h-7 text-[12px]"} bg-cyan-50 rounded-full border border-cyan-300 shadow-sm opacity-95 text-cyan-900 font-black flex items-center justify-center`}
+            className={`absolute ${largeHandles ? "w-8 h-8" : "w-7 h-7"} flex items-center justify-center`}
             style={{
               left: `${lx}%`,
               top: `${ty}%`,
@@ -5967,7 +5991,11 @@ function ResizeFrame({
             }}
             onPointerDown={(e) => begin("rotate", e)}
           >
-            ⟳
+            <div
+              className={`rounded-full border border-cyan-300 bg-cyan-50 shadow-sm opacity-95 text-cyan-900 font-black flex items-center justify-center ${largeHandles ? "w-5 h-5 text-[10px]" : "w-4 h-4 text-[9px]"}`}
+            >
+              ⟳
+            </div>
           </div>
         ))}
     </div>
@@ -6285,10 +6313,6 @@ function DesignModelItem({
         tapSideHintRef.current = tapSideHint;
         const resolvedTapSide = tapSideHint || targetMeshRef.current.side;
         onSelect(design.id);
-        if (isColorMode) {
-          onModelTap?.(design.id, resolvedTapSide);
-          return;
-        }
         armHoldTimer(e);
         if (holdRef.current.triggered) return;
         if (disableDrag) {
@@ -7000,7 +7024,7 @@ function EditorPanel({
 
   const ensurePanelPrintAreaSelection = (fallbackTab = null) => {
     if (hasPrintAreaSelection) return true;
-    alert("Önce model üzerinde ön, arka veya kol baskı alanı seçmelisin.");
+    alert("Önce sağ üstteki menüden baskı alanı seçmelisin.");
     if (fallbackTab) setActiveTab(fallbackTab);
     return false;
   };
@@ -7130,7 +7154,7 @@ function EditorPanel({
     if (!ensurePanelPrintAreaSelection("color")) return false;
     const technique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.DTF);
     if (technique === PRINT_TECHNIQUES.RUBBER && !(printTypes || []).includes("rubber")) {
-      alert("Rubber yazı için önce Baskı Seçim alanından Rubber seçmelisin.");
+      alert(`Kabartma yazı için önce Baskı Seçim alanından ${PRINT_TYPE_LABELS.rubber} seçmelisin.`);
       setActiveTab("print");
       return false;
     }
@@ -7230,7 +7254,7 @@ function EditorPanel({
     }
     if (!dtfActiveForSide) {
       e.preventDefault();
-      alert("Önce Baskı Seçim alanından DTF seçmelisin.");
+      alert(`Önce Baskı Seçim alanından ${PRINT_TYPE_LABELS.dtf} seçmelisin.`);
       setActiveTab("print");
     }
   };
@@ -7242,7 +7266,7 @@ function EditorPanel({
     try {
       if (!canUploadMoreLogos) return;
       if (!dtfActiveForSide) {
-        alert("Önce Baskı Seçim alanından DTF seçmelisin.");
+        alert(`Önce Baskı Seçim alanından ${PRINT_TYPE_LABELS.dtf} seçmelisin.`);
         setActiveTab("print");
         inputEl.value = "";
         return;
@@ -7274,7 +7298,7 @@ function EditorPanel({
 
     if (currentlySelected) {
       if (id === "dtf" && sideHasImages) {
-        alert("DTF baskısını kaldırmak için önce seçili görselleri silin.");
+        alert("Normal baskıyı kaldırmak için önce seçili görselleri silin.");
         setActiveTab("upload");
         return;
       }
@@ -7318,8 +7342,9 @@ function EditorPanel({
     }
 
     if (id === "rubber") {
-      const switched = applyTextTechnique(PRINT_TECHNIQUES.RUBBER);
-      if (switched) setActiveTab("text");
+      ensureCurrentSidePrintType("rubber");
+      bumpText({ technique: PRINT_TECHNIQUES.RUBBER, font: RUBBER_FONT_OPTION.value });
+      setActiveTab("text");
       return;
     }
 
@@ -7644,19 +7669,19 @@ function EditorPanel({
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-stretch justify-start gap-2.5") : "space-y-2.5"}`}>
             <div className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm flex items-center justify-between">
               <p className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">Baskı tipi</p>
-              <span className="px-2.5 py-1 rounded-full border border-black bg-black text-white text-[10px] font-black uppercase tracking-wide">
-                DTF
+              <span className="px-2.5 py-1 rounded-full border border-black bg-black text-white text-[9px] font-black tracking-wide text-right leading-tight">
+                {PRINT_TYPE_LABELS.dtf}
               </span>
             </div>
             {!dtfActiveForSide && (
               <div className="w-full rounded-xl border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-[11px] font-semibold text-gray-600 space-y-1.5">
-                <p>Görsel baskı için DTF kullanılır.</p>
+                <p>Görsel baskı için {PRINT_TYPE_LABELS.dtf} kullanılır.</p>
                 <button
                   type="button"
                   onClick={() => applyTextTechnique(PRINT_TECHNIQUES.DTF, { fromImageAction: true })}
                   className="h-8 px-3 rounded-full border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide"
                 >
-                  DTF’ye Geç
+                  Normal Baskıya Geç
                 </button>
               </div>
             )}
@@ -7722,7 +7747,7 @@ function EditorPanel({
                                   }
                                   if (!dtfActiveForSide) {
                                     e.preventDefault();
-                                    alert("Önce Baskı Seçim alanından DTF seçmelisin.");
+                                    alert(`Önce Baskı Seçim alanından ${PRINT_TYPE_LABELS.dtf} seçmelisin.`);
                                     setActiveTab("print");
                                   }
                                 }}
@@ -7942,7 +7967,7 @@ function EditorPanel({
               </div>
               {!hasPrintAreaSelection ? (
                 <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-3 text-[11px] font-semibold text-gray-600">
-                  Önce model üzerinde ön, arka veya kol baskı alanı seçmelisin.
+                  Önce sağ üstteki menüden baskı alanı seçmelisin.
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -8152,11 +8177,12 @@ function TasarimClientContent({ isMobile }) {
   const [activeTab, setActiveTab] = useState("color");
   const [mobilePrimaryTab, setMobilePrimaryTab] = useState("design");
   // Unified bottom-sheet state: 0=open, 1=collapsed.
-  const [panelProgress, setPanelProgress] = useState(1);
+  const [panelProgress, setPanelProgress] = useState(0);
   const [uploadTechniqueToastOpen, setUploadTechniqueToastOpen] = useState(false);
   const [forceEditorOverlay, setForceEditorOverlay] = useState(false);
   const [drawerMenuOpen, setDrawerMenuOpen] = useState(false);
   const [drawerMenuMounted, setDrawerMenuMounted] = useState(false);
+  const [printAreaMenuOpen, setPrintAreaMenuOpen] = useState(false);
   const [printTypePickerSignal, setPrintTypePickerSignal] = useState(0);
 
   // ✅ designs/activeId init bug fix
@@ -8669,7 +8695,7 @@ function TasarimClientContent({ isMobile }) {
     if (!ensurePrintAreaSelection("print")) return false;
     const technique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.DTF);
     if (technique === PRINT_TECHNIQUES.RUBBER && !activeSidePrintTypes.includes("rubber")) {
-      alert("Rubber yazı için önce Baskı Seçim alanından Rubber seçmelisin.");
+      alert(`Kabartma yazı için önce Baskı Seçim alanından ${PRINT_TYPE_LABELS.rubber} seçmelisin.`);
       setActiveTab("print");
       return false;
     }
@@ -9000,13 +9026,8 @@ function TasarimClientContent({ isMobile }) {
     }
   };
 
-  const handleSceneModelTap = (designId, sideHint = null) => {
+  const handleSceneModelTap = (designId) => {
     if (!designId) return;
-    if (!isMobile && DESIGN_SIDES.includes(sideHint) && availableViewSides.includes(sideHint)) {
-      if (sideHint !== view) {
-        setView(sideHint);
-      }
-    }
     setSceneModelSelectionId(null);
     if (designId !== activeId) {
       setActiveId(designId);
@@ -9202,7 +9223,7 @@ function TasarimClientContent({ isMobile }) {
   // Mobile drawer
   const DRAWER_PEEK = 132;
   const CONTROLS_GAP = 56;
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(true);
   const [drawerHeight, setDrawerHeight] = useState(0);
   const [drawerMaxTravel, setDrawerMaxTravel] = useState(0);
   const panelProgressRef = useRef(panelProgress);
@@ -9367,11 +9388,11 @@ function TasarimClientContent({ isMobile }) {
     setFlowStep("design");
     setActiveTab("color");
     setMobilePrimaryTab("design");
-    setPanelProgress(1);
+    setPanelProgress(0);
     setForceEditorOverlay(false);
     setPickerOpen(false);
     setDrawerMenuOpen(false);
-    setDrawerOpen(false);
+    setDrawerOpen(true);
     router.replace(`/tasarim?model=${restored[0].modelType}`, { scroll: false });
   }, [resumeRequested, router, isMobile]);
 
@@ -9423,7 +9444,7 @@ function TasarimClientContent({ isMobile }) {
   const ensurePrintAreaSelection = useCallback(
     (fallbackTab = null) => {
       if (hasActivePrintAreaSelection) return true;
-      alert("Önce model üzerinde ön, arka veya kol baskı alanı seçmelisin.");
+      alert("Önce sağ üstteki menüden baskı alanı seçmelisin.");
       if (fallbackTab) setActiveTab(fallbackTab);
       return false;
     },
@@ -9499,7 +9520,7 @@ function TasarimClientContent({ isMobile }) {
     }
     if (toolId === "upload") {
       if (!hasDtfForActiveSide) {
-        alert("Önce Baskı Seçim alanından DTF seçmelisin.");
+        alert(`Önce Baskı Seçim alanından ${PRINT_TYPE_LABELS.dtf} seçmelisin.`);
         setActiveTab("print");
         return;
       }
@@ -9593,6 +9614,16 @@ function TasarimClientContent({ isMobile }) {
   const selectedPrintTypeNames = activePrintTypes
     .map((typeId) => PRINT_TYPE_OPTIONS.find((opt) => opt.id === typeId)?.label || typeId)
     .join(" • ");
+  const printAreaMenuOptions = useMemo(
+    () =>
+      ["front", "back", "sleeve_left", "sleeve_right"]
+        .filter((sideKey) => availableViewSides.includes(sideKey))
+        .map((sideKey) => ({ id: sideKey, label: getPrintAreaMenuLabel(sideKey) })),
+    [availableViewSides]
+  );
+  const selectedPrintAreaLabel = hasActivePrintAreaSelection
+    ? getPrintAreaMenuLabel(activePrintAreaSelection)
+    : "";
   const applyTechniqueToActiveSide = (nextTechnique, { updateTextTechnique = true } = {}) => {
     const safeTechnique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.DTF);
     const safeSide = currentView;
@@ -9645,7 +9676,7 @@ function TasarimClientContent({ isMobile }) {
 
     if (currentlySelected) {
       if (typeId === "dtf" && hasSideLogos) {
-        alert("DTF baskısını kaldırmak için önce seçili görselleri silin.");
+        alert("Normal baskıyı kaldırmak için önce seçili görselleri silin.");
         setActiveTab("upload");
         setDrawerMenuOpen(false);
         return;
@@ -9784,6 +9815,7 @@ function TasarimClientContent({ isMobile }) {
     setDrawerMenuOpen(false);
   };
   const openDrawerMenu = () => {
+    setPrintAreaMenuOpen(false);
     setDrawerMenuMounted(true);
     setDrawerMenuOpen(true);
   };
@@ -9973,6 +10005,7 @@ function TasarimClientContent({ isMobile }) {
     if (isMobile) {
       setPanelProgress(1);
     }
+    setPrintAreaMenuOpen(false);
     setDrawerMenuOpen(false);
     setPickerOpen(true);
   };
@@ -9988,13 +10021,13 @@ function TasarimClientContent({ isMobile }) {
     setActiveId(next.id);
     setView("front");
     setActivePrintAreaSelection(null);
-    setActiveTab("print");
+    setActiveTab("color");
     setMobilePrimaryTab("design");
-    setPanelProgress(1);
+    setPanelProgress(0);
     setForceEditorOverlay(false);
     setPickerOpen(false);
     setDrawerMenuOpen(false);
-    setDrawerOpen(false);
+    setDrawerOpen(true);
     setFlowStep("design");
     router.replace(`/tasarim?model=${resolvedType}`, { scroll: false });
   };
@@ -10222,17 +10255,15 @@ function TasarimClientContent({ isMobile }) {
       DESIGN_SIDES.some((sideKey) => {
         const sd = d?.sides?.[sideKey] || EMPTY_SIDE;
         const logos = Array.isArray(sd?.logos) ? sd.logos : [];
-        const textTechnique = normalizePrintTechnique(sd?.customText?.technique, PRINT_TECHNIQUES.DTF);
         const hasInvalidImageTechnique = logos.some(
           (logo) => normalizePrintTechnique(logo?.technique, PRINT_TECHNIQUES.DTF) !== PRINT_TECHNIQUES.DTF
         );
         if (hasInvalidImageTechnique) return true;
-        if (logos.length > 0 && textTechnique === PRINT_TECHNIQUES.RUBBER) return true;
         return false;
       })
     );
     if (invalidTechniqueDesign) {
-      alert("Görsel baskılar yalnızca DTF ile kullanılabilir. Rubber için görsel kaldırıp yazı moduna geçin.");
+      alert(`Görsel baskılar yalnızca ${PRINT_TYPE_LABELS.dtf} ile kullanılabilir.`);
       return;
     }
 
@@ -10505,6 +10536,7 @@ function TasarimClientContent({ isMobile }) {
 
   const handleViewChange = (nextSide, opts = {}) => {
     if (!availableViewSides.includes(nextSide)) return;
+    setPrintAreaMenuOpen(false);
     const openPrintPicker = opts?.openPrintPicker !== false;
     const pulseSideOverride = opts?.pulseSideOverride || null;
     const forceRefocus = opts?.forceRefocus === true;
@@ -10554,55 +10586,8 @@ function TasarimClientContent({ isMobile }) {
     });
   };
 
-  const handlePrintAreaTap = useCallback(
-    (designId, sideKey) => {
-      if (!designId || !sideKey) return;
-      const clickedDesign = designs.find((d) => d.id === designId);
-      if (!clickedDesign) return;
-      const availableSidesForDesign = getAvailableViewsForModel(clickedDesign?.modelType || safeInitial);
-      const normalizedSideRaw = String(sideKey || "").toLowerCase().trim();
-      const nextSide =
-        normalizedSideRaw === "sleeve"
-          ? availableSidesForDesign.includes("sleeve_left")
-            ? "sleeve_left"
-            : availableSidesForDesign.includes("sleeve_right")
-              ? "sleeve_right"
-              : null
-          : resolveEditableSide(normalizedSideRaw, "");
-      if (!nextSide || !availableSidesForDesign.includes(nextSide)) return;
-
-      const pulseSide = normalizedSideRaw === "sleeve" ? "sleeve" : nextSide;
-      setActivePrintAreaSelection(nextSide);
-      if (isMobile) {
-        setMobilePrimaryTab("design");
-        setActiveTab("print");
-        setPanelProgress(0);
-      } else {
-        setActiveTab("print");
-        setDrawerOpen(true);
-        setDrawerMenuOpen(false);
-      }
-      const applyFocus = () =>
-        switchSideAndOpenPrintPicker(nextSide, {
-          pulseSideOverride: pulseSide,
-          forceRefocus: true,
-        });
-
-      if (designId !== activeId) {
-        setActiveId(designId);
-        if (typeof window !== "undefined") {
-          window.requestAnimationFrame(() => applyFocus());
-        } else {
-          applyFocus();
-        }
-        return;
-      }
-      applyFocus();
-    },
-    [activeId, designs, safeInitial, switchSideAndOpenPrintPicker, isMobile]
-  );
-
   const clearPrintAreaSelection = useCallback(() => {
+    setPrintAreaMenuOpen(false);
     setActivePrintAreaSelection(null);
     clearSceneSelection();
     setShowPlacementPanel(false);
@@ -10614,14 +10599,28 @@ function TasarimClientContent({ isMobile }) {
     }
     setViewFocusKey((prev) => prev + 1);
   }, [activeId, clearSceneSelection, view]);
-  const topRightActionLabel = hasActivePrintAreaSelection ? "Bitti" : loading ? "Hazırlanıyor..." : "Sipariş Ver";
-  const handleTopRightAction = () => {
-    if (hasActivePrintAreaSelection) {
-      clearPrintAreaSelection();
-      return;
-    }
+  const topRightActionLabel = loading ? "Hazırlanıyor..." : "Sepete Ekle";
+  const handleCheckoutAction = () => {
+    setPrintAreaMenuOpen(false);
     handleFinishCheckout();
   };
+  const handleDoneAction = () => {
+    if (!hasActivePrintAreaSelection) return;
+    setPrintAreaMenuOpen(false);
+    clearPrintAreaSelection();
+  };
+  const handleSelectPrintAreaFromMenu = useCallback(
+    (nextSide) => {
+      const safeSide = resolveEditableSide(nextSide, "");
+      if (!safeSide || !availableViewSides.includes(safeSide)) return;
+      setActivePrintAreaSelection(safeSide);
+      switchSideAndOpenPrintPicker(safeSide, {
+        pulseSideOverride: safeSide,
+        forceRefocus: true,
+      });
+    },
+    [availableViewSides, switchSideAndOpenPrintPicker]
+  );
 
   const effectiveView = captureView || view;
   const drawerHeightStyle = isMobile
@@ -10933,9 +10932,9 @@ function TasarimClientContent({ isMobile }) {
             </div>
 
             <button type="button"
-              onClick={handleTopRightAction}
-              disabled={!hasActivePrintAreaSelection && loading}
-              className={`h-9 px-4 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${!hasActivePrintAreaSelection && loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
+              onClick={handleCheckoutAction}
+              disabled={loading}
+              className={`h-9 px-4 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
                 }`}
             >
               {topRightActionLabel}
@@ -10985,11 +10984,11 @@ function TasarimClientContent({ isMobile }) {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 pointer-events-auto">
+            <div className="flex items-start gap-2 pointer-events-auto">
               <button type="button"
-                onClick={handleTopRightAction}
-                disabled={!hasActivePrintAreaSelection && loading}
-                className={`px-4 py-2 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${!hasActivePrintAreaSelection && loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
+                onClick={handleCheckoutAction}
+                disabled={loading}
+                className={`px-4 py-2 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
                   }`}
               >
                 {topRightActionLabel}
@@ -11004,7 +11003,7 @@ function TasarimClientContent({ isMobile }) {
           className="absolute left-1/2 z-[94] -translate-x-1/2 rounded-2xl border border-zinc-300 bg-white/95 text-zinc-900 shadow-xl px-3 py-2 flex items-center gap-2 pointer-events-auto"
           style={{ top: isMobile ? "calc(env(safe-area-inset-top) + 64px)" : "82px" }}
         >
-          <span className="text-[11px] font-semibold">Görsel baskı için DTF kullanılır.</span>
+          <span className="text-[11px] font-semibold">Görsel baskı için {PRINT_TYPE_LABELS.dtf} kullanılır.</span>
           <button
             type="button"
             onClick={() => {
@@ -11014,7 +11013,7 @@ function TasarimClientContent({ isMobile }) {
             }}
             className="h-7 px-2.5 rounded-full border border-zinc-700 bg-zinc-900 text-white text-[10px] font-black uppercase tracking-wide"
           >
-            DTF’ye Geç
+            Normal Baskıya Geç
           </button>
         </div>
       )}
@@ -11024,6 +11023,43 @@ function TasarimClientContent({ isMobile }) {
         className={`${isMobile ? "w-full relative flex-1 min-h-0" : "w-full h-full relative"}`}
         style={{ background: SCENE_BG_COLOR }}
       >
+        <div
+          className="absolute z-[72] pointer-events-auto"
+          style={{
+            top: isMobile ? "10px" : "12px",
+            right: isMobile ? "12px" : "18px",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setPrintAreaMenuOpen((prev) => !prev)}
+            className={`${isMobile ? "h-8 min-w-[84px] px-2.5 text-[10px]" : "h-9 min-w-[108px] px-3 text-[11px]"} rounded-full border border-zinc-300 bg-white/95 text-black font-black tracking-wide shadow-lg flex items-center justify-between gap-1.5`}
+            aria-haspopup="menu"
+            aria-expanded={printAreaMenuOpen}
+          >
+            <span className="truncate">{selectedPrintAreaLabel}</span>
+            <ChevronDown size={isMobile ? 13 : 14} className={`shrink-0 transition-transform ${printAreaMenuOpen ? "rotate-180" : "rotate-0"}`} />
+          </button>
+          {printAreaMenuOpen && (
+            <div className={`absolute right-0 top-full ${isMobile ? "mt-1.5 w-36" : "mt-2 w-40"} rounded-2xl border border-zinc-200 bg-white/95 p-1.5 shadow-2xl`}>
+              {printAreaMenuOptions.map((opt) => {
+                const isSelected = activePrintAreaSelection === opt.id;
+                return (
+                  <button
+                    key={`scene-print-area-${opt.id}`}
+                    type="button"
+                    onClick={() => handleSelectPrintAreaFromMenu(opt.id)}
+                    className={`w-full px-3 py-2 rounded-xl text-left ${isMobile ? "text-[10px]" : "text-[11px]"} font-black tracking-wide flex items-center justify-between ${isSelected ? "bg-zinc-900 text-white" : "bg-white text-zinc-800 hover:bg-zinc-100"}`}
+                  >
+                    <span>{opt.label}</span>
+                    {isSelected ? <Check size={isMobile ? 13 : 14} /> : null}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Scene Layer */}
         <div
           className={`${isMobile ? "absolute inset-0" : "fixed inset-0"} z-0 pointer-events-auto ${isMobile ? "grid place-items-center" : ""}`}
@@ -11217,7 +11253,6 @@ function TasarimClientContent({ isMobile }) {
                         hidden={layout.hidden}
                         disableDrag={
                           isLogoDragging ||
-                          activeTab === "color" ||
                           effectiveView === "sleeve_left" ||
                           effectiveView === "sleeve_right" ||
                           multiTouchActive
@@ -11228,7 +11263,7 @@ function TasarimClientContent({ isMobile }) {
                         perfProfile={perf}
                         onUserRotate={handleModelUserRotate}
                         onModelTap={handleSceneModelTap}
-                        onPrintAreaTap={handlePrintAreaTap}
+                        onPrintAreaTap={null}
                         multiTouchActive={multiTouchActive}
                         onModelLongPress={handleSceneModelLongPress}
                         onDeleteModel={handleDeleteSceneModel}
@@ -11717,22 +11752,22 @@ function TasarimClientContent({ isMobile }) {
                       <button
                         type="button"
                         onClick={() => applySceneTextTechnique(PRINT_TECHNIQUES.DTF)}
-                        className={`h-8 rounded-md border text-[10px] font-black uppercase tracking-wide ${normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.DTF) === PRINT_TECHNIQUES.DTF
+                        className={`min-h-[44px] px-2 rounded-md border text-[9px] font-black tracking-wide leading-tight ${normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.DTF) === PRINT_TECHNIQUES.DTF
                           ? "bg-white text-black border-white"
                           : "bg-zinc-900/60 text-zinc-200 border-zinc-600 hover:bg-zinc-800"
                           }`}
                       >
-                        DTF
+                        {PRINT_TYPE_LABELS.dtf}
                       </button>
                       <button
                         type="button"
                         onClick={() => applySceneTextTechnique(PRINT_TECHNIQUES.RUBBER)}
-                        className={`h-8 rounded-md border text-[10px] font-black uppercase tracking-wide ${normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.DTF) === PRINT_TECHNIQUES.RUBBER
+                        className={`min-h-[44px] px-2 rounded-md border text-[9px] font-black tracking-wide leading-tight ${normalizePrintTechnique(customText?.technique, PRINT_TECHNIQUES.DTF) === PRINT_TECHNIQUES.RUBBER
                           ? "bg-white text-black border-white"
                           : "bg-zinc-900/60 text-zinc-200 border-zinc-600 hover:bg-zinc-800"
                           }`}
                       >
-                        RUBBER
+                        {PRINT_TYPE_LABELS.rubber}
                       </button>
                     </div>
                     <p className="text-[10px] text-zinc-300">
@@ -11825,7 +11860,7 @@ function TasarimClientContent({ isMobile }) {
                       <>
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                            <span>Rubber Kalınlık</span>
+                            <span>Kabartma Kalınlık</span>
                             <span>2.00 mm (Sabit)</span>
                           </div>
                         </div>
@@ -12563,11 +12598,14 @@ function TasarimClientContent({ isMobile }) {
                             </button>
                             <button
                               type="button"
-                              onClick={openDrawerMenu}
-                              className="h-10 min-w-[96px] rounded-xl border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center justify-center gap-1"
+                              onClick={handleDoneAction}
+                              disabled={!hasActivePrintAreaSelection}
+                              className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide flex items-center justify-center ${hasActivePrintAreaSelection
+                                ? "border-zinc-900 bg-zinc-900 text-white"
+                                : "border-zinc-300 bg-white text-zinc-400"
+                                }`}
                             >
-                              <Menu size={14} />
-                              Menü
+                              Bitti
                             </button>
                           </div>
                           {showMobileBottomTabsInPeek && (
@@ -12661,11 +12699,14 @@ function TasarimClientContent({ isMobile }) {
                               </button>
                               <button
                                 type="button"
-                                onClick={openDrawerMenu}
-                                className="h-10 min-w-[96px] rounded-xl border border-zinc-400 bg-white text-zinc-900 text-[10px] font-black uppercase tracking-wide flex items-center justify-center gap-1"
+                                onClick={handleDoneAction}
+                                disabled={!hasActivePrintAreaSelection}
+                                className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide flex items-center justify-center ${hasActivePrintAreaSelection
+                                  ? "border-zinc-900 bg-zinc-900 text-white"
+                                  : "border-zinc-300 bg-white text-zinc-400"
+                                  }`}
                               >
-                                <Menu size={14} />
-                                Menü
+                                Bitti
                               </button>
                             </div>
                           </div>
@@ -12796,12 +12837,15 @@ function TasarimClientContent({ isMobile }) {
                               </button>
                             </div>
                             <button type="button"
-                              onClick={openDrawerMenu}
-                              className="h-9 px-4 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-wide shadow-sm"
-                              aria-label="Kategori menüsünü aç"
+                              onClick={handleDoneAction}
+                              disabled={!hasActivePrintAreaSelection}
+                              className={`h-9 px-4 rounded-full border-2 flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-wide shadow-sm ${hasActivePrintAreaSelection
+                                ? "border-zinc-700 bg-zinc-900 text-white hover:bg-zinc-800"
+                                : "border-zinc-300 bg-white text-zinc-400"
+                                }`}
+                              aria-label="Seçimi bitir"
                             >
-                              <Menu size={14} />
-                              Menü
+                              Bitti
                             </button>
                           </div>
                         </div>
