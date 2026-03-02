@@ -1136,7 +1136,21 @@ const MAX_LOGOS_PER_SIDE = 3;
 const LEFT_PRINT_AREA_WIDTH = 420;
 const LEFT_PRINT_AREA_GAP = 0;
 const BRAND_COLORS = ["#1A1A1A", "#F0F0F0", "#D2C6B6", "#3F432C", "#191C25", "#363636", "#1EF292", "#3E191D"];
+const BRAND_COLOR_NAMES = Object.freeze({
+  "#1A1A1A": "Siyah",
+  "#F0F0F0": "Kırık Beyaz",
+  "#D2C6B6": "Bej",
+  "#3F432C": "Haki",
+  "#191C25": "Lacivert",
+  "#363636": "Antrasit",
+  "#1EF292": "Mint",
+  "#3E191D": "Bordo",
+});
 const BRAND_DEFAULT_COLOR = BRAND_COLORS[0];
+const getBrandColorLabel = (hexValue) => {
+  const safeHex = String(hexValue || "").trim().toUpperCase();
+  return BRAND_COLOR_NAMES[safeHex] || safeHex || "Renk";
+};
 const FONT_OPTIONS = [
   { label: "Arial Black", value: "Arial Black, Arial, sans-serif" },
   { label: "Arial", value: "Arial, Helvetica, sans-serif" },
@@ -5964,7 +5978,7 @@ function ResizeFrame({
           .map(([key, lx, ty]) => (
             <div
               key={key}
-              className={`absolute ${largeHandles ? "w-7 h-7" : "w-6 h-6"} flex items-center justify-center`}
+              className={`absolute ${largeHandles ? "w-5 h-5" : "w-4 h-4"} flex items-center justify-center`}
               style={{
                 left: `${lx}%`,
                 top: `${ty}%`,
@@ -5982,7 +5996,7 @@ function ResizeFrame({
               onPointerDown={(e) => begin(key, e)}
             >
               <div
-                className={`rounded-full border border-zinc-400 bg-white shadow-sm opacity-95 transition-transform group-hover:scale-105 ${largeHandles ? "w-4 h-4" : "w-3.5 h-3.5"}`}
+                className={`rounded-full border border-zinc-400 bg-white shadow-sm opacity-95 transition-transform group-hover:scale-105 ${largeHandles ? "w-3 h-3" : "w-2.5 h-2.5"}`}
               />
             </div>
           ))}
@@ -7031,6 +7045,7 @@ function EditorPanel({
   const hoodieParts = normalizeHoodieParts(design?.hoodieV12Parts);
   const hoodiePartOptionsVisible = MODELS_WITH_HOODIE_PARTS.has(design?.modelType);
   const activeBaseColor = sideData?.baseColor || design?.color;
+  const activeBaseColorLabel = getBrandColorLabel(activeBaseColor);
   const [isTextCommitPending, startTextCommitTransition] = useTransition();
   const editorTextKey = `${design?.id || "no-design"}_${currentSide}`;
   const lastHandledPrintSignalRef = useRef(printTypePickerSignal);
@@ -7569,6 +7584,12 @@ function EditorPanel({
               <span className="text-white font-black">{formatMoney(totalPrice)} ₺</span>
             </div>
           </div>
+          {largePrintSummary.count > 0 && (
+            <div className="flex items-center justify-between text-[10px] text-zinc-400 font-bold uppercase mb-2">
+              <span>Baskı Alanı Ekstra ({largePrintSummary.count}×)</span>
+              <span className="text-zinc-300">+{formatMoney(largePrintSummary.amount)} ₺</span>
+            </div>
+          )}
           <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-300">Açılışa Özel %20 İndirim</p>
         </div>
       </div>
@@ -7653,6 +7674,26 @@ function EditorPanel({
           }`}
         style={{ touchAction: "pan-y", minHeight: 0, backgroundColor: contentBackground }}
       >
+        {isDrawerLayout && (
+          <div className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm shrink-0">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">Toplam</span>
+              <div className="text-right leading-tight">
+                <p className="text-[10px] font-mono text-gray-400 line-through">{formatMoney(totalListPrice)} ₺</p>
+                <p className="text-xs font-black text-gray-900">{formatMoney(totalPrice)} ₺</p>
+              </div>
+            </div>
+            {largePrintSummary.count > 0 && (
+              <div className="mt-1 flex items-center justify-between gap-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-500">
+                  Baskı Alanı Ekstra ({largePrintSummary.count}×)
+                </span>
+                <span className="text-[11px] font-mono text-gray-700">+{formatMoney(largePrintSummary.amount)} ₺</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* PRINT TYPE */}
         {panelActiveTab === "print" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-stretch justify-start gap-2.5") : "space-y-2.5"}`}>
@@ -8038,7 +8079,7 @@ function EditorPanel({
               <div className="flex items-center justify-between mb-3">
                 <p className={drawerHeadingClass}>Ürün Rengi</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-gray-500 font-bold uppercase">Seçili</span>
+                  <span className="text-[10px] text-gray-500 font-bold uppercase">{activeBaseColorLabel}</span>
                   <span
                     className="w-4 h-4 rounded-full border border-gray-300"
                     style={{ backgroundColor: activeBaseColor }}
@@ -9969,12 +10010,10 @@ function TasarimClientContent({ isMobile }) {
   }, [activeTab, currentSide, activeId]);
 
   useEffect(() => {
-    if (activeTab !== "editor") return;
-    const hasLogo = (sideData?.logos || []).length > 0;
-    if (!hasLogo && editorControlTab === "effects") {
+    if (editorControlTab === "effects") {
       setEditorControlTab("logo");
     }
-  }, [activeTab, activeId, currentSide, sideData?.logos?.length, editorControlTab]);
+  }, [editorControlTab, setEditorControlTab]);
 
   useEffect(() => {
     if (!rubberActiveForSide) return;
@@ -10977,9 +11016,6 @@ function TasarimClientContent({ isMobile }) {
                 <p className="text-[10px] text-zinc-500 line-through">{formatMoney(headerListPrice)} ₺</p>
                 <p className="text-xs font-black text-zinc-700">{formatMoney(headerLaunchPrice)} ₺</p>
               </div>
-              {perf.lowPerformanceMode && (
-                <p className="text-[9px] font-black uppercase tracking-wide text-amber-700 mt-0.5">Düşük Performans Modu</p>
-              )}
               {showHoodieVariantButtons && (
                 <div className="mt-1.5 flex items-center justify-center gap-1.5 pointer-events-auto">
                   {HOODIE_DETAIL_OPTIONS.map((opt) => {
@@ -11029,9 +11065,6 @@ function TasarimClientContent({ isMobile }) {
                   <p className="text-xs font-black text-zinc-700">{formatMoney(headerLaunchPrice)} ₺</p>
                 </div>
                 <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">Açılışa Özel %20 İndirim</p>
-                {perf.lowPerformanceMode && (
-                  <p className="text-[10px] font-black uppercase tracking-wide text-amber-700">Düşük Performans Modu</p>
-                )}
                 {showHoodieVariantButtons && (
                   <div className="mt-1.5 flex items-center gap-1.5 pointer-events-auto">
                     {HOODIE_DETAIL_OPTIONS.map((opt) => {
@@ -11518,7 +11551,7 @@ function TasarimClientContent({ isMobile }) {
               </div>
 
               <div className={`flex-1 ${isMobile ? "overflow-y-auto overflow-x-hidden p-3" : "overflow-y-auto overflow-x-visible p-4"}`}>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <button type="button"
                     onClick={() => setEditorControlTab("logo")}
                     className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${editorControlTab === "logo"
@@ -11536,15 +11569,6 @@ function TasarimClientContent({ isMobile }) {
                       }`}
                   >
                     Yazi Ayari
-                  </button>
-                  <button type="button"
-                    onClick={() => setEditorControlTab("effects")}
-                    className={`py-1.5 rounded-lg text-[10px] font-black uppercase border ${editorControlTab === "effects"
-                      ? "bg-white text-black border-white"
-                      : "bg-zinc-700 text-zinc-100 border-zinc-600 hover:bg-zinc-600"
-                      }`}
-                  >
-                    Efektler
                   </button>
                 </div>
 
@@ -11718,6 +11742,23 @@ function TasarimClientContent({ isMobile }) {
                           const snapped = Math.round(raw / 5) * 5;
                           updateActiveLogo({ rotation: snapped });
                         }}
+                        className={`w-full accent-cyan-300 ${imageControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-zinc-400">
+                        <span>Opaklık</span>
+                        <span>{Math.round(activeLogoFx.opacity * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={Math.round(activeLogoFx.opacity * 100)}
+                        disabled={imageControlDisabled}
+                        onChange={(e) => updateActiveLogo({ opacity: Number(e.target.value) / 100 })}
                         className={`w-full accent-cyan-300 ${imageControlDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                       />
                     </div>
@@ -12230,9 +12271,7 @@ function TasarimClientContent({ isMobile }) {
                         }
                         if (selectableSceneItems.length > 1) {
                           cycleSceneSelection("logo");
-                          return;
                         }
-                        setSceneFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"));
                       }}
                     />
                   );
@@ -12246,8 +12285,8 @@ function TasarimClientContent({ isMobile }) {
                     dragBounds={logoDragBounds01}
                     rotation={Number(activeLogo?.rotation) || 0}
                     onRotateChange={(nextRot) => updateActiveLogo({ rotation: nextRot })}
-                    onFrameTap={() => setSceneFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"))}
-                    transformMode={sceneFrameMode}
+                    onFrameTap={selectableSceneItems.length > 1 ? () => cycleSceneSelection("logo") : undefined}
+                    transformMode="resize"
                     onDragStateChange={setIsLogoDragging}
                     diagonalOnly={lockAspect}
                     disableResize={activeLogoIsEmboss}
@@ -12358,11 +12397,9 @@ function TasarimClientContent({ isMobile }) {
                         });
                         return;
                       }
-                      if (selectableSceneItems.length > 1) {
-                        cycleSceneSelection("pattern");
-                        return;
-                      }
-                      setSceneInjectionFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"));
+                        if (selectableSceneItems.length > 1) {
+                          cycleSceneSelection("pattern");
+                        }
                     }}
                   />
                 )}
@@ -12376,10 +12413,8 @@ function TasarimClientContent({ isMobile }) {
                     onRotateChange={(nextRot) =>
                       updateSide({ injectionRotation: clamp(Math.round(nextRot), -180, 180) })
                     }
-                    onFrameTap={() =>
-                      setSceneInjectionFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"))
-                    }
-                    transformMode={sceneInjectionFrameMode}
+                    onFrameTap={selectableSceneItems.length > 1 ? () => cycleSceneSelection("pattern") : undefined}
+                    transformMode="resize"
                     onDragStateChange={setIsLogoDragging}
                     disableResize
                     largeHandles={isMobile}
@@ -12467,7 +12502,6 @@ function TasarimClientContent({ isMobile }) {
                         if (!showPlacementPanel || editorControlTab !== "text") {
                           openPlacementPanelFromScene("text");
                         }
-                        setSceneTextFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"));
                       }}
                     />
 
@@ -12478,8 +12512,8 @@ function TasarimClientContent({ isMobile }) {
                         onChange={updateTextBoxFromScene}
                         rotation={Number(customText?.rotation) || 0}
                         onRotateChange={(nextRot) => bumpCustomText({ rotation: nextRot })}
-                        onFrameTap={() => setSceneTextFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"))}
-                        transformMode={sceneTextFrameMode}
+                        onFrameTap={selectableSceneItems.length > 1 ? () => cycleSceneSelection("text") : undefined}
+                        transformMode="resize"
                         onDragStateChange={setIsLogoDragging}
                         largeHandles={isMobile}
                       />
