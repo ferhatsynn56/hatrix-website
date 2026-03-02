@@ -1248,7 +1248,8 @@ const glyphTokenToChar = (tokenRaw, forceCase = null) => {
   if (/^[0-9]$/.test(token)) return token;
   if (/^[a-z]$/i.test(tokenOriginal)) {
     if (forceCase === "lower") return token;
-    return token.toUpperCase();
+    if (forceCase === "upper") return token.toUpperCase();
+    return tokenOriginal;
   }
   return null;
 };
@@ -6392,7 +6393,7 @@ function DesignModelItem({
         if (e.target?.releasePointerCapture) e.target.releasePointerCapture(e.pointerId);
       }}
     >
-      {isActive && !isColorMode && (
+      {isActive && (
         <mesh
           position={[0, -0.03, 0]}
           scale={activeHitVolumeScale}
@@ -8182,7 +8183,7 @@ function TasarimClientContent({ isMobile }) {
   const [forceEditorOverlay, setForceEditorOverlay] = useState(false);
   const [drawerMenuOpen, setDrawerMenuOpen] = useState(false);
   const [drawerMenuMounted, setDrawerMenuMounted] = useState(false);
-  const [printAreaMenuOpen, setPrintAreaMenuOpen] = useState(false);
+  const [printAreaMenuOpen, setPrintAreaMenuOpen] = useState(true);
   const [printTypePickerSignal, setPrintTypePickerSignal] = useState(0);
 
   // ✅ designs/activeId init bug fix
@@ -8539,6 +8540,34 @@ function TasarimClientContent({ isMobile }) {
     selectedSceneType === "pattern"
   );
   const isSceneInjectionCompact = (sceneInjectionBox?.w || 0) < 0.24 || (sceneInjectionBox?.h || 0) < 0.18;
+  const selectableSceneItems = useMemo(() => {
+    const next = [];
+    if (activeLogo?.id) next.push({ id: activeLogo.id, type: "logo", side: currentSide });
+    if (hasSceneText) next.push({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
+    if (hasSceneInjection) {
+      next.push({
+        id: `pattern_${sideData?.injectionModelId}_${currentSide}`,
+        type: "pattern",
+        side: currentSide,
+      });
+    }
+    return next;
+  }, [activeId, activeLogo?.id, currentSide, hasSceneInjection, hasSceneText, sideData?.injectionModelId]);
+  const cycleSceneSelection = useCallback(
+    (currentType = null) => {
+      if (!selectableSceneItems.length) return false;
+      if (selectableSceneItems.length === 1) {
+        applySceneSelection(selectableSceneItems[0]);
+        return true;
+      }
+      const startType = currentType || selectedSceneType;
+      const currentIndex = selectableSceneItems.findIndex((item) => item.type === startType);
+      const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % selectableSceneItems.length : 0;
+      applySceneSelection(selectableSceneItems[nextIndex]);
+      return true;
+    },
+    [applySceneSelection, selectableSceneItems, selectedSceneType]
+  );
 
   useEffect(() => {
     setBgRemovalNotice("");
@@ -9034,6 +9063,9 @@ function TasarimClientContent({ isMobile }) {
       return;
     }
     if (sceneSelectionVisible || sceneTextSelectionVisible || sceneInjectionSelectionVisible) {
+      if (selectableSceneItems.length > 1 && cycleSceneSelection()) {
+        return;
+      }
       clearSceneSelection();
       return;
     }
@@ -9049,16 +9081,15 @@ function TasarimClientContent({ isMobile }) {
     }
 
     const hasLogo = Boolean(activeLogo);
+    if (selectableSceneItems.length > 1) {
+      const preferredType = preferInjection ? "pattern" : editorControlTab === "text" ? "text" : hasLogo ? "logo" : null;
+      if (cycleSceneSelection(preferredType)) {
+        return;
+      }
+    }
+
     if (hasLogo && hasSceneText) {
-      const nextType =
-        selectedSceneType === "logo"
-          ? "text"
-          : selectedSceneType === "text"
-            ? "logo"
-            : editorControlTab === "text"
-              ? "text"
-              : "logo";
-      if (nextType === "text") {
+      if (editorControlTab === "text") {
         applySceneSelection({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
       } else {
         applySceneSelection({ id: activeLogo.id, type: "logo", side: currentSide });
@@ -9624,6 +9655,7 @@ function TasarimClientContent({ isMobile }) {
   const selectedPrintAreaLabel = hasActivePrintAreaSelection
     ? getPrintAreaMenuLabel(activePrintAreaSelection)
     : "";
+  const hasSelectedPrintAreaLabel = Boolean(selectedPrintAreaLabel);
   const applyTechniqueToActiveSide = (nextTechnique, { updateTextTechnique = true } = {}) => {
     const safeTechnique = normalizePrintTechnique(nextTechnique, PRINT_TECHNIQUES.DTF);
     const safeSide = currentView;
@@ -11027,21 +11059,28 @@ function TasarimClientContent({ isMobile }) {
           className="absolute z-[72] pointer-events-auto"
           style={{
             top: isMobile ? "10px" : "12px",
-            right: isMobile ? "12px" : "18px",
+            right: isMobile ? "6px" : "10px",
           }}
         >
           <button
             type="button"
             onClick={() => setPrintAreaMenuOpen((prev) => !prev)}
-            className={`${isMobile ? "h-8 min-w-[84px] px-2.5 text-[10px]" : "h-9 min-w-[108px] px-3 text-[11px]"} rounded-full border border-zinc-300 bg-white/95 text-black font-black tracking-wide shadow-lg flex items-center justify-between gap-1.5`}
+            className={`${isMobile
+              ? hasSelectedPrintAreaLabel
+                ? "h-6 min-w-[62px] px-1.5 text-[8px]"
+                : "h-6 w-7 px-0 text-[8px]"
+              : hasSelectedPrintAreaLabel
+                ? "h-7 min-w-[76px] px-2 text-[9px]"
+                : "h-7 w-8 px-0 text-[9px]"
+              } rounded-full border border-zinc-300 bg-white/95 text-black font-black tracking-wide shadow-lg flex items-center justify-between gap-1`}
             aria-haspopup="menu"
             aria-expanded={printAreaMenuOpen}
           >
-            <span className="truncate">{selectedPrintAreaLabel}</span>
-            <ChevronDown size={isMobile ? 13 : 14} className={`shrink-0 transition-transform ${printAreaMenuOpen ? "rotate-180" : "rotate-0"}`} />
+            {hasSelectedPrintAreaLabel ? <span className="truncate">{selectedPrintAreaLabel}</span> : null}
+            <ChevronDown size={isMobile ? 12 : 13} className={`shrink-0 transition-transform ${printAreaMenuOpen ? "rotate-180" : "rotate-0"}`} />
           </button>
           {printAreaMenuOpen && (
-            <div className={`absolute right-0 top-full ${isMobile ? "mt-1.5 w-36" : "mt-2 w-40"} rounded-2xl border border-zinc-200 bg-white/95 p-1.5 shadow-2xl`}>
+            <div className={`absolute right-0 top-full ${isMobile ? "mt-1 w-24" : "mt-1.5 w-28"} rounded-2xl border border-zinc-200 bg-white/95 p-1 shadow-2xl`}>
               {printAreaMenuOptions.map((opt) => {
                 const isSelected = activePrintAreaSelection === opt.id;
                 return (
@@ -11049,10 +11088,10 @@ function TasarimClientContent({ isMobile }) {
                     key={`scene-print-area-${opt.id}`}
                     type="button"
                     onClick={() => handleSelectPrintAreaFromMenu(opt.id)}
-                    className={`w-full px-3 py-2 rounded-xl text-left ${isMobile ? "text-[10px]" : "text-[11px]"} font-black tracking-wide flex items-center justify-between ${isSelected ? "bg-zinc-900 text-white" : "bg-white text-zinc-800 hover:bg-zinc-100"}`}
+                    className={`w-full px-2 py-1.5 rounded-xl text-left ${isMobile ? "text-[9px]" : "text-[10px]"} font-black tracking-wide flex items-center justify-between ${isSelected ? "bg-zinc-900 text-white" : "bg-white text-zinc-800 hover:bg-zinc-100"}`}
                   >
                     <span>{opt.label}</span>
-                    {isSelected ? <Check size={isMobile ? 13 : 14} /> : null}
+                    {isSelected ? <Check size={isMobile ? 11 : 12} /> : null}
                   </button>
                 );
               })}
@@ -12149,6 +12188,10 @@ function TasarimClientContent({ isMobile }) {
                           applySceneSelection({ id: l.id, type: "logo", side: currentSide });
                           return;
                         }
+                        if (selectableSceneItems.length > 1) {
+                          cycleSceneSelection("logo");
+                          return;
+                        }
                         setSceneFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"));
                       }}
                     />
@@ -12275,6 +12318,10 @@ function TasarimClientContent({ isMobile }) {
                         });
                         return;
                       }
+                      if (selectableSceneItems.length > 1) {
+                        cycleSceneSelection("pattern");
+                        return;
+                      }
                       setSceneInjectionFrameMode((prev) => (prev === "resize" ? "rotate" : "resize"));
                     }}
                   />
@@ -12371,6 +12418,10 @@ function TasarimClientContent({ isMobile }) {
                         e.stopPropagation();
                         if (!sceneTextSelectionVisible) {
                           applySceneSelection({ id: `${activeId}_${currentSide}_text`, type: "text", side: currentSide });
+                          return;
+                        }
+                        if (selectableSceneItems.length > 1) {
+                          cycleSceneSelection("text");
                           return;
                         }
                         if (!showPlacementPanel || editorControlTab !== "text") {
