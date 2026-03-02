@@ -7010,6 +7010,7 @@ function EditorPanel({
   onOpenPatternPicker,
   hasPrintAreaSelection = false,
   printTypePickerSignal = 0,
+  shouldSuppressTransientClicks = null,
 }) {
   const isZipperFront = hasCenterZip(design.modelType) && view === "front";
   const gap01 = getCenterZipGap01(design.modelType);
@@ -7062,6 +7063,8 @@ function EditorPanel({
     if (fallbackTab) setActiveTab(fallbackTab);
     return false;
   };
+  const shouldBlockTransientUploadOpen = () =>
+    typeof shouldSuppressTransientClicks === "function" && Boolean(shouldSuppressTransientClicks());
 
   const commitEditorTextDraft = (nextText) => {
     if (!design) return;
@@ -7282,6 +7285,10 @@ function EditorPanel({
 
   const handleUploadInputClick = (e) => {
     e.stopPropagation();
+    if (shouldBlockTransientUploadOpen()) {
+      e.preventDefault();
+      return;
+    }
     if (!canUploadMoreLogos) {
       e.preventDefault();
       return;
@@ -7576,22 +7583,6 @@ function EditorPanel({
           </div>
         </div>
 
-        <div className="p-3 border-t border-zinc-800 bg-[#111111]">
-          <div className="flex items-center justify-between text-[10px] text-zinc-400 font-bold uppercase mb-2">
-            <span>Toplam</span>
-            <div className="flex items-center gap-2">
-              <span className="text-zinc-500 line-through">{formatMoney(totalListPrice)} ₺</span>
-              <span className="text-white font-black">{formatMoney(totalPrice)} ₺</span>
-            </div>
-          </div>
-          {largePrintSummary.count > 0 && (
-            <div className="flex items-center justify-between text-[10px] text-zinc-400 font-bold uppercase mb-2">
-              <span>Baskı Alanı Ekstra ({largePrintSummary.count}×)</span>
-              <span className="text-zinc-300">+{formatMoney(largePrintSummary.amount)} ₺</span>
-            </div>
-          )}
-          <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-300">Açılışa Özel %20 İndirim</p>
-        </div>
       </div>
     );
   }
@@ -7674,26 +7665,6 @@ function EditorPanel({
           }`}
         style={{ touchAction: "pan-y", minHeight: 0, backgroundColor: contentBackground }}
       >
-        {isDrawerLayout && (
-          <div className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm shrink-0">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] font-black uppercase tracking-[0.14em] text-gray-500">Toplam</span>
-              <div className="text-right leading-tight">
-                <p className="text-[10px] font-mono text-gray-400 line-through">{formatMoney(totalListPrice)} ₺</p>
-                <p className="text-xs font-black text-gray-900">{formatMoney(totalPrice)} ₺</p>
-              </div>
-            </div>
-            {largePrintSummary.count > 0 && (
-              <div className="mt-1 flex items-center justify-between gap-2">
-                <span className="text-[10px] font-black uppercase tracking-[0.12em] text-gray-500">
-                  Baskı Alanı Ekstra ({largePrintSummary.count}×)
-                </span>
-                <span className="text-[11px] font-mono text-gray-700">+{formatMoney(largePrintSummary.amount)} ₺</span>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* PRINT TYPE */}
         {panelActiveTab === "print" && (
           <div className={`${isDrawerLayout ? (isMobileDrawer ? "w-full flex flex-col gap-2.5" : "h-full w-full flex items-stretch justify-start gap-2.5") : "space-y-2.5"}`}>
@@ -7801,6 +7772,10 @@ function EditorPanel({
                                 }}
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  if (shouldBlockTransientUploadOpen()) {
+                                    e.preventDefault();
+                                    return;
+                                  }
                                   if (!canUploadMoreLogos) {
                                     e.preventDefault();
                                     return;
@@ -8160,39 +8135,6 @@ function EditorPanel({
             If you want desktop editor preview back, tell me, eklerim. */}
       </div>
 
-      {!isDrawerLayout && (
-        <div
-          className={`p-3 flex-shrink-0 ${isMobile ? "pb-[calc(env(safe-area-inset-bottom)+12px)]" : ""} border-t border-zinc-800 bg-[#111111]`}
-        >
-          <div className="mb-2 p-2.5 rounded-xl bg-zinc-900/50 border border-zinc-800">
-            <div className="flex justify-between items-center">
-              <span className="text-[10px] font-bold uppercase text-zinc-500">Açılışa Özel</span>
-              <div className="text-right leading-tight">
-                <p className="text-[10px] font-mono text-zinc-500 line-through">{formatMoney(baseModelListPrice)} ₺</p>
-                <p className="text-xs font-mono text-zinc-100">{formatMoney(baseModelPrice)} ₺</p>
-              </div>
-            </div>
-            <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-emerald-300">Açılış İndirimi %20</p>
-
-            {largePrintSummary.count > 0 && (
-              <div className="flex justify-between items-center mt-1">
-                <span className="text-[10px] font-bold uppercase text-zinc-500">
-                  Baskı Alanı Ekstra ({largePrintSummary.count}×)
-                </span>
-                <span className="text-xs font-mono text-zinc-300">+{formatMoney(largePrintSummary.amount)} ₺</span>
-              </div>
-            )}
-
-            <div className="flex justify-between items-center mt-2 pt-2 border-t border-zinc-800">
-              <span className="text-[10px] font-bold uppercase text-white">Toplam</span>
-              <div className="text-right leading-tight">
-                <p className="text-[10px] font-mono text-zinc-500 line-through">{formatMoney(totalListPrice)} ₺</p>
-                <p className="text-sm font-black font-mono text-white">{formatMoney(totalPrice)} ₺</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -10950,6 +10892,7 @@ function TasarimClientContent({ isMobile }) {
       onOpenPatternPicker={openPatternToolFromPrintTypes}
       hasPrintAreaSelection={hasActivePrintAreaSelection}
       printTypePickerSignal={printTypePickerSignal}
+      shouldSuppressTransientClicks={isModelTapSuppressed}
     />
   );
 
@@ -11274,7 +11217,7 @@ function TasarimClientContent({ isMobile }) {
                       : "transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1)",
                   zIndex: 0,
                   touchAction: "none",
-                  pointerEvents: activeTab === "color" ? "none" : "auto",
+                  pointerEvents: "auto",
                 }}
                 gl={{
                   preserveDrawingBuffer: true,
@@ -12592,6 +12535,7 @@ function TasarimClientContent({ isMobile }) {
                   onRequestDrawerCollapse={() => setDrawerOpen(false)}
                   hasPrintAreaSelection={hasActivePrintAreaSelection}
                   printTypePickerSignal={printTypePickerSignal}
+                  shouldSuppressTransientClicks={isModelTapSuppressed}
                 />
               </div>
             </div>
