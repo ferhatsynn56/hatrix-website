@@ -1192,7 +1192,7 @@ const TEXT_LAYOUT_OPTIONS = [
 
 const HDR_ENV_DESKTOP_PATH = "/hdr/white_studio_06_4k.exr";
 const HDR_ENV_MOBILE_PATH = "/hdr/studio_small_03_2k.exr";
-const RUBBER_GLYPH_MODEL_PATH = `${NEW_MODELS_ROOT}/Harf_inklabı.glb`;
+const RUBBER_GLYPH_MODEL_PATH = `${NEW_MODELS_ROOT}/Harfler-IsaretlerSon.glb`;
 const HDR_SOURCE_CACHE = new Map();
 
 const getHdriSourceTexture = (url) => {
@@ -1249,7 +1249,9 @@ const glyphTokenToChar = (tokenRaw, forceCase = null) => {
   if (/^[a-z]$/i.test(tokenOriginal)) {
     if (forceCase === "lower") return token;
     if (forceCase === "upper") return token.toUpperCase();
-    return tokenOriginal;
+    // Some newer exports use `glyph_a` instead of `glyph_A` for the uppercase set.
+    // Interpret plain single-letter tokens as uppercase by default.
+    return token.toUpperCase();
   }
   return null;
 };
@@ -3922,8 +3924,14 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
       const lowerTr = ch.toLocaleLowerCase("tr-TR");
       const directMatch = glyphLibrary[ch] || (upperTr === ch ? glyphLibrary[upperTr] : null) || (lowerTr === ch ? glyphLibrary[lowerTr] : null);
       if (directMatch) return directMatch;
-      // Harflerde case fallback yapma; buyuk harf icin kucuk harf glyph'ini basma.
-      if (upperTr !== lowerTr) return null;
+      // Buyuk harf icin kucuk harf fallback yapma.
+      // Kucuk harfte kendi glyph'i yoksa, son care olarak buyuk harfi kullan.
+      if (upperTr !== lowerTr) {
+        if (ch === lowerTr) {
+          return glyphLibrary[upperTr] || glyphLibrary[ch.toUpperCase()] || null;
+        }
+        return null;
+      }
       return (
         glyphLibrary[upperTr] ||
         glyphLibrary[lowerTr] ||
