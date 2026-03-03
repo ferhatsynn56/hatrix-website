@@ -8606,6 +8606,21 @@ function TasarimClientContent({ isMobile }) {
     }),
     [safeTextPos.x, safeTextPos.y, textHalfBounds.halfW01, textHalfBounds.halfH01]
   );
+  const getSelectionHitBox = useCallback((rawBox, padX = 0.012, padY = 0.012) => {
+    const source = rawBox && typeof rawBox === "object" ? rawBox : { x: 0.5, y: 0.5, w: 0.2, h: 0.2 };
+    const expandedW = clamp(Number(source.w || 0.2) + padX * 2, 0.06, 1);
+    const expandedH = clamp(Number(source.h || 0.2) + padY * 2, 0.05, 1);
+    return {
+      x: clamp(Number(source.x || 0.5), expandedW / 2, 1 - expandedW / 2),
+      y: clamp(Number(source.y || 0.5), expandedH / 2, 1 - expandedH / 2),
+      w: expandedW,
+      h: expandedH,
+    };
+  }, []);
+  const sceneTextHitBox = useMemo(
+    () => getSelectionHitBox(sceneTextBox, 0.012, 0.012),
+    [getSelectionHitBox, sceneTextBox]
+  );
   const showSceneTextFrame = Boolean(sceneTextSelectionVisible && hasSceneText && selectedSceneType === "text");
   const showSceneInjectionFrame = Boolean(
     sceneInjectionSelectionVisible &&
@@ -8613,6 +8628,10 @@ function TasarimClientContent({ isMobile }) {
     selectedSceneType === "pattern"
   );
   const isSceneInjectionCompact = (sceneInjectionBox?.w || 0) < 0.24 || (sceneInjectionBox?.h || 0) < 0.18;
+  const sceneInjectionHitBox = useMemo(
+    () => getSelectionHitBox(sceneInjectionBox, 0.016, 0.016),
+    [getSelectionHitBox, sceneInjectionBox]
+  );
   const selectableSceneItems = useMemo(() => {
     const next = [];
     if (activeLogo?.id) next.push({ id: activeLogo.id, type: "logo", side: currentSide });
@@ -10211,7 +10230,7 @@ function TasarimClientContent({ isMobile }) {
   };
 
   useEffect(() => {
-    const hasSceneTarget = Boolean(activeLogo || hasSceneText || pdfVisibleOnCurrentSide);
+    const hasSceneTarget = Boolean(activeLogo || hasSceneText || hasSceneInjection || pdfVisibleOnCurrentSide);
     if (!isPrintAreaOpen || !printBounds || !hasSceneTarget) {
       setScenePlaneRect(null);
       return;
@@ -10328,6 +10347,7 @@ function TasarimClientContent({ isMobile }) {
     isPrintAreaOpen,
     activeLogo?.id,
     hasSceneText,
+    hasSceneInjection,
     pdfVisibleOnCurrentSide,
     activeId,
     currentSide,
@@ -12254,7 +12274,7 @@ function TasarimClientContent({ isMobile }) {
                 {(logos || []).map((l, logoIdx) => {
                   const isSelected = selectedSceneType === "logo" && selectedSceneId === l.id;
                   const box = l.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
-                  const selectedLogoPassThrough = isSelected && selectableSceneItems.length > 1;
+                  const hitBox = getSelectionHitBox(box, 0.014, 0.014);
                   return (
                     <div
                       key={`scene-logo-${l.id}`}
@@ -12263,18 +12283,13 @@ function TasarimClientContent({ isMobile }) {
                         : "border-transparent bg-transparent"
                         }`}
                       style={{
-                        left: `${(box.x - box.w / 2) * 100}%`,
-                        top: `${(box.y - box.h / 2) * 100}%`,
-                        width: `${box.w * 100}%`,
-                        height: `${box.h * 100}%`,
-                        pointerEvents:
-                          isMobile && mobilePanelCollapsed
-                            ? "none"
-                            : selectedLogoPassThrough
-                              ? "none"
-                              : "auto",
+                        left: `${(hitBox.x - hitBox.w / 2) * 100}%`,
+                        top: `${(hitBox.y - hitBox.h / 2) * 100}%`,
+                        width: `${hitBox.w * 100}%`,
+                        height: `${hitBox.h * 100}%`,
+                        pointerEvents: isSelected && showSceneFrame ? "none" : "auto",
                         touchAction: "none",
-                        zIndex: isSelected ? 50 : 52 + logoIdx,
+                        zIndex: isSelected ? 78 : 68 + logoIdx,
                       }}
                       onPointerDown={(e) => {
                         e.preventDefault();
@@ -12308,7 +12323,7 @@ function TasarimClientContent({ isMobile }) {
                     largeHandles={isMobile}
                     minWidth={minLogoSize01.w}
                     minHeight={minLogoSize01.h}
-                    enableBodyDrag={selectableSceneItems.length <= 1}
+                    enableBodyDrag
                   />
                 )}
 
@@ -12394,13 +12409,13 @@ function TasarimClientContent({ isMobile }) {
                       : "border-transparent bg-transparent"
                       }`}
                     style={{
-                      left: `${(sceneInjectionBox.x - sceneInjectionBox.w / 2) * 100}%`,
-                      top: `${(sceneInjectionBox.y - sceneInjectionBox.h / 2) * 100}%`,
-                      width: `${sceneInjectionBox.w * 100}%`,
-                      height: `${sceneInjectionBox.h * 100}%`,
-                      pointerEvents: "auto",
+                      left: `${(sceneInjectionHitBox.x - sceneInjectionHitBox.w / 2) * 100}%`,
+                      top: `${(sceneInjectionHitBox.y - sceneInjectionHitBox.h / 2) * 100}%`,
+                      width: `${sceneInjectionHitBox.w * 100}%`,
+                      height: `${sceneInjectionHitBox.h * 100}%`,
+                      pointerEvents: showSceneInjectionFrame ? "none" : "auto",
                       touchAction: "none",
-                      zIndex: showSceneInjectionFrame ? 63 : 62,
+                      zIndex: showSceneInjectionFrame ? 82 : 74,
                     }}
                     onPointerDown={(e) => {
                       e.preventDefault();
@@ -12492,18 +12507,13 @@ function TasarimClientContent({ isMobile }) {
                         : "border-transparent bg-transparent"
                         }`}
                       style={{
-                        left: `${(sceneTextBox.x - sceneTextBox.w / 2) * 100}%`,
-                        top: `${(sceneTextBox.y - sceneTextBox.h / 2) * 100}%`,
-                        width: `${sceneTextBox.w * 100}%`,
-                        height: `${sceneTextBox.h * 100}%`,
-                        pointerEvents:
-                          isMobile && mobilePanelCollapsed
-                            ? "none"
-                            : showSceneTextFrame && selectableSceneItems.length > 1
-                              ? "none"
-                              : "auto",
+                        left: `${(sceneTextHitBox.x - sceneTextHitBox.w / 2) * 100}%`,
+                        top: `${(sceneTextHitBox.y - sceneTextHitBox.h / 2) * 100}%`,
+                        width: `${sceneTextHitBox.w * 100}%`,
+                        height: `${sceneTextHitBox.h * 100}%`,
+                        pointerEvents: showSceneTextFrame ? "none" : "auto",
                         touchAction: "none",
-                        zIndex: showSceneTextFrame ? 62 : 61,
+                        zIndex: showSceneTextFrame ? 80 : 72,
                       }}
                       onPointerDown={(e) => {
                         e.preventDefault();
@@ -12529,7 +12539,7 @@ function TasarimClientContent({ isMobile }) {
                         transformMode="resize"
                         onDragStateChange={setIsLogoDragging}
                         largeHandles={isMobile}
-                        enableBodyDrag={selectableSceneItems.length <= 1}
+                        enableBodyDrag
                       />
                     )}
 
