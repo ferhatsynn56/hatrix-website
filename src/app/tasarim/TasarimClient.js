@@ -4249,6 +4249,18 @@ function InjectionPatternStamp({
     return hasSkinned ? SkeletonUtils.clone(gltf.scene) : gltf.scene.clone(true);
   }, [gltf, hasSkinned, isEnabled]);
 
+  const flipGeometryWinding = useCallback((geometry) => {
+    const index = geometry?.getIndex?.();
+    if (!index) return;
+    for (let i = 0; i < index.count; i += 3) {
+      const b = index.getX(i + 1);
+      const c = index.getX(i + 2);
+      index.setX(i + 1, c);
+      index.setX(i + 2, b);
+    }
+    index.needsUpdate = true;
+  }, []);
+
   const normalizedGeometries = useMemo(() => {
     if (!isEnabled || !resolvedOption?.id || !sourceScene) return [];
     const rawEntries = [];
@@ -4335,6 +4347,7 @@ function InjectionPatternStamp({
     // Yeni export'larda yön ters kalıyorsa yatay eksende düzelt.
     usableEntries.forEach((entry) => {
       entry.geometry.scale(-1, 1, 1);
+      flipGeometryWinding(entry.geometry);
       entry.geometry.computeVertexNormals?.();
       entry.geometry.computeBoundingBox?.();
       entry.bbox = entry.geometry.boundingBox ? entry.geometry.boundingBox.clone() : entry.bbox;
@@ -4380,7 +4393,7 @@ function InjectionPatternStamp({
         scalar,
       };
     });
-  }, [isEnabled, resolvedOption, sourceScene, areaW, areaH, sideData?.injectionScale]);
+  }, [isEnabled, resolvedOption, sourceScene, areaW, areaH, sideData?.injectionScale, flipGeometryWinding]);
 
   useEffect(
     () => () => {
@@ -5708,6 +5721,7 @@ function ResizeFrame({
   minWidth = 0.12,
   minHeight = 0.12,
   enableBodyDrag = true,
+  frameZIndex = 60,
 }) {
   const dragRef = useRef(null);
   const rafRef = useRef(0);
@@ -5959,7 +5973,7 @@ function ResizeFrame({
         height: pct(box.h),
         touchAction: "none",
         pointerEvents: "none",
-        zIndex: 60,
+        zIndex: frameZIndex,
       }}
     >
       {(transformMode === "rotate" || enableBodyDrag) && (
@@ -11433,7 +11447,7 @@ function TasarimClientContent({ isMobile }) {
                   maxAzimuthAngle={orbitMaxAzimuthAngle}
                   minPolarAngle={orbitMinPolarAngle}
                   maxPolarAngle={orbitMaxPolarAngle}
-                  zoomToCursor={false}
+                  zoomToCursor
                   enabled={!camAnimating}
                   target={[0, controlsTargetY, 0]}
                   mouseButtons={{
@@ -12324,6 +12338,7 @@ function TasarimClientContent({ isMobile }) {
                     minWidth={minLogoSize01.w}
                     minHeight={minLogoSize01.h}
                     enableBodyDrag
+                    frameZIndex={84}
                   />
                 )}
 
@@ -12450,6 +12465,7 @@ function TasarimClientContent({ isMobile }) {
                     disableResize
                     largeHandles={isMobile}
                     enableBodyDrag
+                    frameZIndex={84}
                   />
                 )}
 
@@ -12540,6 +12556,7 @@ function TasarimClientContent({ isMobile }) {
                         onDragStateChange={setIsLogoDragging}
                         largeHandles={isMobile}
                         enableBodyDrag
+                        frameZIndex={84}
                       />
                     )}
 

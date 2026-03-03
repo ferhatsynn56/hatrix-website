@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronUp, Minus, Plus, ShoppingCart, Trash2, X } from "lucide-react";
 import { clearCheckoutData, getCheckoutData, setCheckoutData } from "@/lib/checkoutStore";
 
 const sanitizeQty = (value) => {
@@ -24,6 +24,7 @@ export default function TasarimAdetPage() {
   const [quantities, setQuantities] = useState({});
   const [orderNote, setOrderNote] = useState("");
   const [error, setError] = useState("");
+  const [mobileSummaryOpen, setMobileSummaryOpen] = useState(true);
 
   const resumeHref = useMemo(() => {
     const modelType = payload?.designs?.[0]?.modelType;
@@ -167,7 +168,7 @@ export default function TasarimAdetPage() {
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-6xl gap-6 px-4 py-5 md:px-6 md:py-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <main className="mx-auto grid max-w-6xl gap-6 px-4 py-5 pb-56 md:px-6 md:py-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:pb-8">
         <section className="rounded-[28px] border border-zinc-200 bg-white p-4 shadow-sm md:p-6">
           <div className="flex flex-col gap-3 border-b border-zinc-200 pb-4 md:flex-row md:items-center md:justify-between">
             <div>
@@ -297,7 +298,7 @@ export default function TasarimAdetPage() {
           )}
         </section>
 
-        <aside className="lg:sticky lg:top-6 h-fit rounded-[28px] border border-zinc-200 bg-[#eef1f4] p-4 shadow-sm md:p-5">
+        <aside className="hidden lg:block lg:sticky lg:top-6 h-fit rounded-[28px] border border-zinc-200 bg-[#eef1f4] p-4 shadow-sm md:p-5">
           <div className="rounded-3xl border border-zinc-200 bg-white overflow-hidden">
             <div className="border-b border-zinc-200 px-5 py-4">
               <h2 className="text-2xl font-black text-slate-900">Sipariş Özeti</h2>
@@ -330,6 +331,54 @@ export default function TasarimAdetPage() {
           </div>
         </aside>
       </main>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 lg:hidden px-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+        <div
+          className={`overflow-hidden rounded-t-[28px] border border-zinc-200 bg-white shadow-2xl transition-transform duration-300 ${
+            mobileSummaryOpen ? "translate-y-0" : "translate-y-[calc(100%-88px)]"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => setMobileSummaryOpen((prev) => !prev)}
+            className="flex w-full items-center justify-between border-b border-zinc-200 px-5 py-4 text-left"
+          >
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-zinc-500">Toplam</p>
+              <p className="mt-1 text-2xl font-black text-slate-900">{formatMoney(total)} TL</p>
+            </div>
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-700">
+              {mobileSummaryOpen ? <X size={20} /> : <ChevronUp size={20} />}
+            </span>
+          </button>
+
+          <div className="space-y-4 px-5 py-5">
+            <div className="rounded-3xl border border-zinc-200 bg-[#f8fafc] overflow-hidden">
+              <div className="border-b border-zinc-200 px-5 py-4">
+                <h2 className="text-xl font-black text-slate-900">Sepet Özeti</h2>
+              </div>
+              <div className="space-y-0">
+                <div className="flex items-center justify-between px-5 py-4 text-base text-zinc-700">
+                  <span>Sepet Tutarı</span>
+                  <span className="font-black text-zinc-900">{formatMoney(total)} TL</span>
+                </div>
+                <div className="border-t border-zinc-200 flex items-center justify-between px-5 py-4 text-xl font-black text-slate-900">
+                  <span>Toplam Tutar</span>
+                  <span>{formatMoney(total)} TL</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={goNext}
+              className="inline-flex w-full items-center justify-center rounded-2xl bg-emerald-500 px-5 py-4 text-base font-black text-white transition hover:bg-emerald-600"
+            >
+              Alışverişi Tamamla
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
