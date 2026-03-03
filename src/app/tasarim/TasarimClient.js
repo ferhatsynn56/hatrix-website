@@ -11434,7 +11434,7 @@ function TasarimClientContent({ isMobile }) {
                   ref={controlsRef}
                   makeDefault
                   enableZoom
-                  enablePan={false}
+                  enablePan={isMobile}
                   enableRotate={allowSleeveOrbit}
                   autoRotate={false}
                   autoRotateSpeed={isMobile ? 2.0 : 1.5}
@@ -12303,7 +12303,7 @@ function TasarimClientContent({ isMobile }) {
                         height: `${hitBox.h * 100}%`,
                         pointerEvents: isSelected && showSceneFrame ? "none" : "auto",
                         touchAction: "none",
-                        zIndex: isSelected ? 78 : 68 + logoIdx,
+                        zIndex: isSelected ? 78 : 72 + logoIdx,
                       }}
                       onPointerDown={(e) => {
                         e.preventDefault();
@@ -12338,7 +12338,7 @@ function TasarimClientContent({ isMobile }) {
                     minWidth={minLogoSize01.w}
                     minHeight={minLogoSize01.h}
                     enableBodyDrag
-                    frameZIndex={84}
+                    frameZIndex={70}
                   />
                 )}
 
@@ -12430,7 +12430,7 @@ function TasarimClientContent({ isMobile }) {
                       height: `${sceneInjectionHitBox.h * 100}%`,
                       pointerEvents: showSceneInjectionFrame ? "none" : "auto",
                       touchAction: "none",
-                      zIndex: showSceneInjectionFrame ? 82 : 74,
+                      zIndex: showSceneInjectionFrame ? 82 : 88,
                     }}
                     onPointerDown={(e) => {
                       e.preventDefault();
@@ -12529,7 +12529,7 @@ function TasarimClientContent({ isMobile }) {
                         height: `${sceneTextHitBox.h * 100}%`,
                         pointerEvents: showSceneTextFrame ? "none" : "auto",
                         touchAction: "none",
-                        zIndex: showSceneTextFrame ? 80 : 72,
+                        zIndex: showSceneTextFrame ? 80 : 90,
                       }}
                       onPointerDown={(e) => {
                         e.preventDefault();

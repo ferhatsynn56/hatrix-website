@@ -24,7 +24,7 @@ export default function TasarimAdetPage() {
   const [quantities, setQuantities] = useState({});
   const [orderNote, setOrderNote] = useState("");
   const [error, setError] = useState("");
-  const [mobileSummaryOpen, setMobileSummaryOpen] = useState(true);
+  const [mobileSummaryOpen, setMobileSummaryOpen] = useState(false);
 
   const resumeHref = useMemo(() => {
     const modelType = payload?.designs?.[0]?.modelType;
@@ -332,9 +332,9 @@ export default function TasarimAdetPage() {
         </aside>
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 lg:hidden px-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+      <div className="fixed inset-x-0 bottom-0 z-40 pointer-events-none lg:hidden px-3 pb-[max(12px,env(safe-area-inset-bottom))]">
         <div
-          className={`overflow-hidden rounded-t-[28px] border border-zinc-200 bg-white shadow-2xl transition-transform duration-300 ${
+          className={`pointer-events-auto overflow-hidden rounded-t-[28px] border border-zinc-200 bg-white shadow-2xl transition-transform duration-300 ${
             mobileSummaryOpen ? "translate-y-0" : "translate-y-[calc(100%-88px)]"
           }`}
         >
