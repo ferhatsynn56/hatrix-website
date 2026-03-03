@@ -8632,7 +8632,7 @@ function TasarimClientContent({ isMobile }) {
     };
   }, []);
   const sceneTextHitBox = useMemo(
-    () => getSelectionHitBox(sceneTextBox, 0.012, 0.012),
+    () => getSelectionHitBox(sceneTextBox, 0.024, 0.02),
     [getSelectionHitBox, sceneTextBox]
   );
   const showSceneTextFrame = Boolean(sceneTextSelectionVisible && hasSceneText && selectedSceneType === "text");
@@ -11380,7 +11380,7 @@ function TasarimClientContent({ isMobile }) {
                 />
                 <CameraAxisLock
                   controlsRef={controlsRef}
-                  enabled={isMobile && flowStep === "design" && !isSleeveFocusedView}
+                  enabled={isMobile && flowStep === "design" && !isSleeveFocusedView && !multiTouchActive}
                 />
 
                 <Suspense fallback={<ThreeDotsLoader />}>

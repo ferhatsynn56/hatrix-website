@@ -334,14 +334,15 @@ export default function TasarimAdetPage() {
 
       <div className="fixed inset-x-0 bottom-0 z-40 pointer-events-none lg:hidden px-3 pb-[max(12px,env(safe-area-inset-bottom))]">
         <div
-          className={`pointer-events-auto overflow-hidden rounded-t-[28px] border border-zinc-200 bg-white shadow-2xl transition-transform duration-300 ${
+          className={`overflow-hidden rounded-t-[28px] border border-zinc-200 bg-white shadow-2xl transition-transform duration-300 ${
             mobileSummaryOpen ? "translate-y-0" : "translate-y-[calc(100%-88px)]"
           }`}
+          style={{ pointerEvents: mobileSummaryOpen ? "auto" : "none" }}
         >
           <button
             type="button"
             onClick={() => setMobileSummaryOpen((prev) => !prev)}
-            className="flex w-full items-center justify-between border-b border-zinc-200 px-5 py-4 text-left"
+            className="pointer-events-auto flex w-full items-center justify-between border-b border-zinc-200 px-5 py-4 text-left"
           >
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.16em] text-zinc-500">Toplam</p>
