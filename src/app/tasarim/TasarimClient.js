@@ -45,6 +45,7 @@ import {
   Pencil,
   Lock,
   LockOpen,
+  ShoppingCart,
 } from "lucide-react";
 
 import * as THREE from "three";
@@ -96,7 +97,7 @@ function ThreeDotsLoader() {
 const toSafeUrl = (p) => (typeof window !== "undefined" ? encodeURI(p) : p);
 const NEW_MODELS_ROOT = "/models/newModels";
 const NEW_MODELS_DIR_REMASTERED = `${NEW_MODELS_ROOT}/modelRemastered`;
-const INJECTION_MODELS_ROOT = "/models/Enjeksiyon 3D HAZIR MODELLER";
+const INJECTION_MODELS_ROOT = "/models/Enjeksiyon bitik";
 const MODELS_WITH_HOODIE_PARTS = new Set(["hoodie-v12-canavari", "oversize-hoodie-parcali"]);
 const DEFAULT_MODEL_TYPE = "yeni-duz-tshirt";
 const BG_REMOVE_LOCAL_ENDPOINT = "http://127.0.0.1:8000/remove-bg";
@@ -271,14 +272,14 @@ const MODEL_SELECTION_POSTERS = Object.freeze({
 });
 
 const INJECTION_PATTERN_OPTIONS = Object.freeze([
-  { id: "focus", label: "Focus", path: `${INJECTION_MODELS_ROOT}/focusSONNN.glb` },
-  { id: "brave", label: "Brave", path: `${INJECTION_MODELS_ROOT}/braveSONNN.glb` },
-  { id: "couture", label: "Couture", path: `${INJECTION_MODELS_ROOT}/coutureSONNN.glb` },
-  { id: "yazilar", label: "Yazilar", path: `${INJECTION_MODELS_ROOT}/yazılarSSONNNN.glb` },
-  { id: "kaplan", label: "Kaplan", path: `${INJECTION_MODELS_ROOT}/kaplanSONNN.glb` },
-  { id: "kurukafa", label: "Kurukafa", path: `${INJECTION_MODELS_ROOT}/kurukafaSONNNN.glb` },
-  { id: "uzi", label: "Uzi", path: `${INJECTION_MODELS_ROOT}/uziiiiiiiSONNNN.glb` },
-  { id: "love", label: "Love", path: `${INJECTION_MODELS_ROOT}/loveSONNNN.glb` },
+  { id: "focus", label: "Focus", path: `${INJECTION_MODELS_ROOT}/Focus.glb` },
+  { id: "brave", label: "Brave", path: `${INJECTION_MODELS_ROOT}/Brave.glb` },
+  { id: "couture", label: "Couture", path: `${INJECTION_MODELS_ROOT}/Couture.glb` },
+  { id: "danger", label: "Danger", path: `${INJECTION_MODELS_ROOT}/Danger.glb` },
+  { id: "tiger", label: "Tiger", path: `${INJECTION_MODELS_ROOT}/Tiger.glb` },
+  { id: "toolts", label: "Toolts", path: `${INJECTION_MODELS_ROOT}/Toolts.glb` },
+  { id: "tupac", label: "Tupac", path: `${INJECTION_MODELS_ROOT}/Tupac.glb` },
+  { id: "love", label: "Love", path: `${INJECTION_MODELS_ROOT}/Love.glb` },
 ]);
 
 const getInjectionPatternById = (id) =>
@@ -1305,7 +1306,7 @@ const PRINT_TECHNIQUES = Object.freeze({
 const PRINT_TYPE_LABELS = Object.freeze({
   dtf: "Normal Baskı (Görsel + Yazılar)",
   rubber: "Kabartma (Sadece Yazılar)",
-  pattern: "Hazır Desen (Enjeksiyon)",
+  pattern: "Hazır 3D desen",
 });
 
 const PRINT_AREA_MENU_LABELS = Object.freeze({
@@ -1354,7 +1355,7 @@ const PATTERN_PRINT_TYPE_OPTION = Object.freeze({
   available: true,
   previewSrc: null,
   previewAlt: "Hazır desen seçenekleri",
-  fallbackText: "Desenleri Aç",
+  fallbackText: "Hazır 3D desen",
 });
 
 function PrintTypePickerCards({
@@ -1440,7 +1441,7 @@ function InjectionPatternPickerCards({ selectedId = null, onSelect, sourceLabel 
   return (
     <div className="mt-2 rounded-xl border border-gray-200 bg-[#f4f6f8] p-3 pointer-events-auto">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-600">Enjeksiyon Desen</p>
+        <p className="text-[11px] font-black uppercase tracking-[0.15em] text-gray-600">Hazır 3D desen</p>
         <span className="text-[10px] font-bold uppercase text-gray-500">{sourceLabel}</span>
       </div>
       <div className={`grid gap-2 ${isMobile ? "grid-cols-2" : "grid-cols-4"}`}>
@@ -2435,6 +2436,7 @@ const createSideData = () => ({
   logos: [],
   activeLogoId: null,
   injectionModelId: null,
+  injectionColor: "#f3f4f6",
   injectionPos: { x: 0.5, y: 0.58 },
   injectionScale: 1,
   injectionRotation: 0,
@@ -2506,6 +2508,10 @@ const normalizeSideData = (sideData) => {
   };
   const textPos = clampTextPos(source.textPos || base.textPos, customText);
   const safeInjection = getInjectionPatternById(source?.injectionModelId);
+  const injectionColor =
+    typeof source?.injectionColor === "string" && source.injectionColor.trim()
+      ? source.injectionColor.trim()
+      : source?.customText?.color || base.injectionColor;
   const injectionPosRaw = source?.injectionPos && typeof source.injectionPos === "object" ? source.injectionPos : base.injectionPos;
   const injectionPos = {
     x: clamp(Number(injectionPosRaw?.x ?? base.injectionPos.x), 0.05, 0.95),
@@ -2521,6 +2527,7 @@ const normalizeSideData = (sideData) => {
     logos,
     activeLogoId: source.activeLogoId || logos[0]?.id || null,
     injectionModelId: safeInjection?.id || null,
+    injectionColor,
     injectionPos,
     injectionScale,
     injectionRotation,
@@ -2534,6 +2541,7 @@ const EMPTY_SIDE = createSideData();
 const hasSideContent = (sd) => {
   if (!sd) return false;
   if (Array.isArray(sd.logos) && sd.logos.length > 0) return true;
+  if (sd?.injectionModelId) return true;
   if ((sd.customText?.text || "").trim()) return true;
   return false;
 };
@@ -3162,14 +3170,14 @@ function CameraController({ view, count, focusKey = 0, controlsRef = null, onAni
     normalizedModelType === "polarv3" ||
     normalizedModelType === "yeni-fermuarli";
   const frontBackDistance = 1.9 + extra + (isLongModel ? 0.16 : 0);
-  const sleeveDistance = 1.04 + extra * 0.42 + (isLongModel ? 0.03 : 0);
+  const sleeveDistance = 1.28 + extra * 0.26 + (isLongModel ? 0.08 : 0);
 
   const positions = useMemo(
     () => ({
       front: new THREE.Vector3(0, isLongModel ? 0.235 : 0.24, frontBackDistance),
       back: new THREE.Vector3(0, isLongModel ? 0.235 : 0.24, frontBackDistance),
-      sleeve_left: new THREE.Vector3(0, isLongModel ? 0.275 : 0.29, sleeveDistance),
-      sleeve_right: new THREE.Vector3(0, isLongModel ? 0.275 : 0.29, sleeveDistance),
+      sleeve_left: new THREE.Vector3(0, isLongModel ? 0.262 : 0.278, sleeveDistance),
+      sleeve_right: new THREE.Vector3(0, isLongModel ? 0.262 : 0.278, sleeveDistance),
     }),
     [frontBackDistance, sleeveDistance, isLongModel]
   );
@@ -3177,8 +3185,8 @@ function CameraController({ view, count, focusKey = 0, controlsRef = null, onAni
     () => ({
       front: new THREE.Vector3(0, isLongModel ? -0.095 : -0.08, 0),
       back: new THREE.Vector3(0, isLongModel ? -0.095 : -0.08, 0),
-      sleeve_left: new THREE.Vector3(0, isLongModel ? -0.024 : -0.015, 0),
-      sleeve_right: new THREE.Vector3(0, isLongModel ? -0.024 : -0.015, 0),
+      sleeve_left: new THREE.Vector3(0, isLongModel ? -0.016 : -0.01, 0),
+      sleeve_right: new THREE.Vector3(0, isLongModel ? -0.016 : -0.01, 0),
     }),
     [isLongModel]
   );
@@ -4324,10 +4332,9 @@ function InjectionPatternStamp({
       });
     }
 
-    // Kalibra: enjeksiyon desenlerini dik aynalanmış görünümden çıkarıp
-    // model yüzeyine doğru yönde oturtmak için Y ekseninde çevir.
+    // Yeni export'larda yön ters kalıyorsa yatay eksende düzelt.
     usableEntries.forEach((entry) => {
-      entry.geometry.scale(1, -1, 1);
+      entry.geometry.scale(-1, 1, 1);
       entry.geometry.computeVertexNormals?.();
       entry.geometry.computeBoundingBox?.();
       entry.bbox = entry.geometry.boundingBox ? entry.geometry.boundingBox.clone() : entry.bbox;
@@ -4423,7 +4430,7 @@ function InjectionPatternStamp({
   const tiltX = Number.isFinite(Number(resolvedOption?.tiltX)) ? Number(resolvedOption.tiltX) : 0;
   const rz = ((Number(sideData?.injectionRotation) || 0) * Math.PI) / 180;
   const zNudge = side === "back" ? -0.000016 : 0.000016;
-  const color = sideData?.customText?.color || "#f3f4f6";
+  const color = sideData?.injectionColor || sideData?.customText?.color || "#f3f4f6";
   const stick = clamp(Number(sideData?.injectionStick ?? sideData?.customText?.rubberStick ?? 0.985), 0.92, 1);
   const placementKey = `${side}_${resolvedOption?.id || "none"}_${cx}_${cy}_${rz}_${stick}`;
 
@@ -7037,6 +7044,24 @@ function EditorPanel({
   const sizes = ["S", "M", "L", "XL"];
   const colorPresets = BRAND_COLORS;
   const stringPresets = ["#e6e6e6", "#ffffff", "#000000", "#c8b08a", "#a0a0a0"];
+  const injectionColorPresets = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...colorPresets,
+          ...stringPresets,
+          "#ff4d4f",
+          "#f97316",
+          "#facc15",
+          "#22c55e",
+          "#14b8a6",
+          "#3b82f6",
+          "#8b5cf6",
+          "#ec4899",
+        ])
+      ),
+    [colorPresets, stringPresets]
+  );
   const printTypes = design ? getPrintTypesForSide(design, currentSide) : [];
   const sideHasImages = Boolean((sideData?.logos || []).length);
   const sideHasTextContent = Boolean(String(sideData?.customText?.text || "").trim());
@@ -7119,7 +7144,6 @@ function EditorPanel({
     new Set([
       ...(printTypes || []),
       ...(sideHasImages ? ["dtf"] : []),
-      ...(sideHasInjection ? ["rubber"] : []),
       ...((rubberActiveForSide && String(t?.text || "").trim()) ? ["rubber"] : []),
     ])
   );
@@ -7159,6 +7183,18 @@ function EditorPanel({
     }
     const safeSide = resolveEditableSide(currentSide);
     const liveSide = normalizeSideData(design?.sides?.[safeSide]);
+    if (target === "injection") {
+      updateDesign({
+        sides: {
+          ...(design.sides || {}),
+          [safeSide]: {
+            ...liveSide,
+            injectionColor: safeColor,
+          },
+        },
+      });
+      return;
+    }
     updateDesign({
       ...(safeSide === "front" ? { color: safeColor } : {}),
       sides: {
@@ -7339,7 +7375,7 @@ function EditorPanel({
     { id: "print", icon: Layers, label: "Baskı Seçim" },
     { id: "upload", icon: ImageIcon, label: "Görsel" },
     { id: "text", icon: FileText, label: "Yazı" },
-    { id: "pattern", icon: Layers, label: "Desen" },
+    { id: "pattern", icon: Layers, label: "Hazır 3D desen" },
   ];
 
   const togglePrintType = (id) => {
@@ -7359,18 +7395,10 @@ function EditorPanel({
         t.technique,
         printTypeIdsToTechnique(printTypes, PRINT_TECHNIQUES.DTF)
       );
-      const hasInjectionPattern = Boolean(sideData?.injectionModelId);
-      let clearInjection = false;
-
-      if (id === "rubber" && hasInjectionPattern) {
-        clearInjection = true;
-      }
-
       if (id === "rubber" && hasTextContent && currentTechnique === PRINT_TECHNIQUES.RUBBER) {
         nextTypes = Array.from(new Set([...nextTypes, "dtf"]));
         setCurrentSidePrintTypes(nextTypes);
         bumpText({ technique: PRINT_TECHNIQUES.DTF });
-        if (clearInjection) updateSide({ injectionModelId: null });
         setActiveTab("upload");
         return;
       }
@@ -7383,7 +7411,6 @@ function EditorPanel({
         return;
       }
 
-      if (clearInjection) updateSide({ injectionModelId: null });
       setCurrentSidePrintTypes(nextTypes);
       if (id === "dtf" && activeTab === "upload") {
         setActiveTab(nextTypes.includes("rubber") ? "text" : "print");
@@ -7426,11 +7453,12 @@ function EditorPanel({
     const isSelected = sideData?.injectionModelId === opt.id;
     if (isSelected) {
       updateSide({ injectionModelId: null });
+      setActiveTab("pattern");
       return;
     }
-    ensureCurrentSidePrintType("rubber");
     updateSide({
       injectionModelId: opt.id,
+      injectionColor: sideData?.injectionColor || sideData?.customText?.color || "#f3f4f6",
       injectionPos: sideData?.injectionPos || { x: 0.5, y: 0.58 },
       injectionScale: clamp(Number(sideData?.injectionScale ?? 1), 0.45, 2.4),
       injectionRotation: clamp(Number(sideData?.injectionRotation ?? 0), -180, 180),
@@ -7439,6 +7467,7 @@ function EditorPanel({
         font: RUBBER_FONT_OPTION.value,
       },
     });
+    setActiveTab("color");
   };
 
   const toggleHoodiePart = (partId) => {
@@ -8083,6 +8112,40 @@ function EditorPanel({
                 ))}
               </div>
             </div>
+
+            {sideHasInjection && (
+              <div className={`rounded-xl border border-gray-200 bg-white p-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[220px] max-w-[320px] 2xl:min-w-[260px] 2xl:max-w-[420px] h-full max-h-full min-h-[188px] flex flex-col overflow-y-auto overflow-x-hidden") : ""}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <p className={drawerHeadingClass}>Enjeksiyon Rengi</p>
+                  <span
+                    className="w-4 h-4 rounded-full border border-gray-300"
+                    style={{ backgroundColor: sideData?.injectionColor || sideData?.customText?.color || "#f3f4f6" }}
+                    title={sideData?.injectionColor || sideData?.customText?.color || "#f3f4f6"}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {injectionColorPresets.map((c) => (
+                    <button
+                      type="button"
+                      key={`inj-color-${c}`}
+                      onClick={() => handleColorChange(c, "injection")}
+                      className={`w-10 h-10 rounded-full border-2 transition hover:scale-110 ${(sideData?.injectionColor || sideData?.customText?.color || "#f3f4f6") === c ? "border-black scale-110" : "border-gray-200"
+                        }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+                <div className="mt-3 space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-wide text-gray-500">Özel Renk</label>
+                  <input
+                    type="color"
+                    value={sideData?.injectionColor || sideData?.customText?.color || "#f3f4f6"}
+                    onChange={(e) => handleColorChange(e.target.value, "injection")}
+                    className="h-10 w-full rounded-lg border border-gray-300 bg-white p-1"
+                  />
+                </div>
+              </div>
+            )}
 
             {design.modelType.includes("hoodie") && (
               <div className={`rounded-xl border border-gray-200 bg-white p-2 shadow-sm ${isDrawerLayout ? (isMobileDrawer ? "w-full shrink-0" : "flex-1 min-w-[220px] max-w-[320px] 2xl:min-w-[260px] 2xl:max-w-[420px] h-full max-h-full min-h-[188px] flex flex-col overflow-y-auto overflow-x-hidden") : ""}`}>
@@ -9536,7 +9599,7 @@ function TasarimClientContent({ isMobile }) {
     print: "Baskı Seçim",
     upload: "Görsel",
     text: "Yazı",
-    pattern: "Desen",
+    pattern: "Hazır 3D desen",
     editor: "Yerleşim",
     color: "Renk",
   };
@@ -9652,7 +9715,7 @@ function TasarimClientContent({ isMobile }) {
   const menuTabs = [
     { id: "color", label: "Renk", icon: Palette },
     { id: "print", label: "Baskı Seçim", icon: Layers },
-    { id: "pattern", label: "Hazır Desen", icon: Layers },
+    { id: "pattern", label: "Hazır 3D desen", icon: Layers },
     { id: "text", label: "Yazı", icon: FileText },
     { id: "upload", label: "Görsel", icon: ImageIcon },
   ];
@@ -9668,7 +9731,6 @@ function TasarimClientContent({ isMobile }) {
     new Set([
       ...activePrintTypesBase,
       ...((activeSideData?.logos || []).length ? ["dtf"] : []),
-      ...(activeSideData?.injectionModelId ? ["rubber"] : []),
       ...((activeSideTechnique === PRINT_TECHNIQUES.RUBBER && (activeSideData?.customText?.text || "").trim())
         ? ["rubber"]
         : []),
@@ -9676,6 +9738,7 @@ function TasarimClientContent({ isMobile }) {
   );
   const selectedPrintTypeNames = activePrintTypes
     .map((typeId) => PRINT_TYPE_OPTIONS.find((opt) => opt.id === typeId)?.label || typeId)
+    .concat(activeSideData?.injectionModelId ? [PRINT_TYPE_LABELS.pattern] : [])
     .join(" • ");
   const printAreaMenuOptions = useMemo(
     () =>
@@ -9757,9 +9820,6 @@ function TasarimClientContent({ isMobile }) {
             printTypeIdsToTechnique(nextTypes, PRINT_TECHNIQUES.DTF)
           );
           const hasText = Boolean((prevSide?.customText?.text || "").trim());
-          const hasInjectionPattern = Boolean(prevSide?.injectionModelId);
-          const clearInjection = typeId === "rubber" && hasInjectionPattern;
-
           if (typeId === "rubber" && hasText && nextTechnique === PRINT_TECHNIQUES.RUBBER) {
             nextTypes = Array.from(new Set([...nextTypes, "dtf"]));
             nextTechnique = PRINT_TECHNIQUES.DTF;
@@ -9773,7 +9833,6 @@ function TasarimClientContent({ isMobile }) {
           const mergedLegacy = mergePrintTypesForLegacy(bySide);
           const nextSide = {
             ...prevSide,
-            ...(clearInjection ? { injectionModelId: null } : {}),
             customText: {
               ...prevSide.customText,
               technique: nextTechnique,
@@ -9839,11 +9898,10 @@ function TasarimClientContent({ isMobile }) {
             injectionModelId: null,
           };
         } else {
-          const mergedSideTypes = Array.from(new Set([...(bySide[safeSide] || []), "rubber"]));
-          bySide[safeSide] = normalizePrintTypesBySide({ [safeSide]: mergedSideTypes })[safeSide];
           nextSide = {
             ...prevSide,
             injectionModelId: opt.id,
+            injectionColor: prevSide?.injectionColor || prevSide?.customText?.color || "#f3f4f6",
             injectionPos: prevSide?.injectionPos || { x: 0.5, y: 0.58 },
             injectionScale: clamp(Number(prevSide?.injectionScale ?? 1), 0.45, 2.4),
             injectionRotation: clamp(Number(prevSide?.injectionRotation ?? 0), -180, 180),
@@ -9866,12 +9924,12 @@ function TasarimClientContent({ isMobile }) {
         };
       })
     );
-    setActiveTab("pattern");
+    setActiveTab(activeSideData?.injectionModelId === opt.id ? "pattern" : "color");
     setDrawerMenuOpen(false);
   };
 
   const selectMenuTab = (id) => {
-    if ((id === "upload" || id === "text") && !ensurePrintAreaSelection()) {
+    if ((id === "upload" || id === "text" || id === "pattern") && !ensurePrintAreaSelection()) {
       setDrawerMenuOpen(false);
       return;
     }
@@ -10313,22 +10371,6 @@ function TasarimClientContent({ isMobile }) {
       return;
     }
 
-    const invalidTechniqueDesign = designs.find((d) =>
-      DESIGN_SIDES.some((sideKey) => {
-        const sd = d?.sides?.[sideKey] || EMPTY_SIDE;
-        const logos = Array.isArray(sd?.logos) ? sd.logos : [];
-        const hasInvalidImageTechnique = logos.some(
-          (logo) => normalizePrintTechnique(logo?.technique, PRINT_TECHNIQUES.DTF) !== PRINT_TECHNIQUES.DTF
-        );
-        if (hasInvalidImageTechnique) return true;
-        return false;
-      })
-    );
-    if (invalidTechniqueDesign) {
-      alert(`Görsel baskılar yalnızca ${PRINT_TYPE_LABELS.dtf} ile kullanılabilir.`);
-      return;
-    }
-
     setLoading(true);
     try {
       const checkoutDesigns = [];
@@ -10383,10 +10425,11 @@ function TasarimClientContent({ isMobile }) {
         const launchPrice = basePrice + pricingSummary.amount;
         const listPrice = getListPriceBeforeLaunchDiscount(launchPrice);
         const rubberSpecsBySide = buildRubberSpecsBySide(d);
+        const injectionSpecsBySide = {};
         const textTechniqueBySide = {};
         const imageTechniquesBySide = {};
         DESIGN_SIDES.forEach((sideKey) => {
-          const sd = d?.sides?.[sideKey] || EMPTY_SIDE;
+          const sd = normalizeSideData(d?.sides?.[sideKey] || EMPTY_SIDE);
           textTechniqueBySide[sideKey] = normalizePrintTechnique(
             sd?.customText?.technique,
             PRINT_TECHNIQUES.RUBBER
@@ -10394,6 +10437,14 @@ function TasarimClientContent({ isMobile }) {
           imageTechniquesBySide[sideKey] = (sd?.logos || []).map((logo) =>
             normalizePrintTechnique(logo?.technique, PRINT_TECHNIQUES.DTF)
           );
+          if (sd?.injectionModelId) {
+            const injectionOpt = getInjectionPatternById(sd.injectionModelId);
+            injectionSpecsBySide[sideKey] = {
+              id: sd.injectionModelId,
+              label: injectionOpt?.label || sd.injectionModelId,
+              color: sd.injectionColor || sd?.customText?.color || "#f3f4f6",
+            };
+          }
         });
         const orderItem = {
           id: `${d.id}-${Date.now()}`,
@@ -10423,6 +10474,7 @@ function TasarimClientContent({ isMobile }) {
             userUploads: Array.from(userUploadsSet),
             adjustedUploads,
             rubberSpecsBySide,
+            injectionSpecsBySide,
             textTechniqueBySide,
             imageTechniquesBySide,
             sides: d.sides,
@@ -10462,6 +10514,7 @@ function TasarimClientContent({ isMobile }) {
           userUploads: Array.from(userUploadsSet),
           adjustedUploads,
           rubberSpecsBySide,
+          injectionSpecsBySide,
           textTechniqueBySide,
           imageTechniquesBySide,
           designDetails: orderItem.designDetails,
@@ -10661,7 +10714,7 @@ function TasarimClientContent({ isMobile }) {
     }
     setViewFocusKey((prev) => prev + 1);
   }, [activeId, clearSceneSelection, view]);
-  const topRightActionLabel = loading ? "Hazırlanıyor..." : "Sepete Ekle";
+  const topRightActionLabel = loading ? "Hazırlanıyor..." : "Kaydet";
   const handleCheckoutAction = () => {
     setPrintAreaMenuOpen(false);
     handleFinishCheckout();
@@ -10758,9 +10811,9 @@ function TasarimClientContent({ isMobile }) {
   const getMobileCameraPose = useCallback(() => {
     if (isSleeveFocusedView) {
       return {
-        camY: THREE.MathUtils.lerp(isLongActiveModel ? 0.275 : 0.29, isLongActiveModel ? 0.26 : 0.275, scenePanelProgress),
-        camZ: THREE.MathUtils.lerp(1.14, 1.0, scenePanelProgress),
-        targetY: THREE.MathUtils.lerp(isLongActiveModel ? -0.02 : -0.015, isLongActiveModel ? -0.03 : -0.02, scenePanelProgress),
+        camY: THREE.MathUtils.lerp(isLongActiveModel ? 0.262 : 0.278, isLongActiveModel ? 0.248 : 0.264, scenePanelProgress),
+        camZ: THREE.MathUtils.lerp(1.28, 1.14, scenePanelProgress),
+        targetY: THREE.MathUtils.lerp(isLongActiveModel ? -0.014 : -0.01, isLongActiveModel ? -0.022 : -0.016, scenePanelProgress),
       };
     }
     const expandedCamZ = isPlacementPanelVisible ? (isLongActiveModel ? 2.18 : 2.1) : isLongActiveModel ? 2.28 : 2.2;
@@ -10994,10 +11047,10 @@ function TasarimClientContent({ isMobile }) {
             <button type="button"
               onClick={handleCheckoutAction}
               disabled={loading}
-              className={`h-9 px-4 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
+              className={`h-9 px-4 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 ${loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
                 }`}
             >
-              {topRightActionLabel}
+              {loading ? topRightActionLabel : (<><ShoppingCart size={14} /> {topRightActionLabel}</>)}
             </button>
           </div>
         ) : (
@@ -11045,10 +11098,10 @@ function TasarimClientContent({ isMobile }) {
               <button type="button"
                 onClick={handleCheckoutAction}
                 disabled={loading}
-                className={`px-4 py-2 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg ${loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
+                className={`px-4 py-2 rounded-full border border-zinc-300 bg-white text-black text-xs font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 ${loading ? "opacity-70 cursor-not-allowed" : "hover:bg-zinc-100"
                   }`}
               >
-                {topRightActionLabel}
+                {loading ? topRightActionLabel : (<><ShoppingCart size={14} /> {topRightActionLabel}</>)}
               </button>
             </div>
           </>
@@ -11169,17 +11222,17 @@ function TasarimClientContent({ isMobile }) {
             const minZoomDistance = !isMobile
               ? isSleeveView
                 ? isPlacementPanelVisible
-                  ? 1.05
+                  ? 1.16
                   : drawerOpen
-                    ? 0.98
-                    : 0.92
+                    ? 1.08
+                    : 1.02
                 : isPlacementPanelVisible
                   ? 1.98 + longModelDistanceBoost
                   : drawerOpen
                     ? 1.8 + longModelDistanceBoost
                     : 1.72 + longModelDistanceBoost
               : isSleeveView
-                ? THREE.MathUtils.lerp(1.08, 0.92, scenePanelProgress)
+                ? THREE.MathUtils.lerp(1.2, 1.04, scenePanelProgress)
                 : THREE.MathUtils.lerp(
                   mobileMinZoomOpen + longModelDistanceBoost,
                   mobileMinZoomClosed + longModelDistanceBoost,
@@ -11199,10 +11252,10 @@ function TasarimClientContent({ isMobile }) {
                   ? -0.112
                   : -0.1;
             const allowSleeveOrbit = isSleeveView;
-            const orbitMinAzimuthAngle = allowSleeveOrbit ? -0.3 : -Infinity;
-            const orbitMaxAzimuthAngle = allowSleeveOrbit ? 0.3 : Infinity;
-            const orbitMinPolarAngle = allowSleeveOrbit ? Math.PI / 2 - 0.2 : 0;
-            const orbitMaxPolarAngle = allowSleeveOrbit ? Math.PI / 2 + 0.2 : Math.PI;
+            const orbitMinAzimuthAngle = allowSleeveOrbit ? -0.18 : -Infinity;
+            const orbitMaxAzimuthAngle = allowSleeveOrbit ? 0.18 : Infinity;
+            const orbitMinPolarAngle = allowSleeveOrbit ? Math.PI / 2 - 0.14 : 0;
+            const orbitMaxPolarAngle = allowSleeveOrbit ? Math.PI / 2 + 0.14 : Math.PI;
             return (
               <Canvas
                 frameloop={isInteracting ? "always" : (perf.frameloop || "always")}
@@ -12345,8 +12398,7 @@ function TasarimClientContent({ isMobile }) {
                       top: `${(sceneInjectionBox.y - sceneInjectionBox.h / 2) * 100}%`,
                       width: `${sceneInjectionBox.w * 100}%`,
                       height: `${sceneInjectionBox.h * 100}%`,
-                      pointerEvents:
-                        showSceneInjectionFrame && selectableSceneItems.length > 1 ? "none" : "auto",
+                      pointerEvents: "auto",
                       touchAction: "none",
                       zIndex: showSceneInjectionFrame ? 63 : 62,
                     }}
@@ -12382,7 +12434,7 @@ function TasarimClientContent({ isMobile }) {
                     onDragStateChange={setIsLogoDragging}
                     disableResize
                     largeHandles={isMobile}
-                    enableBodyDrag={selectableSceneItems.length <= 1}
+                    enableBodyDrag
                   />
                 )}
 
