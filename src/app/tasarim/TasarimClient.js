@@ -1208,7 +1208,7 @@ const TEXT_LAYOUT_OPTIONS = [
 const HDR_ENV_DESKTOP_PATH = "/hdr/white_studio_06_4k.exr";
 const HDR_ENV_MOBILE_PATH = "/hdr/studio_small_03_2k.exr";
 const RUBBER_GLYPH_MODEL_PATH = `${NEW_MODELS_ROOT}/alphabet_v1_final..glb`;
-const INJECTION_GEOMETRY_MIRROR_X = -1;
+const INJECTION_GEOMETRY_MIRROR_X = 1;
 const HDR_SOURCE_CACHE = new Map();
 
 const getHdriSourceTexture = (url) => {
@@ -4614,6 +4614,32 @@ function Real3DModel({
       geometry.computeBoundingBox?.();
       let bb = geometry.boundingBox;
       if (!bb) return;
+      const preSize = new THREE.Vector3();
+      bb.getSize(preSize);
+      const axisEntries = [
+        { axis: "x", value: preSize.x },
+        { axis: "y", value: preSize.y },
+        { axis: "z", value: preSize.z },
+      ].sort((a, b) => a.value - b.value);
+      const smallestAxis = axisEntries[0];
+      const secondAxis = axisEntries[1];
+      const needsDepthRealign =
+        smallestAxis?.axis !== "z" &&
+        Number.isFinite(smallestAxis?.value) &&
+        Number.isFinite(secondAxis?.value) &&
+        smallestAxis.value > 0 &&
+        smallestAxis.value * 1.8 < secondAxis.value;
+      if (needsDepthRealign) {
+        if (smallestAxis.axis === "y") {
+          // Export'ta depth Y eksenindeyse, depth'i Z'ye taşır.
+          geometry.rotateX(-Math.PI / 2);
+        } else if (smallestAxis.axis === "x") {
+          geometry.rotateY(Math.PI / 2);
+        }
+        geometry.computeBoundingBox?.();
+        bb = geometry.boundingBox;
+        if (!bb) return;
+      }
       const cx = (bb.min.x + bb.max.x) / 2;
       const zMin = bb.min.z;
       // Descender (y, g, p vb.) olan harfleri yukari itme.
@@ -8571,7 +8597,7 @@ function TasarimClientContent({ isMobile }) {
   const imageControlDisabled = logoControlsLocked || !activeLogo;
   const sizeControlDisabled = imageControlDisabled || activeLogoIsEmboss;
   const isEditorActive = activeTab === "editor";
-  const isPrintAreaOpen = flowStep === "design" && activeTab !== "color";
+  const isPrintAreaOpen = flowStep === "design";
   const activeLogoBox = activeLogo?.box || { x: 0.5, y: 0.6, w: 0.7, h: 0.45 };
   const activeLogoFx = getLogoStyle(activeLogo);
   const activePdfPlacement = normalizePdfPlacement(currentActiveDesign?.pdfPlacement, currentSide);
