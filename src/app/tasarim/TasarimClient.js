@@ -1207,7 +1207,8 @@ const TEXT_LAYOUT_OPTIONS = [
 
 const HDR_ENV_DESKTOP_PATH = "/hdr/white_studio_06_4k.exr";
 const HDR_ENV_MOBILE_PATH = "/hdr/studio_small_03_2k.exr";
-const RUBBER_GLYPH_MODEL_PATH = `${NEW_MODELS_ROOT}/Harfler-IsaretlerSon.glb`;
+const RUBBER_GLYPH_MODEL_PATH = `${NEW_MODELS_ROOT}/alphabet_v1_final..glb`;
+const INJECTION_GEOMETRY_MIRROR_X = 1;
 const HDR_SOURCE_CACHE = new Map();
 
 const getHdriSourceTexture = (url) => {
@@ -4344,10 +4345,12 @@ function InjectionPatternStamp({
       });
     }
 
-    // Yeni export'larda yön ters kalıyorsa yatay eksende düzelt.
+    // Enjeksiyon export yönünü tek noktadan kontrol et.
     usableEntries.forEach((entry) => {
-      entry.geometry.scale(-1, 1, 1);
-      flipGeometryWinding(entry.geometry);
+      if (INJECTION_GEOMETRY_MIRROR_X < 0) {
+        entry.geometry.scale(-1, 1, 1);
+        flipGeometryWinding(entry.geometry);
+      }
       entry.geometry.computeVertexNormals?.();
       entry.geometry.computeBoundingBox?.();
       entry.bbox = entry.geometry.boundingBox ? entry.geometry.boundingBox.clone() : entry.bbox;
@@ -8643,7 +8646,7 @@ function TasarimClientContent({ isMobile }) {
   );
   const isSceneInjectionCompact = (sceneInjectionBox?.w || 0) < 0.24 || (sceneInjectionBox?.h || 0) < 0.18;
   const sceneInjectionHitBox = useMemo(
-    () => getSelectionHitBox(sceneInjectionBox, 0.016, 0.016),
+    () => getSelectionHitBox(sceneInjectionBox, 0.026, 0.024),
     [getSelectionHitBox, sceneInjectionBox]
   );
   const selectableSceneItems = useMemo(() => {
