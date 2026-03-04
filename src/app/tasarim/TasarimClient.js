@@ -4139,7 +4139,7 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
   } = layoutState;
 
   return (
-    <group position={groupPosition} rotation={groupRotation}>
+    <group position={groupPosition} rotation={groupRotation} scale={[1, -1, 1]}>
       {layoutRows.map((row, idx) => {
         const entry = row.entry;
         if (!entry.geometry || entry.isSpace) return null;
@@ -4435,7 +4435,8 @@ function InjectionPatternStamp({
     x: clamp(Number(safePosRaw?.x ?? 0.5), safeHalfW01, 1 - safeHalfW01),
     y: clamp(Number(safePosRaw?.y ?? 0.58), safeHalfH01, 1 - safeHalfH01),
   };
-  const cx = profile.xMin + safePos.x * areaW;
+  // UI'da sola sürükleme modelde de sola aksın diye X eksenini aynala.
+  const cx = profile.xMin + (1 - safePos.x) * areaW;
   const cy = profile.yTop - safePos.y * areaH;
   const sideRotY = Number(
     profile.rotY ??
