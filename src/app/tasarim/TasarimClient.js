@@ -1208,7 +1208,7 @@ const TEXT_LAYOUT_OPTIONS = [
 const HDR_ENV_DESKTOP_PATH = "/hdr/white_studio_06_4k.exr";
 const HDR_ENV_MOBILE_PATH = "/hdr/studio_small_03_2k.exr";
 const RUBBER_GLYPH_MODEL_PATH = `${NEW_MODELS_ROOT}/alphabet_v1_final..glb`;
-const INJECTION_GEOMETRY_MIRROR_X = 1;
+const INJECTION_GEOMETRY_MIRROR_X = -1;
 const HDR_SOURCE_CACHE = new Map();
 
 const getHdriSourceTexture = (url) => {
@@ -1277,7 +1277,13 @@ const glyphNodeNameToChar = (nameRaw) => {
     .trim()
     // GLTF loader bazen isimleri suffix ile degistiriyor: .001_1 / _2 / .003
     .replace(/([._]\d+)+$/g, "");
-  if (!/^glyph_/i.test(normalized)) return null;
+  if (!/^glyph_/i.test(normalized)) {
+    if (!normalized) return null;
+    if (normalized.length === 1) return normalized;
+    const directToken = glyphTokenToChar(normalized, null);
+    if (directToken) return directToken;
+    return null;
+  }
 
   let token = normalized.replace(/^glyph_/i, "");
   let forceCase = null;
@@ -8646,7 +8652,7 @@ function TasarimClientContent({ isMobile }) {
   );
   const isSceneInjectionCompact = (sceneInjectionBox?.w || 0) < 0.24 || (sceneInjectionBox?.h || 0) < 0.18;
   const sceneInjectionHitBox = useMemo(
-    () => getSelectionHitBox(sceneInjectionBox, 0.026, 0.024),
+    () => getSelectionHitBox(sceneInjectionBox, 0.04, 0.035),
     [getSelectionHitBox, sceneInjectionBox]
   );
   const selectableSceneItems = useMemo(() => {
@@ -12433,7 +12439,7 @@ function TasarimClientContent({ isMobile }) {
                       height: `${sceneInjectionHitBox.h * 100}%`,
                       pointerEvents: showSceneInjectionFrame ? "none" : "auto",
                       touchAction: "none",
-                      zIndex: showSceneInjectionFrame ? 82 : 88,
+                      zIndex: showSceneInjectionFrame ? 82 : activeTab === "pattern" ? 96 : 88,
                     }}
                     onPointerDown={(e) => {
                       e.preventDefault();
