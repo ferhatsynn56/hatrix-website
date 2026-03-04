@@ -4435,8 +4435,8 @@ function InjectionPatternStamp({
     x: clamp(Number(safePosRaw?.x ?? 0.5), safeHalfW01, 1 - safeHalfW01),
     y: clamp(Number(safePosRaw?.y ?? 0.58), safeHalfH01, 1 - safeHalfH01),
   };
-  // UI'da sola sürükleme modelde de sola aksın diye X eksenini aynala.
-  const cx = profile.xMin + (1 - safePos.x) * areaW;
+  // UI drag yönü modelde birebir kalsın.
+  const cx = profile.xMin + safePos.x * areaW;
   const cy = profile.yTop - safePos.y * areaH;
   const sideRotY = Number(
     profile.rotY ??
