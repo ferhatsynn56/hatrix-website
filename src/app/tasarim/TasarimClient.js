@@ -54,6 +54,8 @@ import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 import { EXRLoader } from "three/examples/jsm/loaders/EXRLoader.js";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { getCheckoutData, setCheckoutData } from "@/lib/checkoutStore";
+import ImportAssetsDialog from "@/components/ImportAssetsDialog";
+import { importAnyFile } from "@/lib/importers/importAnyFile";
 
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
@@ -6956,7 +6958,6 @@ function ModelSelectionPanel({ selectedModel, onSelectModel, onContinue }) {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between gap-3 mb-6 md:mb-8">
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500">Adım 1</p>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight">Model Seçim</h1>
             <p className="text-sm text-zinc-500 mt-1">Model kartına tek dokunma ile tasarıma geçilir.</p>
           </div>
@@ -7086,6 +7087,7 @@ function EditorPanel({
   hasPrintAreaSelection = false,
   printTypePickerSignal = 0,
   shouldSuppressTransientClicks = null,
+  onRemoveBgForLogoId = null,
 }) {
   const isZipperFront = hasCenterZip(design.modelType) && view === "front";
   const gap01 = getCenterZipGap01(design.modelType);
@@ -7099,6 +7101,11 @@ function EditorPanel({
 
   const previewRef = useRef(null);
   const uploadSlotRefs = useRef([]);
+  const importInputRef = useRef(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importAssets, setImportAssets] = useState([]);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importSubmitting, setImportSubmitting] = useState(false);
 
   const sizes = ["S", "M", "L", "XL"];
   const colorPresets = BRAND_COLORS;
@@ -7372,18 +7379,23 @@ function EditorPanel({
     return nextLogo.id;
   };
 
-  const handleTextureUpload = async (file) => {
-    if (!file) return;
+  const handleTextureUpload = async (file, opts = {}) => {
+    if (!file) return null;
+    const shouldOpenEditor = opts?.openEditor !== false;
     try {
       const optimizedUrl = await optimizeUploadDataUrl(file, { targetSide: currentView });
       const addedId = handleAddPrint({ url: optimizedUrl, kind: "logo", emboss: false, sourceFile: file });
-      if (!addedId) return;
-      onRequestDrawerCollapse?.();
-      onRequestShowEditorOverlay?.();
-      setActiveTab("editor");
+      if (!addedId) return null;
+      if (shouldOpenEditor) {
+        onRequestDrawerCollapse?.();
+        onRequestShowEditorOverlay?.();
+        setActiveTab("editor");
+      }
+      return addedId;
     } catch (err) {
       console.error("Gorsel yukleme hatasi:", err);
       alert(err?.message || "Görsel yüklenemedi. Farklı bir görsel deneyin.");
+      return null;
     }
   };
 
@@ -7424,6 +7436,112 @@ function EditorPanel({
       alert(err?.message || "Görsel seçimi sırasında bir hata oluştu.");
     } finally {
       inputEl.value = "";
+    }
+  };
+
+  const handleImportInputChange = async (e) => {
+    const inputEl = e.currentTarget;
+    const pickedFiles = Array.from(inputEl.files || []);
+    if (!pickedFiles.length) {
+      inputEl.value = "";
+      return;
+    }
+
+    setImportLoading(true);
+    const aggregated = [];
+    const failed = [];
+    try {
+      for (const file of pickedFiles) {
+        try {
+          // Sadece importer tarafında gerekli dönüşümleri yap, upload pipeline aynı kalsın.
+          const assets = await importAnyFile(file, { pdfTextExtractor: importTextFromPdfFile });
+          if (Array.isArray(assets) && assets.length) aggregated.push(...assets);
+        } catch (err) {
+          failed.push(`${file.name}: ${err?.message || "Dosya içe aktarılamadı."}`);
+        }
+      }
+      if (aggregated.length) {
+        setImportAssets(aggregated);
+        setImportOpen(true);
+      }
+      if (failed.length) {
+        alert(failed.slice(0, 4).join("\n"));
+      }
+    } finally {
+      setImportLoading(false);
+      inputEl.value = "";
+    }
+  };
+
+  const handleImportConfirm = async (selectedAssets) => {
+    const picked = Array.isArray(selectedAssets) ? selectedAssets : [];
+    if (!picked.length) {
+      setImportOpen(false);
+      setImportAssets([]);
+      return;
+    }
+    setImportSubmitting(true);
+    try {
+      let importedImageCount = 0;
+      let skippedByLimit = 0;
+      let slotBudget = Math.max(0, MAX_LOGOS_PER_SIDE - logoCount);
+      const textSegments = [];
+
+      for (const item of picked) {
+        if (item?.kind === "text") {
+          const normalized = String(item?.text || "").replace(/\s+/g, " ").trim().slice(0, 200);
+          if (normalized) textSegments.push(normalized);
+          continue;
+        }
+
+        if (item?.kind !== "image" || !(item?.blob instanceof Blob)) continue;
+        if (slotBudget <= 0) {
+          skippedByLimit += 1;
+          continue;
+        }
+
+        const baseName = String(item?.name || "imported-image.png").trim() || "imported-image.png";
+        const safeName = /\.[a-z0-9]+$/i.test(baseName) ? baseName : `${baseName}.png`;
+        const fileType = String(item?.blob?.type || "image/png").toLowerCase() || "image/png";
+        const imageFile = new File([item.blob], safeName, { type: fileType });
+        const addedId = await handleTextureUpload(imageFile, { openEditor: false });
+        if (!addedId) continue;
+        importedImageCount += 1;
+        slotBudget -= 1;
+
+        if (item?.bgRemove && typeof onRemoveBgForLogoId === "function") {
+          await onRemoveBgForLogoId({
+            designId: design?.id,
+            sideKey: currentSide,
+            logoId: addedId,
+            sourceUrl: null,
+          });
+        }
+      }
+
+      if (textSegments.length) {
+        const currentText = String(t?.text || "").trim();
+        const mergedText = [currentText, ...textSegments].filter(Boolean).join(currentText ? "\n" : " ").slice(0, 200);
+        const textTechniqueApplied = applyTextTechnique(PRINT_TECHNIQUES.DTF);
+        if (textTechniqueApplied) {
+          bumpText({ text: mergedText, technique: PRINT_TECHNIQUES.DTF });
+          if (importedImageCount === 0) setActiveTab("text");
+        }
+      }
+
+      if (importedImageCount > 0) {
+        onRequestDrawerCollapse?.();
+        onRequestShowEditorOverlay?.();
+        setActiveTab("editor");
+      }
+
+      if (skippedByLimit > 0) {
+        alert(`Bu alanda en fazla ${MAX_LOGOS_PER_SIDE} görsel olabilir. ${skippedByLimit} görsel aktarılmadı.`);
+      }
+      setImportOpen(false);
+      setImportAssets([]);
+    } finally {
+      setImportSubmitting(false);
     }
   };
 
@@ -7922,6 +8040,35 @@ function EditorPanel({
                 )}
                 <button
                   type="button"
+                  onClick={() => {
+                    if (importLoading) return;
+                    if (shouldBlockTransientUploadOpen()) return;
+                    if (!ensurePanelPrintAreaSelection("print")) return;
+                    if (!dtfActiveForSide) {
+                      alert(`Önce Baskı Seçim alanından ${PRINT_TYPE_LABELS.dtf} seçmelisin.`);
+                      setActiveTab("print");
+                      return;
+                    }
+                    importInputRef.current?.click();
+                  }}
+                  disabled={importLoading}
+                  className={`w-full py-1.5 rounded-lg text-[10px] font-bold uppercase border flex items-center justify-center gap-2 ${importLoading
+                    ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                    : "bg-white text-zinc-700 border-zinc-300 hover:bg-zinc-100"
+                    }`}
+                >
+                  <Upload size={13} /> {importLoading ? "İçe Aktarılıyor..." : "Dosyadan İçe Aktar"}
+                </button>
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  className="sr-only"
+                  accept="image/*,.pdf,.svg,.docx,.txt,.md,.heic,.heif"
+                  multiple
+                  onChange={handleImportInputChange}
+                />
+                <button
+                  type="button"
                   onClick={handleDeleteActiveImage}
                   disabled={!activeLogo}
                   className={`w-full py-1.5 rounded-lg text-[10px] font-bold uppercase border flex items-center justify-center gap-2 ${activeLogo
@@ -8266,6 +8413,17 @@ function EditorPanel({
             If you want desktop editor preview back, tell me, eklerim. */}
       </div>
 
+      <ImportAssetsDialog
+        open={importOpen}
+        onClose={() => {
+          if (importSubmitting) return;
+          setImportOpen(false);
+          setImportAssets([]);
+        }}
+        assets={importAssets}
+        loading={importSubmitting}
+        onConfirm={handleImportConfirm}
+      />
     </div>
   );
 }
@@ -8338,6 +8496,7 @@ function TasarimClientContent({ isMobile }) {
   const [designs, setDesigns] = useState(() => [
     { ...initialDesignRef.current, modelType: safeInitial },
   ]);
+  const designsRef = useRef(designs);
   const [activeId, setActiveId] = useState(() => initialDesignRef.current.id);
   const [flowStep, setFlowStep] = useState("select");
   const [selectedModelType, setSelectedModelType] = useState(() => presetModelFromQuery);
@@ -8958,21 +9117,60 @@ function TasarimClientContent({ isMobile }) {
     updateSide({ logos: nextLogos });
   };
 
-  const handleRemoveActiveImageBackground = async () => {
-    const targetLogo = activeLogo;
-    const sourceUrl = String(targetLogo?.url || "").trim();
-    if (!targetLogo?.id || !sourceUrl) {
-      setBgRemovalNotice("Önce görsel yükleyin.");
-      setBgRemovalNoticeType("error");
-      return;
+  const removeBgForLogoId = async ({ designId, sideKey, logoId, sourceUrl = null, silent = false } = {}) => {
+    const targetDesignId = designId || activeId;
+    const targetSide = resolveEditableSide(sideKey || currentSide);
+    const findTargetLogo = () => {
+      const liveDesign = (designsRef.current || []).find((d) => d?.id === targetDesignId) || null;
+      const liveSideState = normalizeSideData(liveDesign?.sides?.[targetSide]);
+      const liveLogo = (liveSideState?.logos || []).find((logo) => logo?.id === logoId) || null;
+      return {
+        targetDesign: liveDesign,
+        targetSideState: liveSideState,
+        targetLogo: liveLogo,
+      };
+    };
+    let { targetDesign, targetSideState, targetLogo } = findTargetLogo();
+    if (!targetLogo?.id) {
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      ({ targetDesign, targetSideState, targetLogo } = findTargetLogo());
     }
-    if (bgRemovalLoading) return;
+    const effectiveSourceUrl = String(sourceUrl || targetLogo?.url || "").trim();
+    if (!targetLogo?.id || !effectiveSourceUrl) {
+      setBgRemovalNotice("Seçili görsel bulunamadı, tekrar deneyin.");
+      setBgRemovalNoticeType("error");
+      return false;
+    }
+    if (bgRemovalLoading) return false;
 
-    const targetDesignId = activeId;
-    const targetSide = resolveEditableSide(currentSide);
-    const targetLogoId = targetLogo.id;
-    const targetBounds = logoDragBounds01 || { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
+    const targetProfile = getPrintProfile(
+      targetDesign?.modelType || DEFAULT_MODEL_TYPE,
+      targetSide,
+      targetDesign?.hoodieV12Parts
+    );
+    const targetBounds = (() => {
+      const fallback = { xMin: 0, xMax: 1, yMin: 0, yMax: 1 };
+      if (!targetProfile) return fallback;
+      const meshXMin = Number(targetProfile.xMin);
+      const meshXMax = Number(targetProfile.xMax);
+      const meshYTop = Number(targetProfile.yTop);
+      const meshYBot = Number(targetProfile.yBot);
+      const w = Math.max(0.001, meshXMax - meshXMin);
+      const h = Math.max(0.001, meshYTop - meshYBot);
+      if (!Number.isFinite(w) || !Number.isFinite(h)) return fallback;
+      const to01X = (x) => (x - meshXMin) / w;
+      const to01Y = (y) => (meshYTop - y) / h;
+      return {
+        xMin: clamp(to01X(meshXMin), 0, 1),
+        xMax: clamp(to01X(meshXMax), 0, 1),
+        yMin: clamp(to01Y(meshYTop), 0, 1),
+        yMax: clamp(to01Y(meshYBot), 0, 1),
+      };
+    })();
+    const targetCm = getModelPrintCm(targetDesign?.modelType || DEFAULT_MODEL_TYPE, targetSide);
+    const targetMinSize01 = getLogoMinSize01(targetCm, targetBounds, MIN_LOGO_SIZE_CM);
     const preserveVisibleSizeAfterTrim = false;
+    const targetLogoId = targetLogo.id;
     const endpoint = resolveBgRemoveEndpoint();
 
     setBgRemovalLoading(true);
@@ -8982,7 +9180,7 @@ function TasarimClientContent({ isMobile }) {
     try {
       let sourceFile = null;
       const buildUploadFileFromSourceUrl = async () => {
-        const sourceResponse = await fetch(sourceUrl);
+        const sourceResponse = await fetch(effectiveSourceUrl);
         if (!sourceResponse.ok) {
           throw new Error("Seçili görsel okunamadı.");
         }
@@ -9044,7 +9242,7 @@ function TasarimClientContent({ isMobile }) {
         const message = "Arka plan silme sonucu boş geldi (kamera fotoğrafı formatı/HEIC olabilir).";
         setBgRemovalNotice(message);
         setBgRemovalNoticeType("error");
-        return;
+        return false;
       }
       const noBgFile =
         trimmed?.file instanceof File
@@ -9058,8 +9256,8 @@ function TasarimClientContent({ isMobile }) {
         croppedWidth: trimmed?.width,
         croppedHeight: trimmed?.height,
         bounds: targetBounds,
-        minW01: minLogoSize01?.w,
-        minH01: minLogoSize01?.h,
+        minW01: targetMinSize01?.w,
+        minH01: targetMinSize01?.h,
         preserveVisibleSize: preserveVisibleSizeAfterTrim,
       });
       const nextBox = {
@@ -9068,59 +9266,83 @@ function TasarimClientContent({ isMobile }) {
         y: Math.abs((nextBoxRaw?.y ?? 0.5) - 0.5) <= snapThreshold ? 0.5 : Number(nextBoxRaw?.y ?? 0.5),
       };
 
-      const hasTargetLogoNow = (sideData?.logos || []).some((logo) => logo?.id === targetLogoId);
-      if (!hasTargetLogoNow) {
-        try {
-          URL.revokeObjectURL(nextUrl);
-        } catch { }
-        setBgRemovalNotice("Seçili görsel bulunamadı, tekrar deneyin.");
-        setBgRemovalNoticeType("error");
-        return;
-      }
-
       const previousGeneratedUrl = bgRemovedObjectUrlsRef.current.get(targetLogoId);
+      let logoUpdated = false;
 
       setDesigns((prev) =>
         prev.map((d) => {
           if (d.id !== targetDesignId) return d;
-          const sideState = normalizeSideData(d?.sides?.[targetSide]);
-          const nextLogos = (sideState.logos || []).map((logo) => {
+          const liveSideState = normalizeSideData(d?.sides?.[targetSide]);
+          let sideChanged = false;
+          const nextLogos = (liveSideState.logos || []).map((logo) => {
             if (logo.id !== targetLogoId) return logo;
+            sideChanged = true;
             return { ...logo, url: nextUrl, box: nextBox, sourceFile: noBgFile };
           });
+          if (!sideChanged) return d;
+          logoUpdated = true;
           return {
             ...d,
             sides: {
               ...(d?.sides || {}),
               [targetSide]: {
-                ...sideState,
+                ...liveSideState,
                 logos: nextLogos,
-                activeLogoId: sideState.activeLogoId || targetLogoId,
+                activeLogoId: liveSideState.activeLogoId || targetLogoId,
               },
             },
           };
         })
       );
 
+      if (!logoUpdated) {
+        try {
+          URL.revokeObjectURL(nextUrl);
+        } catch {}
+        setBgRemovalNotice("Seçili görsel bulunamadı, tekrar deneyin.");
+        setBgRemovalNoticeType("error");
+        return false;
+      }
+
       if (previousGeneratedUrl && previousGeneratedUrl !== nextUrl) {
         try {
           URL.revokeObjectURL(previousGeneratedUrl);
-        } catch { }
+        } catch {}
       }
       bgRemovedObjectUrlsRef.current.set(targetLogoId, nextUrl);
       logoSourceFilesRef.current.set(targetLogoId, noBgFile);
 
       setBgRemovalNotice("Arka plan silindi.");
       setBgRemovalNoticeType("success");
+      return true;
     } catch (error) {
       console.error("Arka plan silme hatasi:", error);
       const message = error?.message || "Arka plan silinirken bir hata oluştu.";
       setBgRemovalNotice(message);
       setBgRemovalNoticeType("error");
-      alert(message);
+      if (!silent) {
+        alert(message);
+      }
+      return false;
     } finally {
       setBgRemovalLoading(false);
     }
+  };
+
+  const handleRemoveActiveImageBackground = async () => {
+    const targetLogoId = activeLogo?.id;
+    if (!targetLogoId) {
+      setBgRemovalNotice("Önce görsel yükleyin.");
+      setBgRemovalNoticeType("error");
+      return;
+    }
+    await removeBgForLogoId({
+      designId: activeId,
+      sideKey: currentSide,
+      logoId: targetLogoId,
+      sourceUrl: activeLogo?.url || null,
+      silent: false,
+    });
   };
 
   const updateInjectionPlacement = (nextBox) => {
@@ -9605,6 +9827,10 @@ function TasarimClientContent({ isMobile }) {
   useEffect(() => {
     if (!activeId && designs[0]) setActiveId(designs[0].id);
   }, [activeId, designs]);
+
+  useEffect(() => {
+    designsRef.current = designs;
+  }, [designs]);
 
   const allLogoUrls = useMemo(() => {
     const urls = [];
@@ -10496,6 +10722,13 @@ function TasarimClientContent({ isMobile }) {
           mockupFiles[sideKey] = await captureMockupForSide(d.id, sideKey);
         }
 
+        // Tek yüzde baskı olsa bile checkout ekranında ön/arka görseller daima hazır olsun.
+        for (const sideKey of ["front", "back"]) {
+          if (mockupFiles[sideKey]) continue;
+          // eslint-disable-next-line no-await-in-loop
+          mockupFiles[sideKey] = await captureMockupForSide(d.id, sideKey);
+        }
+
         setCaptureId(null);
         setCaptureView(null);
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -11036,6 +11269,7 @@ function TasarimClientContent({ isMobile }) {
       hasPrintAreaSelection={hasActivePrintAreaSelection}
       printTypePickerSignal={printTypePickerSignal}
       shouldSuppressTransientClicks={isModelTapSuppressed}
+      onRemoveBgForLogoId={removeBgForLogoId}
     />
   );
 
@@ -12681,6 +12915,7 @@ function TasarimClientContent({ isMobile }) {
                   hasPrintAreaSelection={hasActivePrintAreaSelection}
                   printTypePickerSignal={printTypePickerSignal}
                   shouldSuppressTransientClicks={isModelTapSuppressed}
+                  onRemoveBgForLogoId={removeBgForLogoId}
                 />
               </div>
             </div>

@@ -143,7 +143,7 @@ function HeroSection() {
     );
 }
 
-function StepCard({ index, title, desc, Icon }) {
+function StepCard({ title, desc, Icon }) {
     return (
         <article
             className="rounded-2xl border border-zinc-800 bg-zinc-950/90 shadow-[0_12px_32px_rgba(0,0,0,0.28)] active:scale-[0.985] transition-transform duration-150"
@@ -152,7 +152,6 @@ function StepCard({ index, title, desc, Icon }) {
             <div className="w-11 h-11 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4">
                 <Icon size={20} className="text-zinc-100" />
             </div>
-            <p className="text-[11px] uppercase tracking-[0.16em] text-zinc-500 mb-1">{index}. Adım</p>
             <h3 className="text-white font-black text-lg leading-tight">{title}</h3>
             <p className="text-sm mt-2 leading-relaxed text-white/90">{desc}</p>
         </article>
@@ -429,11 +428,11 @@ function OzelTabContent() {
             <HeroSection />
 
             <section className="w-full px-4 md:px-6 lg:px-8" style={{ paddingTop: "56px", paddingBottom: "56px" }}>
-                <h2 className="text-white font-black text-[24px] sm:text-[30px] leading-tight">3 adımda özel üretim</h2>
+                <h2 className="text-white font-black text-[24px] sm:text-[30px] leading-tight">Özel üretim süreci</h2>
                 <div className="grid gap-3 md:grid-cols-3 mt-4">
-                    <StepCard index={1} title="Ürününü Seç" desc="Tshirt, Sweatshirt, Hoodie veya Polar modelini seç." Icon={MousePointer2} />
-                    <StepCard index={2} title="Tasarımını Oluştur" desc="Yazı, baskı ve renk ayarlarını 3D sahnede düzenle." Icon={PenTool} />
-                    <StepCard index={3} title="Kaydet & Sipariş Ver" desc="Son görünümü onayla, siparişini güvenle tamamla." Icon={Download} />
+                    <StepCard title="Ürününü Seç" desc="Tshirt, Sweatshirt, Hoodie veya Polar modelini seç." Icon={MousePointer2} />
+                    <StepCard title="Tasarımını Oluştur" desc="Yazı, baskı ve renk ayarlarını 3D sahnede düzenle." Icon={PenTool} />
+                    <StepCard title="Kaydet & Sipariş Ver" desc="Son görünümü onayla, siparişini güvenle tamamla." Icon={Download} />
                 </div>
             </section>
 

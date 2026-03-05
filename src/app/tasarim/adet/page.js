@@ -18,6 +18,21 @@ const formatMoney = (value) =>
     maximumFractionDigits: 2,
   }).format(Number(value || 0));
 
+const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL"];
+
+const resolveItemMockupSides = (item) => {
+  const detailsMockups =
+    item?.designDetails?.mockupFiles && typeof item.designDetails.mockupFiles === "object"
+      ? item.designDetails.mockupFiles
+      : {};
+  const directMockups = item?.mockupFiles && typeof item.mockupFiles === "object" ? item.mockupFiles : {};
+  const mockups = { ...detailsMockups, ...directMockups };
+  const fallback = item?.preview || item?.image || null;
+  const front = mockups.front || fallback;
+  const back = mockups.back || fallback || front || null;
+  return { front, back };
+};
+
 export default function TasarimAdetPage() {
   const router = useRouter();
   const [payload, setPayload] = useState(null);
@@ -59,6 +74,14 @@ export default function TasarimAdetPage() {
       return;
     }
     setQuantities((prev) => ({ ...prev, [id]: Math.max(1, parsed) }));
+    setError("");
+  };
+
+  const setItemSize = (id, nextSize) => {
+    const safeSize = String(nextSize || "").trim().toUpperCase();
+    if (!safeSize) return;
+    const nextDesigns = designs.map((item) => (item.id === id ? { ...item, size: safeSize } : item));
+    syncCheckoutPayload(nextDesigns);
     setError("");
   };
 
@@ -118,7 +141,7 @@ export default function TasarimAdetPage() {
     }
 
     syncCheckoutPayload(designs);
-    router.push("/siparis");
+    router.push("/odeme");
   };
 
   if (!designs.length) {
@@ -188,21 +211,35 @@ export default function TasarimAdetPage() {
             {designs.map((item) => {
               const qty = quantities[item.id] ?? 1;
               const lineTotal = Number(item.price || 0) * Math.max(1, sanitizeQty(qty) || 1);
+              const mockups = resolveItemMockupSides(item);
+              const currentSize = String(item.size || "M").trim().toUpperCase() || "M";
+              const sizeOptions = SIZE_OPTIONS.includes(currentSize)
+                ? SIZE_OPTIONS
+                : [...SIZE_OPTIONS, currentSize];
               return (
                 <article
                   key={item.id}
-                  className="grid gap-4 py-5 md:grid-cols-[132px_minmax(0,1fr)_160px] md:items-center"
+                  className="grid gap-4 py-5 md:grid-cols-[168px_minmax(0,1fr)_160px] md:items-center"
                 >
-                  <div className="aspect-[4/5] w-full max-w-[132px] overflow-hidden rounded-2xl bg-[#eef1f4] border border-zinc-200 flex items-center justify-center">
-                    {item.preview || item.image ? (
-                      <img
-                        src={item.preview || item.image}
-                        alt={item.name}
-                        className="h-full w-full object-contain"
-                      />
-                    ) : (
-                      <span className="px-3 text-center text-xs text-zinc-400">Önizleme yok</span>
-                    )}
+                  <div className="grid w-full max-w-[168px] grid-cols-2 gap-2">
+                    {[
+                      { key: "front", label: "Ön", src: mockups.front },
+                      { key: "back", label: "Arka", src: mockups.back },
+                    ].map((side) => (
+                      <div
+                        key={`${item.id}-${side.key}`}
+                        className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-zinc-200 bg-[#eef1f4] flex items-center justify-center"
+                      >
+                        {side.src ? (
+                          <img src={side.src} alt={`${item.name} ${side.label}`} className="h-full w-full object-contain" />
+                        ) : (
+                          <span className="px-2 text-center text-[11px] text-zinc-400">Önizleme yok</span>
+                        )}
+                        <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-zinc-700">
+                          {side.label}
+                        </span>
+                      </div>
+                    ))}
                   </div>
 
                   <div className="min-w-0 space-y-3">
@@ -216,11 +253,20 @@ export default function TasarimAdetPage() {
                           {item.color}
                         </span>
                       )}
-                      {item.size && (
-                        <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
-                          {item.size}
-                        </span>
-                      )}
+                      <label className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-black uppercase tracking-wider text-slate-700">
+                        Beden
+                        <select
+                          value={currentSize}
+                          onChange={(e) => setItemSize(item.id, e.target.value)}
+                          className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-bold text-zinc-800 outline-none"
+                        >
+                          {sizeOptions.map((sizeOption) => (
+                            <option key={`${item.id}-size-${sizeOption}`} value={sizeOption}>
+                              {sizeOption}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -326,7 +372,7 @@ export default function TasarimAdetPage() {
           <div className="mt-5 rounded-3xl border border-zinc-200 bg-white p-4 text-sm text-zinc-600">
             <p className="font-black text-slate-900">Not</p>
             <p className="mt-1 leading-relaxed">
-              Adetleri burada netleştiriyorsun. Devam ettiğinde sipariş formu ekranına geçeceksin.
+              Adet ve bedenleri burada netleştiriyorsun. Devam ettiğinde doğrudan ödeme ekranına geçeceksin.
             </p>
           </div>
         </aside>
