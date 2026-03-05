@@ -117,6 +117,37 @@ const isProbablyGarbledPdfText = (text) => {
   return false;
 };
 
+const isLikelyTurkishISwapCorruption = (text) => {
+  const normalized = sanitizeImportedText(text, 1200);
+  if (!normalized || normalized.length < 8) return false;
+  const upperGCount = (normalized.match(/Ğ/g) || []).length;
+  const lowerGCount = (normalized.match(/ğ/g) || []).length;
+  const iFamilyCount = (normalized.match(/[iİıI]/g) || []).length;
+  const upperGInsideLowerWords = (normalized.match(/[a-zçğıöşü]Ğ[a-zçğıöşü]/g) || []).length;
+  if (upperGInsideLowerWords > 0) return true;
+  if (upperGCount >= 2 && iFamilyCount <= 1) return true;
+  if (lowerGCount >= 4 && iFamilyCount <= Math.max(1, Math.floor(lowerGCount * 0.25))) return true;
+  return false;
+};
+
+const repairLikelyTurkishISwapCorruption = (text) => {
+  const src = String(text || "");
+  if (!isLikelyTurkishISwapCorruption(src)) return src;
+  const chars = [...src];
+  return chars
+    .map((ch, idx) => {
+      if (ch !== "Ğ" && ch !== "ğ") return ch;
+      const prev = chars[idx - 1] || "";
+      const next = chars[idx + 1] || "";
+      const hasLowerAround = /[a-zçğıöşü]/.test(prev) || /[a-zçğıöşü]/.test(next);
+      const hasUpperAround = /[A-ZÇĞİÖŞÜ]/.test(prev) || /[A-ZÇĞİÖŞÜ]/.test(next);
+      if (hasLowerAround) return "i";
+      if (hasUpperAround) return "I";
+      return ch === "Ğ" ? "I" : "i";
+    })
+    .join("");
+};
+
 const extractPdfTextBestEffort = (binaryText) => {
   if (!binaryText) return "";
   const chunks = [];
@@ -219,25 +250,9 @@ const importPdfToAssets = async (file, options = {}) => {
     } catch {}
   }
 
-  if (isProbablyGarbledPdfText(text)) {
-    text = "";
-  }
-  if (!text && typeof options?.pdfTextExtractor === "function") {
-    try {
-      text = sanitizeImportedText(await options.pdfTextExtractor(file), 900);
-    } catch {
-      text = "";
-    }
-  }
-  if (!text) {
-    try {
-      const raw = new TextDecoder("latin1").decode(new Uint8Array(await file.arrayBuffer()));
-      const fallbackText = extractPdfTextBestEffort(raw);
-      text = sanitizeImportedText(fallbackText, 900);
-    } catch {
-      text = "";
-    }
-  }
+  // PDF text için sadece pdf.js sonucunu kullan:
+  // ham binary fallback (latin1) bazı PDF'lerde karakter bozulmasına yol açabiliyor.
+  text = sanitizeImportedText(repairLikelyTurkishISwapCorruption(text), 900);
   if (text && !isProbablyGarbledPdfText(text)) {
     assets.push({ kind: "text", name: `${file.name} (metin)`, text });
   }

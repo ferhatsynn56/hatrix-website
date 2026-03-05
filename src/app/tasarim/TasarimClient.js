@@ -1251,8 +1251,10 @@ const GLYPH_TOKEN_MAP = {
   period: ".",
 };
 
+const normalizeGlyphLookupChar = (value) => String(value || "").normalize("NFC");
+
 const glyphTokenToChar = (tokenRaw, forceCase = null) => {
-  const tokenOriginal = String(tokenRaw || "").trim();
+  const tokenOriginal = normalizeGlyphLookupChar(tokenRaw).trim();
   const token = tokenOriginal.toLowerCase();
   if (!token) return null;
   if (GLYPH_TOKEN_MAP[token]) return GLYPH_TOKEN_MAP[token];
@@ -1267,21 +1269,21 @@ const glyphTokenToChar = (tokenRaw, forceCase = null) => {
   if (/^[a-z]$/i.test(tokenOriginal)) {
     if (forceCase === "lower") return token;
     if (forceCase === "upper") return token.toUpperCase();
-    // Some newer exports use `glyph_a` instead of `glyph_A` for the uppercase set.
-    // Interpret plain single-letter tokens as uppercase by default.
-    return token.toUpperCase();
+    // Keep source case for neutral exports (`glyph_a`, `glyph_A`).
+    // Runtime lookup resolves case fallback safely.
+    return tokenOriginal;
   }
   return null;
 };
 
 const glyphNodeNameToChar = (nameRaw) => {
-  const normalized = String(nameRaw || "")
+  const normalized = normalizeGlyphLookupChar(String(nameRaw || ""))
     .trim()
     // GLTF loader bazen isimleri suffix ile degistiriyor: .001_1 / _2 / .003
     .replace(/([._]\d+)+$/g, "");
   if (!/^glyph_/i.test(normalized)) {
     if (!normalized) return null;
-    if (normalized.length === 1) return normalized;
+    if (normalized.length === 1) return normalizeGlyphLookupChar(normalized);
     const directToken = glyphTokenToChar(normalized, null);
     if (directToken) return directToken;
     return null;
@@ -2142,6 +2144,8 @@ async function cropTransparentPng(inputBlob, opts = {}) {
       sourceWidth: 0,
       sourceHeight: 0,
       trimmed: false,
+      opaquePixelCount: 0,
+      opaqueRatio: 0,
     };
   }
 
@@ -2165,6 +2169,8 @@ async function cropTransparentPng(inputBlob, opts = {}) {
         sourceWidth,
         sourceHeight,
         trimmed: false,
+        opaquePixelCount: 0,
+        opaqueRatio: 0,
       };
     }
 
@@ -2176,12 +2182,14 @@ async function cropTransparentPng(inputBlob, opts = {}) {
     let minY = sourceHeight;
     let maxX = -1;
     let maxY = -1;
+    let opaquePixelCount = 0;
 
     for (let y = 0; y < sourceHeight; y += 1) {
       const rowOffset = y * sourceWidth * 4;
       for (let x = 0; x < sourceWidth; x += 1) {
         const a = data[rowOffset + x * 4 + 3];
         if (a <= alphaThreshold) continue;
+        opaquePixelCount += 1;
         if (x < minX) minX = x;
         if (y < minY) minY = y;
         if (x > maxX) maxX = x;
@@ -2203,6 +2211,8 @@ async function cropTransparentPng(inputBlob, opts = {}) {
         sourceWidth,
         sourceHeight,
         trimmed: true,
+        opaquePixelCount: 0,
+        opaqueRatio: 0,
       };
     }
 
@@ -2241,6 +2251,8 @@ async function cropTransparentPng(inputBlob, opts = {}) {
       sourceWidth,
       sourceHeight,
       trimmed,
+      opaquePixelCount,
+      opaqueRatio: opaquePixelCount / Math.max(1, sourceWidth * sourceHeight),
     };
   } finally {
     releaseCachedImageSource(tmpUrl);
@@ -3951,23 +3963,34 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
 
     const resolveGlyphForChar = (ch) => {
       if (!ch) return null;
-      const upperTr = ch.toLocaleUpperCase("tr-TR");
-      const lowerTr = ch.toLocaleLowerCase("tr-TR");
-      const directMatch = glyphLibrary[ch] || (upperTr === ch ? glyphLibrary[upperTr] : null) || (lowerTr === ch ? glyphLibrary[lowerTr] : null);
+      const normalized = normalizeGlyphLookupChar(ch);
+      // Dar gövdeli karakterlerde (l, ı) yanlış fallback'e düşmeyi engelle.
+      if (normalized === "l" || normalized === "L") {
+        return glyphLibrary[normalized] || glyphLibrary[normalized === "l" ? "L" : "l"] || null;
+      }
+      if (normalized === "ı") {
+        return glyphLibrary["ı"] || glyphLibrary["I"] || null;
+      }
+      const upperTr = normalized.toLocaleUpperCase("tr-TR");
+      const lowerTr = normalized.toLocaleLowerCase("tr-TR");
+      const directMatch =
+        glyphLibrary[normalized] ||
+        (upperTr === normalized ? glyphLibrary[upperTr] : null) ||
+        (lowerTr === normalized ? glyphLibrary[lowerTr] : null);
       if (directMatch) return directMatch;
       // Buyuk harf icin kucuk harf fallback yapma.
       // Kucuk harfte kendi glyph'i yoksa, son care olarak buyuk harfi kullan.
       if (upperTr !== lowerTr) {
-        if (ch === lowerTr) {
-          return glyphLibrary[upperTr] || glyphLibrary[ch.toUpperCase()] || null;
+        if (normalized === lowerTr) {
+          return glyphLibrary[upperTr] || glyphLibrary[normalized.toUpperCase()] || null;
         }
         return null;
       }
       return (
         glyphLibrary[upperTr] ||
         glyphLibrary[lowerTr] ||
-        glyphLibrary[ch.toUpperCase()] ||
-        glyphLibrary[ch.toLowerCase()] ||
+        glyphLibrary[normalized.toUpperCase()] ||
+        glyphLibrary[normalized.toLowerCase()] ||
         null
       );
     };
@@ -4611,7 +4634,7 @@ function Real3DModel({
     if (!source) return next;
     source.traverse((o) => {
       if (!(o && (o.isMesh || o.isSkinnedMesh) && o.geometry)) return;
-      const ch = glyphNodeNameToChar(o.name);
+      const ch = normalizeGlyphLookupChar(glyphNodeNameToChar(o.name));
       if (!ch || next[ch]) return;
       const geometry = o.geometry.clone();
       geometry.computeBoundingBox?.();
@@ -7454,7 +7477,7 @@ function EditorPanel({
       for (const file of pickedFiles) {
         try {
           // Sadece importer tarafında gerekli dönüşümleri yap, upload pipeline aynı kalsın.
-          const assets = await importAnyFile(file, { pdfTextExtractor: importTextFromPdfFile });
+          const assets = await importAnyFile(file);
           if (Array.isArray(assets) && assets.length) aggregated.push(...assets);
         } catch (err) {
           failed.push(`${file.name}: ${err?.message || "Dosya içe aktarılamadı."}`);
@@ -9234,10 +9257,27 @@ function TasarimClientContent({ isMobile }) {
 
       const pngBlob = new Blob([await resultBlob.arrayBuffer()], { type: "image/png" });
       const trimmed = await cropTransparentPng(pngBlob, { alphaThreshold: 1, padding: 6 });
+      const trimmedWidth = Number(trimmed?.width || 0);
+      const trimmedHeight = Number(trimmed?.height || 0);
+      const sourceWidth = Math.max(1, Number(trimmed?.sourceWidth || 0));
+      const sourceHeight = Math.max(1, Number(trimmed?.sourceHeight || 0));
+      const sourceArea = Math.max(1, sourceWidth * sourceHeight);
+      const trimmedArea = Math.max(1, trimmedWidth * trimmedHeight);
+      const cropAreaRatio = trimmedArea / sourceArea;
       const trimmedBlobSize = Number(trimmed?.blob?.size || 0);
+      const opaquePixelCount = Math.max(0, Number(trimmed?.opaquePixelCount || 0));
+      const opaqueRatio = Math.max(0, Number(trimmed?.opaqueRatio || 0));
+      const suspiciousTinyCrop =
+        sourceArea >= 64 * 64 &&
+        cropAreaRatio <= 0.0015 &&
+        (trimmedWidth < 48 || trimmedHeight < 48);
       const emptyTrimmedResult =
-        (Number(trimmed?.width || 0) === 1 && Number(trimmed?.height || 0) === 1) ||
-        trimmedBlobSize <= 96;
+        trimmedWidth <= 2 ||
+        trimmedHeight <= 2 ||
+        trimmedBlobSize <= 160 ||
+        opaquePixelCount <= 8 ||
+        opaqueRatio <= 0.00002 ||
+        suspiciousTinyCrop;
       if (emptyTrimmedResult) {
         const message = "Arka plan silme sonucu boş geldi (kamera fotoğrafı formatı/HEIC olabilir).";
         setBgRemovalNotice(message);
@@ -10254,6 +10294,16 @@ function TasarimClientContent({ isMobile }) {
   }, [activeTab]);
 
   useEffect(() => {
+    if (!importOpen) return;
+    if (activeTab !== "upload") setActiveTab("upload");
+    setDrawerMenuOpen(false);
+    if (isMobile) {
+      setMobilePrimaryTab("design");
+      if (panelProgress >= 0.98) setPanelProgress(0);
+    }
+  }, [importOpen, activeTab, isMobile, panelProgress]);
+
+  useEffect(() => {
     if (!uploadTechniqueToastOpen) return;
     const timer = window.setTimeout(() => setUploadTechniqueToastOpen(false), 2600);
     return () => window.clearTimeout(timer);
@@ -11087,6 +11137,7 @@ function TasarimClientContent({ isMobile }) {
   );
   const mobilePanelCollapsed = isMobile && panelProgress >= 0.98;
   const activeBottomTab = mobilePrimaryTab === "design" ? "tasarla" : mobilePrimaryTab;
+  const lockMobileCategoryToUpload = isMobile && importOpen;
   const showDesignControls = isMobile && activeBottomTab === "tasarla";
   const showPrintTypes =
     isMobile && activeBottomTab === "tasarla" && !mobilePanelCollapsed && activeTab === "print";
@@ -12963,7 +13014,7 @@ function TasarimClientContent({ isMobile }) {
                 {isMobile ? (
                   <>
                     <div
-                      className={`relative z-[20] bg-[#eef0f4] ${mobilePanelCollapsed ? "px-4 pt-5 pb-3" : "px-4 pt-5 pb-2 border-b border-black/10"
+                      className={`relative z-[20] bg-[#eef0f4] ${mobilePanelCollapsed ? "px-4 pt-5 pb-3" : `px-4 pt-5 pb-2 ${lockMobileCategoryToUpload ? "" : "border-b border-black/10"}`
                         }`}
                     >
                       <button type="button"
@@ -12996,65 +13047,79 @@ function TasarimClientContent({ isMobile }) {
                       {showDesignControls && mobilePanelCollapsed && (
                         <div className={`pointer-events-auto ${mobilePanelCollapsed ? "pt-2" : "pt-1"}`}>
                           <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleMobileCategorySelect("color");
-                              }}
-                              className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "color"
-                                ? "border-zinc-900 bg-zinc-900 text-white"
-                                : "border-gray-300 bg-white text-gray-800"
-                                }`}
-                            >
-                              Renk
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleMobileCategorySelect("print");
-                              }}
-                              className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "print"
-                                ? "border-zinc-900 bg-zinc-900 text-white"
-                                : "border-gray-300 bg-white text-gray-800"
-                                }`}
-                            >
-                              Baskı<br />Seçim
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleMobileCategorySelect("upload");
-                              }}
-                              className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "upload"
-                                ? "border-zinc-900 bg-zinc-900 text-white"
-                                : "border-gray-300 bg-white text-gray-800"
-                                }`}
-                            >
-                              Görsel<br />Yükle
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleMobileCategorySelect("text");
-                              }}
-                              className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "text"
-                                ? "border-zinc-900 bg-zinc-900 text-white"
-                                : "border-gray-300 bg-white text-gray-800"
-                                }`}
-                            >
-                              Yazı<br />Ekle
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleDoneAction}
-                              disabled={!hasActivePrintAreaSelection}
-                              className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide flex items-center justify-center ${hasActivePrintAreaSelection
-                                ? "border-zinc-900 bg-zinc-900 text-white"
-                                : "border-zinc-300 bg-white text-zinc-400"
-                                }`}
-                            >
-                              Bitti
-                            </button>
+                            {lockMobileCategoryToUpload ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleMobileCategorySelect("upload");
+                                }}
+                                className="h-10 min-w-[112px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 border-zinc-900 bg-zinc-900 text-white"
+                              >
+                                Görsel<br />Yükle
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleMobileCategorySelect("color");
+                                  }}
+                                  className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "color"
+                                    ? "border-zinc-900 bg-zinc-900 text-white"
+                                    : "border-gray-300 bg-white text-gray-800"
+                                    }`}
+                                >
+                                  Renk
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleMobileCategorySelect("print");
+                                  }}
+                                  className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "print"
+                                    ? "border-zinc-900 bg-zinc-900 text-white"
+                                    : "border-gray-300 bg-white text-gray-800"
+                                    }`}
+                                >
+                                  Baskı<br />Seçim
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleMobileCategorySelect("upload");
+                                  }}
+                                  className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "upload"
+                                    ? "border-zinc-900 bg-zinc-900 text-white"
+                                    : "border-gray-300 bg-white text-gray-800"
+                                    }`}
+                                >
+                                  Görsel<br />Yükle
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleMobileCategorySelect("text");
+                                  }}
+                                  className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "text"
+                                    ? "border-zinc-900 bg-zinc-900 text-white"
+                                    : "border-gray-300 bg-white text-gray-800"
+                                    }`}
+                                >
+                                  Yazı<br />Ekle
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleDoneAction}
+                                  disabled={!hasActivePrintAreaSelection}
+                                  className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide flex items-center justify-center ${hasActivePrintAreaSelection
+                                    ? "border-zinc-900 bg-zinc-900 text-white"
+                                    : "border-zinc-300 bg-white text-zinc-400"
+                                    }`}
+                                >
+                                  Bitti
+                                </button>
+                              </>
+                            )}
                           </div>
                           {showMobileBottomTabsInPeek && (
                             <div className="grid grid-cols-2 gap-2 pt-2">
@@ -13097,65 +13162,79 @@ function TasarimClientContent({ isMobile }) {
                         {showDesignControls && !mobilePanelCollapsed && (
                           <div className="mx-4 mt-3 pb-2 pointer-events-auto">
                             <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleMobileCategorySelect("color");
-                                }}
-                                className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "color"
-                                  ? "border-zinc-900 bg-zinc-900 text-white"
-                                  : "border-gray-300 bg-white text-gray-800"
-                                  }`}
-                              >
-                                Renk
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleMobileCategorySelect("print");
-                                }}
-                                className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "print"
-                                  ? "border-zinc-900 bg-zinc-900 text-white"
-                                  : "border-gray-300 bg-white text-gray-800"
-                                  }`}
-                              >
-                                Baskı<br />Seçim
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleMobileCategorySelect("upload");
-                                }}
-                                className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "upload"
-                                  ? "border-zinc-900 bg-zinc-900 text-white"
-                                  : "border-gray-300 bg-white text-gray-800"
-                                  }`}
-                              >
-                                Görsel<br />Yükle
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleMobileCategorySelect("text");
-                                }}
-                                className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "text"
-                                  ? "border-zinc-900 bg-zinc-900 text-white"
-                                  : "border-gray-300 bg-white text-gray-800"
-                                  }`}
-                              >
-                                Yazı<br />Ekle
-                              </button>
-                              <button
-                                type="button"
-                                onClick={handleDoneAction}
-                                disabled={!hasActivePrintAreaSelection}
-                                className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide flex items-center justify-center ${hasActivePrintAreaSelection
-                                  ? "border-zinc-900 bg-zinc-900 text-white"
-                                  : "border-zinc-300 bg-white text-zinc-400"
-                                  }`}
-                              >
-                                Bitti
-                              </button>
+                              {lockMobileCategoryToUpload ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleMobileCategorySelect("upload");
+                                  }}
+                                  className="h-10 min-w-[112px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 border-zinc-900 bg-zinc-900 text-white"
+                                >
+                                  Görsel<br />Yükle
+                                </button>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleMobileCategorySelect("color");
+                                    }}
+                                    className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "color"
+                                      ? "border-zinc-900 bg-zinc-900 text-white"
+                                      : "border-gray-300 bg-white text-gray-800"
+                                      }`}
+                                  >
+                                    Renk
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleMobileCategorySelect("print");
+                                    }}
+                                    className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "print"
+                                      ? "border-zinc-900 bg-zinc-900 text-white"
+                                      : "border-gray-300 bg-white text-gray-800"
+                                      }`}
+                                  >
+                                    Baskı<br />Seçim
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleMobileCategorySelect("upload");
+                                    }}
+                                    className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "upload"
+                                      ? "border-zinc-900 bg-zinc-900 text-white"
+                                      : "border-gray-300 bg-white text-gray-800"
+                                      }`}
+                                  >
+                                    Görsel<br />Yükle
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleMobileCategorySelect("text");
+                                    }}
+                                    className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide transition flex flex-col items-center justify-center leading-3 ${showMobileCategorySelection && activeTab === "text"
+                                      ? "border-zinc-900 bg-zinc-900 text-white"
+                                      : "border-gray-300 bg-white text-gray-800"
+                                      }`}
+                                  >
+                                    Yazı<br />Ekle
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleDoneAction}
+                                    disabled={!hasActivePrintAreaSelection}
+                                    className={`h-10 min-w-[96px] rounded-xl border text-[10px] font-black uppercase tracking-wide flex items-center justify-center ${hasActivePrintAreaSelection
+                                      ? "border-zinc-900 bg-zinc-900 text-white"
+                                      : "border-zinc-300 bg-white text-zinc-400"
+                                      }`}
+                                  >
+                                    Bitti
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
                         )}
@@ -13230,8 +13309,8 @@ function TasarimClientContent({ isMobile }) {
                   </>
                 ) : (
                   <>
-                    <div className={`relative px-3 border-b border-gray-300/80 bg-[#eceff3] ${drawerOpen ? "pt-9 pb-2" : "pt-7 pb-3"}`}>
-                      <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-gray-400/80" />
+                    <div className={`relative px-3 ${importOpen ? "" : "border-b border-gray-300/80"} bg-[#eceff3] ${drawerOpen ? "pt-9 pb-2" : "pt-7 pb-3"}`}>
+                      {!importOpen && <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-gray-400/80" />}
                       <button type="button"
                         onClick={toggleDrawer}
                         className="absolute left-1/2 top-0 -translate-x-1/2 w-10 h-5 rounded-b-full border-2 border-zinc-700 border-t-0 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center z-40 shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
