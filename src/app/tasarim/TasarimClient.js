@@ -104,11 +104,46 @@ const MODELS_WITH_HOODIE_PARTS = new Set(["hoodie-v12-canavari", "oversize-hoodi
 const DEFAULT_MODEL_TYPE = "yeni-duz-tshirt";
 const BG_REMOVE_LOCAL_ENDPOINT = "http://127.0.0.1:8000/remove-bg";
 const BG_REMOVE_PROD_ENDPOINT = "https://bg-remove-3c6vakelbq-ew.a.run.app/remove-bg";
-const resolveBgRemoveEndpoint = () => {
-  if (typeof window === "undefined") return BG_REMOVE_PROD_ENDPOINT;
+const normalizeBgRemoveEndpoint = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const base = raw.replace(/\/+$/g, "");
+  if (!base) return "";
+  if (/\/remove-bg$/i.test(base)) return base;
+  return `${base}/remove-bg`;
+};
+
+const getConfiguredBgRemoveEndpoint = () =>
+  normalizeBgRemoveEndpoint(process?.env?.NEXT_PUBLIC_BG_API_URL || "");
+
+const getBgRemoveEndpointCandidates = () => {
+  if (typeof window === "undefined") {
+    const serverConfigured = getConfiguredBgRemoveEndpoint();
+    return Array.from(
+      new Set(
+        [serverConfigured, BG_REMOVE_PROD_ENDPOINT]
+          .map((endpoint) => normalizeBgRemoveEndpoint(endpoint))
+          .filter(Boolean)
+      )
+    );
+  }
   const host = String(window.location?.hostname || "").toLowerCase();
-  if (host === "localhost" || host === "127.0.0.1") return BG_REMOVE_LOCAL_ENDPOINT;
-  return BG_REMOVE_PROD_ENDPOINT;
+  const isLocalHost = host === "localhost" || host === "127.0.0.1";
+  const configuredEndpoint = getConfiguredBgRemoveEndpoint();
+  const ordered = isLocalHost
+    ? [configuredEndpoint, BG_REMOVE_LOCAL_ENDPOINT, BG_REMOVE_PROD_ENDPOINT]
+    : [configuredEndpoint, BG_REMOVE_PROD_ENDPOINT, BG_REMOVE_LOCAL_ENDPOINT];
+  return Array.from(
+    new Set(
+      ordered
+        .map((endpoint) => normalizeBgRemoveEndpoint(endpoint))
+        .filter(Boolean)
+    )
+  );
+};
+const resolveBgRemoveEndpoint = () => {
+  const endpoints = getBgRemoveEndpointCandidates();
+  return endpoints[0] || BG_REMOVE_PROD_ENDPOINT;
 };
 
 /* ================= MODEL PATHS ================= */
@@ -7111,6 +7146,7 @@ function EditorPanel({
   printTypePickerSignal = 0,
   shouldSuppressTransientClicks = null,
   onRemoveBgForLogoId = null,
+  onImportDialogOpenChange = null,
 }) {
   const isZipperFront = hasCenterZip(design.modelType) && view === "front";
   const gap01 = getCenterZipGap01(design.modelType);
@@ -7129,6 +7165,14 @@ function EditorPanel({
   const [importAssets, setImportAssets] = useState([]);
   const [importLoading, setImportLoading] = useState(false);
   const [importSubmitting, setImportSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (typeof onImportDialogOpenChange !== "function") return undefined;
+    onImportDialogOpenChange(importOpen);
+    return () => {
+      onImportDialogOpenChange(false);
+    };
+  }, [importOpen, onImportDialogOpenChange]);
 
   const sizes = ["S", "M", "L", "XL"];
   const colorPresets = BRAND_COLORS;
@@ -8498,6 +8542,7 @@ function TasarimClientContent({ isMobile }) {
   const [drawerMenuMounted, setDrawerMenuMounted] = useState(false);
   const [printAreaMenuOpen, setPrintAreaMenuOpen] = useState(true);
   const [printTypePickerSignal, setPrintTypePickerSignal] = useState(0);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   // ✅ designs/activeId init bug fix
   const initialDesignRef = useRef(null);
@@ -9194,7 +9239,7 @@ function TasarimClientContent({ isMobile }) {
     const targetMinSize01 = getLogoMinSize01(targetCm, targetBounds, MIN_LOGO_SIZE_CM);
     const preserveVisibleSizeAfterTrim = false;
     const targetLogoId = targetLogo.id;
-    const endpoint = resolveBgRemoveEndpoint();
+    const endpointCandidates = getBgRemoveEndpointCandidates();
 
     setBgRemovalLoading(true);
     setBgRemovalNotice("");
@@ -9239,15 +9284,37 @@ function TasarimClientContent({ isMobile }) {
         sourceFile = await buildUploadFileFromSourceUrl();
       }
 
-      const formData = new FormData();
-      formData.append("file", sourceFile);
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        body: formData,
-      });
-      if (!response.ok) {
-        throw new Error(`Arka plan silinemedi (${response.status}).`);
+      let response = null;
+      let lastFetchError = null;
+      const tryEndpoints = endpointCandidates.length ? endpointCandidates : [resolveBgRemoveEndpoint()];
+      for (let idx = 0; idx < tryEndpoints.length; idx += 1) {
+        const endpoint = String(tryEndpoints[idx] || "").trim();
+        if (!endpoint) continue;
+        try {
+          const formData = new FormData();
+          formData.append("file", sourceFile);
+          const res = await fetch(endpoint, {
+            method: "POST",
+            body: formData,
+          });
+          if (!res.ok) {
+            lastFetchError = new Error(`Arka plan silinemedi (${res.status}) [${endpoint}].`);
+            continue;
+          }
+          response = res;
+          break;
+        } catch (err) {
+          lastFetchError = err;
+        }
+      }
+      if (!response) {
+        const preferredEndpoint = tryEndpoints[0] || resolveBgRemoveEndpoint();
+        if (lastFetchError?.name === "TypeError") {
+          throw new Error(
+            `Arka plan servisine bağlanılamadı. Endpoint: ${preferredEndpoint}. Servisin çalıştığını ve ağ erişimini kontrol edin.`
+          );
+        }
+        throw lastFetchError || new Error(`Arka plan servisi hatası. Endpoint: ${preferredEndpoint}`);
       }
 
       const resultBlob = await response.blob();
@@ -10294,14 +10361,14 @@ function TasarimClientContent({ isMobile }) {
   }, [activeTab]);
 
   useEffect(() => {
-    if (!importOpen) return;
+    if (!importDialogOpen) return;
     if (activeTab !== "upload") setActiveTab("upload");
     setDrawerMenuOpen(false);
     if (isMobile) {
       setMobilePrimaryTab("design");
       if (panelProgress >= 0.98) setPanelProgress(0);
     }
-  }, [importOpen, activeTab, isMobile, panelProgress]);
+  }, [importDialogOpen, activeTab, isMobile, panelProgress]);
 
   useEffect(() => {
     if (!uploadTechniqueToastOpen) return;
@@ -11137,7 +11204,7 @@ function TasarimClientContent({ isMobile }) {
   );
   const mobilePanelCollapsed = isMobile && panelProgress >= 0.98;
   const activeBottomTab = mobilePrimaryTab === "design" ? "tasarla" : mobilePrimaryTab;
-  const lockMobileCategoryToUpload = isMobile && importOpen;
+  const lockMobileCategoryToUpload = isMobile && importDialogOpen;
   const showDesignControls = isMobile && activeBottomTab === "tasarla";
   const showPrintTypes =
     isMobile && activeBottomTab === "tasarla" && !mobilePanelCollapsed && activeTab === "print";
@@ -11321,6 +11388,7 @@ function TasarimClientContent({ isMobile }) {
       printTypePickerSignal={printTypePickerSignal}
       shouldSuppressTransientClicks={isModelTapSuppressed}
       onRemoveBgForLogoId={removeBgForLogoId}
+      onImportDialogOpenChange={setImportDialogOpen}
     />
   );
 
@@ -13309,8 +13377,8 @@ function TasarimClientContent({ isMobile }) {
                   </>
                 ) : (
                   <>
-                    <div className={`relative px-3 ${importOpen ? "" : "border-b border-gray-300/80"} bg-[#eceff3] ${drawerOpen ? "pt-9 pb-2" : "pt-7 pb-3"}`}>
-                      {!importOpen && <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-gray-400/80" />}
+                    <div className={`relative px-3 ${importDialogOpen ? "" : "border-b border-gray-300/80"} bg-[#eceff3] ${drawerOpen ? "pt-9 pb-2" : "pt-7 pb-3"}`}>
+                      {!importDialogOpen && <div className="pointer-events-none absolute left-0 right-0 top-0 h-px bg-gray-400/80" />}
                       <button type="button"
                         onClick={toggleDrawer}
                         className="absolute left-1/2 top-0 -translate-x-1/2 w-10 h-5 rounded-b-full border-2 border-zinc-700 border-t-0 bg-white text-zinc-900 hover:bg-zinc-100 flex items-center justify-center z-40 shadow-[0_6px_14px_rgba(0,0,0,0.18)]"
