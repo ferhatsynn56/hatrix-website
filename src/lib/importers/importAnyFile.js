@@ -124,7 +124,9 @@ const isLikelyTurkishISwapCorruption = (text) => {
   const lowerGCount = (normalized.match(/ğ/g) || []).length;
   const iFamilyCount = (normalized.match(/[iİıI]/g) || []).length;
   const upperGInsideLowerWords = (normalized.match(/[a-zçğıöşü]Ğ[a-zçğıöşü]/g) || []).length;
+  const softGContextHits = (normalized.match(/[aeıioöuü][ğĞ]|[ğĞ][aeıioöuü]/g) || []).length;
   if (upperGInsideLowerWords > 0) return true;
+  if (upperGCount >= 1 && iFamilyCount === 0 && softGContextHits === 0) return true;
   if (upperGCount >= 2 && iFamilyCount <= 1) return true;
   if (lowerGCount >= 4 && iFamilyCount <= Math.max(1, Math.floor(lowerGCount * 0.25))) return true;
   return false;
@@ -132,20 +134,34 @@ const isLikelyTurkishISwapCorruption = (text) => {
 
 const repairLikelyTurkishISwapCorruption = (text) => {
   const src = String(text || "");
-  if (!isLikelyTurkishISwapCorruption(src)) return src;
-  const chars = [...src];
-  return chars
+  if (!src) return "";
+  const normalized = sanitizeImportedText(src, 1400);
+  const shouldRepair = isLikelyTurkishISwapCorruption(src);
+  const softGContextHits = (normalized.match(/[aeıioöuü][ğĞ]|[ğĞ][aeıioöuü]/g) || []).length;
+  const iFamilyCount = (normalized.match(/[iİıI]/g) || []).length;
+  let next = src;
+  if (shouldRepair) {
+    const chars = [...src];
+    next = chars
     .map((ch, idx) => {
       if (ch !== "Ğ" && ch !== "ğ") return ch;
       const prev = chars[idx - 1] || "";
       const next = chars[idx + 1] || "";
       const hasLowerAround = /[a-zçğıöşü]/.test(prev) || /[a-zçğıöşü]/.test(next);
       const hasUpperAround = /[A-ZÇĞİÖŞÜ]/.test(prev) || /[A-ZÇĞİÖŞÜ]/.test(next);
+      const looksLikeRealSoftG =
+        softGContextHits > 0 &&
+        iFamilyCount > 0 &&
+        (/[aeıioöuü]/i.test(prev) || /[aeıioöuü]/i.test(next));
+      if (looksLikeRealSoftG) return ch;
       if (hasLowerAround) return "i";
       if (hasUpperAround) return "I";
       return ch === "Ğ" ? "I" : "i";
     })
     .join("");
+  }
+  // Bazı PDF fontlarında i/I etrafı bozulunca Ð/ð de görülebiliyor.
+  return next.replace(/Ð/g, "İ").replace(/ð/g, "i");
 };
 
 const extractPdfTextBestEffort = (binaryText) => {
@@ -219,6 +235,233 @@ const extractPdfTextViaPdfJs = async (pdfDoc, opts = {}) => {
   return sanitizeImportedText(chunks.join(" "), maxChars);
 };
 
+const isTypedArrayLike = (value) =>
+  Boolean(value && typeof value === "object" && typeof value.length === "number" && value.BYTES_PER_ELEMENT);
+
+const toUint8Clamped = (value) => {
+  if (!value) return null;
+  if (value instanceof Uint8ClampedArray) return value;
+  if (value instanceof Uint8Array) return new Uint8ClampedArray(value.buffer.slice(0));
+  if (isTypedArrayLike(value)) return new Uint8ClampedArray(value.buffer.slice(0));
+  return null;
+};
+
+const normalizeCanvasDims = (rawW, rawH, maxSide = 4096) => {
+  const width = clamp(Math.round(Number(rawW) || 0), 1, 16384);
+  const height = clamp(Math.round(Number(rawH) || 0), 1, 16384);
+  const longest = Math.max(width, height);
+  if (longest <= maxSide) return { width, height };
+  const scale = maxSide / longest;
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+};
+
+const buildRgbaBuffer = (raw, width, height) => {
+  const pixels = Math.max(1, width * height);
+  const source = toUint8Clamped(raw);
+  if (!source) return null;
+  if (source.length >= pixels * 4) {
+    return new Uint8ClampedArray(source.slice(0, pixels * 4));
+  }
+  const out = new Uint8ClampedArray(pixels * 4);
+  if (source.length >= pixels * 3) {
+    for (let i = 0, j = 0; i < pixels; i += 1, j += 3) {
+      out[i * 4 + 0] = source[j + 0];
+      out[i * 4 + 1] = source[j + 1];
+      out[i * 4 + 2] = source[j + 2];
+      out[i * 4 + 3] = 255;
+    }
+    return out;
+  }
+  if (source.length >= pixels) {
+    for (let i = 0; i < pixels; i += 1) {
+      const v = source[i];
+      out[i * 4 + 0] = v;
+      out[i * 4 + 1] = v;
+      out[i * 4 + 2] = v;
+      out[i * 4 + 3] = 255;
+    }
+    return out;
+  }
+  return null;
+};
+
+const isDrawableImageObject = (value) => {
+  if (!value || typeof value !== "object") return false;
+  if (typeof ImageBitmap !== "undefined" && value instanceof ImageBitmap) return true;
+  if (typeof HTMLImageElement !== "undefined" && value instanceof HTMLImageElement) return true;
+  if (typeof HTMLCanvasElement !== "undefined" && value instanceof HTMLCanvasElement) return true;
+  if (typeof OffscreenCanvas !== "undefined" && value instanceof OffscreenCanvas) return true;
+  return false;
+};
+
+const toPngFromDrawable = async (drawable, minSide = 24) => {
+  const rawW = Number(drawable?.width || drawable?.naturalWidth || 0);
+  const rawH = Number(drawable?.height || drawable?.naturalHeight || 0);
+  if (!Number.isFinite(rawW) || !Number.isFinite(rawH) || rawW < minSide || rawH < minSide) return null;
+  const { width, height } = normalizeCanvasDims(rawW, rawH, 4096);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(drawable, 0, 0, width, height);
+  const blob = await canvasToPngBlob(canvas);
+  return {
+    blob,
+    width,
+    height,
+  };
+};
+
+const toPngFromPdfImageData = async (imageLike, minSide = 24) => {
+  if (!imageLike || typeof imageLike !== "object") return null;
+  if (isDrawableImageObject(imageLike)) {
+    return toPngFromDrawable(imageLike, minSide);
+  }
+  if (isDrawableImageObject(imageLike.bitmap)) {
+    return toPngFromDrawable(imageLike.bitmap, minSide);
+  }
+  const rawW = Number(imageLike?.width || imageLike?.w || imageLike?.cols || 0);
+  const rawH = Number(imageLike?.height || imageLike?.h || imageLike?.rows || 0);
+  if (!Number.isFinite(rawW) || !Number.isFinite(rawH) || rawW < minSide || rawH < minSide) return null;
+  const rgba = buildRgbaBuffer(imageLike?.data, rawW, rawH);
+  if (!rgba) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = rawW;
+  canvas.height = rawH;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const imageData = new ImageData(rgba, rawW, rawH);
+  ctx.putImageData(imageData, 0, 0);
+  const blob = await canvasToPngBlob(canvas);
+  return {
+    blob,
+    width: rawW,
+    height: rawH,
+  };
+};
+
+const waitForPdfObject = (objsStore, objectName, timeoutMs = 1800) =>
+  new Promise((resolve) => {
+    if (!objsStore || !objectName) {
+      resolve(null);
+      return;
+    }
+    let done = false;
+    const settle = (value) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      resolve(value || null);
+    };
+    const timer = window.setTimeout(() => settle(null), timeoutMs);
+    try {
+      const direct = objsStore.get(objectName);
+      if (direct) {
+        settle(direct);
+        return;
+      }
+    } catch {
+      // unresolved object; callback path below
+    }
+    try {
+      objsStore.get(objectName, (obj) => settle(obj));
+    } catch {
+      settle(null);
+    }
+  });
+
+const extractPdfEmbeddedImages = async (pdfjs, pdfDoc, file, opts = {}) => {
+  const maxPages = clamp(Number(opts?.maxPages || 6), 1, 30);
+  const maxImages = clamp(Number(opts?.maxImages || 20), 1, 80);
+  const minSide = clamp(Number(opts?.minSide || 24), 8, 256);
+  const pageCount = Math.min(Number(pdfDoc?.numPages || 0), maxPages);
+  if (!pageCount) return [];
+  const OPS = pdfjs?.OPS || {};
+  const imageOpSet = new Set(
+    [OPS.paintImageXObject, OPS.paintJpegXObject, OPS.paintImageMaskXObject].filter((fn) => Number.isFinite(fn))
+  );
+  const inlineOpSet = new Set(
+    [OPS.paintInlineImageXObject, OPS.paintInlineImageXObjectGroup].filter((fn) => Number.isFinite(fn))
+  );
+
+  const found = [];
+  const dedupeKeys = new Set();
+
+  for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+    if (found.length >= maxImages) break;
+    let page = null;
+    try {
+      page = await pdfDoc.getPage(pageNumber);
+      const opList = await page.getOperatorList();
+      const names = new Set();
+      const inlinePayloads = [];
+      const fnArray = Array.isArray(opList?.fnArray) ? opList.fnArray : [];
+      const argsArray = Array.isArray(opList?.argsArray) ? opList.argsArray : [];
+      for (let i = 0; i < fnArray.length; i += 1) {
+        const fn = fnArray[i];
+        const args = argsArray[i];
+        const firstArg = Array.isArray(args) ? args[0] : null;
+        if (imageOpSet.has(fn)) {
+          if (typeof firstArg === "string") names.add(firstArg);
+          else if (firstArg && typeof firstArg === "object") inlinePayloads.push(firstArg);
+          continue;
+        }
+        if (inlineOpSet.has(fn)) {
+          if (Array.isArray(firstArg)) {
+            firstArg.forEach((entry) => {
+              if (entry && typeof entry === "object") inlinePayloads.push(entry);
+            });
+          } else if (firstArg && typeof firstArg === "object") {
+            inlinePayloads.push(firstArg);
+          }
+        }
+      }
+
+      for (const xObjName of names) {
+        if (found.length >= maxImages) break;
+        const imageObj = await waitForPdfObject(page.objs, xObjName);
+        const png = await toPngFromPdfImageData(imageObj, minSide);
+        if (!png?.blob) continue;
+        const dedupeKey = `${png.width}x${png.height}:${png.blob.size}`;
+        if (dedupeKeys.has(dedupeKey)) continue;
+        dedupeKeys.add(dedupeKey);
+        found.push({
+          kind: "image",
+          name: `${stripExtension(file?.name) || "pdf"}-image-${found.length + 1}.png`,
+          blob: png.blob,
+        });
+      }
+
+      for (const inlineObj of inlinePayloads) {
+        if (found.length >= maxImages) break;
+        const png = await toPngFromPdfImageData(inlineObj, minSide);
+        if (!png?.blob) continue;
+        const dedupeKey = `${png.width}x${png.height}:${png.blob.size}`;
+        if (dedupeKeys.has(dedupeKey)) continue;
+        dedupeKeys.add(dedupeKey);
+        found.push({
+          kind: "image",
+          name: `${stripExtension(file?.name) || "pdf"}-image-${found.length + 1}.png`,
+          blob: png.blob,
+        });
+      }
+    } catch {
+      // Tek sayfa decode hatası tüm PDF importunu düşürmesin.
+    } finally {
+      try {
+        page?.cleanup?.();
+      } catch {}
+    }
+  }
+
+  return found;
+};
+
 const importPdfToAssets = async (file, options = {}) => {
   const assets = [];
   const pdfjs = await getPdfJs();
@@ -227,22 +470,15 @@ const importPdfToAssets = async (file, options = {}) => {
   const pdf = await task.promise;
   let text = "";
   try {
-    const firstPage = await pdf.getPage(1);
-    const viewport = firstPage.getViewport({ scale: 2 });
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(viewport.width));
-    canvas.height = Math.max(1, Math.round(viewport.height));
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("PDF islenemedi.");
-    await firstPage.render({ canvasContext: ctx, viewport }).promise;
-    const imageBlob = await canvasToPngBlob(canvas);
-    assets.push({
-      kind: "image",
-      name: `${stripExtension(file.name) || "pdf"}-page-1.png`,
-      blob: imageBlob,
+    // Sayfayi komple raster etmiyoruz; PDF içindeki gömülü görselleri çıkarıyoruz.
+    const embeddedImages = await extractPdfEmbeddedImages(pdfjs, pdf, file, {
+      maxPages: Number(options?.pdfMaxPages || 6),
+      maxImages: Number(options?.pdfMaxImages || 20),
+      minSide: 24,
     });
+    if (embeddedImages.length) assets.push(...embeddedImages);
 
-    // PDF text extraction: önce pdf.js textContent ile al (daha doğru).
+    // PDF text extraction: pdf.js textContent.
     text = await extractPdfTextViaPdfJs(pdf, { maxPages: 4, maxChars: 900 });
   } finally {
     try {
@@ -250,11 +486,13 @@ const importPdfToAssets = async (file, options = {}) => {
     } catch {}
   }
 
-  // PDF text için sadece pdf.js sonucunu kullan:
-  // ham binary fallback (latin1) bazı PDF'lerde karakter bozulmasına yol açabiliyor.
+  // PDF text için sadece pdf.js sonucunu kullan.
   text = sanitizeImportedText(repairLikelyTurkishISwapCorruption(text), 900);
   if (text && !isProbablyGarbledPdfText(text)) {
     assets.push({ kind: "text", name: `${file.name} (metin)`, text });
+  }
+  if (!assets.length) {
+    throw new Error("PDF içinde aktarılabilir görsel veya metin bulunamadı.");
   }
   return assets;
 };

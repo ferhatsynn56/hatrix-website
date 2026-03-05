@@ -3711,6 +3711,7 @@ const RUBBER_TEXT_INJECTION_DEPTH_RETAIN_RATIO = 0.90;
 const SHRINKWRAP_RENDER_VERSION = "v3";
 const RUBBER_TEXT_POLYGON_OFFSET_FACTOR = -12;
 const RUBBER_TEXT_POLYGON_OFFSET_UNITS = -5;
+const RUBBER_TEXT_RIGHT_ROTATION_OFFSET = -Math.PI / 2;
 
 function shrinkwrapGlyphMeshToSurface(
   mesh,
@@ -4212,7 +4213,7 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
             targetMesh={decalHost}
             surfaceSide={side}
             position={[x, y, 0]}
-            rotationZ={(row.rotDeg * Math.PI) / 180}
+            rotationZ={(row.rotDeg * Math.PI) / 180 + RUBBER_TEXT_RIGHT_ROTATION_OFFSET}
             scale={[glyphScale * scaleX, glyphScale * scaleY, zScale]}
             color={textColor}
             materialSide={THREE.DoubleSide}
@@ -6312,7 +6313,7 @@ function DesignModelItem({
       holdRef.current.triggered = true;
       onModelLongPress?.(design.id);
       document.body.style.cursor = "default";
-    }, 2000);
+    }, 1200);
   };
 
   useEffect(() => {
@@ -13052,7 +13053,7 @@ function TasarimClientContent({ isMobile }) {
                     height: drawerHeightStyle,
                     transform: `translateY(${Math.max(0, drawerTranslateY)}px)`,
                     backgroundColor: "#eef0f4",
-                    borderTop: "1px solid rgba(0,0,0,0.08)",
+                    borderTop: importDialogOpen ? "none" : "1px solid rgba(0,0,0,0.08)",
                     boxShadow: mobilePanelCollapsed
                       ? "0 -2px 10px rgba(0,0,0,0.08)"
                       : "0 -10px 24px rgba(0,0,0,0.14)",
@@ -13083,34 +13084,37 @@ function TasarimClientContent({ isMobile }) {
                   <>
                     <div
                       className={`relative z-[20] bg-[#eef0f4] ${mobilePanelCollapsed ? "px-4 pt-5 pb-3" : `px-4 pt-5 pb-2 ${lockMobileCategoryToUpload ? "" : "border-b border-black/10"}`
+                        } ${importDialogOpen ? "hidden" : ""
                         }`}
                     >
-                      <button type="button"
-                        onPointerDown={(e) => {
-                          e.stopPropagation();
-                          onDrawerPointerDown(e);
-                        }}
-                        onClick={(e) => {
-                          handleMobileDrawerHandleClick(e);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
+                      {!importDialogOpen && (
+                        <button type="button"
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            onDrawerPointerDown(e);
+                          }}
+                          onClick={(e) => {
                             handleMobileDrawerHandleClick(e);
-                          }
-                        }}
-                        className="absolute left-1/2 top-[-18px] -translate-x-1/2 w-11 h-9 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 flex items-center justify-center z-[35] shadow-[0_6px_14px_rgba(0,0,0,0.18)] pointer-events-auto"
-                        aria-label="Alt panel yüksekliğini değiştir"
-                        style={{ touchAction: "none" }}
-                      >
-                        <span className="translate-y-[1px]">
-                          {mobilePanelCollapsed ? (
-                            <ChevronUp size={17} strokeWidth={2.7} />
-                          ) : (
-                            <ChevronDown size={17} strokeWidth={2.7} />
-                          )}
-                        </span>
-                      </button>
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleMobileDrawerHandleClick(e);
+                            }
+                          }}
+                          className="absolute left-1/2 top-[-18px] -translate-x-1/2 w-11 h-9 rounded-full border-2 border-zinc-700 bg-white text-zinc-900 flex items-center justify-center z-[35] shadow-[0_6px_14px_rgba(0,0,0,0.18)] pointer-events-auto"
+                          aria-label="Alt panel yüksekliğini değiştir"
+                          style={{ touchAction: "none" }}
+                        >
+                          <span className="translate-y-[1px]">
+                            {mobilePanelCollapsed ? (
+                              <ChevronUp size={17} strokeWidth={2.7} />
+                            ) : (
+                              <ChevronDown size={17} strokeWidth={2.7} />
+                            )}
+                          </span>
+                        </button>
+                      )}
 
                       {showDesignControls && mobilePanelCollapsed && (
                         <div className={`pointer-events-auto ${mobilePanelCollapsed ? "pt-2" : "pt-1"}`}>
