@@ -4435,8 +4435,8 @@ function InjectionPatternStamp({
     x: clamp(Number(safePosRaw?.x ?? 0.5), safeHalfW01, 1 - safeHalfW01),
     y: clamp(Number(safePosRaw?.y ?? 0.58), safeHalfH01, 1 - safeHalfH01),
   };
-  // UI drag yönü modelde birebir kalsın.
-  const cx = profile.xMin + safePos.x * areaW;
+  // Enjeksiyon için UI/display ekseni ile model ekseni ters olduğu için X'i mapliyoruz.
+  const cx = profile.xMin + (1 - safePos.x) * areaW;
   const cy = profile.yTop - safePos.y * areaH;
   const sideRotY = Number(
     profile.rotY ??
@@ -4624,12 +4624,21 @@ function Real3DModel({
       ].sort((a, b) => a.value - b.value);
       const smallestAxis = axisEntries[0];
       const secondAxis = axisEntries[1];
+      const yLikelyDepthAxis =
+        Number.isFinite(preSize?.y) &&
+        Number.isFinite(preSize?.z) &&
+        preSize.y > 0 &&
+        preSize.z > 0 &&
+        preSize.y <= preSize.z * 0.45;
       const needsDepthRealign =
-        smallestAxis?.axis !== "z" &&
-        Number.isFinite(smallestAxis?.value) &&
-        Number.isFinite(secondAxis?.value) &&
-        smallestAxis.value > 0 &&
-        smallestAxis.value * 1.8 < secondAxis.value;
+        yLikelyDepthAxis ||
+        (
+          smallestAxis?.axis !== "z" &&
+          Number.isFinite(smallestAxis?.value) &&
+          Number.isFinite(secondAxis?.value) &&
+          smallestAxis.value > 0 &&
+          smallestAxis.value * 1.8 < secondAxis.value
+        );
       if (needsDepthRealign) {
         if (smallestAxis.axis === "y") {
           // Export'ta depth Y eksenindeyse, depth'i Z'ye taşır.
@@ -8642,7 +8651,8 @@ function TasarimClientContent({ isMobile }) {
     // Çerçeve, gerçek desene daha sıkı otursun.
     const w = clamp(0.265 * sceneInjectionScale, 0.11, 0.8);
     const h = clamp(0.2 * sceneInjectionScale, 0.08, 0.62);
-    const x = clamp(Number(rawPos?.x ?? 0.5), w / 2, 1 - w / 2);
+    const storedX = clamp(Number(rawPos?.x ?? 0.5), w / 2, 1 - w / 2);
+    const x = clamp(1 - storedX, w / 2, 1 - w / 2);
     const y = clamp(Number(rawPos?.y ?? 0.58), h / 2, 1 - h / 2);
     return { x, y, w, h };
   }, [sideData?.injectionPos, sceneInjectionScale]);
@@ -9117,7 +9127,8 @@ function TasarimClientContent({ isMobile }) {
     if (!hasSceneInjection) return;
     const w = sceneInjectionBox.w;
     const h = sceneInjectionBox.h;
-    const x = clamp(Number(nextBox?.x ?? sceneInjectionBox.x), w / 2, 1 - w / 2);
+    const displayX = clamp(Number(nextBox?.x ?? sceneInjectionBox.x), w / 2, 1 - w / 2);
+    const x = clamp(1 - displayX, w / 2, 1 - w / 2);
     const y = clamp(Number(nextBox?.y ?? sceneInjectionBox.y), h / 2, 1 - h / 2);
     updateSide({ injectionPos: { x, y } });
   };
