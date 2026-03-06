@@ -1288,9 +1288,9 @@ const GLYPH_TOKEN_MAP = {
 
 const normalizeGlyphLookupChar = (value) => String(value || "").normalize("NFC");
 const RUBBER_CHAR_ROTATE_Z_FIXES = Object.freeze({
-  i: -Math.PI / 2,
-  l: -Math.PI / 2,
-  İ: -Math.PI / 2,
+  i: Math.PI / 2,
+  l: Math.PI / 2,
+  İ: Math.PI / 2,
 });
 const getRubberCharRotateZFix = (ch) => RUBBER_CHAR_ROTATE_Z_FIXES[normalizeGlyphLookupChar(ch)] || 0;
 
