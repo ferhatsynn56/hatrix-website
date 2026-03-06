@@ -1287,6 +1287,9 @@ const GLYPH_TOKEN_MAP = {
 };
 
 const normalizeGlyphLookupChar = (value) => String(value || "").normalize("NFC");
+const RUBBER_VERTICAL_MIRROR_CHAR_SET = new Set(["i", "I", "İ", "ı", "l", "L"]);
+const shouldMirrorRubberGlyphVertically = (ch) =>
+  RUBBER_VERTICAL_MIRROR_CHAR_SET.has(normalizeGlyphLookupChar(ch));
 
 const glyphTokenToChar = (tokenRaw, forceCase = null) => {
   const tokenOriginal = normalizeGlyphLookupChar(tokenRaw).trim();
@@ -3711,7 +3714,6 @@ const RUBBER_TEXT_INJECTION_DEPTH_RETAIN_RATIO = 0.90;
 const SHRINKWRAP_RENDER_VERSION = "v3";
 const RUBBER_TEXT_POLYGON_OFFSET_FACTOR = -12;
 const RUBBER_TEXT_POLYGON_OFFSET_UNITS = -5;
-const RUBBER_TEXT_RIGHT_ROTATION_OFFSET = -Math.PI / 2;
 
 function shrinkwrapGlyphMeshToSurface(
   mesh,
@@ -4213,7 +4215,7 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
             targetMesh={decalHost}
             surfaceSide={side}
             position={[x, y, 0]}
-            rotationZ={(row.rotDeg * Math.PI) / 180 + RUBBER_TEXT_RIGHT_ROTATION_OFFSET}
+            rotationZ={(row.rotDeg * Math.PI) / 180}
             scale={[glyphScale * scaleX, glyphScale * scaleY, zScale]}
             color={textColor}
             materialSide={THREE.DoubleSide}
@@ -4720,6 +4722,21 @@ function Real3DModel({
       geometry.computeBoundingBox?.();
       bb = geometry.boundingBox;
       if (!bb) return;
+      if (shouldMirrorRubberGlyphVertically(ch)) {
+        // Sadece i/l ailesi için dikey ayna: diğer harfleri etkilemeyelim.
+        geometry.scale(1, -1, 1);
+        geometry.computeVertexNormals?.();
+        geometry.computeBoundingBox?.();
+        bb = geometry.boundingBox;
+        if (!bb) return;
+        const mirroredBaselineShiftY = bb.min.y > 0 ? -bb.min.y : 0;
+        if (mirroredBaselineShiftY !== 0) {
+          geometry.translate(0, mirroredBaselineShiftY, 0);
+          geometry.computeBoundingBox?.();
+          bb = geometry.boundingBox;
+          if (!bb) return;
+        }
+      }
       const size = new THREE.Vector3();
       bb.getSize(size);
       next[ch] = {
