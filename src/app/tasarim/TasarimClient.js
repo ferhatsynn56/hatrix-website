@@ -1287,9 +1287,12 @@ const GLYPH_TOKEN_MAP = {
 };
 
 const normalizeGlyphLookupChar = (value) => String(value || "").normalize("NFC");
-const RUBBER_VERTICAL_MIRROR_CHAR_SET = new Set(["i", "I", "İ", "ı", "l", "L"]);
-const shouldMirrorRubberGlyphVertically = (ch) =>
-  RUBBER_VERTICAL_MIRROR_CHAR_SET.has(normalizeGlyphLookupChar(ch));
+const RUBBER_CHAR_ROTATE_Z_FIXES = Object.freeze({
+  i: -Math.PI / 2,
+  l: -Math.PI / 2,
+  İ: -Math.PI / 2,
+});
+const getRubberCharRotateZFix = (ch) => RUBBER_CHAR_ROTATE_Z_FIXES[normalizeGlyphLookupChar(ch)] || 0;
 
 const glyphTokenToChar = (tokenRaw, forceCase = null) => {
   const tokenOriginal = normalizeGlyphLookupChar(tokenRaw).trim();
@@ -4713,6 +4716,14 @@ function Real3DModel({
         bb = geometry.boundingBox;
         if (!bb) return;
       }
+      const charRotateFixZ = getRubberCharRotateZFix(ch);
+      if (charRotateFixZ) {
+        geometry.rotateZ(charRotateFixZ);
+        geometry.computeVertexNormals?.();
+        geometry.computeBoundingBox?.();
+        bb = geometry.boundingBox;
+        if (!bb) return;
+      }
       const cx = (bb.min.x + bb.max.x) / 2;
       const zMin = bb.min.z;
       // Descender (y, g, p vb.) olan harfleri yukari itme.
@@ -4722,21 +4733,6 @@ function Real3DModel({
       geometry.computeBoundingBox?.();
       bb = geometry.boundingBox;
       if (!bb) return;
-      if (shouldMirrorRubberGlyphVertically(ch)) {
-        // Sadece i/l ailesi için dikey ayna: diğer harfleri etkilemeyelim.
-        geometry.scale(1, -1, 1);
-        geometry.computeVertexNormals?.();
-        geometry.computeBoundingBox?.();
-        bb = geometry.boundingBox;
-        if (!bb) return;
-        const mirroredBaselineShiftY = bb.min.y > 0 ? -bb.min.y : 0;
-        if (mirroredBaselineShiftY !== 0) {
-          geometry.translate(0, mirroredBaselineShiftY, 0);
-          geometry.computeBoundingBox?.();
-          bb = geometry.boundingBox;
-          if (!bb) return;
-        }
-      }
       const size = new THREE.Vector3();
       bb.getSize(size);
       next[ch] = {
