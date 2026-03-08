@@ -113,6 +113,23 @@ const normalizeBgRemoveEndpoint = (value) => {
   return `${base}/remove-bg`;
 };
 
+const isLoopbackBgEndpoint = (value) => {
+  const normalized = normalizeBgRemoveEndpoint(value);
+  if (!normalized) return false;
+  try {
+    const url = new URL(normalized, typeof window !== "undefined" ? window.location.href : "http://localhost");
+    const host = String(url.hostname || "").toLowerCase();
+    return (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "::1" ||
+      host.endsWith(".localhost")
+    );
+  } catch {
+    return false;
+  }
+};
+
 const getConfiguredBgRemoveEndpoint = () =>
   normalizeBgRemoveEndpoint(process?.env?.NEXT_PUBLIC_BG_API_URL || "");
 
@@ -128,11 +145,16 @@ const getBgRemoveEndpointCandidates = () => {
     );
   }
   const host = String(window.location?.hostname || "").toLowerCase();
-  const isLocalHost = host === "localhost" || host === "127.0.0.1";
+  const isLocalHost = host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".localhost");
   const configuredEndpoint = getConfiguredBgRemoveEndpoint();
+  const configuredEndpointForCurrentHost = isLocalHost
+    ? configuredEndpoint
+    : isLoopbackBgEndpoint(configuredEndpoint)
+      ? ""
+      : configuredEndpoint;
   const ordered = isLocalHost
-    ? [configuredEndpoint, BG_REMOVE_LOCAL_ENDPOINT, BG_REMOVE_PROD_ENDPOINT]
-    : [configuredEndpoint, BG_REMOVE_PROD_ENDPOINT, BG_REMOVE_LOCAL_ENDPOINT];
+    ? [configuredEndpointForCurrentHost, BG_REMOVE_LOCAL_ENDPOINT, BG_REMOVE_PROD_ENDPOINT]
+    : [configuredEndpointForCurrentHost, BG_REMOVE_PROD_ENDPOINT];
   return Array.from(
     new Set(
       ordered
@@ -1287,10 +1309,13 @@ const GLYPH_TOKEN_MAP = {
 };
 
 const normalizeGlyphLookupChar = (value) => String(value || "").normalize("NFC");
+const stripCombiningMarks = (value) =>
+  normalizeGlyphLookupChar(value)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe00-\ufe0f]/g, "");
 const RUBBER_CHAR_ROTATE_Z_FIXES = Object.freeze({
   i: Math.PI / 2,
   l: Math.PI / 2,
-  İ: Math.PI / 2,
 });
 const getRubberCharRotateZFix = (ch) => RUBBER_CHAR_ROTATE_Z_FIXES[normalizeGlyphLookupChar(ch)] || 0;
 
@@ -4012,6 +4037,13 @@ const RubberTextLayer = React.memo(function RubberTextLayer({
       if (normalized === "ı") {
         return glyphLibrary["ı"] || glyphLibrary["I"] || null;
       }
+      if (normalized === "İ") {
+        return glyphLibrary["İ"] || glyphLibrary["I"] || glyphLibrary["i"] || null;
+      }
+      const normalizedBase = stripCombiningMarks(normalized);
+      if (normalizedBase !== normalized && glyphLibrary[normalizedBase]) {
+        return glyphLibrary[normalizedBase];
+      }
       const upperTr = normalized.toLocaleUpperCase("tr-TR");
       const lowerTr = normalized.toLocaleLowerCase("tr-TR");
       const directMatch =
@@ -6421,10 +6453,20 @@ function DesignModelItem({
     lowQuality: lowPerformanceMode,
     disabled: !backCanvasEnabled,
   });
+  const sleeveLeftHasRubber =
+    normalizePrintTechnique(
+      design?.sides?.sleeve_left?.customText?.technique,
+      printTypeIdsToTechnique(printTypesBySide.sleeve_left, PRINT_TECHNIQUES.DTF)
+    ) === PRINT_TECHNIQUES.RUBBER;
+  const sleeveRightHasRubber =
+    normalizePrintTechnique(
+      design?.sides?.sleeve_right?.customText?.technique,
+      printTypeIdsToTechnique(printTypesBySide.sleeve_right, PRINT_TECHNIQUES.DTF)
+    ) === PRINT_TECHNIQUES.RUBBER;
   const sleeveLeftCanvasEnabled = getAvailableViewsForModel(design?.modelType).includes("sleeve_left");
   const sleeveLeftCanvas = useDesignCanvas(design.sides.sleeve_left || design.sides.left || EMPTY_SIDE, {
     sideKey: "sleeve_left",
-    disableText: false,
+    disableText: sleeveLeftHasRubber,
     canvasSize: textureCanvasSize,
     includeEmbossLogos: lowPerformanceMode,
     updateDebounceMs: textureDebounceMs,
@@ -6434,7 +6476,7 @@ function DesignModelItem({
   const sleeveRightCanvasEnabled = getAvailableViewsForModel(design?.modelType).includes("sleeve_right");
   const sleeveRightCanvas = useDesignCanvas(design.sides.sleeve_right || design.sides.right || EMPTY_SIDE, {
     sideKey: "sleeve_right",
-    disableText: false,
+    disableText: sleeveRightHasRubber,
     canvasSize: textureCanvasSize,
     includeEmbossLogos: lowPerformanceMode,
     updateDebounceMs: textureDebounceMs,
@@ -7247,18 +7289,49 @@ function EditorPanel({
   const shouldBlockTransientUploadOpen = () =>
     typeof shouldSuppressTransientClicks === "function" && Boolean(shouldSuppressTransientClicks());
 
+  const getTextLinesForSide = (value) =>
+    String(value || "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+  const mergeTextForSameArea = (existingText, nextValue) => {
+    const current = String(existingText || "").trim();
+    const next = String(nextValue || "").trim();
+
+    if (!next) return next;
+    if (!current) return next;
+    if (next === current) return current;
+
+    if (next.startsWith(current) || current.includes(next)) {
+      return next;
+    }
+
+    const currentLines = getTextLinesForSide(current);
+    const nextLines = getTextLinesForSide(next);
+    const mergedLines = [...currentLines, ...nextLines];
+
+    if (mergedLines.length > MAX_LOGOS_PER_SIDE) {
+      alert(`Bu alana en fazla ${MAX_LOGOS_PER_SIDE} adet yazı ekleyebilirsin.`);
+      return current;
+    }
+
+    return mergedLines.join("\n");
+  };
+
   const commitEditorTextDraft = (nextText) => {
     if (!design) return;
     if (!ensurePanelPrintAreaSelection("color")) return;
     startTextCommitTransition(() => {
       const liveSideData = normalizeSideData(design?.sides?.[currentSide]);
       const committedText = liveSideData?.customText?.text || "";
-      if (nextText === committedText) return;
+      const mergedText = mergeTextForSameArea(committedText, nextText);
+      if (mergedText === committedText) return;
       const liveText = liveSideData?.customText || {};
       const liveTechnique = normalizePrintTechnique(liveText?.technique, PRINT_TECHNIQUES.DTF);
       const nextCustomText = {
         ...liveText,
-        text: nextText,
+        text: mergedText,
         technique: liveTechnique,
         surfaceRotationY: getDefaultSideRotationY(design?.modelType, currentSide, design?.hoodieV12Parts),
         ...(liveTechnique === PRINT_TECHNIQUES.RUBBER ? { font: RUBBER_FONT_OPTION.value } : {}),
@@ -7602,7 +7675,8 @@ function EditorPanel({
 
       if (textSegments.length) {
         const currentText = String(t?.text || "").trim();
-        const mergedText = [currentText, ...textSegments].filter(Boolean).join(currentText ? "\n" : " ").slice(0, 200);
+        const nextText = mergeTextForSameArea(currentText, textSegments.join("\n"));
+        const mergedText = nextText.slice(0, 200);
         const textTechniqueApplied = applyTextTechnique(PRINT_TECHNIQUES.DTF);
         if (textTechniqueApplied) {
           bumpText({ text: mergedText, technique: PRINT_TECHNIQUES.DTF });
@@ -9132,7 +9206,8 @@ function TasarimClientContent({ isMobile }) {
   };
 
   const commitSceneTextDraft = (nextValue) => {
-    bumpCustomText({ text: nextValue }, { defer: true });
+    const mergedText = mergeTextForSameArea(t?.text || "", nextValue);
+    bumpCustomText({ text: mergedText }, { defer: true });
   };
 
   const applySceneTextTechnique = (nextTechnique) => {
