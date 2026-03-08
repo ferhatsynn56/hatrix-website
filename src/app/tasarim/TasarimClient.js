@@ -1008,6 +1008,12 @@ const applyHoodiePocketClampToFront = (baseProfile, modelType, hoodieParts = DEF
   return { ...base, yBot: Math.max(base.yBot, pocketYBot) };
 };
 
+const getTextLinesForSide = (value) =>
+  String(value || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
 const getPrintProfile = (modelType, side = "front", hoodieParts = DEFAULT_HOODIE_PARTS) => {
   const normalized = normalizeModelType(modelType);
   const safeSide = normalizePrintSide(side);
@@ -1052,9 +1058,12 @@ const getDefaultSideRotationY = (modelType, side = "front", hoodieParts = DEFAUL
 };
 
 const estimateTextHalfBounds01 = (textState = {}) => {
-  const rawText = String(textState?.text || "").trim();
-  const text = rawText || "W";
-  const charCount = Math.max(1, text.length);
+  const lines = getTextLinesForSide(textState?.text);
+  const safeLines = lines.length > 0 ? lines : ["W"];
+  const lineCount = safeLines.length;
+  const lineSpacing = 0.22;
+  const maxChars = Math.max(...safeLines.map((line) => line.length).map((len) => Math.max(1, len)));
+  const charCount = Math.max(1, maxChars);
   const size = clamp(Number(textState?.size) || 150, 30, 420);
   const scaleX = clamp(Number(textState?.scaleX) || 1, 0.3, 3);
   const scaleY = clamp(Number(textState?.scaleY) || 1, 0.3, 3);
@@ -1070,7 +1079,7 @@ const estimateTextHalfBounds01 = (textState = {}) => {
   const spacing = size * 0.03 * scaleX * rubberSpacingMul;
   const baseW = Math.max(size * 0.75 * scaleX, charCount * avgGlyphW + (charCount - 1) * spacing);
   let boxW = baseW;
-  let boxH = size * 1.15 * scaleY;
+  let boxH = (size * 1.15 * scaleY * lineCount) + (lineSpacing * size * scaleY * Math.max(0, lineCount - 1));
 
   if (layout === "wave") boxH += size * (curve / 100) * 0.9 * scaleY;
   if (layout === "zigzag") boxH += size * (curve / 100) * 1.45 * scaleY;
@@ -1193,6 +1202,7 @@ const DESKTOP_DRAWER_HEIGHT = 312;
 const DESKTOP_DRAWER_PEEK = 82;
 const MOBILE_TOOLBAR_HEIGHT = 76;
 const MAX_LOGOS_PER_SIDE = 3;
+const MAX_TEXT_SLOTS_PER_SIDE = MAX_LOGOS_PER_SIDE;
 const LEFT_PRINT_AREA_WIDTH = 420;
 const LEFT_PRINT_AREA_GAP = 0;
 const BRAND_COLORS = ["#1A1A1A", "#F0F0F0", "#D2C6B6", "#3F432C", "#191C25", "#363636", "#1EF292", "#3E191D"];
@@ -1884,8 +1894,8 @@ const FontFamilyPicker = React.memo(function FontFamilyPicker({
 });
 
 const drawStyledText = (ctx, t, centerX, centerY, fontSize) => {
-  const text = String(t?.text || "").trim();
-  if (!text) return;
+  const lines = getTextLinesForSide(t?.text);
+  if (!lines.length) return;
 
   const layout = t?.layout || "straight";
   const curve = getTextCurveValue(t);
@@ -1898,10 +1908,15 @@ const drawStyledText = (ctx, t, centerX, centerY, fontSize) => {
   const embossStrength = clamp(Number(t?.embossStrength ?? 1.4), 0.6, 2.4);
   const strokeWidth = clamp(fontSize * 0.11 * embossStrength, 1.2, 14);
   const depth = clamp(fontSize * 0.07 * embossDepthMul, 2, 26);
+  const lineGap = fontSize * 1.25;
+  const totalLineHeight = lineGap * lines.length;
+  const firstLineY = centerY - (totalLineHeight - lineGap) / 2;
 
-  const renderPass = ({ fillStyle, strokeStyle = null, alpha = 1, offsetX = 0, offsetY = 0 }) => {
+  const renderLinePass = (textLine, lineY, { fillStyle, strokeStyle = null, alpha = 1, offsetX = 0, offsetY = 0 }) => {
+    const lineText = String(textLine || "").trim();
+    if (!lineText) return;
     ctx.save();
-    ctx.translate(centerX + offsetX, centerY + offsetY);
+    ctx.translate(centerX + offsetX, lineY + offsetY);
     if (rotationDeg) {
       ctx.rotate((rotationDeg * Math.PI) / 180);
     }
@@ -1920,19 +1935,19 @@ const drawStyledText = (ctx, t, centerX, centerY, fontSize) => {
     }
 
     if (layout === "straight") {
-      if (strokeStyle) ctx.strokeText(text, 0, 0);
-      ctx.fillText(text, 0, 0);
+      if (strokeStyle) ctx.strokeText(lineText, 0, 0);
+      ctx.fillText(lineText, 0, 0);
       ctx.restore();
       return;
     }
 
-    const chars = [...text];
+    const chars = [...lineText];
     const widths = chars.map((ch) => ctx.measureText(ch).width);
     const spacing = fontSize * 0.06;
     const totalAdvance = widths.reduce((a, b) => a + b, 0) + spacing * Math.max(0, chars.length - 1);
     if (totalAdvance <= 0) {
-      if (strokeStyle) ctx.strokeText(text, 0, 0);
-      ctx.fillText(text, 0, 0);
+      if (strokeStyle) ctx.strokeText(lineText, 0, 0);
+      ctx.fillText(lineText, 0, 0);
       ctx.restore();
       return;
     }
@@ -2013,7 +2028,9 @@ const drawStyledText = (ctx, t, centerX, centerY, fontSize) => {
   };
 
   if (!embossEnabled) {
-    renderPass({ fillStyle: baseColor, alpha: 1 });
+    lines.forEach((lineText, lineIndex) => {
+      renderLinePass(lineText, firstLineY + lineGap * lineIndex, { fillStyle: baseColor, alpha: 1 });
+    });
     return;
   }
 
@@ -2021,23 +2038,28 @@ const drawStyledText = (ctx, t, centerX, centerY, fontSize) => {
   const steps = Math.max(3, Math.round(depth * 1.2));
   for (let i = steps; i >= 1; i -= 1) {
     const f = i / steps;
-    renderPass({
-      fillStyle: "rgba(8,10,16,0.95)",
-      alpha: (0.20 + f * 0.38) * embossStrength,
-      offsetX: f * depth,
-      offsetY: f * depth,
+    lines.forEach((lineText, lineIndex) => {
+      renderLinePass(lineText, firstLineY + lineGap * lineIndex, {
+        fillStyle: "rgba(8,10,16,0.95)",
+        alpha: (0.20 + f * 0.38) * embossStrength,
+        offsetX: f * depth,
+        offsetY: f * depth,
+      });
     });
   }
-  renderPass({
-    fillStyle: "rgba(255,255,255,0.34)",
-    alpha: 0.72 + 0.16 * embossStrength,
-    offsetX: -depth * 0.68,
-    offsetY: -depth * 0.68,
-  });
-  renderPass({
-    fillStyle: baseColor,
-    strokeStyle: "rgba(12,15,24,0.52)",
-    alpha: clamp(0.95 + (embossStrength - 1) * 0.08, 0.9, 1),
+  lines.forEach((lineText, lineIndex) => {
+    const lineY = firstLineY + lineGap * lineIndex;
+    renderLinePass(lineText, lineY, {
+      fillStyle: "rgba(255,255,255,0.34)",
+      alpha: 0.72 + 0.16 * embossStrength,
+      offsetX: -depth * 0.68,
+      offsetY: -depth * 0.68,
+    });
+    renderLinePass(lineText, lineY, {
+      fillStyle: baseColor,
+      strokeStyle: "rgba(12,15,24,0.52)",
+      alpha: clamp(0.95 + (embossStrength - 1) * 0.08, 0.9, 1),
+    });
   });
 };
 
@@ -6674,12 +6696,12 @@ function DesignModelItem({
 }
 
 function StyledTextPreview({ textState, className = "" }) {
-  const text = String(textState?.text || "").trim();
-  if (!text) return null;
+  const lines = getTextLinesForSide(textState?.text);
+  if (!lines.length) return null;
 
   const layout = textState?.layout || "straight";
   const curve = getTextCurveValue(textState);
-  const chars = [...text];
+  const chars = [...lines[0]];
   const center = Math.max((chars.length - 1) / 2, 1);
   const amp = (curve / 90) * 12;
 
@@ -6693,10 +6715,27 @@ function StyledTextPreview({ textState, className = "" }) {
   const rotation = clamp(Number(textState?.rotation) || 0, -180, 180);
   const rotatedStyle = rotation ? { transform: `rotate(${rotation}deg)` } : null;
 
+  if (lines.length > 1) {
+    return (
+      <span
+        className={`select-none ${className}`}
+        style={{
+          ...commonStyle,
+          ...(rotatedStyle || {}),
+          whiteSpace: "pre-line",
+          lineHeight: 1.2,
+          display: "inline-block",
+        }}
+      >
+        {lines.join("\n")}
+      </span>
+    );
+  }
+
   if (layout === "straight") {
     return (
       <span className={`select-none ${className}`} style={{ ...commonStyle, ...(rotatedStyle || {}) }}>
-        {text}
+        {lines[0]}
       </span>
     );
   }
@@ -7289,12 +7328,6 @@ function EditorPanel({
   const shouldBlockTransientUploadOpen = () =>
     typeof shouldSuppressTransientClicks === "function" && Boolean(shouldSuppressTransientClicks());
 
-  const getTextLinesForSide = (value) =>
-    String(value || "")
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-
   const mergeTextForSameArea = (existingText, nextValue) => {
     const current = String(existingText || "").trim();
     const next = String(nextValue || "").trim();
@@ -7303,7 +7336,19 @@ function EditorPanel({
     if (!current) return next;
     if (next === current) return current;
 
-    if (next.startsWith(current) || current.includes(next)) {
+    if (next.startsWith(current)) {
+      const tail = next.slice(current.length).trim();
+      if (tail) {
+        const currentLines = getTextLinesForSide(current);
+        if (currentLines.length >= MAX_TEXT_SLOTS_PER_SIDE) {
+          alert(`Bu alana en fazla ${MAX_TEXT_SLOTS_PER_SIDE} adet yazı ekleyebilirsin.`);
+          return current;
+        }
+        return [...currentLines, tail].join("\n");
+      }
+    }
+
+    if (current.includes(next) && !next.includes("\n")) {
       return next;
     }
 
@@ -7311,8 +7356,8 @@ function EditorPanel({
     const nextLines = getTextLinesForSide(next);
     const mergedLines = [...currentLines, ...nextLines];
 
-    if (mergedLines.length > MAX_LOGOS_PER_SIDE) {
-      alert(`Bu alana en fazla ${MAX_LOGOS_PER_SIDE} adet yazı ekleyebilirsin.`);
+    if (mergedLines.length > MAX_TEXT_SLOTS_PER_SIDE) {
+      alert(`Bu alana en fazla ${MAX_TEXT_SLOTS_PER_SIDE} adet yazı ekleyebilirsin.`);
       return current;
     }
 
@@ -7360,6 +7405,7 @@ function EditorPanel({
   );
 
   const t = sideData?.customText || {};
+  const textSlotsForSide = useMemo(() => getTextLinesForSide(t?.text || ""), [t?.text]);
   const effectivePrintTypes = Array.from(
     new Set([
       ...(printTypes || []),
@@ -8406,7 +8452,9 @@ function EditorPanel({
               ) : (
                 <div className="space-y-3">
                   <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">Metin</p>
+                    <p className="text-[10px] font-black uppercase tracking-wide text-gray-500">
+                      Metin ({textSlotsForSide.length}/{MAX_TEXT_SLOTS_PER_SIDE})
+                    </p>
                     <DebouncedTextDraftInput
                       key={editorTextKey}
                       committedText={t.text || ""}
